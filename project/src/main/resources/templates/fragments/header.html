@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!-- FontAwesome import trong fragment để đảm bảo load -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<header class="main-header" th:fragment="header">
+    <!-- Logo -->
+    <div class="logo">
+        <img src="/images/logo.png" alt="">
+        <span>FFilm</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <a href="#" class="active">Trang chủ</a>
+        <a href="#">Truyền hình</a>
+        <a href="#">Phim bộ</a>
+        <a href="#">Anime</a>
+        <a href="#">Thể thao</a>
+        <a href="#">Xem thêm <i class="fas fa-caret-down"></i></a>
+    </nav>
+
+    <!-- Right Menu -->
+    <div class="header-actions">
+        <!-- Tìm kiếm -->
+        <div class="search-box">
+            <i class="fas fa-search search-toggle"></i>
+            <input type="text" placeholder="Tìm kiếm..." class="search-input">
+        </div>
+
+        <!-- Thông báo -->
+        <div class="notification">
+            <div class="bell-container">
+                <i class="fas fa-bell"></i>
+                <span class="dot"></span>
+            </div>
+            <div class="dropdown">
+                <p>🔔 Không có thông báo mới</p>
+            </div>
+        </div>
+
+        <!-- Chọn ngôn ngữ -->
+        <div class="lang-select">
+            <i class="fas fa-globe"></i>
+            <select>
+                <option value="vi">🇻🇳 Tiếng Việt</option>
+                <option value="ja">🇯🇵 日本語</option>
+            </select>
+        </div>
+
+        <!-- Các nút hành động -->
+        <a href="#" class="btn-buy">Mua gói</a>
+        <a href="#" class="btn-login">Đăng nhập</a>
+    </div>
+
+    <script>
+        // Đảm bảo script chỉ chạy một lần
+        if (!window.headerScriptLoaded) {
+            window.headerScriptLoaded = true;
+            
+            // Toggle ô tìm kiếm
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('.search-toggle') || e.target.matches('.fa-search')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const searchInput = document.querySelector('.search-input');
+                    const dropdown = document.querySelector('.notification .dropdown');
+                    
+                    // Đóng dropdown thông báo
+                    if (dropdown) dropdown.classList.remove('active');
+                    
+                    // Toggle search input
+                    if (searchInput) {
+                        searchInput.classList.toggle('active');
+                        if (searchInput.classList.contains('active')) {
+                            setTimeout(() => searchInput.focus(), 100);
+                        }
+                    }
+                }
+            });
+
+            // Toggle dropdown thông báo  
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const dropdown = document.querySelector('.notification .dropdown');
+                    const searchInput = document.querySelector('.search-input');
+                    
+                    // Đóng ô tìm kiếm
+                    if (searchInput) searchInput.classList.remove('active');
+                    
+                    // Toggle notification dropdown
+                    if (dropdown) dropdown.classList.toggle('active');
+                }
+            });
+
+            // Đóng dropdown khi click bên ngoài
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-box')) {
+                    const searchInput = document.querySelector('.search-input');
+                    if (searchInput) searchInput.classList.remove('active');
+                }
+                
+                if (!e.target.closest('.notification')) {
+                    const dropdown = document.querySelector('.notification .dropdown');
+                    if (dropdown) dropdown.classList.remove('active');
+                }
+            });
+
+            // Xử lý Enter trong search
+            document.addEventListener('keypress', function(e) {
+                if (e.target.matches('.search-input') && e.key === 'Enter') {
+                    const searchTerm = e.target.value.trim();
+                    if (searchTerm) {
+                        console.log('Tìm kiếm:', searchTerm);
+                        // Thêm logic tìm kiếm ở đây
+                    }
+                }
+            });
+
+            // Đóng dropdown khi nhấn ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const searchInput = document.querySelector('.search-input');
+                    const dropdown = document.querySelector('.notification .dropdown');
+                    if (searchInput) searchInput.classList.remove('active');
+                    if (dropdown) dropdown.classList.remove('active');
+                }
+            });
+        }
+    </script>
+</header>
+
+</body>
+</html>

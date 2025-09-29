@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${banner.title}">Trang chủ</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+
+<!-- Banner -->
+<section class="banner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
+    <div class="overlay">
+        <h2 th:text="${banner.title}">Movie Title</h2>
+        <p th:text="${banner.overview}">Movie overview</p>
+        <p>
+            ⭐ <span th:text="${banner.rating}"></span> · 
+            <span th:text="${banner.year}"></span>
+        </p>
+        <a href="#" class="btn">▶ Xem ngay</a>
+    </div>
+</section>
+
+<!-- Danh sách phim hot -->
+<section class="movies">
+    <div class="section-header">
+        <h2>🔥 Phim Hot</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="hotPrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="hotNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="hotSlider">
+            <div th:each="movie : ${hotMovies}" class="movie-card">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="movie-overlay">
+                        <button class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phim mới ra mắt -->
+<section class="movies">
+    <div class="section-header">
+        <h2>🆕 Phim Mới Ra Mắt</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="newPrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="newNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="newSlider">
+            <div th:each="movie : ${newMovies}" class="movie-card">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="movie-overlay">
+                        <button class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Anime Hot -->
+<section class="movies">
+    <div class="section-header">
+        <h2>🎌 Anime Hot</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="animePrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="animeNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="animeSlider">
+            <div th:each="movie : ${animeMovies}" class="movie-card">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="movie-overlay">
+                        <button class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phim cho trẻ em -->
+<section class="movies">
+    <div class="section-header">
+        <h2>👶 Phim Cho Trẻ Em</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="kidsPrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="kidsNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="kidsSlider">
+            <div th:each="movie : ${kidsMovies}" class="movie-card">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="movie-overlay">
+                        <button class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phim lẻ hành động -->
+<section class="movies">
+    <div class="section-header">
+        <h2>💥 Phim Hành Động Hot</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="actionPrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="actionNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="actionSlider">
+            <div th:each="movie : ${actionMovies}" class="movie-card">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="movie-overlay">
+                        <button class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<footer>
+    <p>© 2025 FPTPlay Clone</p>
+</footer>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all carousels
+        const carousels = [
+            { slider: 'hotSlider', prevBtn: 'hotPrevBtn', nextBtn: 'hotNextBtn' },
+            { slider: 'newSlider', prevBtn: 'newPrevBtn', nextBtn: 'newNextBtn' },
+            { slider: 'animeSlider', prevBtn: 'animePrevBtn', nextBtn: 'animeNextBtn' },
+            { slider: 'kidsSlider', prevBtn: 'kidsPrevBtn', nextBtn: 'kidsNextBtn' },
+            { slider: 'actionSlider', prevBtn: 'actionPrevBtn', nextBtn: 'actionNextBtn' },
+                     
+        ];
+
+        carousels.forEach(carousel => {
+            initializeCarousel(carousel.slider, carousel.prevBtn, carousel.nextBtn);
+        });
+    });
+
+    function initializeCarousel(sliderId, prevBtnId, nextBtnId) {
+        const slider = document.getElementById(sliderId);
+        const prevBtn = document.getElementById(prevBtnId);
+        const nextBtn = document.getElementById(nextBtnId);
+        
+        if (!slider || !prevBtn || !nextBtn) return;
+        
+        const cards = slider.querySelectorAll('.movie-card');
+        if (cards.length === 0) return;
+        
+        const cardWidth = 200; // Width of each card + gap
+        const containerWidth = slider.parentElement.offsetWidth;
+        const visibleCards = Math.floor(containerWidth / cardWidth);
+        const maxScroll = Math.max(0, (cards.length - visibleCards) * cardWidth);
+        
+        let currentScroll = 0;
+        
+        function updateSlider() {
+            slider.style.transform = `translateX(-${currentScroll}px)`;
+            
+            // Update button states
+            prevBtn.disabled = currentScroll <= 0;
+            nextBtn.disabled = currentScroll >= maxScroll;
+            
+            prevBtn.classList.toggle('disabled', currentScroll <= 0);
+            nextBtn.classList.toggle('disabled', currentScroll >= maxScroll);
+        }
+        
+        prevBtn.addEventListener('click', function() {
+            currentScroll = Math.max(0, currentScroll - cardWidth * 3);
+            updateSlider();
+        });
+        
+        nextBtn.addEventListener('click', function() {
+            currentScroll = Math.min(maxScroll, currentScroll + cardWidth * 3);
+            updateSlider();
+        });
+        
+        // Initialize
+        updateSlider();
+        
+        // Handle window resize for this carousel
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                currentScroll = 0;
+                updateSlider();
+            }, 250);
+        });
+    }
+</script>
+</body>
+</html>
