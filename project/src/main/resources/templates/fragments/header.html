@@ -6,7 +6,7 @@
 </head>
 <body>
 
-<header class="main-header" th:fragment="header">
+<header class="main-header" th:fragment="header" style="--accent:#e50914">
     <!-- Logo -->
     <div class="logo">
         <img src="/images/logo.png" alt="">
@@ -25,15 +25,18 @@
 
     <!-- Right Menu -->
     <div class="header-actions">
-        <!-- Tìm kiếm -->
-        <div class="search-box">
-            <i class="fas fa-search search-toggle"></i>
-            <input type="text" placeholder="Tìm kiếm..." class="search-input">
+        <!-- 🔎 Tìm kiếm với dropdown -->
+        <div class="search-box" style="position:relative;">
+            <i class="fas fa-search search-toggle" aria-hidden="true" style="cursor:pointer;"></i>
+            <input type="text" id="searchInput" aria-label="Tìm kiếm phim" placeholder="Tìm kiếm phim, diễn viên..." class="search-input" autocomplete="off">
+
+            <!-- Suggestions dropdown -->
+            <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="Kết quả tìm kiếm" hidden></div>
         </div>
 
         <!-- Thông báo -->
         <div class="notification">
-            <div class="bell-container">
+            <div class="bell-container" title="Thông báo" role="button" tabindex="0">
                 <i class="fas fa-bell"></i>
                 <span class="dot"></span>
             </div>
@@ -56,83 +59,256 @@
         <a href="#" class="btn-login">Đăng nhập</a>
     </div>
 
+    <!-- Styles cho search -->
+    <style>
+/* Ensure parent doesn't clip dropdown */
+.main-header, .header-actions, .search-box { overflow: visible; }
+
+/* Input */
+.search-input{
+  width:0; opacity:0; padding:8px 10px; border-radius:8px;
+  border:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.03); color:#fff;
+  transition: all .20s ease; font-size:0.95rem;
+  max-width: 85vw;
+}
+.search-input.active{ width:300px; opacity:1; }
+.search-input::placeholder{ color:rgba(255,255,255,0.5); }
+
+/* Suggestions panel: fixed positioning so it's never clipped by parents */
+.search-suggestions{
+  position: fixed;                 /* fixed so it sits above everything */
+  top: 0; left: 0;
+  transform: translateY(8px);      /* slight offset from input */
+  min-width: 260px;
+  max-width: 560px;                /* wider on desktop */
+  width: auto;
+  max-height: 56vh;
+  overflow: auto;
+  background: rgba(10,10,10,0.98);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  z-index: 9999;                   /* high so it stays on top */
+  display: none;                   /* controlled by JS */
+}
+
+/* style for mobile smaller width */
+@media (max-width: 760px) {
+  .search-input.active { width: 220px; }
+  .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
+}
+
+/* suggestion entries */
+.search-suggestion{
+  display:flex; gap:12px; align-items:center;
+  padding:10px; border-radius:8px; cursor:pointer;
+  transition: background .12s;
+}
+.search-suggestion:hover, .search-suggestion.active{ background: rgba(255,255,255,0.03); }
+.search-suggestion img{ width:56px; height:84px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+.suggestion-meta{ display:flex; flex-direction:column; min-width:0; }
+.suggestion-title{ font-weight:600; font-size:0.96rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.suggestion-sub{ font-size:0.82rem; color:rgba(255,255,255,0.65); margin-top:4px; }
+
+/* "no results" placeholder */
+.no-results{ padding:14px; color:rgba(255,255,255,0.66); text-align:center; }
+
+/* small visual nudge so suggestions appear right below input */
+.search-suggestions.arrow::before{
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 18px;
+  width: 12px;
+  height: 12px;
+  background: rgba(10,10,10,0.98);
+  transform: rotate(45deg);
+  border-left:1px solid rgba(255,255,255,0.03);
+  z-index: -1;
+}
+</style>
+
+
+    <!-- Search script -->
     <script>
-        // Đảm bảo script chỉ chạy một lần
-        if (!window.headerScriptLoaded) {
-            window.headerScriptLoaded = true;
-            
-            // Toggle ô tìm kiếm
-            document.addEventListener('click', function(e) {
-                if (e.target.matches('.search-toggle') || e.target.matches('.fa-search')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const searchInput = document.querySelector('.search-input');
-                    const dropdown = document.querySelector('.notification .dropdown');
-                    
-                    // Đóng dropdown thông báo
-                    if (dropdown) dropdown.classList.remove('active');
-                    
-                    // Toggle search input
-                    if (searchInput) {
-                        searchInput.classList.toggle('active');
-                        if (searchInput.classList.contains('active')) {
-                            setTimeout(() => searchInput.focus(), 100);
-                        }
-                    }
-                }
-            });
+(function(){
+  if (window.headerSearchInit) return;
+  window.headerSearchInit = true;
 
-            // Toggle dropdown thông báo  
-            document.addEventListener('click', function(e) {
-                if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const dropdown = document.querySelector('.notification .dropdown');
-                    const searchInput = document.querySelector('.search-input');
-                    
-                    // Đóng ô tìm kiếm
-                    if (searchInput) searchInput.classList.remove('active');
-                    
-                    // Toggle notification dropdown
-                    if (dropdown) dropdown.classList.toggle('active');
-                }
-            });
+  const TMDB_API_KEY = window.TMDB_API_KEY || 'eac03c4e09a0f5099128e38cb0e67a8f';
+  const TMDB_BASE = 'https://api.themoviedb.org/3';
+  const IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 
-            // Đóng dropdown khi click bên ngoài
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.search-box')) {
-                    const searchInput = document.querySelector('.search-input');
-                    if (searchInput) searchInput.classList.remove('active');
-                }
-                
-                if (!e.target.closest('.notification')) {
-                    const dropdown = document.querySelector('.notification .dropdown');
-                    if (dropdown) dropdown.classList.remove('active');
-                }
-            });
+  const searchToggle = document.querySelector('.search-toggle');
+  const searchInput = document.getElementById('searchInput');
+  const suggestions = document.getElementById('searchSuggestions');
+  let focusedIndex = -1;
 
-            // Xử lý Enter trong search
-            document.addEventListener('keypress', function(e) {
-                if (e.target.matches('.search-input') && e.key === 'Enter') {
-                    const searchTerm = e.target.value.trim();
-                    if (searchTerm) {
-                        console.log('Tìm kiếm:', searchTerm);
-                        // Thêm logic tìm kiếm ở đây
-                    }
-                }
-            });
+  function debounce(fn, wait=260){
+    let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+  }
 
-            // Đóng dropdown khi nhấn ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    const searchInput = document.querySelector('.search-input');
-                    const dropdown = document.querySelector('.notification .dropdown');
-                    if (searchInput) searchInput.classList.remove('active');
-                    if (dropdown) dropdown.classList.remove('active');
-                }
-            });
-        }
-    </script>
+  function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+
+  function showSuggestionsPanel(){
+    positionSuggestions();
+    suggestions.style.display = 'block';
+    suggestions.hidden = false;
+    // add arrow class to draw little triangle (optional)
+    suggestions.classList.add('arrow');
+  }
+  function hideSuggestionsPanel(){
+    suggestions.style.display = 'none';
+    suggestions.hidden = true;
+    focusedIndex = -1;
+    // clear active class on items
+    const items = suggestions.querySelectorAll('.search-suggestion');
+    items.forEach(it => it.classList.remove('active'));
+  }
+
+  function positionSuggestions(){
+    // place the fixed suggestions panel under the input field, centered on it
+    const inputRect = searchInput.getBoundingClientRect();
+    const viewportW = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const preferredWidth = Math.min(560, Math.max(280, inputRect.width * 1.6));
+    // compute left so panel centers on input, but respects viewport edges
+    let left = inputRect.left + (inputRect.width / 2) - (preferredWidth / 2);
+    left = Math.max(8, Math.min(left, viewportW - preferredWidth - 8));
+    const top = inputRect.bottom + 8; // small gap
+
+    suggestions.style.width = preferredWidth + 'px';
+    suggestions.style.left = left + 'px';
+    suggestions.style.top = top + 'px';
+  }
+
+  function renderSuggestions(results){
+    if (!results || results.length === 0){
+      suggestions.innerHTML = '<div class="no-results">Không tìm thấy kết quả</div>';
+      showSuggestionsPanel();
+      return;
+    }
+    suggestions.innerHTML = results.map(r=>{
+      const title = escapeHtml(r.title || r.name || '');
+      const year = (r.release_date || r.first_air_date || '').substring(0,4) || '';
+      const type = r.media_type === 'movie' ? 'Phim' : (r.media_type === 'tv' ? 'TV' : '');
+      const poster = r.poster_path ? `${IMAGE_BASE}${r.poster_path}` : '/images/placeholder.jpg';
+      return `<div class="search-suggestion" role="option" tabindex="0" data-id="${r.id}">
+                <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'"/>
+                <div class="suggestion-meta">
+                  <div class="suggestion-title">${title}</div>
+                  <div class="suggestion-sub">${(year ? year + ' • ' : '') + type}</div>
+                </div>
+              </div>`;
+    }).join('');
+    showSuggestionsPanel();
+    focusedIndex = -1;
+  }
+
+  async function fetchSuggestions(q){
+    if (!q || q.trim().length < 2){ hideSuggestionsPanel(); return; }
+    try {
+      const url = `${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&language=vi-VN&query=${encodeURIComponent(q)}&page=1&include_adult=false`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('TMDB error');
+      const json = await res.json();
+      const results = (json.results || []).filter(r => ['movie','tv'].includes(r.media_type));
+      renderSuggestions(results.slice(0, 8)); // up to 8 items
+    } catch (err) {
+      suggestions.innerHTML = '<div class="no-results">Lỗi khi tìm kiếm</div>';
+      showSuggestionsPanel();
+      console.warn('search failed', err);
+    }
+  }
+
+  const debouncedSearch = debounce(q => fetchSuggestions(q), 260);
+
+  // Toggle search input open
+  searchToggle?.addEventListener('click', e => {
+    e.preventDefault();
+    searchInput.classList.toggle('active');
+    if (searchInput.classList.contains('active')) {
+      setTimeout(() => searchInput.focus(), 80);
+    } else {
+      hideSuggestionsPanel();
+    }
+  });
+
+  // click outside: close panel
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-box') && !e.target.closest('#searchSuggestions')) {
+      searchInput.classList.remove('active');
+      hideSuggestionsPanel();
+    }
+  });
+
+  // input handling
+  searchInput.addEventListener('input', e => {
+    const v = e.target.value.trim();
+    if (!v) { hideSuggestionsPanel(); return; }
+    debouncedSearch(v);
+  });
+
+  // keyboard navigation
+  searchInput.addEventListener('keydown', e => {
+    const items = suggestions.querySelectorAll('.search-suggestion');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      focusedIndex = Math.min(items.length - 1, focusedIndex + 1);
+      items.forEach((it,i) => it.classList.toggle('active', i === focusedIndex));
+      if (items[focusedIndex]) items[focusedIndex].scrollIntoView({block: 'nearest', inline:'nearest'});
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      focusedIndex = Math.max(0, focusedIndex - 1);
+      items.forEach((it,i) => it.classList.toggle('active', i === focusedIndex));
+      if (items[focusedIndex]) items[focusedIndex].scrollIntoView({block: 'nearest', inline:'nearest'});
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const itemsNow = suggestions.querySelectorAll('.search-suggestion');
+      if (focusedIndex >= 0 && itemsNow[focusedIndex]) {
+        const id = itemsNow[focusedIndex].dataset.id;
+        if (id) window.location.href = `/movie/detail/${id}`;
+      } else {
+        const term = searchInput.value.trim();
+        if (term) window.location.href = `/search?query=${encodeURIComponent(term)}`;
+      }
+    } else if (e.key === 'Escape') {
+      hideSuggestionsPanel();
+      searchInput.blur();
+    }
+  });
+
+  // click selection
+  suggestions.addEventListener('click', e => {
+    const item = e.target.closest('.search-suggestion');
+    if (!item) return;
+    const id = item.dataset.id;
+    if (id) window.location.href = `/movie/detail/${id}`;
+  });
+
+  // accessibility: Enter key on suggestion
+  suggestions.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const item = e.target.closest('.search-suggestion');
+      if (!item) return;
+      const id = item.dataset.id;
+      if (id) window.location.href = `/movie/detail/${id}`;
+    }
+  });
+
+  // reposition on resize/scroll (so fixed panel stays aligned)
+  const reposition = debounce(() => {
+    if (suggestions && suggestions.style.display !== 'none') positionSuggestions();
+  }, 80);
+  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', reposition, true); // true to capture scroll inside containers
+
+})();
+</script>
+
 </header>
 
 </body>

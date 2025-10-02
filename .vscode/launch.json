@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch Spring Boot (open browser when ready)",
+      "request": "launch",
+      "mainClass": "com.example.project.ProjectApplication",
+      "projectName": "project",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": "",
+      "env": {},
+      "serverReadyAction": {
+        "pattern": "Started .* in .*",
+        "uriFormat": "http://localhost:8080",
+        "action": "openExternally"
+      }
+    }
+  ]
+}
