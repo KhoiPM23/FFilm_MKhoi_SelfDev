@@ -1,0 +1,85 @@
+package com.example.project.model;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+
+    @Entity
+@Table(name = "Season")
+public class Season {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int seasonID;
+
+    private int seasonNumber;
+    private String title;
+    private Date releaseDate;
+
+    @ManyToOne
+    @JoinColumn(name = "movieID")
+    private Movie movie;
+
+    @OneToMany(mappedBy = "season", cascade = CascadeType.ALL)
+    private List<Episode> episodes = new ArrayList<>();
+
+    public int getSeasonID() {
+        return seasonID;
+    }
+
+    public void setSeasonID(int seasonID) {
+        this.seasonID = seasonID;
+    }
+
+    public int getSeasonNumber() {
+        return seasonNumber;
+    }
+
+    public void setSeasonNumber(int seasonNumber) {
+        this.seasonNumber = seasonNumber;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public Date getReleaseDate() {
+        return releaseDate;
+    }
+
+    public void setReleaseDate(Date releaseDate) {
+        this.releaseDate = releaseDate;
+    }
+
+    public Movie getMovie() {
+        return movie;
+    }
+
+    public void setMovie(Movie movie) {
+        this.movie = movie;
+    }
+
+    public List<Episode> getEpisodes() {
+        return episodes;
+    }
+
+    public void setEpisodes(List<Episode> episodes) {
+        this.episodes = episodes;
+    }
+
+    // Getter/Setter
+}
