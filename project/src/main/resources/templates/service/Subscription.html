@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Đăng ký gói dịch vụ - FFilm</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <style>
+      /* Subscription Page Styles */
+      .subscription-hero {
+        background: linear-gradient(
+            135deg,
+            rgba(229, 9, 20, 0.9) 0%,
+            rgba(0, 0, 0, 0.8) 100%
+          ),
+          url("https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920")
+            center/cover;
+        padding: 150px 50px 100px;
+        text-align: center;
+        position: relative;
+      }
+
+      .subscription-hero h1 {
+        font-size: 48px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: #fff;
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+      }
+
+      .subscription-hero p {
+        font-size: 18px;
+        color: #f0f0f0;
+        max-width: 800px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
+
+      /* Pricing Section */
+      .pricing-section {
+        padding: 80px 50px;
+        background: #0a0a0a;
+      }
+
+      .section-title {
+        text-align: center;
+        font-size: 36px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 60px;
+      }
+
+      .pricing-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 30px;
+      }
+
+      .pricing-card {
+        background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%);
+        border-radius: 15px;
+        padding: 40px 30px;
+        position: relative;
+        border: 2px solid #2a2a2a;
+        transition: all 0.3s ease;
+        overflow: hidden;
+      }
+
+      .pricing-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #e50914 0%, #ff4444 100%);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .pricing-card:hover {
+        transform: translateY(-10px);
+        border-color: #e50914;
+        box-shadow: 0 15px 40px rgba(229, 9, 20, 0.3);
+      }
+
+      .pricing-card:hover::before {
+        opacity: 1;
+      }
+
+      .pricing-card.popular {
+        border-color: #e50914;
+        background: linear-gradient(145deg, #1f1111 0%, #0f0707 100%);
+        box-shadow: 0 10px 30px rgba(229, 9, 20, 0.2);
+      }
+
+      .pricing-card.popular::before {
+        opacity: 1;
+      }
+
+      .popular-badge {
+        position: absolute;
+        top: 20px;
+        right: -35px;
+        background: #e50914;
+        color: white;
+        padding: 8px 40px;
+        transform: rotate(45deg);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        box-shadow: 0 4px 10px rgba(229, 9, 20, 0.4);
+      }
+
+      .plan-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .plan-name {
+        font-size: 28px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 15px;
+      }
+
+      .plan-price {
+        font-size: 48px;
+        font-weight: 700;
+        color: #e50914;
+        margin-bottom: 5px;
+      }
+
+      .plan-price .currency {
+        font-size: 24px;
+        vertical-align: super;
+      }
+
+      .plan-period {
+        color: #888;
+        font-size: 14px;
+      }
+
+      .plan-features {
+        list-style: none;
+        margin: 30px 0;
+        padding: 0;
+      }
+
+      .plan-features li {
+        padding: 15px 0;
+        color: #ccc;
+        border-bottom: 1px solid #2a2a2a;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 15px;
+      }
+
+      .plan-features li:last-child {
+        border-bottom: none;
+      }
+
+      .plan-features li i {
+        color: #4caf50;
+        font-size: 16px;
+        margin-top: 2px;
+      }
+
+      .btn-select {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 20px;
+      }
+
+      .btn-select:hover {
+        background: linear-gradient(135deg, #ff0a16 0%, #d00813 100%);
+        transform: scale(1.02);
+        box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4);
+      }
+
+      .btn-select:active {
+        transform: scale(0.98);
+      }
+
+      /* Features Section */
+      .features-section {
+        padding: 80px 50px;
+        background: #000;
+      }
+
+      .features-grid {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-top: 50px;
+      }
+
+      .feature-card {
+        background: #1a1a1a;
+        padding: 35px 25px;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid #2a2a2a;
+        transition: all 0.3s;
+      }
+
+      .feature-card:hover {
+        background: #222;
+        border-color: #e50914;
+        transform: translateY(-5px);
+      }
+
+      .feature-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        display: block;
+      }
+
+      .feature-card h3 {
+        font-size: 20px;
+        color: #fff;
+        margin-bottom: 15px;
+        font-weight: 600;
+      }
+
+      .feature-card p {
+        color: #999;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+
+      /* Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 10000;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(5px);
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%);
+        padding: 50px 40px;
+        border-radius: 15px;
+        max-width: 550px;
+        width: 90%;
+        position: relative;
+        border: 2px solid #2a2a2a;
+        animation: modalSlideIn 0.3s ease-out;
+      }
+
+      @keyframes modalSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-50px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .close-modal {
+        position: absolute;
+        top: 20px;
+        right: 25px;
+        font-size: 32px;
+        cursor: pointer;
+        color: #666;
+        transition: all 0.3s;
+        line-height: 1;
+      }
+
+      .close-modal:hover {
+        color: #e50914;
+        transform: rotate(90deg);
+      }
+
+      .modal-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .modal-header h2 {
+        font-size: 28px;
+        color: #fff;
+        margin-bottom: 10px;
+      }
+
+      .selected-plan {
+        background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 600;
+        color: #fff;
+        display: inline-block;
+      }
+
+      .form-group {
+        margin-bottom: 25px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 500;
+        color: #ccc;
+        font-size: 14px;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 8px;
+        border: 2px solid #2a2a2a;
+        background: #0a0a0a;
+        color: white;
+        font-size: 15px;
+        transition: all 0.3s;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #e50914;
+        background: #1a1a1a;
+      }
+
+      .form-group input::placeholder {
+        color: #555;
+      }
+
+      .btn-submit {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 10px;
+      }
+
+      .btn-submit:hover {
+        background: linear-gradient(135deg, #ff0a16 0%, #d00813 100%);
+        box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4);
+      }
+
+      /* Comparison Table */
+      .comparison-section {
+        padding: 80px 50px;
+        background: #0a0a0a;
+      }
+
+      .comparison-table {
+        max-width: 1200px;
+        margin: 50px auto 0;
+        background: #1a1a1a;
+        border-radius: 15px;
+        overflow: hidden;
+        border: 1px solid #2a2a2a;
+      }
+
+      .comparison-table table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 20px;
+        text-align: center;
+        border-bottom: 1px solid #2a2a2a;
+      }
+
+      .comparison-table th {
+        background: #0f0f0f;
+        color: #e50914;
+        font-weight: 700;
+        font-size: 18px;
+      }
+
+      .comparison-table td {
+        color: #ccc;
+      }
+
+      .comparison-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .comparison-table .check {
+        color: #4caf50;
+        font-size: 20px;
+      }
+
+      .comparison-table .cross {
+        color: #999;
+        font-size: 20px;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .subscription-hero {
+          padding: 120px 20px 60px;
+        }
+
+        .subscription-hero h1 {
+          font-size: 32px;
+        }
+
+        .pricing-section,
+        .features-section,
+        .comparison-section {
+          padding: 50px 20px;
+        }
+
+        .pricing-container {
+          grid-template-columns: 1fr;
+        }
+
+        .modal-content {
+          padding: 40px 25px;
+        }
+
+        .comparison-table {
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header from fragments -->
+    <header class="main-header" th:fragment="header">
+      <!-- Logo -->
+      <div class="logo">
+        <img src="/images/logo.png" alt="" />
+        <span>FFilm</span>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="main-nav">
+        <a href="#" class="active">Trang chủ</a>
+        <a href="#">Truyền hình</a>
+        <a href="#">Phim bộ</a>
+        <a href="#">Anime</a>
+        <a href="#">Thể thao</a>
+        <a href="#">Xem thêm <i class="fas fa-caret-down"></i></a>
+      </nav>
+
+      <!-- Right Menu -->
+      <div class="header-actions">
+        <!-- Tìm kiếm -->
+        <div class="search-box">
+          <i class="fas fa-search search-toggle"></i>
+          <input type="text" placeholder="Tìm kiếm..." class="search-input" />
+        </div>
+
+        <!-- Thông báo -->
+        <div class="notification">
+          <div class="bell-container">
+            <i class="fas fa-bell"></i>
+            <span class="dot"></span>
+          </div>
+          <div class="dropdown">
+            <p>🔔 Không có thông báo mới</p>
+          </div>
+        </div>
+
+        <!-- Chọn ngôn ngữ -->
+        <div class="lang-select">
+          <i class="fas fa-globe"></i>
+          <select>
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="ja">🇯🇵 日本語</option>
+          </select>
+        </div>
+
+        <!-- Các nút hành động -->
+        <a href="#" class="btn-buy">Mua gói</a>
+        <a href="#" class="btn-login">Đăng nhập</a>
+      </div>
+
+      <script>
+        // Đảm bảo script chỉ chạy một lần
+        if (!window.headerScriptLoaded) {
+          window.headerScriptLoaded = true;
+
+          // Toggle ô tìm kiếm
+          document.addEventListener("click", function (e) {
+            if (
+              e.target.matches(".search-toggle") ||
+              e.target.matches(".fa-search")
+            ) {
+              e.preventDefault();
+              e.stopPropagation();
+              const searchInput = document.querySelector(".search-input");
+              const dropdown = document.querySelector(
+                ".notification .dropdown"
+              );
+
+              // Đóng dropdown thông báo
+              if (dropdown) dropdown.classList.remove("active");
+
+              // Toggle search input
+              if (searchInput) {
+                searchInput.classList.toggle("active");
+                if (searchInput.classList.contains("active")) {
+                  setTimeout(() => searchInput.focus(), 100);
+                }
+              }
+            }
+          });
+
+          // Toggle dropdown thông báo
+          document.addEventListener("click", function (e) {
+            if (
+              e.target.matches(".fa-bell") ||
+              e.target.closest(".bell-container")
+            ) {
+              e.preventDefault();
+              e.stopPropagation();
+              const dropdown = document.querySelector(
+                ".notification .dropdown"
+              );
+              const searchInput = document.querySelector(".search-input");
+
+              // Đóng ô tìm kiếm
+              if (searchInput) searchInput.classList.remove("active");
+
+              // Toggle notification dropdown
+              if (dropdown) dropdown.classList.toggle("active");
+            }
+          });
+
+          // Đóng dropdown khi click bên ngoài
+          document.addEventListener("click", function (e) {
+            if (!e.target.closest(".search-box")) {
+              const searchInput = document.querySelector(".search-input");
+              if (searchInput) searchInput.classList.remove("active");
+            }
+
+            if (!e.target.closest(".notification")) {
+              const dropdown = document.querySelector(
+                ".notification .dropdown"
+              );
+              if (dropdown) dropdown.classList.remove("active");
+            }
+          });
+
+          // Xử lý Enter trong search
+          document.addEventListener("keypress", function (e) {
+            if (e.target.matches(".search-input") && e.key === "Enter") {
+              const searchTerm = e.target.value.trim();
+              if (searchTerm) {
+                console.log("Tìm kiếm:", searchTerm);
+                // Thêm logic tìm kiếm ở đây
+              }
+            }
+          });
+
+          // Đóng dropdown khi nhấn ESC
+          document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+              const searchInput = document.querySelector(".search-input");
+              const dropdown = document.querySelector(
+                ".notification .dropdown"
+              );
+              if (searchInput) searchInput.classList.remove("active");
+              if (dropdown) dropdown.classList.remove("active");
+            }
+          });
+        }
+      </script>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="subscription-hero">
+      <h1>Chọn gói dịch vụ phù hợp với bạn</h1>
+      <p>
+        Trải nghiệm giải trí không giới hạn với hàng nghìn bộ phim và chương
+        trình truyền hình chất lượng cao. Hủy bất cứ lúc nào, không ràng buộc
+        dài hạn.
+      </p>
+    </section>
+
+    <!-- Pricing Cards Section -->
+    <section class="pricing-section">
+      <h2 class="section-title">💎 Các Gói Dịch Vụ</h2>
+
+      <div class="pricing-container">
+        <!-- Basic Plan -->
+        <div class="pricing-card">
+          <div class="plan-header">
+            <h3 class="plan-name">Basic</h3>
+            <div class="plan-price">70,000<span class="currency">đ</span></div>
+            <div class="plan-period">/tháng</div>
+          </div>
+
+          <ul class="plan-features">
+            <li><i class="fas fa-check-circle"></i> Chất lượng HD 720p</li>
+            <li><i class="fas fa-check-circle"></i> Xem trên 1 thiết bị</li>
+            <li><i class="fas fa-check-circle"></i> Có quảng cáo ngắn</li>
+            <li>
+              <i class="fas fa-times-circle" style="color: #999"></i> Không tải
+              xuống
+            </li>
+            <li><i class="fas fa-check-circle"></i> Thư viện phim cơ bản</li>
+          </ul>
+
+          <button class="btn-select" onclick="openModal('Basic', '70,000')">
+            <i class="fas fa-shopping-cart"></i> Chọn gói này
+          </button>
+        </div>
+
+        <!-- Standard Plan -->
+        <div class="pricing-card popular">
+          <div class="popular-badge">PHỔ BIẾN NHẤT</div>
+          <div class="plan-header">
+            <h3 class="plan-name">Standard</h3>
+            <div class="plan-price">120,000<span class="currency">đ</span></div>
+            <div class="plan-period">/tháng</div>
+          </div>
+
+          <ul class="plan-features">
+            <li><i class="fas fa-check-circle"></i> Full HD 1080p</li>
+            <li><i class="fas fa-check-circle"></i> Xem trên 2 thiết bị</li>
+            <li><i class="fas fa-check-circle"></i> Không quảng cáo</li>
+            <li><i class="fas fa-check-circle"></i> Tải xuống 2 thiết bị</li>
+            <li><i class="fas fa-check-circle"></i> Thư viện phim đầy đủ</li>
+          </ul>
+
+          <button class="btn-select" onclick="openModal('Standard', '120,000')">
+            <i class="fas fa-shopping-cart"></i> Chọn gói này
+          </button>
+        </div>
+
+        <!-- Premium Plan -->
+        <div class="pricing-card">
+          <div class="plan-header">
+            <h3 class="plan-name">Premium</h3>
+            <div class="plan-price">180,000<span class="currency">đ</span></div>
+            <div class="plan-period">/tháng</div>
+          </div>
+
+          <ul class="plan-features">
+            <li><i class="fas fa-check-circle"></i> 4K Ultra HD + HDR</li>
+            <li><i class="fas fa-check-circle"></i> Xem trên 4 thiết bị</li>
+            <li><i class="fas fa-check-circle"></i> Không quảng cáo</li>
+            <li><i class="fas fa-check-circle"></i> Tải xuống 4 thiết bị</li>
+            <li><i class="fas fa-check-circle"></i> Nội dung độc quyền</li>
+          </ul>
+
+          <button class="btn-select" onclick="openModal('Premium', '180,000')">
+            <i class="fas fa-shopping-cart"></i> Chọn gói này
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+      <h2 class="section-title">✨ Tính Năng Nổi Bật</h2>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="feature-icon">🎬</span>
+          <h3>Thư viện phong phú</h3>
+          <p>
+            Hàng nghìn bộ phim và chương trình truyền hình từ khắp nơi trên thế
+            giới, cập nhật liên tục
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📱</span>
+          <h3>Xem mọi lúc mọi nơi</h3>
+          <p>
+            Truy cập trên TV, máy tính, điện thoại và tablet. Tiếp tục xem từ
+            nơi bạn dừng lại
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">⚡</span>
+          <h3>Không quảng cáo</h3>
+          <p>
+            Trải nghiệm xem phim mượt mà, không bị gián đoạn bởi quảng cáo phiền
+            phức
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">💾</span>
+          <h3>Tải xuống offline</h3>
+          <p>
+            Tải phim yêu thích và xem mọi lúc, kể cả khi không có kết nối
+            internet
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🌍</span>
+          <h3>Đa ngôn ngữ</h3>
+          <p>
+            Phụ đề và lồng tiếng tiếng Việt, Anh, Trung và nhiều ngôn ngữ khác
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🎯</span>
+          <h3>Gợi ý thông minh</h3>
+          <p>AI phân tích sở thích và đề xuất nội dung phù hợp nhất với bạn</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison Table -->
+    <section class="comparison-section">
+      <h2 class="section-title">📊 So Sánh Chi Tiết</h2>
+
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Tính năng</th>
+              <th>Basic</th>
+              <th>Standard</th>
+              <th>Premium</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="text-align: left; font-weight: 600">Giá mỗi tháng</td>
+              <td>70,000đ</td>
+              <td>120,000đ</td>
+              <td>180,000đ</td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Chất lượng video
+              </td>
+              <td>HD 720p</td>
+              <td>Full HD 1080p</td>
+              <td>4K + HDR</td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Số thiết bị xem
+              </td>
+              <td>1</td>
+              <td>2</td>
+              <td>4</td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">Tải xuống</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Không quảng cáo
+              </td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Nội dung độc quyền
+              </td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>© 2025 FPTPlay Clone</p>
+    </footer>
+
+    <!-- Modal -->
+    <div class="modal" id="subscriptionModal">
+      <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+
+        <div class="modal-header">
+          <h2>Đăng ký gói dịch vụ</h2>
+          <div class="selected-plan">
+            Gói <span id="modalPlanName"></span> -
+            <span id="modalPlanPrice"></span>đ/tháng
+          </div>
+        </div>
+
+        <form
+          id="subscriptionForm"
+          action="/subscription/register"
+          method="post"
+        >
+          <input type="hidden" name="plan" id="planType" />
+
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> Họ và tên *</label>
+            <input
+              type="text"
+              name="fullname"
+              placeholder="Nguyễn Văn A"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-envelope"></i> Email *</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="example@email.com"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-phone"></i> Số điện thoại *</label>
+            <input
+              type="tel"
+              name="phone"
+              placeholder="0912345678"
+              pattern="[0-9]{10,11}"
+              required
+            />
+          </div>
+
+          <button type="submit" class="btn-submit">
+            <i class="fas fa-check-circle"></i> Xác nhận đăng ký
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Modal functions
+      function openModal(planName, planPrice) {
+        document.getElementById("subscriptionModal").classList.add("active");
+        document.getElementById("modalPlanName").textContent = planName;
+        document.getElementById("modalPlanPrice").textContent = planPrice;
+        document.getElementById("planType").value = planName;
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeModal() {
+        document.getElementById("subscriptionModal").classList.remove("active");
+        document.body.style.overflow = "auto";
+      }
+
+      // Close modal when clicking outside
+      window.addEventListener("click", (e) => {
+        const modal = document.getElementById("subscriptionModal");
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      // Close modal with ESC key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeModal();
+        }
+      });
+
+      // Form validation
+      document
+        .getElementById("subscriptionForm")
+        .addEventListener("submit", function (e) {
+          const phone = this.phone.value;
+          if (!/^[0-9]{10,11}$/.test(phone)) {
+            e.preventDefault();
+            alert("Vui lòng nhập số điện thoại hợp lệ (10-11 chữ số)");
+          }
+        });
+    </script>
+  </body>
+</html>
