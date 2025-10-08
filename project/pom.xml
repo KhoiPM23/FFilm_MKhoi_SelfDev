@@ -50,11 +50,6 @@
     <version>20230227</version>
 </dependency>
 
-<dependency>
-	<groupId>jakarta.persistence</groupId>
-	<artifactId>jakarta.persistence-api</artifactId>
-</dependency>
-
 	</dependencies>
 
 	<build>

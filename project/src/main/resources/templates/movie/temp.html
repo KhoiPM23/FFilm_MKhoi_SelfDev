@@ -56,9 +56,7 @@ body {
 .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 30%, transparent 100%),
-            linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
-    
+    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
 }
 
 .hero-content {
@@ -383,10 +381,10 @@ body {
 
 /* Carousel Navigation */
 .carousel-nav {
-    /* position: absolute; */
+    position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    /* width: 50px; */
+    width: 50px;
     height: 50px;
     background: rgba(0,0,0,0.7);
     border: none;
@@ -398,7 +396,7 @@ body {
     transition: all 0.3s;
 }
 
-/* .carousel-nav:hover {
+.carousel-nav:hover {
     background: rgba(255,255,255,0.2);
 }
 
@@ -408,8 +406,7 @@ body {
 
 .carousel-nav.next {
     right: 10px;
-} */
- 
+}
 
 /* Footer */
 footer {
@@ -422,20 +419,8 @@ footer {
 </style>
 </head>
 <body>
-<div th:replace="fragments/header :: header"></div>
 
-<!-- Banner -->
-<!-- <section class="banner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
-    <div class="overlay">
-        <h2 th:text="${banner.title}">Movie Title</h2>
-        <p th:text="${banner.overview}">Movie overview</p>
-        <p>
-            ⭐ <span th:text="${banner.rating}"></span> · 
-            <span th:text="${banner.year}"></span>
-        </p>
-        <a href="#" class="btn">▶ Xem ngay</a>
-    </div>
-</section> -->
+<div th:replace="fragments/header :: header"></div>
 
 <!-- Hero Banner with Mini Carousel -->
 <section class="hero-banner" id="heroBanner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
@@ -450,8 +435,7 @@ footer {
                 <span th:text="${banner.rating}">8.5</span>
             </div>
             <div class="year" th:text="${banner.year}">2025</div>
-            <div class="duration" th:text="${banner.runtime != 0 ? banner.runtime + ' phút' : '—'}">120 phút</div>
-
+            <div class="duration">120 phút</div>
         </div>
         
         <button class="description-toggle" id="descToggle">
@@ -477,9 +461,10 @@ footer {
         </div>
     </div>
 </section>
+
 <!-- Danh sách phim hot -->
 <section class="movies">
-    <div class="section-header">
+    <!-- <div class="section-header">
         <h2>🔥 Phim Hot</h2>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="hotPrevBtn">
@@ -508,61 +493,48 @@ footer {
                 </div>
             </div>
         </div>
+    </div> -->
+    <div th:each="movie : ${hotMovies}" class="movie-card">
+    <div class="movie-poster">
+        <img th:src="${movie.poster}" th:alt="${movie.title}">
     </div>
-
-    <!-- <div th:each="movie : ${hotMovies}" class="movie-card">
-        <div class="movie-poster">
-            <img th:src="${movie.poster}" th:alt="${movie.title}">
-
-            <div class="movie-overlay" aria-hidden="true">
-                <button class="play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
+    <div class="movie-info">
+        <h3 th:text="${movie.title}">Movie Title</h3>
+    </div>
+    
+    <!-- Hover Card -->
+    <div class="movie-hover-card">
+        <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
+        <div class="hover-card-content">
+            <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+            <div class="hover-card-meta">
+                <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                <span>2025</span>
+                <span>HD</span>
+            </div>
+            <div class="hover-card-genres">
+                <span class="genre-tag">Hành động</span>
+                <span class="genre-tag">Phiêu lưu</span>
+            </div>
+            <p class="hover-card-description">
+                Mô tả ngắn về phim sẽ hiển thị ở đây khi hover...
+            </p>
+            <div class="hover-card-actions">
+                <button class="hover-play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
                     <i class="fas fa-play"></i>
+                    Xem ngay
+                </button>
+                <button class="hover-add-btn">
+                    <i class="fas fa-plus"></i>
                 </button>
             </div>
         </div>
-
-        <div class="movie-info">
-            <h3 th:text="${movie.title}">Movie Title</h3>
-            <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-        </div>
-
-
-        <div class="movie-hover-card" aria-hidden="true">
-            <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
-            <div class="hover-card-content">
-                <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
-
-                <div class="hover-card-meta">
-                    <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
-                    <span th:text="${movie.releaseDate != null and movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
-                    <span>HD</span>
-                </div>
-
-                <div class="hover-card-genres">
-                    <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
-                    <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
-                </div>
-
-                <p class="hover-card-description" th:text="${movie.overview != null ? movie.overview : 'Mô tả ngắn về phim...'}">
-                    Mô tả ngắn về phim sẽ hiển thị ở đây khi hover...
-                </p>
-
-                <div class="hover-card-actions">
-                    <button class="hover-play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
-                        <i class="fas fa-play"></i>
-                        Xem ngay
-                    </button>
-                    <button class="hover-add-btn" type="button">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>      -->
+    </div>
+</div>
 </section>
 
 <!-- Phim mới ra mắt -->
-<section class="movies">
+<section class="movies">    
     <div class="section-header">
         <h2>🆕 Phim Mới Ra Mắt</h2>
         <div class="carousel-nav">
@@ -769,185 +741,117 @@ footer {
         });
     }
 </script>
-
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // ---------- small helpers ----------
-    const safeQuery = (s) => document.querySelector(s);
-    const safeQueryAll = (s) => Array.from(document.querySelectorAll(s || '')).filter(Boolean);
+// Header scroll effect
+window.addEventListener('scroll', () => {
+    const header = document.querySelector('.main-header');
+    const heroHeight = document.querySelector('.hero-banner').offsetHeight;
+    
+    if (window.scrollY > heroHeight - 100) {
+        header.classList.add('scrolled');
+    } else {
+        header.classList.remove('scrolled');
+    }
+});
 
-    // ---------- Header scroll (guarded) ----------
-    try {
-        const header = safeQuery('.main-header');
-        const hero = safeQuery('.hero-banner');
-        if (header && hero) {
-            window.addEventListener('scroll', () => {
-                const heroHeight = hero.offsetHeight || 450;
-                if (window.scrollY > heroHeight - 100) header.classList.add('scrolled');
-                else header.classList.remove('scrolled');
-            });
+// Description toggle
+const descToggle = document.getElementById('descToggle');
+const heroDesc = document.getElementById('heroDesc');
+
+descToggle.addEventListener('click', () => {
+    heroDesc.classList.toggle('expanded');
+    descToggle.classList.toggle('expanded');
+});
+
+// Mini Carousel
+let miniCarouselData = [];
+let currentMovieIndex = 0;
+
+// Fetch popular movies for mini carousel
+async function loadMiniCarousel() {
+    const API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+    const response = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=vi-VN&page=1`);
+    const data = await response.json();
+    miniCarouselData = data.results.slice(0, 10);
+    
+    renderMiniCarousel();
+}
+
+function renderMiniCarousel() {
+    const carousel = document.getElementById('miniCarousel');
+    carousel.innerHTML = miniCarouselData.map((movie, index) => `
+        <div class="mini-movie-card ${index === 0 ? 'active' : ''}" 
+             onclick="selectMovie(${index})"
+             data-index="${index}">
+            <img src="https://image.tmdb.org/t/p/w500${movie.backdrop_path}" 
+                 alt="${movie.title}">
+            <div class="mini-movie-info">
+                <div class="mini-movie-title">${movie.title}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function selectMovie(index) {
+    currentMovieIndex = index;
+    const movie = miniCarouselData[index];
+    
+    // Update hero banner
+    document.getElementById('heroBanner').style.backgroundImage = 
+        `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})`;
+    document.querySelector('.hero-title').textContent = movie.title;
+    document.querySelector('.rating span').textContent = movie.vote_average.toFixed(1);
+    document.querySelector('.year').textContent = new Date(movie.release_date).getFullYear();
+    document.getElementById('heroDesc').textContent = movie.overview;
+    
+    // Update active card
+    document.querySelectorAll('.mini-movie-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    document.querySelector(`.mini-movie-card[data-index="${index}"]`).classList.add('active');
+    
+    // Auto scroll to center
+    centerActiveCard();
+}
+
+function centerActiveCard() {
+    const carousel = document.getElementById('miniCarousel');
+    const activeCard = carousel.querySelector('.active');
+    if (activeCard) {
+        const cardLeft = activeCard.offsetLeft;
+        const cardWidth = activeCard.offsetWidth;
+        const carouselWidth = carousel.offsetWidth;
+        const scrollLeft = cardLeft - (carouselWidth / 2) + (cardWidth / 2);
+        
+        carousel.scrollTo({
+            left: scrollLeft,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Auto rotate movies
+setInterval(() => {
+    currentMovieIndex = (currentMovieIndex + 1) % miniCarouselData.length;
+    selectMovie(currentMovieIndex);
+}, 8000);
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadMiniCarousel);
+
+// Enhanced hover cards positioning
+document.querySelectorAll('.movie-card').forEach(card => {
+    card.addEventListener('mouseenter', function(e) {
+        const hoverCard = this.querySelector('.movie-hover-card');
+        const rect = this.getBoundingClientRect();
+        
+        // Adjust position if near edge
+        if (rect.right > window.innerWidth - 320) {
+            hoverCard.style.left = 'auto';
+            hoverCard.style.right = '0';
         }
-    } catch (e) { console.error('header scroll error', e); }
-
-    // ---------- description toggle (guarded) ----------
-    try {
-        const descToggle = safeQuery('#descToggle');
-        const heroDesc = safeQuery('#heroDesc');
-        if (descToggle && heroDesc) {
-            descToggle.addEventListener('click', () => {
-                heroDesc.classList.toggle('expanded');
-                descToggle.classList.toggle('expanded');
-            });
-        }
-    } catch (e) { console.error('desc toggle error', e); }
-
-    // ---------- Carousels init (reuse your function initializeCarousel) ----------
-    try {
-        const carousels = [
-            { slider: 'hotSlider', prevBtn: 'hotPrevBtn', nextBtn: 'hotNextBtn' },
-            { slider: 'newSlider', prevBtn: 'newPrevBtn', nextBtn: 'newNextBtn' },
-            { slider: 'animeSlider', prevBtn: 'animePrevBtn', nextBtn: 'animeNextBtn' },
-            { slider: 'kidsSlider', prevBtn: 'kidsPrevBtn', nextBtn: 'kidsNextBtn' },
-            { slider: 'actionSlider', prevBtn: 'actionPrevBtn', nextBtn: 'actionNextBtn' },
-        ];
-        carousels.forEach(c => initializeCarousel(c.slider, c.prevBtn, c.nextBtn));
-    } catch (e) { console.error('init carousels error', e); }
-
-    // ---------- Mini carousel data + render ----------
-    let miniCarouselData = [];
-    let currentMovieIndex = 0;
-    const TMDB_API_KEY = window.TMDB_API_KEY || 'eac03c4e09a0f5099128e38cb0e67a8f'; // debug only, remove in prod
-
-    async function loadMiniCarousel() {
-        try {
-            const API_KEY = TMDB_API_KEY;
-            const res = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=vi-VN&page=1`);
-            if (!res.ok) { console.warn('TMDB popular failed', res.status); return; }
-            const data = await res.json();
-            miniCarouselData = Array.isArray(data.results) ? data.results.slice(0, 10) : [];
-            renderMiniCarousel();
-        } catch (e) { console.error('loadMiniCarousel error', e); }
-    }
-
-    function renderMiniCarousel() {
-        try {
-            const carousel = safeQuery('#miniCarousel');
-            if (!carousel) return;
-            carousel.innerHTML = miniCarouselData.map((movie, index) => `
-                <div class="mini-movie-card ${index===0?'active':''}" data-index="${index}" onclick="selectMovie(${index})">
-                    <img src="https://image.tmdb.org/t/p/w500${movie.backdrop_path||''}" alt="${movie.title||''}">
-                    <div class="mini-movie-info"><div class="mini-movie-title">${movie.title||''}</div></div>
-                </div>
-            `).join('');
-            // safe center
-            setTimeout(centerActiveCard, 60);
-
-            // Attach hover handlers to server-rendered cards as well
-            attachHoverHandlers();
-            // start auto rotate only when data loaded
-            if (miniCarouselData.length > 0) startAutoRotate();
-        } catch (e) { console.error('renderMiniCarousel error', e); }
-    }
-
-    // ---------- selectMovie (safe, logs) ----------
-    window.selectMovie = async function(index) {
-        try {
-            if (!Array.isArray(miniCarouselData) || miniCarouselData.length === 0) return;
-            if (index == null || index < 0 || index >= miniCarouselData.length) return;
-            currentMovieIndex = index;
-            const movie = miniCarouselData[index];
-
-            // update UI basics
-            const heroBanner = safeQuery('#heroBanner');
-            if (heroBanner) heroBanner.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdrop_path||movie.backdrop||''})`;
-            const titleEl = safeQuery('.hero-title'); if (titleEl) titleEl.textContent = movie.title || '—';
-            const ratingEl = safeQuery('.rating span'); if (ratingEl) ratingEl.textContent = movie.vote_average !== undefined ? Number(movie.vote_average).toFixed(1) : '—';
-            const yearEl = safeQuery('.year'); if (yearEl) yearEl.textContent = (movie.release_date||movie.first_air_date) ? new Date((movie.release_date||movie.first_air_date)).getFullYear() : '—';
-            const descEl = safeQuery('#heroDesc'); if (descEl) descEl.textContent = movie.overview || '';
-
-            // mark active
-            document.querySelectorAll('.mini-movie-card').forEach(c=>c.classList.remove('active'));
-            const active = document.querySelector(`.mini-movie-card[data-index="${index}"]`);
-            if (active) active.classList.add('active');
-            centerActiveCard();
-
-            // fetch runtime via TMDB (debug direct call). Safe guards + logs
-            const durationEl = safeQuery('.duration');
-            if (!durationEl) { console.warn('duration element not found'); }
-            else {
-                durationEl.textContent = '...';
-                try {
-                    if (!movie.id) { durationEl.textContent='—'; return; }
-                    const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=vi-VN`);
-                    if (!detailRes.ok) { console.warn('detail fetch failed', detailRes.status); durationEl.textContent='—'; return; }
-                    const detail = await detailRes.json();
-                    if (detail && detail.runtime) durationEl.textContent = `${detail.runtime} phút`;
-                    else durationEl.textContent = '—';
-                } catch (e) { console.error('runtime fetch error', e); if (durationEl) durationEl.textContent='—'; }
-            }
-        } catch (e) { console.error('selectMovie error', e); }
-    };
-
-    // ---------- centerActiveCard ----------
-    function centerActiveCard() {
-        try {
-            const carousel = safeQuery('#miniCarousel'); if (!carousel) return;
-            const activeCard = carousel.querySelector('.active'); if (!activeCard) return;
-            const cardLeft = activeCard.offsetLeft, cardWidth = activeCard.offsetWidth, carouselWidth = carousel.offsetWidth;
-            carousel.scrollTo({ left: cardLeft - (carouselWidth / 2) + (cardWidth / 2), behavior: 'smooth' });
-        } catch (e) { console.error('centerActiveCard error', e); }
-    }
-
-    // ---------- auto rotate ----------
-    let autoRotateTimer = null;
-    function startAutoRotate(){ if(autoRotateTimer||!miniCarouselData.length) return; autoRotateTimer = setInterval(()=>{ currentMovieIndex=(currentMovieIndex+1)%miniCarouselData.length; selectMovie(currentMovieIndex); },8000); }
-    function stopAutoRotate(){ if(autoRotateTimer){ clearInterval(autoRotateTimer); autoRotateTimer=null; } }
-
-    // ---------- Hover handlers (idempotent & safe) ----------
-    function attachHoverHandlers(){
-        try {
-            const cards = safeQueryAll('.movie-card');
-            if (!cards.length) return;
-            cards.forEach(card => {
-                if (card.__hoverBound) return;
-                const hoverCard = card.querySelector('.movie-hover-card');
-                if (!hoverCard) return;
-                card.__hoverBound = true;
-                hoverCard.style.left = ''; hoverCard.style.right = '';
-                let leaveTimer = null;
-
-                card.addEventListener('mouseenter', function(){
-                    try {
-                        hoverCard.style.left = ''; hoverCard.style.right = '';
-                        const rect = card.getBoundingClientRect();
-                        const popupW = hoverCard.offsetWidth || 320;
-                        const spaceRight = window.innerWidth - rect.left;
-                        if (spaceRight < popupW + 40) { hoverCard.style.left = 'auto'; hoverCard.style.right = '0'; }
-                        else { hoverCard.style.left = '-20px'; hoverCard.style.right = ''; }
-                        if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
-                    } catch(e){ console.warn('hover mouseenter inner error', e); }
-                });
-
-                card.addEventListener('mouseleave', function(){
-                    try { leaveTimer = setTimeout(()=>{ hoverCard.style.left=''; hoverCard.style.right=''; leaveTimer=null; }, 120); } catch(e){ }
-                });
-
-                window.addEventListener('resize', ()=>{ try{ hoverCard.style.left=''; hoverCard.style.right=''; }catch(e){} });
-            });
-        } catch(e){ console.error('attachHoverHandlers error', e); }
-    }
-
-    // initial attach for server-rendered movie-cards
-    attachHoverHandlers();
-
-    // start loading mini carousel
-    loadMiniCarousel();
-
-    // expose helpers for debugging
-    window.startAutoRotate = startAutoRotate;
-    window.stopAutoRotate = stopAutoRotate;
+    });
 });
 </script>
-
 </body>
 </html>
