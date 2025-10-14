@@ -610,14 +610,16 @@
                         <i class="fas fa-star" style="color: #ffd700;"></i>
                         <span class="rating-score" th:text="${movie.rating}">8.5</span>
                     </div>
-                    <span class="meta-badge" id="yearBadge">2025</span>
-                    <span class="meta-badge" id="durationBadge">120 phút</span>
+                    <span class="meta-badge" id="yearBadge" th:text="${movie.releaseDate != null ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
+                    <span class="meta-badge" id="durationBadge" th:text="${movie.runtime != null && movie.runtime > 0 ? movie.runtime + ' phút' : '—'}">120 phút</span>
                     <span class="quality-badge">HD</span>
                 </div>
                 
                 <div class="genres-container" id="genresContainer">
-                    <!-- Genres will be populated by JS -->
+                    <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
+                    <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
                 </div>
+
                 
                 <p class="movie-description" th:text="${movie.overview}">
                     Mô tả phim sẽ hiển thị ở đây...
@@ -662,16 +664,17 @@
             <div class="info-grid">
                 <div class="info-item">
                     <span class="info-label">Đạo diễn</span>
-                    <span class="info-value" id="director">Christopher Nolan</span>
+                    <span class="info-value" id="director" th:text="${movie.director != null ? movie.director : '—'}">Christopher Nolan</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Quốc gia</span>
-                    <span class="info-value" id="country">Mỹ</span>
+                    <span class="info-value" id="country" th:text="${movie.country != null ? movie.country : '—'}">Mỹ</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Ngôn ngữ</span>
-                    <span class="info-value" id="language">Tiếng Anh</span>
+                    <span class="info-value" id="language" th:text="${movie.language != null ? movie.language : '—'}">Tiếng Anh</span>
                 </div>
+
                 <div class="info-item">
                     <span class="info-label">Ngày phát hành</span>
                     <span class="info-value" id="releaseDate">21/07/2025</span>
@@ -782,5 +785,6 @@
             }
         });
     </script>
+    <script th:src="@{/js/movie/movie-detail.js}"></script>
 </body>
 </html>

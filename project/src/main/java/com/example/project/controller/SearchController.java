@@ -67,9 +67,8 @@ public class SearchController {
                     try {
                         JSONObject item = results.getJSONObject(i);
                         
-                        // Only include movies/TV with posters
                         String posterPath = item.optString("poster_path", "");
-                        if (posterPath.isEmpty()) continue;
+                        // if (posterPath.isEmpty()) continue;
                         
                         Map<String, Object> movie = new HashMap<>();
                         movie.put("id", item.optInt("id"));

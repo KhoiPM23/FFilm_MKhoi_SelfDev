@@ -1,12 +1,235 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html>
 <head>
-    <!-- FontAwesome import trong fragment để đảm bảo load -->
+    <meta charset="UTF-8">
+    <title>Kết quả tìm kiếm: avengers</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/css/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+/* --- base --- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#141414; color:#fff; min-height:100vh; padding-top:70px; }
+a { color: inherit; text-decoration: none; }
+
+/* container */
+.search-container { max-width:1400px; margin:0 auto; padding: 20px 50px 80px; }
+
+/* Search header + filter bar */
+.search-header { margin-bottom: 18px; }
+.search-title { font-size: 1.7rem; font-weight:700; margin-bottom:6px; }
+.search-title .query { color:#e50914; }
+
+.filter-bar {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin: 14px 0 26px;
+    position: sticky;
+    top:70px;
+    z-index: 30;
+    padding: 12px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* Search info banner */
+.search-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.85);
+    font-size: 0.9rem;
+    flex: 0 0 auto;
+}
+
+.search-info-banner i {
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
+/* search input in result page */
+.filter-search {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex: 1 1 320px;
+}
+.filter-search input[type="search"] {
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    color: white;
+    outline: none;
+}
+.filter-search button { padding:10px 12px; border-radius:8px; border:none; background:#e50914; color:white; cursor:pointer; }
+
+/* selects / controls */
+.filter-controls {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+.select, .small-input {
+    background: rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.06);
+    color: white;
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:0.9rem;
+}
+.select[multiple] { min-width: 200px; max-height: 160px; overflow:auto; }
+
+/* quick filters */
+.quick-filters { display:flex; gap:8px; align-items:center; }
+.qf-btn {
+    padding:8px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    background: transparent;
+    cursor:pointer;
+    color: rgba(255,255,255,0.9);
+    font-size:0.9rem;
+}
+.qf-btn.active { background:#e50914; border-color:#e50914; font-weight:600; color:white; }
+
+/* grid results */
+.results-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:24px; margin-top:18px; }
+@media (max-width:1200px) { .results-grid { grid-template-columns: repeat(4,1fr); } }
+@media (max-width:900px) { .results-grid { grid-template-columns: repeat(3,1fr); } }
+@media (max-width:600px) { .results-grid { grid-template-columns: repeat(2,1fr); } .search-container{ padding: 24px 14px; } }
+
+.movie-card { cursor:pointer; transition: transform .22s; position:relative; }
+.movie-card:hover { transform: scale(1.05); }
+.movie-poster { position:relative; border-radius:8px; overflow:hidden; aspect-ratio:2/3; background:#222; }
+.movie-poster img { width:100%; height:100%; object-fit:cover; display:block; }
+.movie-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.9), transparent); opacity:0; transition:opacity .22s; display:flex; align-items:center; justify-content:center; }
+.movie-card:hover .movie-overlay{ opacity:1; }
+.play-icon { width:48px; height:48px; border-radius:50%; background:rgba(229,9,20,0.95); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:white; }
+
+.movie-info { padding:10px 0; }
+.movie-title { font-size:0.95rem; font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; }
+.movie-meta { display:flex; justify-content:space-between; font-size:0.85rem; color:rgba(255,255,255,0.7); }
+.movie-rating { color:#ffd700; }
+
+/* pagination */
+.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin:36px 0 12px; flex-wrap:wrap; }
+.page-btn { min-width:40px; height:40px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:white; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; text-decoration:none; }
+.page-btn:hover:not(.active):not(.disabled) { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.4); }
+.page-btn.active { background:#e50914; border-color:#e50914; font-weight:600; }
+.page-btn.disabled { opacity:0.35; pointer-events:none; cursor:default; }
+.page-ellipsis { color:rgba(255,255,255,0.5); padding:0 8px; }
+
+/* related section, empty, error same as before */
+.related-section { margin-top: 80px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); }
+.section-title { font-size:1.3rem; font-weight:700; margin-bottom:16px; }
+.related-carousel { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+.related-card img { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:8px; margin-bottom:8px; }
+
+/* empty / error / buttons */
+.empty-state { text-align:center; padding:80px 20px; }
+.empty-icon { font-size:4rem; color: rgba(255,255,255,0.15); margin-bottom:20px; }
+.btn-back { padding:10px 20px; background:#e50914; color:white; border-radius:8px; display:inline-block; text-decoration:none; border:none; }
+
+/* small responsive tweaks */
+@media (max-width:900px) {
+    .filter-bar { top:62px; padding:10px; gap:8px; }
+    .select[multiple] { min-width: 160px; }
+}
+
+/* Inline filter groups */
+.filter-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+}
+
+.filter-label-inline {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+}
+
+/* Genre chips inline */
+.genre-chips-inline {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: 400px;
+}
+
+.genre-chip-inline {
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.genre-chip-inline:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.genre-chip-inline.active {
+    background: #e50914;
+    border-color: #e50914;
+    color: white;
+}
+
+/* Rating slider inline */
+.rating-slider-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rating-value-inline {
+    min-width: 28px;
+    font-weight: 600;
+    color: #e50914;
+    font-size: 0.9rem;
+}
+
+/* Apply button */
+.btn-apply-filter {
+    padding: 8px 16px;
+    background: #e50914;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-apply-filter:hover {
+    background: #f40612;
+    transform: translateY(-1px);
+}
+    </style>
 </head>
 <body>
-
-<header class="main-header" th:fragment="header" style="--accent:#e50914">
+    <!-- Header (site header fragment) -->
+    <header class="main-header" style="--accent:#e50914">
     <!-- Logo -->
     <div class="logo">
         <img src="/images/logo.png" alt="">
@@ -2016,5 +2239,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
 </header>
 
-</body>
-</html>
+    <div class="search-container">
+        <!-- Error Banner -->
+        
+
+        <!-- Search Header -->
+        <div class="search-header">
+            <h1 class="search-title">
+                Tìm thấy <span>93</span> kết quả cho
+                <span class="query">&quot;avengers&quot;</span>
+            </h1>
+
+            <!-- Active Filters Display -->
+            <div class="filter-controls">
+                <!-- Genre Filter (display-only chips) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Thể loại:</label>
+                    <div class="genre-chips-inline" id="genreChipsInline">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Year Range (display-only) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Năm:</label>
+                    <input id="display-year-from" type="number" min="1900" max="2100" placeholder="Từ" class="small-input" style="width:80px;" value="">
+                    <span style="color:rgba(255,255,255,0.5);">-</span>
+                    <input id="display-year-to" type="number" min="1900" max="2100" placeholder="Đến" class="small-input" style="width:80px;" value="">
+                </div>
+
+                <!-- Rating (display-only range + value) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Rating:</label>
+                    <div class="rating-slider-inline">
+                        <input type="range" id="display-minRatingRange" min="0" max="10" step="0.5" style="width:100px;" value="0">
+                        <span class="rating-value-inline" id="ratingValueInline">0.0</span>
+                    </div>
+                </div>
+
+                <!-- Quick Filters (display-only hidden for visual) -->
+                <div class="quick-filters">
+                    <input type="hidden" id="display-quickFilterInput" name="displayQuickFilter" value="">
+                    <button type="button" class="qf-btn" data-filter="trending" title="Thịnh hành"><i class="fas fa-fire"></i></button>
+                    <button type="button" class="qf-btn" data-filter="new" title="Mới nhất"><i class="fas fa-star"></i></button>
+                    <button type="button" class="qf-btn" data-filter="top-rated" title="Đánh giá cao"><i class="fas fa-trophy"></i></button>
+                </div>
+
+                <!-- Apply (for display header it's optional; real submit happens in the form below) -->
+                <button type="button" class="btn-apply-filter" id="display-apply-btn">
+                    <i class="fas fa-check"></i> Áp dụng
+                </button>
+            </div>
+        </div>
+
+        
+
+        
+
+        <!-- Results Grid (container always present) -->
+        <div class="results-grid" id="resultsGridContainer">
+            <div class="movie-card"
+                onclick="location.href=&#39;/movie/detail/24428&#39;">
+                <!-- existing card markup unchanged -->
+                <div class="movie-poster">
+                    <img src="https://image.tmdb.org/t/p/w500/rX46P5ZwcHOvrkhtYDYhnNf46Bo.jpg" alt="Avengers 1:Biệt Đội Siêu Anh Hùng" loading="lazy">
+                    <div class="movie-overlay">
+                        

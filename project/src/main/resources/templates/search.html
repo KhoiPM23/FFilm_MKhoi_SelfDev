@@ -35,6 +35,25 @@ a { color: inherit; text-decoration: none; }
     border: 1px solid rgba(255,255,255,0.03);
 }
 
+/* Search info banner */
+.search-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.85);
+    font-size: 0.9rem;
+    flex: 0 0 auto;
+}
+
+.search-info-banner i {
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
 /* search input in result page */
 .filter-search {
     display:flex;
@@ -126,6 +145,86 @@ a { color: inherit; text-decoration: none; }
     .filter-bar { top:62px; padding:10px; gap:8px; }
     .select[multiple] { min-width: 160px; }
 }
+
+/* Inline filter groups */
+.filter-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+}
+
+.filter-label-inline {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+}
+
+/* Genre chips inline */
+.genre-chips-inline {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: 400px;
+}
+
+.genre-chip-inline {
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.genre-chip-inline:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.genre-chip-inline.active {
+    background: #e50914;
+    border-color: #e50914;
+    color: white;
+}
+
+/* Rating slider inline */
+.rating-slider-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rating-value-inline {
+    min-width: 28px;
+    font-weight: 600;
+    color: #e50914;
+    font-size: 0.9rem;
+}
+
+/* Apply button */
+.btn-apply-filter {
+    padding: 8px 16px;
+    background: #e50914;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-apply-filter:hover {
+    background: #f40612;
+    transform: translateY(-1px);
+}
     </style>
 </head>
 <body>
@@ -147,79 +246,65 @@ a { color: inherit; text-decoration: none; }
             </h1>
 
             <!-- Active Filters Display -->
-            <div class="filter-tags" th:if="${!selectedGenres.isEmpty() || !yearFrom.isEmpty() || !yearTo.isEmpty() || minRating != '0' || !quickFilter.isEmpty()}">
-                <div class="filter-tag" th:if="${!selectedGenres.isEmpty()}">
-                    <i class="fas fa-tag"></i> <span th:text="${#strings.join(selectedGenres, ', ')}">Thể loại đã chọn</span>
-                </div>
-                <div class="filter-tag" th:if="${!yearFrom.isEmpty() || !yearTo.isEmpty()}">
-                    <i class="fas fa-calendar"></i>
-                    <span th:text="${yearFrom + ' - ' + yearTo}">Năm</span>
-                </div>
-                <div class="filter-tag" th:if="${minRating != '0'}">
-                    <i class="fas fa-star"></i>
-                    <span th:text="'Đánh giá ≥ ' + ${minRating}">Rating</span>
-                </div>
-                <div class="filter-tag" th:if="${quickFilter == 'trending'}">
-                    <i class="fas fa-fire"></i><span>Thịnh hành</span>
-                </div>
-                <div class="filter-tag" th:if="${quickFilter == 'new'}">
-                    <i class="fas fa-star"></i><span>Mới nhất</span>
-                </div>
-                <div class="filter-tag" th:if="${quickFilter == 'top-rated'}">
-                    <i class="fas fa-trophy"></i><span>Đánh giá cao</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- FILTER BAR (same filters as search page) -->
-        <form id="result-filter-form" class="filter-bar" method="get" action="/search" th:action="@{/search}">
-            <div class="filter-search">
-                <input id="result-search-input" type="search" name="query" placeholder="Tìm phim, diễn viên, đạo diễn..." class="select" th:value="${query}" aria-label="Tìm kiếm">
-                <button type="submit" title="Tìm kiếm"><i class="fas fa-search"></i></button>
-            </div>
-
             <div class="filter-controls">
-                <!-- Genres (multi-select). Expects server variable allGenres -->
-                <select id="genres-select" name="genres" multiple class="select" th:if="${allGenres != null}">
-                    <option th:each="g : ${allGenres}" th:value="${g}" th:text="${g}" th:selected="${selectedGenres != null} ? ${selectedGenres.contains(g)} : false"></option>
-                </select>
-                <!-- If server didn't supply allGenres, we still render selected genres as single select for fallback -->
-                <select id="genres-select-fallback" name="genres" multiple class="select" th:if="${allGenres == null}">
-                    <option th:each="g : ${selectedGenres}" th:value="${g}" th:text="${g}" selected></option>
-                </select>
+                <!-- Genre Filter (display-only chips) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Thể loại:</label>
+                    <div class="genre-chips-inline" id="genreChipsInline">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
 
-                <input id="year-from" name="yearFrom" type="number" min="1900" max="2100" placeholder="Năm từ" class="small-input" style="width:100px;" th:value="${yearFrom}">
-                <input id="year-to" name="yearTo" type="number" min="1900" max="2100" placeholder="đến" class="small-input" style="width:100px;" th:value="${yearTo}">
+                <!-- Year Range (display-only) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Năm:</label>
+                    <input id="display-year-from" type="number" min="1900" max="2100" placeholder="Từ" class="small-input" style="width:80px;" th:value="${yearFrom}">
+                    <span style="color:rgba(255,255,255,0.5);">-</span>
+                    <input id="display-year-to" type="number" min="1900" max="2100" placeholder="Đến" class="small-input" style="width:80px;" th:value="${yearTo}">
+                </div>
 
-                <select id="minRating" name="minRating" class="select" style="width:110px;">
-                    <option value="0" th:selected="${minRating == '0'}">Mọi rating</option>
-                    <option th:each="r : ${#numbers.sequence(1,10)}" th:value="${r}" th:text="'≥ ' + ${r}" th:selected="${minRating == ${r}}"></option>
-                </select>
+                <!-- Rating (display-only range + value) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Rating:</label>
+                    <div class="rating-slider-inline">
+                        <input type="range" id="display-minRatingRange" min="0" max="10" step="0.5" style="width:100px;" th:value="${minRating}">
+                        <span class="rating-value-inline" id="ratingValueInline">0.0</span>
+                    </div>
+                </div>
 
-                <div class="quick-filters" role="tablist" aria-label="Quick filters">
-                    <input type="hidden" id="quickFilterInput" name="quickFilter" th:value="${quickFilter}">
+                <!-- Quick Filters (display-only hidden for visual) -->
+                <div class="quick-filters">
+                    <input type="hidden" id="display-quickFilterInput" name="displayQuickFilter" th:value="${quickFilter}">
                     <button type="button" class="qf-btn" data-filter="trending" title="Thịnh hành"><i class="fas fa-fire"></i></button>
                     <button type="button" class="qf-btn" data-filter="new" title="Mới nhất"><i class="fas fa-star"></i></button>
                     <button type="button" class="qf-btn" data-filter="top-rated" title="Đánh giá cao"><i class="fas fa-trophy"></i></button>
                 </div>
+
+                <!-- Apply (for display header it's optional; real submit happens in the form below) -->
+                <button type="button" class="btn-apply-filter" id="display-apply-btn">
+                    <i class="fas fa-check"></i> Áp dụng
+                </button>
             </div>
+        </div>
 
-            <!-- keep page param so server receives it if provided -->
-            <input type="hidden" name="page" id="page-input" th:value="${currentPage}">
-        </form>
+        
 
-        <!-- Results Grid -->
-        <div class="results-grid" th:if="${hasResults}">
-            <div th:each="movie : ${searchResults}" class="movie-card" 
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+        
+
+        <!-- Results Grid (container always present) -->
+        <div class="results-grid" id="resultsGridContainer">
+            <div th:if="${hasResults}" th:each="movie : ${searchResults}" class="movie-card"
+                th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                <!-- existing card markup unchanged -->
                 <div class="movie-poster">
                     <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
                     <div class="movie-overlay">
-                        <div class="play-icon">
+                        <button class="play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" aria-label="Xem phim">
                             <i class="fas fa-play"></i>
-                        </div>
+                        </button>
                     </div>
                 </div>
+
                 <div class="movie-info">
                     <div class="movie-title" th:text="${movie.title}">Movie Title</div>
                     <div class="movie-meta">
@@ -228,6 +313,33 @@ a { color: inherit; text-decoration: none; }
                             <i class="fas fa-star"></i>
                             <span th:text="${movie.rating}">8.5</span>
                         </span>
+                    </div>
+                </div>
+
+                <!-- hover popup (kept) -->
+                <div class="movie-hover-card" aria-hidden="true">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span th:text="${movie.releaseDate != null and movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
+                            <span>HD</span>
+                        </div>
+                        <div class="hover-card-genres">
+                            <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
+                            <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
+                        </div>
+                        <p class="hover-card-description" th:text="${movie.overview != null ? movie.overview : 'Mô tả ngắn về phim.'}">
+                            Mô tả ngắn về phim sẽ hiển thị ở đây...
+                        </p>
+
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
+                                <i class="fas fa-play"></i> Xem ngay
+                            </button>
+                            <button class="hover-add-btn" type="button" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -292,229 +404,160 @@ a { color: inherit; text-decoration: none; }
 
     <!-- Hidden server-data for robust client-side parsing -->
     <div id="server-data" style="display:none;"
-         th:attr="data-selected-genres=${selectedGenres}, data-year-from=${yearFrom}, data-year-to=${yearTo}, data-min-rating=${minRating}, data-quick-filter=${quickFilter}, data-query=${query}"></div>
+     th:attr="data-selected-genres=${selectedGenres != null ? selectedGenres : '[]'},
+              data-year-from=${yearFrom != null ? yearFrom : ''},
+              data-year-to=${yearTo != null ? yearTo : ''},
+              data-min-rating=${minRating != null ? minRating : '0'},
+              data-quick-filter=${quickFilter != null ? quickFilter : ''},
+              data-query=${query != null ? query : ''}"></div>
 
-    <!-- JS: sync filters, pagination, debounce search -->
+    <!-- Unified client-side search/render logic (paste exactly here) -->
+     
     <script>
-    (function(){
-        // Utility parse robustly arrays rendered by Thymeleaf: try JSON, fallback to CSV.
-        function parseServerArray(str){
-            if(!str && str !== "") return [];
-            try {
-                // If Thymeleaf rendered as Java-list -> [a,b], maybe with single quotes. Normalize.
-                if(typeof str !== 'string') return [];
-                let s = str.trim();
-                // If already JSON string e.g. ["a","b"]
-                try { return JSON.parse(s); } catch(e) {}
-                // replace single quotes with double quotes then parse
-                try { return JSON.parse(s.replace(/'/g, '"')); } catch(e) {}
-                // fallback: remove brackets then split
-                s = s.replace(/^\[|\]$/g,'');
-                if(!s) return [];
-                return s.split(',').map(x => x.trim().replace(/^"|"$/g,'').replace(/^'|'$/g,'')).filter(Boolean);
-            } catch(e) { return []; }
+(function(){
+  // cấu hình
+  const TMDB_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+  const TMDB_BASE = 'https://api.themoviedb.org/3';
+  const IMG_BASE = 'https://image.tmdb.org/t/p/w342';
+  const PAGE_CAP = 20; // giới hạn page để tránh quá nhiều request
+  const PAGE_DELAY_MS = 120;
+
+  // helper
+  function qs(name){ return new URLSearchParams(window.location.search).get(name) || ''; }
+  function createCard(m){
+    const card = document.createElement('div'); card.className='movie-card';
+    const posterWrap = document.createElement('div'); posterWrap.className='movie-poster';
+    const img = document.createElement('img'); img.loading='lazy';
+    img.alt = m.title||m.name||''; img.src = m.poster_path ? (IMG_BASE + m.poster_path) : (m.poster||'/img/placeholder.png');
+    posterWrap.appendChild(img);
+    const overlay = document.createElement('div'); overlay.className='movie-overlay';
+    const play = document.createElement('div'); play.className='play-icon'; play.innerHTML='<i class="fas fa-play"></i>';
+    overlay.appendChild(play); posterWrap.appendChild(overlay); card.appendChild(posterWrap);
+
+    const info = document.createElement('div'); info.className='movie-info';
+    const title = document.createElement('div'); title.className='movie-title'; title.textContent = m.title || m.name || 'Untitled';
+    const meta = document.createElement('div'); meta.className='movie-meta';
+    const year = document.createElement('span'); year.className='movie-year';
+    year.textContent = (m.release_date && m.release_date.length>=4) ? m.release_date.substring(0,4) : (m.year||'');
+    const rating = document.createElement('span'); rating.className='movie-rating';
+    rating.innerHTML = '<i class="fas fa-star"></i> ' + (m.vote_average ? Number(m.vote_average).toFixed(1) : (m.rating ? String(m.rating) : '—'));
+    meta.appendChild(year); meta.appendChild(rating); info.appendChild(title); info.appendChild(meta); card.appendChild(info);
+
+    if(m.id) card.addEventListener('click', ()=> window.location.href = '/movie/detail/' + m.id);
+    return card;
+  }
+
+  async function fetchAllSearch(query){
+    if(!query || !query.trim()) return [];
+    const u1 = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
+    const r1 = await fetch(u1);
+    if(!r1.ok) throw new Error('HTTP ' + r1.status);
+    const d1 = await r1.json();
+    const total = Math.min(d1.total_pages || 1, PAGE_CAP);
+    let all = Array.isArray(d1.results) ? d1.results.slice() : [];
+    for(let p=2; p<=total; p++){
+      try{
+        const u = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=${p}&include_adult=false`;
+        const r = await fetch(u);
+        if(!r.ok){ console.warn('Page', p, 'failed', r.status); break; }
+        const dd = await r.json();
+        if(Array.isArray(dd.results)) all = all.concat(dd.results);
+        await new Promise(res => setTimeout(res, PAGE_DELAY_MS));
+      } catch(e){
+        console.warn('fetch page error', p, e);
+        break;
+      }
+    }
+    return all;
+  }
+
+  function existingCardIds(container){
+    const ids = new Set();
+    (container.querySelectorAll('.movie-card')||[]).forEach(c=>{
+      // try read id from onclick attr or data-id; fallback: none
+      const on = c.getAttribute('onclick') || c.getAttribute('data-id') || '';
+      let id = null;
+      // pattern: /\/movie\/detail\/(\d+)/
+      const m = on.match && on.match(/\/movie\/detail\/(\d+)/);
+      if(m && m[1]) id = m[1];
+      // data-id attribute
+      if(!id && c.dataset && c.dataset.id) id = c.dataset.id;
+      if(id) ids.add(String(id));
+    });
+    return ids;
+  }
+
+  // chạy sau khi page + assets load xong (an toàn hơn DOMContentLoaded)
+  function runWhenReady(cb){
+    if(document.readyState === 'complete') return cb();
+    window.addEventListener('load', cb, {once:true});
+    // fallback: if load doesn't fire, try DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', ()=> setTimeout(cb, 50), {once:true});
+  }
+
+  runWhenReady(async function(){
+    try {
+      const resultsGrid = document.getElementById('resultsGridContainer') || (function(){
+        const sc = document.querySelector('.search-container') || document.body;
+        const d = document.createElement('div'); d.id='resultsGridContainer'; d.className='results-grid';
+        sc.insertBefore(d, sc.querySelector('.pagination') || sc.firstChild);
+        return d;
+      })();
+
+      const serverCount = resultsGrid.querySelectorAll('.movie-card').length;
+      console.log('Server rendered movie-card count =', serverCount);
+
+      // nếu server chỉ render 0 hoặc 1 card -> gọi API client để bung hết
+      if(serverCount <= 1){
+        const q = (document.getElementById('server-data') && document.getElementById('server-data').getAttribute('data-query')) || qs('query') || qs('q') || (document.querySelector('input[name="query"], input[name="q"]') && document.querySelector('input[name="query"], input[name="q"]').value) || '';
+        if(!q) { console.warn('No query found to search'); return; }
+        console.log('Fetching all TMDB pages for query:', q);
+        resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Đang tải tất cả kết quả...</div>';
+        const all = await fetchAllSearch(q);
+        if(!all || all.length === 0){
+          console.log('No results from TMDB for', q);
+          resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Không tìm thấy kết quả khác.</div>';
+          return;
         }
-
-        // Get server-side values
-        const sd = document.getElementById('server-data');
-        const serverSelectedGenres = sd ? parseServerArray(sd.getAttribute('data-selected-genres')) : [];
-        const serverYearFrom = sd ? (sd.getAttribute('data-year-from') || '') : '';
-        const serverYearTo = sd ? (sd.getAttribute('data-year-to') || '') : '';
-        const serverMinRating = sd ? (sd.getAttribute('data-min-rating') || '0') : '0';
-        const serverQuickFilter = sd ? (sd.getAttribute('data-quick-filter') || '') : '';
-        const serverQuery = sd ? (sd.getAttribute('data-query') || '') : '';
-
-        // Elements
-        const form = document.getElementById('result-filter-form');
-        const qInput = document.getElementById('result-search-input');
-        const genresSelect = document.getElementById('genres-select') || document.getElementById('genres-select-fallback');
-        const yearFromInput = document.getElementById('year-from');
-        const yearToInput = document.getElementById('year-to');
-        const minRatingSelect = document.getElementById('minRating');
-        const quickFilterInput = document.getElementById('quickFilterInput');
-        const qfButtons = document.querySelectorAll('.qf-btn');
-        const pageInput = document.getElementById('page-input');
-
-        // Init UI with server values (only if inputs exist)
-        if(qInput) qInput.value = serverQuery || '';
-        if(yearFromInput) yearFromInput.value = serverYearFrom || '';
-        if(yearToInput) yearToInput.value = serverYearTo || '';
-        if(minRatingSelect) minRatingSelect.value = serverMinRating || '0';
-        if(quickFilterInput) quickFilterInput.value = serverQuickFilter || '';
-
-        // mark quick-filter button active
-        qfButtons.forEach(btn => {
-            const f = btn.getAttribute('data-filter');
-            if(f && f === serverQuickFilter) btn.classList.add('active');
-            btn.addEventListener('click', function(){
-                // toggle active state - allow off
-                const target = this.getAttribute('data-filter');
-                if(quickFilterInput.value === target){
-                    quickFilterInput.value = '';
-                    this.classList.remove('active');
-                } else {
-                    quickFilterInput.value = target;
-                    // reset others
-                    qfButtons.forEach(b => b.classList.toggle('active', b === this));
-                }
-                // submit form to refresh results with chosen quickFilter
-                pageInput && (pageInput.value = 1);
-                form.submit();
-            });
-        });
-
-        // Pre-select genres from serverSelectedGenres (helps if rendered options not auto-selected)
-        if(genresSelect && serverSelectedGenres.length){
-            // ensure multiple options selected
-            try {
-                const opts = Array.from(genresSelect.options || []);
-                opts.forEach(o => {
-                    o.selected = serverSelectedGenres.some(s => {
-                        return String(o.value).trim().toLowerCase() === String(s).trim().toLowerCase();
-                    });
-                });
-            } catch(e) {}
+        // dedupe by id and append only missing ones (so we don't duplicate server items)
+        const existingIds = existingCardIds(resultsGrid);
+        const toAppend = [];
+        const seen = new Set();
+        for(const m of all){
+          if(!m || !m.id) continue;
+          if(seen.has(m.id)) continue; seen.add(m.id);
+          if(existingIds.has(String(m.id))) continue; // skip ones server already rendered
+          toAppend.push(m);
         }
-
-        // Debounce for search input to auto-submit (but keep behavior simple)
-        let debounceTimer = null;
-        if(qInput){
-            qInput.addEventListener('input', function(e){
-                // do not auto-submit on every keystroke if user is interacting with other filters; debounce
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    // when typing new query, go to page 1
-                    pageInput && (pageInput.value = 1);
-                    form.submit();
-                }, 600);
-            });
+        // if server had 0 items: we will append all; if server had 1 we append rest
+        // If serverCount === 0, clear placeholder (we already set placeholder earlier)
+        resultsGrid.innerHTML = '';
+        // first, if server rendered any cards keep them (re-add) else just append all
+        // collect currently present server nodes to keep order
+        // Note: if serverCount <=1 we assume either 0 or 1 present; keep existing nodes
+        // Append server existing nodes first (if any)
+        if(serverCount > 0){
+          // keep server nodes (they are present in DOM), so no further action needed
         }
+        // append missing items
+        toAppend.forEach(m => resultsGrid.appendChild(createCard(m)));
+        console.log('Appended', toAppend.length, 'additional items. Total rendered now:', resultsGrid.querySelectorAll('.movie-card').length);
+      } else {
+        console.log('Server already rendered multiple items — no client fetch performed.');
+      }
 
-        // Intercept form submit: normalize multi-select values (so Spring/Thymeleaf receives genres repeatedly)
-        form.addEventListener('submit', function(e){
-            // nothing special required; browser handles multiple selects as repeated query params.
-            // But ensure page resets if needed
-            pageInput && (pageInput.value = pageInput.value || 1);
-        });
+    } catch (err){
+      console.error('Error in client-side expand script:', err);
+    }
+  });
+})();
+</script>
 
-        // Handle pagination: all page buttons have data-target-page attribute
-        document.querySelectorAll('.pagination .page-btn[data-target-page]').forEach(btn => {
-            btn.addEventListener('click', function(e){
-                e.preventDefault();
-                const target = this.getAttribute('data-target-page');
-                if(!target) return;
-                // set page and submit form while preserving current client-side filter state
-                pageInput && (pageInput.value = target);
-                // Build a URL that preserves multiple genres properly then navigate (to improve UX)
-                // We'll create a GET form submission programmatically to avoid losing multi-select values
-                const tempForm = document.createElement('form');
-                tempForm.method = 'get';
-                tempForm.action = (form.getAttribute('action') || '/search');
 
-                // helper add input
-                function add(name, value) {
-                    if(value === undefined || value === null || value === '') return;
-                    const i = document.createElement('input');
-                    i.type = 'hidden';
-                    i.name = name;
-                    i.value = value;
-                    tempForm.appendChild(i);
-                }
-
-                // query
-                add('query', qInput ? qInput.value.trim() : '');
-
-                // genres: add each selected option as repeated param
-                if(genresSelect){
-                    const sel = Array.from(genresSelect.selectedOptions || []);
-                    if(sel.length){
-                        sel.forEach(opt => add('genres', opt.value));
-                    }
-                }
-
-                add('yearFrom', yearFromInput ? yearFromInput.value : '');
-                add('yearTo', yearToInput ? yearToInput.value : '');
-                add('minRating', minRatingSelect ? minRatingSelect.value : '');
-                add('quickFilter', quickFilterInput ? quickFilterInput.value : '');
-                add('page', target);
-
-                document.body.appendChild(tempForm);
-                tempForm.submit();
-            });
-        });
-
-        // UX: keyboard accessibility for multi-select (optional)
-        if(genresSelect){
-            genresSelect.addEventListener('keydown', function(e){
-                // Enter on select will submit
-                if(e.key === 'Enter'){
-                    e.preventDefault();
-                    pageInput && (pageInput.value = 1);
-                    form.submit();
-                }
-            });
-        }
-
-        // If header has a search input (from fragment), keep it synchronized with this page input
-        try {
-            const headerSearch = document.querySelector('header input[name="query"], [name="query"]');
-            if(headerSearch && qInput){
-                // set header to server query
-                headerSearch.value = qInput.value || '';
-                // when header is submitted, keep filters (if header submit is a regular form, it's okay; otherwise:
-                headerSearch.addEventListener('keydown', function(e){
-                    if(e.key === 'Enter'){
-                        // submit the current page's form with header value
-                        qInput.value = headerSearch.value;
-                        pageInput && (pageInput.value = 1);
-                        form.submit();
-                    }
-                });
-            }
-        } catch(e){ /* ignore */ }
-
-        // Small performance note: if results grid is > 200 items, server should paginate. Client-side rendering kept light.
-    })();
-    </script>
 </body>
 </html>
-<script>
-    // ============ Search Suggestions Logic ============
-    // This script is included in header.html fragment and works on all pages with search input
 
-    // Elements
-    const searchInput = document.querySelector('header input[name="query"], [name="query"]');
-    const suggestionsPanel = document.createElement('div');
-    suggestionsPanel.className = 'search-suggestions-panel';
-    suggestionsPanel.style.position = 'absolute';
-    suggestionsPanel.style.top = '100%';
-    suggestionsPanel.style.left = '0';
-    suggestionsPanel.style.right = '0';
-    suggestionsPanel.style.background = '#141414';
-    suggestionsPanel.style.border = '1px solid rgba(255,255,255,0.1)';
-    suggestionsPanel.style.borderTop = 'none';
-    suggestionsPanel.style.zIndex = '50';
-    suggestionsPanel.style.maxHeight = '300px';
-    suggestionsPanel.style.overflowY = 'auto';
-    suggestionsPanel.style.display = 'none'; // hidden by default
-    suggestionsPanel.style.fontSize = '0.9rem';
-    suggestionsPanel.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-    if (searchInput) {
-        searchInput.parentNode.style.position = 'relative'; // ensure parent is positioned
-        searchInput.parentNode.appendChild(suggestionsPanel);
-    }
 
-    let isFetching = false;         // to prevent concurrent fetches
-    let currentFocusIndex = -1;     // for keyboard navigation
-    let currentSuggestions = [];     // current list of suggestions
-    let currentTypeCounts = { movie: 0, tv: 0, person: 0 }; // counts of each type in current suggestions
-    let currentTotalCount = 0;      // total number of current suggestions
-    let currentPage = 1;            // current page of results (for infinite scroll)
-    let isEndOfResults = false;     // whether we've reached the end of available results
-    const SUGGESTIONS_PER_PAGE = 10; // number of suggestions to fetch per page
-    const MAX_SUGGESTIONS = 30;     // maximum number of suggestions to keep
 
-    const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f'; 
-    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-    // State for pagination and caching 
+
