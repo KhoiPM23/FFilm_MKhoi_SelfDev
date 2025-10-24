@@ -24,6 +24,16 @@ public class Person {
     private String type; 
     @ManyToMany(mappedBy = "persons")
     private List<Movie> movies = new ArrayList<>();
+    public Person() {
+    }
+    
+    public Person(String fullName, String bio, String type, List<Movie> movies) {
+        this.fullName = fullName;
+        this.bio = bio;
+        this.type = type;
+        this.movies = movies;
+    }
+
     public int getPersonID() {
         return personID;
     }

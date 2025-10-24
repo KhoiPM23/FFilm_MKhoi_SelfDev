@@ -21,7 +21,6 @@ public class Season {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int seasonID;
-
     private int seasonNumber;
     private String title;
     private Date releaseDate;
@@ -32,6 +31,17 @@ public class Season {
 
     @OneToMany(mappedBy = "season", cascade = CascadeType.ALL)
     private List<Episode> episodes = new ArrayList<>();
+    public Season() {
+    }
+    public Season(int seasonID, int seasonNumber, String title, Date releaseDate, Movie movie, List<Episode> episodes) {
+        this.seasonID = seasonID;
+        this.seasonNumber = seasonNumber;
+        this.title = title;
+        this.releaseDate = releaseDate;
+        this.movie = movie;
+        this.episodes = episodes;
+    }
+    
 
     public int getSeasonID() {
         return seasonID;

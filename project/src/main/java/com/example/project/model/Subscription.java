@@ -29,6 +29,16 @@ public class Subscription {
     @ManyToOne
     @JoinColumn(name = "planID")
     private SubscriptionPlan plan;
+    public Subscription() {
+    }
+    public Subscription(Date startDate, Date endDate, boolean status, User user, SubscriptionPlan plan) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.status = status;
+        this.user = user;
+        this.plan = plan;
+    }
+    
 
     public int getSubscriptionID() {
         return subscriptionID;

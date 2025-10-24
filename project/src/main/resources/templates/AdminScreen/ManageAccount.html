@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản Lý Tài Khoản</title>
+    <link rel="stylesheet" href="/css/ManageAccount.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-film"></i>
+            Film Admin
+        </div>
+        <nav>
+            <a href="#" class="nav-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item active">
+                <i class="fas fa-users-cog"></i>
+                <span>Quản lý tài khoản cho nhân viên</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-film"></i>
+                <span>Quản lý gói dịch vụ</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-comments"></i>
+                <span>Báo cáo doanh thu</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-flag"></i>
+                <span>Xem báo cáo hệ thống</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1>Quản lý tài khoản</h1>
+            <div class="header-actions">
+                <div class="search-box">
+                    <input type="text" placeholder="Tìm kiếm tài khoản..." id="searchInput">
+                    <i class="fas fa-search"></i>
+                </div>
+                <button class="btn btn-primary" onclick="openModal('add')">
+                    <i class="fas fa-plus"></i>
+                    <span>Thêm tài khoản</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tổng tài khoản</span>
+                    <div class="stat-icon red">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="totalUsers">24</div>
+                <div class="stat-change">
+                    <i class="fas fa-arrow-up"></i> +3 tuần này
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Moderators</span>
+                    <div class="stat-icon blue">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="totalModerators">8</div>
+                <div class="stat-change">
+                    <i class="fas fa-arrow-up"></i> +1 tuần này
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Content Managers</span>
+                    <div class="stat-icon yellow">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="totalContent">12</div>
+                <div class="stat-change">
+                    <i class="fas fa-arrow-up"></i> +2 tuần này
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container">
+            <div class="table-header">
+                <span class="table-title">Danh sách tài khoản Moderator & Content Manager</span>
+                <div class="filter-group">
+                    <select class="filter-select" id="roleFilter">
+                        <option value="">Lọc theo vai trò</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="content">Content Manager</option>
+                    </select>
+                    <select class="filter-select" id="statusFilter">
+                        <option value="">Lọc theo trạng thái</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="exportData()">
+                        <i class="fas fa-file-export"></i> Xuất dữ liệu
+                    </button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tài khoản</th>
+                        <th>Vai trò</th>
+                        <th>Trạng thái</th>
+                        <th>Ngày tạo</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="accountTable">
+                    <!-- Sample Data - Replace with dynamic data in backend -->
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-avatar">M</div>
+                                <div class="user-details">
+                                    <h4>mod_user1</h4>
+                                    <p><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="98f5f7fca9d8fde0f9f5e8f4fdb6fbf7f5">[email&#160;protected]</a></p>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-moderator">Moderator</span></td>
+                        <td><span class="badge badge-active">Hoạt động</span></td>
+                        <td>2025-09-01</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-edit" onclick="openModal('edit', '1')">
+                                    <i class="fas fa-edit"></i> Sửa
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteAccount('1')">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-avatar">C</div>
+                                <div class="user-details">
+                                    <h4>content_user2</h4>
+                                    <p><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8deee2e3f9e8e3f9bfcde8f5ece0fde1e8a3eee2e0">[email&#160;protected]</a></p>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-content">Content Manager</span></td>
+                        <td><span class="badge badge-inactive">Không hoạt động</span></td>
+                        <td>2025-08-15</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-edit" onclick="openModal('edit', '2')">
+                                    <i class="fas fa-edit"></i> Sửa
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteAccount('2')">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Add more rows as needed -->
+                </tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <i class="fas fa-search"></i>
+                <h3>Không tìm thấy tài khoản nào</h3>
+                <p>Thử thay đổi bộ lọc hoặc thêm tài khoản mới.</p>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+            <button disabled><i class="fas fa-chevron-left"></i></button>
+            <button class="active">1</button>
+            <button>2</button>
+            <button>3</button>
+            <button><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- Modal for Add/Edit Account -->
+    <div class="modal" id="accountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">Thêm tài khoản mới</span>
+                <button class="close-modal" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="accountForm">
+                    <div class="form-group">
+                        <label for="username">Tên tài khoản</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Mật khẩu (chỉ khi thêm mới)</label>
+                        <input type="password" id="password">
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Vai trò</label>
+                        <select id="role" required>
+                            <option value="">Chọn vai trò</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="content">Content Manager</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Trạng thái</label>
+                        <select id="status" required>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-primary" onclick="saveAccount()">
+                    <i class="fas fa-save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast" style="display: none;">
+        <i class="toast-icon"></i>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+        // Basic JavaScript for interactivity (CRUD logic would be in backend)
+        let currentMode = 'add';
+        let currentId = null;
+
+        function openModal(mode, id = null) {
+            currentMode = mode;
+            currentId = id;
+            const modal = document.getElementById('accountModal');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('accountForm');
+
+            if (mode === 'add') {
+                title.textContent = 'Thêm tài khoản mới';
+                form.reset();
+                document.getElementById('password').required = true;
+            } else {
+                title.textContent = 'Sửa tài khoản';
+                // Load data here (simulated)
+                document.getElementById('username').value = 'mod_user1'; // Replace with real data fetch
+                document.getElementById('email').value = 'mod1@example.com';
+                document.getElementById('role').value = 'moderator';
+                document.getElementById('status').value = 'active';
+                document.getElementById('password').required = false;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('accountModal').classList.remove('active');
+        }
+
+        function saveAccount() {
+            // Simulate save (add backend API call here)
+            showToast('success', currentMode === 'add' ? 'Tài khoản đã được thêm!' : 'Tài khoản đã được cập nhật!');
+            closeModal();
+            // Refresh table data
+        }
+
+        function deleteAccount(id) {
+            if (confirm('Bạn có chắc muốn xóa tài khoản này?')) {
+                // Simulate delete (add backend API call)
+                showToast('error', 'Tài khoản đã được xóa!');
+                // Remove row from table
+            }
+        }
+
+        function showToast(type, message) {
+            const toast = document.getElementById('toast');
+            const icon = toast.querySelector('.toast-icon');
+            const msg = document.getElementById('toastMessage');
+
+            toast.className = `toast ${type}`;
+            if (type === 'success') icon.className = 'toast-icon fas fa-check-circle';
+            if (type === 'error') icon.className = 'toast-icon fas fa-exclamation-circle';
+            msg.textContent = message;
+
+            toast.style.display = 'flex';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const search = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#accountTable tr');
+            let hasResults = false;
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+                if (text.includes(search)) hasResults = true;
+            });
+            document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
+        });
+
+        // Filter functionality (simulated)
+        document.getElementById('roleFilter').addEventListener('change', applyFilters);
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+        function applyFilters() {
+            const role = document.getElementById('roleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const rows = document.querySelectorAll('#accountTable tr');
+            let hasResults = false;
+            rows.forEach(row => {
+                const rowRole = row.querySelector('.badge-moderator, .badge-content')?.textContent.toLowerCase() || '';
+                const rowStatus = row.querySelector('.badge-active, .badge-inactive')?.textContent.toLowerCase() || '';
+                const matchRole = !role || rowRole.includes(role);
+                const matchStatus = !status || rowStatus.includes(status);
+                row.style.display = (matchRole && matchStatus) ? '' : 'none';
+                if (matchRole && matchStatus) hasResults = true;
+            });
+            document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
+        }
+
+        // Export data (simulated)
+        function exportData() {
+            showToast('success', 'Dữ liệu đã được xuất!');
+            // Implement CSV/Excel export here
+        }
+
+        // Pagination (simulated - add real logic)
+        document.querySelectorAll('.pagination button:not(:disabled)').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Handle page change
+            });
+        });
+    </script>
+</body>
+</html>

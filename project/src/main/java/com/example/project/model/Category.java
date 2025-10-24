@@ -17,7 +17,6 @@ public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int categoryID;
-
     private String name;
     private Integer categoryParentID;
 
@@ -26,6 +25,15 @@ public class Category {
 
     // Constructor mặc định
     public Category() {}
+    
+    
+    public Category(int categoryID, String name, Integer categoryParentID, List<Movie> movies) {
+        this.categoryID = categoryID;
+        this.name = name;
+        this.categoryParentID = categoryParentID;
+        this.movies = movies;
+    }
+
 
     // Getter và Setter
     public int getCategoryID() {

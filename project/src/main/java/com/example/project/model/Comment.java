@@ -37,6 +37,17 @@ public class Comment {
 
     public Comment() {
     }
+    
+    
+    public Comment(String content, Date createAt, String status, User user, Movie movie, Comment parentComment) {
+        this.content = content;
+        this.createAt = createAt;
+        this.status = status;
+        this.user = user;
+        this.movie = movie;
+        this.parentComment = parentComment;
+    }
+
 
     public int getCommentID() {
         return commentID;

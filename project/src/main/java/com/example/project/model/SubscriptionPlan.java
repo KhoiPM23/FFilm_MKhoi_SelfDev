@@ -26,6 +26,17 @@ public class SubscriptionPlan {
 
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL)
     private List<Subscription> subscriptions;
+    public SubscriptionPlan() {
+    }
+    public SubscriptionPlan(int planID, String planName, float price, String description, boolean isFeatured, boolean status, List<Subscription> subscriptions) {
+        this.planID = planID;
+        this.planName = planName;
+        this.price = price;
+        this.description = description;
+        this.isFeatured = isFeatured;
+        this.status = status;
+        this.subscriptions = subscriptions;
+    }
 
     public int getPlanID() {
         return planID;

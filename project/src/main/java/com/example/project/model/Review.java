@@ -28,6 +28,16 @@ public class Review {
     @ManyToOne
     @JoinColumn(name = "movieID")
     private Movie movie;
+    
+    public Review() {
+    }
+    public Review(int rating, Date createAt, User user, Movie movie) {
+        this.rating = rating;
+        this.createAt = createAt;
+        this.user = user;
+        this.movie = movie;
+    }
+
 
     public int getReviewID() {
         return reviewID;

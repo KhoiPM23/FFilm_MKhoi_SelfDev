@@ -30,6 +30,17 @@ public class Payment {
     @ManyToOne
     @JoinColumn(name = "subscriptionID")
     private Subscription subscription;
+    public Payment() {
+    }
+
+    public Payment(double amount, String method, Date paymentDate, String status, User user, Subscription subscription) {
+        this.amount = amount;
+        this.method = method;
+        this.paymentDate = paymentDate;
+        this.status = status;
+        this.user = user;
+        this.subscription = subscription;
+    }
 
     public int getPaymentID() {
         return paymentID;

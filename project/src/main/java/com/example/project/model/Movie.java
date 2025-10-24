@@ -66,6 +66,30 @@ public class Movie {
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     private List<Report> reports;
 
+    public Movie() {
+    }
+    
+
+    public Movie(int movieID, String title, String description, Date releaseDate, boolean isFree, int duration,
+            float rating, String url, List<Season> seasons, List<Person> persons, List<Category> categories,
+            List<Review> reviews, List<Comment> comments, List<Report> reports) {
+        this.movieID = movieID;
+        this.title = title;
+        this.description = description;
+        this.releaseDate = releaseDate;
+        this.isFree = isFree;
+        this.duration = duration;
+        this.rating = rating;
+        this.url = url;
+        this.seasons = seasons;
+        this.persons = persons;
+        this.categories = categories;
+        this.reviews = reviews;
+        this.comments = comments;
+        this.reports = reports;
+    }
+
+
     public int getMovieID() {
         return movieID;
     }

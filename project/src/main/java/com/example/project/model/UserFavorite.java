@@ -20,6 +20,14 @@ public class UserFavorite {
 
     private String type;
     private Date createAt;
+    public UserFavorite() {
+    }
+    public UserFavorite(int movieID, int userID, String type, Date createAt) {
+        this.movieID = movieID;
+        this.userID = userID;
+        this.type = type;
+        this.createAt = createAt;
+    }
     public int getMovieID() {
         return movieID;
     }

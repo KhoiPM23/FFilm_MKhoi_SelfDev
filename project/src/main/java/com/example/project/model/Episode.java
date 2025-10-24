@@ -28,8 +28,18 @@ public class Episode {
 
     public Episode() {
     }
+    
 
     // Getter/Setter
+
+    public Episode(int episodeID, String title, String videoUrl, Date releaseDate, Season season) {
+        this.episodeID = episodeID;
+        this.title = title;
+        this.videoUrl = videoUrl;
+        this.releaseDate = releaseDate;
+        this.season = season;
+    }
+
 
     public Season getSeason() {
         return season;

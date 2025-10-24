@@ -33,6 +33,17 @@ public class Report {
     @ManyToOne
     @JoinColumn(name = "commentID")
     private Comment comment;
+    public Report() {
+    }
+    public Report(String reason, Date createAt, String status, User user, Movie movie, Comment comment) {
+        this.reason = reason;
+        this.createAt = createAt;
+        this.status = status;
+        this.user = user;
+        this.movie = movie;
+        this.comment = comment;
+    }
+    
 
     public int getReportID() {
         return reportID;
