@@ -49,7 +49,7 @@ public class User {
         if (this.password != null && !this.password.startsWith("$2a$")){
             this.password = encoder.encode(this.password);
         }
-    }
+    }   
     public User() {
     }
     public User(int userID, String userName, String email, String password, String role, boolean status, String phoneNumber, List<Comment> comments, List<Review> reviews, List<Report> reports, List<Subscription> subscriptions, List<Payment> payments) {
