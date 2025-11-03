@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,6 +15,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
     @Entity
 @Table(name = "Season")
@@ -21,8 +25,15 @@ public class Season {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int seasonID;
+
+    @NotNull(message = "seasonNumber is required")
     private int seasonNumber;
+
+    @NotBlank(message = "Title is required")
     private String title;
+
+    @NotNull(message="realaseDate is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date releaseDate;
 
     @ManyToOne

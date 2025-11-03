@@ -2,6 +2,7 @@ package com.example.project.model;
 
 import java.util.List;
 
+import io.micrometer.common.lang.NonNull;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,6 +10,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "SubscriptionPlan")
@@ -18,17 +21,28 @@ public class SubscriptionPlan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int planID;
 
+    @NotBlank(message = "planName is not null")
     private String planName;
+
+    @NotNull(message = "price is required")
     private float price;
+
+    @NotBlank(message = "description  is not null")
     private String description;
+
+    @NotBlank(message = "isFeatured  is not null")
     private boolean isFeatured;
+    @NotBlank(message = "status  is not null")
     private boolean status;
 
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL)
     private List<Subscription> subscriptions;
+
     public SubscriptionPlan() {
     }
-    public SubscriptionPlan(int planID, String planName, float price, String description, boolean isFeatured, boolean status, List<Subscription> subscriptions) {
+
+    public SubscriptionPlan(int planID, String planName, float price, String description, boolean isFeatured,
+            boolean status, List<Subscription> subscriptions) {
         this.planID = planID;
         this.planName = planName;
         this.price = price;
@@ -94,5 +108,4 @@ public class SubscriptionPlan {
         this.subscriptions = subscriptions;
     }
 
-    
 }

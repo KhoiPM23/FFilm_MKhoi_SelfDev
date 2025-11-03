@@ -260,10 +260,95 @@
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
     <script>
-
-        // Basic JavaScript for interactivity (CRUD logic would be in backend)
+        // Dynamic JS: fetch users from backend and perform CRUD via API
         let currentMode = 'add';
         let currentId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+            document.getElementById('searchInput').addEventListener('input', applySearch);
+            document.getElementById('roleFilter').addEventListener('change', applyFilters);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.querySelectorAll('.pagination button:not(:disabled)').forEach(btn => btn.addEventListener('click', () => {}));
+        });
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                if (!res.ok) throw new Error('Failed to load users');
+                const users = await res.json();
+                renderUsers(users);
+            } catch (err) {
+                console.error(err);
+                showToast('error', 'Không thể tải danh sách người dùng');
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('accountTable');
+            tbody.innerHTML = '';
+            if (!users || users.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+            document.getElementById('emptyState').style.display = 'none';
+
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+
+                const avatarLetter = (user.userName || user.email || 'U').charAt(0).toUpperCase();
+
+                tr.innerHTML = `
+                    <td>
+                        <div class="user-info">
+                            <div class="user-avatar">${avatarLetter}</div>
+                            <div class="user-details">
+                                <h4>${escapeHtml(user.userName || user.email || '')}</h4>
+                                <p>${escapeHtml(user.email || '')}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${renderRoleBadge(user.role)}</td>
+                    <td>${renderStatusBadge(user.status)}</td>
+                    <td>-</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-edit" onclick="openModal('edit', ${user.userID})"><i class="fas fa-edit"></i> Sửa</button>
+                            <button class="btn btn-danger" onclick="deleteAccount(${user.userID})"><i class="fas fa-trash"></i> Xóa</button>
+                        </div>
+                    </td>
+                `;
+
+                // attach data attrs for filter/search convenience
+                tr.dataset.role = (user.role || '').toLowerCase();
+                tr.dataset.status = (user.status ? 'active' : 'inactive');
+
+                tbody.appendChild(tr);
+            });
+
+            // update stats
+            document.getElementById('totalUsers').textContent = users.length;
+            document.getElementById('totalModerators').textContent = users.filter(u => (u.role || '').toLowerCase() === 'moderator').length;
+            document.getElementById('totalContent').textContent = users.filter(u => (u.role || '').toLowerCase() === 'content').length;
+        }
+
+        function renderRoleBadge(role) {
+            if (!role) return '<span class="badge">-</span>';
+            const lower = role.toLowerCase();
+            if (lower === 'moderator') return '<span class="badge badge-moderator">Moderator</span>';
+            if (lower === 'content') return '<span class="badge badge-content">Content Manager</span>';
+            return `<span class="badge">${escapeHtml(role)}</span>`;
+        }
+
+        function renderStatusBadge(status) {
+            if (status === true || status === 'true' || status === 1) return '<span class="badge badge-active">Hoạt động</span>';
+            return '<span class="badge badge-inactive">Không hoạt động</span>';
+        }
+
+        function escapeHtml(s){
+            if(!s) return '';
+            return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; });
+        }
 
         function openModal(mode, id = null) {
             currentMode = mode;
@@ -278,12 +363,20 @@
                 document.getElementById('password').required = true;
             } else {
                 title.textContent = 'Sửa tài khoản';
-                // Load data here (simulated)
-                document.getElementById('username').value = 'mod_user1'; // Replace with real data fetch
-                document.getElementById('email').value = 'mod1@example.com';
-                document.getElementById('role').value = 'moderator';
-                document.getElementById('status').value = 'active';
                 document.getElementById('password').required = false;
+                // fetch data from server
+                fetch(`/api/users/${id}`).then(r => {
+                    if (!r.ok) throw new Error('Không tìm thấy người dùng');
+                    return r.json();
+                }).then(user => {
+                    document.getElementById('username').value = user.userName || '';
+                    document.getElementById('email').value = user.email || '';
+                    document.getElementById('role').value = user.role || '';
+                    document.getElementById('status').value = user.status ? 'active' : 'inactive';
+                }).catch(err => {
+                    showToast('error', 'Không thể tải thông tin người dùng');
+                    console.error(err);
+                });
             }
 
             modal.classList.add('active');
@@ -293,18 +386,51 @@
             document.getElementById('accountModal').classList.remove('active');
         }
 
-        function saveAccount() {
-            // Simulate save (add backend API call here)
-            showToast('success', currentMode === 'add' ? 'Tài khoản đã được thêm!' : 'Tài khoản đã được cập nhật!');
-            closeModal();
-            // Refresh table data
+        async function saveAccount() {
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const statusVal = document.getElementById('status').value;
+            const status = statusVal === 'active';
+
+            if (!username || !email) { showToast('error', 'Tên và email là bắt buộc'); return; }
+
+            const payload = { userName: username, email, role, status };
+            if (password) payload.password = password;
+
+            try {
+                let res;
+                if (currentMode === 'add') {
+                    res = await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                } else {
+                    res = await fetch(`/api/users/${currentId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                }
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || 'Server error');
+                }
+
+                showToast('success', currentMode === 'add' ? 'Tài khoản đã được thêm!' : 'Tài khoản đã được cập nhật!');
+                closeModal();
+                loadUsers();
+            } catch (err) {
+                console.error(err);
+                showToast('error', 'Lưu thất bại: ' + (err.message || ''));
+            }
         }
 
-        function deleteAccount(id) {
-            if (confirm('Bạn có chắc muốn xóa tài khoản này?')) {
-                // Simulate delete (add backend API call)
-                showToast('error', 'Tài khoản đã được xóa!');
-                // Remove row from table
+        async function deleteAccount(id) {
+            if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) return;
+            try {
+                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Delete failed');
+                showToast('success', 'Tài khoản đã được xóa!');
+                loadUsers();
+            } catch (err) {
+                console.error(err);
+                showToast('error', 'Xóa thất bại');
             }
         }
 
@@ -322,22 +448,18 @@
             setTimeout(() => { toast.style.display = 'none'; }, 3000);
         }
 
-        // Search functionality
-        document.getElementById('searchInput').addEventListener('input', function () {
-            const search = this.value.toLowerCase();
+        function applySearch() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
             const rows = document.querySelectorAll('#accountTable tr');
             let hasResults = false;
             rows.forEach(row => {
                 const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(search) ? '' : 'none';
-                if (text.includes(search)) hasResults = true;
+                const show = text.includes(search);
+                row.style.display = show ? '' : 'none';
+                if (show) hasResults = true;
             });
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
-        });
-
-        // Filter functionality (simulated)
-        document.getElementById('roleFilter').addEventListener('change', applyFilters);
-        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+        }
 
         function applyFilters() {
             const role = document.getElementById('roleFilter').value;
@@ -345,28 +467,16 @@
             const rows = document.querySelectorAll('#accountTable tr');
             let hasResults = false;
             rows.forEach(row => {
-                const rowRole = row.querySelector('.badge-moderator, .badge-content')?.textContent.toLowerCase() || '';
-                const rowStatus = row.querySelector('.badge-active, .badge-inactive')?.textContent.toLowerCase() || '';
+                const rowRole = row.dataset.role || '';
+                const rowStatus = row.dataset.status || '';
                 const matchRole = !role || rowRole.includes(role);
                 const matchStatus = !status || rowStatus.includes(status);
-                row.style.display = (matchRole && matchStatus) ? '' : 'none';
-                if (matchRole && matchStatus) hasResults = true;
+                const show = matchRole && matchStatus;
+                row.style.display = show ? '' : 'none';
+                if (show) hasResults = true;
             });
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
         }
-
-        // Export data (simulated)
-        function exportData() {
-            showToast('success', 'Dữ liệu đã được xuất!');
-            // Implement CSV/Excel export here
-        }
-
-        // Pagination (simulated - add real logic)
-        document.querySelectorAll('.pagination button:not(:disabled)').forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Handle page change
-            });
-        });
     </script>
 </body>
 
