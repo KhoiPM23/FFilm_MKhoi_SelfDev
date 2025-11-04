@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+<style>
 /* --- base --- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#141414; color:#fff; min-height:100vh; padding-top:70px; }
@@ -553,6 +554,8 @@ a { color: inherit; text-decoration: none; }
 })();
 </script>
 
+<div th:replace="fragments/ai-chat :: ai-chat"></div>
+<script th:src="@{/js/movie/ai-agent.js}" defer></script>
 
 </body>
 </html>

@@ -5,7 +5,8 @@
     <title th:text="${banner.title}">Trang chủ</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+<style>
 * {
     margin: 0;
     padding: 0;
@@ -63,7 +64,7 @@ body {
 
 .hero-content {
     position: absolute;
-    bottom: 20%;
+    bottom: 25%;
     left: 50px;
     max-width: 600px;
     z-index: 10;
@@ -111,7 +112,7 @@ body {
 }
 
 .hero-description.expanded {
-    max-height: 150px;
+    max-height: 100px;
 }
 
 .description-toggle {
@@ -510,6 +511,95 @@ footer {
         </div>
     </div>
 
+    <!-- <div class="section-header">
+        <h2 class="section-title">🔥 Phim Hot</h2>
+        <div class="carousel-nav">
+            <button class="nav-btn prev-btn" id="hotPrevBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="nav-btn next-btn" id="hotNextBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="movie-carousel">
+        <div class="movie-slider" id="hotSlider">
+            <div th:each="movie : ${hotMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
+                    <div class="movie-overlay">
+                        <div class="play-btn">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">
+                        ⭐ <span th:text="${movie.rating}">8.5</span>
+                    </p>
+                </div>
+
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" 
+                         th:src="${movie.poster}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
+                    
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+
+                        <div class="hover-card-meta">
+                            <span class="meta-rating">
+                                <i class="fas fa-star"></i> 
+                                <span th:text="${movie.rating}">8.5</span>
+                            </span>
+                            <span class="meta-year" 
+                                  th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">
+                                2025
+                            </span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+
+                        <div class="hover-card-genres">
+                            <span class="genre-tag loading-genre">Đang tải...</span>
+                        </div>
+
+                        <p class="hover-card-description" 
+                           th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}">
+                            Mô tả ngắn về phim sẽ hiển thị ở đây...
+                        </p>
+
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" 
+                                    type="button"
+                                    th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                                <i class="fas fa-play"></i>
+                                Xem ngay
+                            </button>
+                            <button class="hover-add-btn" 
+                                    type="button"
+                                    th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'"
+                                    title="Thêm vào danh sách">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    
+
     <!-- <div th:each="movie : ${hotMovies}" class="movie-card">
         <div class="movie-poster">
             <img th:src="${movie.poster}" th:alt="${movie.title}">
@@ -790,13 +880,19 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) { console.error('header scroll error', e); }
 
     // ---------- description toggle (guarded) ----------
+    const heroBanner = document.querySelector('.hero-banner');
     try {
         const descToggle = safeQuery('#descToggle');
         const heroDesc = safeQuery('#heroDesc');
         if (descToggle && heroDesc) {
-            descToggle.addEventListener('click', () => {
+            descToggle.addEventListener('mouseenter', () => {
                 heroDesc.classList.toggle('expanded');
                 descToggle.classList.toggle('expanded');
+            });
+
+            heroBanner.addEventListener('mouseleave', () => {
+                heroDesc.classList.remove('expanded');
+                descToggle.classList.remove('expanded');
             });
         }
     } catch (e) { console.error('desc toggle error', e); }
@@ -948,6 +1044,215 @@ document.addEventListener('DOMContentLoaded', function () {
     window.stopAutoRotate = stopAutoRotate;
 });
 </script>
+
+<script>
+// ========== SAFE HOVER CARD ENHANCEMENT ==========
+(function() {
+    'use strict';
+    
+    const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+    const genreCache = new Map(); // Cache genres để tránh gọi API nhiều lần
+    let isGenreMapLoaded = false;
+    let genreMap = {};
+
+    // Load genre mapping một lần duy nhất
+    async function loadGenreMap() {
+        if (isGenreMapLoaded) return;
+        
+        try {
+            const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}&language=vi-VN`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (data.genres) {
+                data.genres.forEach(g => {
+                    genreMap[g.id] = g.name;
+                });
+                isGenreMapLoaded = true;
+                console.log('✅ Genre map loaded:', genreMap);
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not load genre map:', error);
+        }
+    }
+
+    // Enhanced hover card data loading
+    async function enhanceHoverCard(card) {
+        // Chỉ load một lần
+        if (card.dataset.enhanced === 'true') return;
+        
+        const movieId = card.dataset.movieId;
+        if (!movieId) return;
+
+        try {
+            // Check cache first
+            if (genreCache.has(movieId)) {
+                updateGenres(card, genreCache.get(movieId));
+                card.dataset.enhanced = 'true';
+                return;
+            }
+
+            // Fetch movie details
+            const response = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`);
+            if (!response.ok) throw new Error('Failed to fetch');
+
+            const movie = await response.json();
+            
+            // Update genres
+            if (movie.genres && movie.genres.length > 0) {
+                const genreNames = movie.genres.map(g => g.name);
+                genreCache.set(movieId, genreNames);
+                updateGenres(card, genreNames);
+            } else {
+                updateGenres(card, ['Khác']);
+            }
+
+            card.dataset.enhanced = 'true';
+            console.log('✅ Enhanced hover card for movie:', movieId);
+
+        } catch (error) {
+            console.warn('⚠️ Error enhancing hover card:', error);
+            // Fallback: keep loading state
+        }
+    }
+
+    function updateGenres(card, genreNames) {
+        const genresContainer = card.querySelector('.hover-card-genres');
+        if (!genresContainer) return;
+
+        genresContainer.innerHTML = genreNames.map(name => 
+            `<span class="genre-tag">${name}</span>`
+        ).join('');
+    }
+
+    // Safe hover handler với debounce
+    let hoverTimeout;
+    function handleCardHover(event) {
+        const card = event.currentTarget;
+        
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(() => {
+            enhanceHoverCard(card);
+        }, 300); // Delay 300ms trước khi load data
+    }
+
+    // Initialize hover cards
+    function initHoverCards() {
+        try {
+            const movieCards = document.querySelectorAll('.movie-card[data-movie-id]');
+            console.log(`🎬 Initializing ${movieCards.length} hover cards...`);
+
+            movieCards.forEach(card => {
+                // Tránh bind multiple times
+                if (card.dataset.hoverBound === 'true') return;
+
+                card.addEventListener('mouseenter', handleCardHover);
+                card.dataset.hoverBound = 'true';
+
+                // Adjust position nếu card gần edge
+                const hoverCard = card.querySelector('.movie-hover-card');
+                if (hoverCard) {
+                    card.addEventListener('mouseenter', function adjustPosition() {
+                        const rect = card.getBoundingClientRect();
+                        const hoverWidth = 320;
+                        const spaceRight = window.innerWidth - rect.right;
+                        
+                        if (spaceRight < hoverWidth - 180) {
+                            // Card gần edge bên phải
+                            hoverCard.style.left = 'auto';
+                            hoverCard.style.right = '-20px';
+                        } else {
+                            // Normal position
+                            hoverCard.style.left = '-20px';
+                            hoverCard.style.right = 'auto';
+                        }
+                    });
+                }
+            });
+
+            console.log('✅ Hover cards initialized successfully');
+
+        } catch (error) {
+            console.error('❌ Error initializing hover cards:', error);
+        }
+    }
+
+    // Add to list function (placeholder)
+    window.addToList = function(movieId) {
+        try {
+            let myList = JSON.parse(localStorage.getItem('myList') || '[]');
+            
+            if (!myList.includes(movieId)) {
+                myList.push(movieId);
+                localStorage.setItem('myList', JSON.stringify(myList));
+                showToast('Đã thêm vào danh sách của tôi', 'success');
+            } else {
+                showToast('Phim đã có trong danh sách', 'info');
+            }
+        } catch (error) {
+            console.error('Error adding to list:', error);
+            showToast('Có lỗi xảy ra', 'error');
+        }
+    };
+
+    // Toast notification
+    function showToast(message, type = 'success') {
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                background: #1f1f1f;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                z-index: 10000;
+                opacity: 0;
+                transform: translateY(20px);
+                transition: all 0.3s;
+                border-left: 4px solid ${type === 'success' ? '#46d369' : type === 'error' ? '#e50914' : '#3b82f6'};
+            `;
+            document.body.appendChild(toast);
+        }
+
+        toast.textContent = message;
+        toast.style.borderLeftColor = type === 'success' ? '#46d369' : type === 'error' ? '#e50914' : '#3b82f6';
+
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        }, 100);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(20px)';
+        }, 3000);
+    }
+
+    // Initialize when DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGenreMap();
+            initHoverCards();
+        });
+    } else {
+        loadGenreMap();
+        initHoverCards();
+    }
+
+    // Re-initialize after dynamic content load
+    window.reinitHoverCards = initHoverCards;
+
+})();
+</script>
+
+<div th:replace="fragments/ai-chat :: ai-chat"></div>
+<script th:src="@{/js/movie/ai-agent.js}" defer></script>
 
 </body>
 </html>

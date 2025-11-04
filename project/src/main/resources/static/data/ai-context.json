@@ -1,0 +1,109 @@
+{
+  "about": "FFilm là nền tảng xem phim trực tuyến hàng đầu Việt Nam với hơn 15,000 bộ phim và chương trình truyền hình chất lượng cao. Chúng tôi cam kết mang đến trải nghiệm giải trí tốt nhất với công nghệ streaming hiện đại và thư viện nội dung đa dạng từ Hollywood đến Châu Á.",
+  
+  "features": [
+    "Thư viện phim khổng lồ với 15,000+ bộ phim và series",
+    "Chất lượng streaming HD, Full HD, 4K với công nghệ adaptive bitrate",
+    "Không quảng cáo làm gián đoạn trải nghiệm xem",
+    "Hỗ trợ xem trên mọi thiết bị: Smart TV, điện thoại, máy tính bảng, laptop",
+    "Tải phim offline để xem khi không có internet",
+    "Phụ đề đa ngôn ngữ (Tiếng Việt, Tiếng Anh, ...)",
+    "Gợi ý phim thông minh dựa trên sở thích cá nhân",
+    "Hỗ trợ nhiều profile cho gia đình (tối đa 5 người dùng/tài khoản)"
+  ],
+
+  "plans": [
+    {
+      "name": "Gói Miễn Phí",
+      "price": "0đ/tháng",
+      "description": "Xem phim có quảng cáo, chất lượng SD, thư viện giới hạn. Phù hợp để trải nghiệm dịch vụ.",
+      "features": [
+        "Thư viện phim giới hạn (~1,000 bộ)",
+        "Chất lượng SD (480p)",
+        "Có quảng cáo",
+        "Xem trên 1 thiết bị"
+      ]
+    },
+    {
+      "name": "Gói Cơ Bản",
+      "price": "79,000đ/tháng",
+      "description": "Không quảng cáo, chất lượng HD, xem trên 2 thiết bị đồng thời. Tiết kiệm và đầy đủ tính năng.",
+      "features": [
+        "Thư viện đầy đủ 15,000+ bộ phim",
+        "Chất lượng HD (720p)",
+        "Không quảng cáo",
+        "Xem trên 2 thiết bị đồng thời",
+        "Tải phim offline"
+      ]
+    },
+    {
+      "name": "Gói Premium",
+      "price": "149,000đ/tháng",
+      "description": "Trải nghiệm cao cấp với 4K, xem trên 4 thiết bị, phụ đề đa ngôn ngữ. Dành cho gia đình và người yêu phim.",
+      "features": [
+        "Thư viện đầy đủ + nội dung độc quyền",
+        "Chất lượng 4K Ultra HD",
+        "Không quảng cáo",
+        "Xem trên 4 thiết bị đồng thời",
+        "Tải phim offline không giới hạn",
+        "Phụ đề đa ngôn ngữ",
+        "Âm thanh Dolby Atmos"
+      ]
+    },
+    {
+      "name": "Gói Gia Đình",
+      "price": "199,000đ/tháng",
+      "description": "Tất cả tính năng Premium + 5 profile riêng biệt, kiểm soát nội dung trẻ em. Tối ưu cho cả nhà.",
+      "features": [
+        "Tất cả tính năng Gói Premium",
+        "5 profile người dùng riêng biệt",
+        "Chế độ Kiểm soát trẻ em (Kids Mode)",
+        "Xem trên 6 thiết bị đồng thời",
+        "Ưu tiên hỗ trợ khách hàng 24/7"
+      ]
+    }
+  ],
+
+  "policies": {
+    "Hoàn tiền": "Chúng tôi cam kết hoàn lại 100% số tiền nếu bạn không hài lòng trong vòng 14 ngày đầu tiên kể từ ngày đăng ký. Không hỏi lý do.",
+    "Bảo mật": "Thông tin cá nhân và thanh toán của bạn được mã hóa SSL 256-bit và tuân thủ tiêu chuẩn PCI DSS. Chúng tôi không chia sẻ dữ liệu với bên thứ ba.",
+    "Hủy đăng ký": "Bạn có thể hủy đăng ký bất cứ lúc nào mà không mất phí. Tài khoản sẽ còn hoạt động đến hết chu kỳ thanh toán hiện tại.",
+    "Sử dụng hợp lý": "Mỗi tài khoản chỉ được dùng cho mục đích cá nhân/gia đình. Nghiêm cấm chia sẻ tài khoản công khai hoặc thương mại hóa.",
+    "Bản quyền": "Tất cả nội dung trên FFilm đều có bản quyền hợp pháp. Nghiêm cấm tải xuống, sao chép hoặc phân phối lại dưới mọi hình thức.",
+    "Hỗ trợ kỹ thuật": "Đội ngũ hỗ trợ 24/7 qua chat, email (support@ffilm.vn) và hotline 1900-xxxx. Thời gian phản hồi trung bình dưới 2 giờ."
+  },
+
+  "faq": [
+    {
+      "question": "FFilm có miễn phí không?",
+      "answer": "Có, chúng tôi có Gói Miễn Phí với thư viện phim giới hạn và có quảng cáo. Bạn có thể nâng cấp lên gói trả phí bất cứ lúc nào."
+    },
+    {
+      "question": "Tôi có thể xem trên bao nhiêu thiết bị?",
+      "answer": "Tùy gói: Gói Cơ Bản (2 thiết bị), Premium (4 thiết bị), Gia Đình (6 thiết bị). Bạn có thể đăng nhập trên nhiều thiết bị nhưng chỉ xem đồng thời theo giới hạn gói."
+    },
+    {
+      "question": "Làm sao để tải phim về xem offline?",
+      "answer": "Chỉ cần nhấn nút Tải xuống ở trang chi tiết phim (icon mũi tên xuống). Phim sẽ lưu trong ứng dụng di động và xóa tự động sau 30 ngày hoặc khi bạn hủy gói."
+    },
+    {
+      "question": "Có phim Việt Nam không?",
+      "answer": "Có! Chúng tôi có hơn 500 bộ phim Việt Nam bao gồm phim điện ảnh, web series và phim tài liệu. Tìm kiếm bằng từ khóa 'Việt Nam' hoặc vào mục Thể loại > Phim Việt."
+    },
+    {
+      "question": "Phương thức thanh toán nào được hỗ trợ?",
+      "answer": "Chúng tôi hỗ trợ: Thẻ ngân hàng (Visa, Mastercard, JCB), Ví điện tử (MoMo, ZaloPay, VNPay), chuyển khoản ngân hàng và thẻ cào điện thoại."
+    }
+  ],
+
+  "contact": {
+    "email": "support@ffilm.vn",
+    "hotline": "1900-xxxx",
+    "address": "Tầng 15, Tòa nhà FPT, Đà Nẵng, Việt Nam",
+    "socialMedia": {
+      "facebook": "https://facebook.com/ffilm",
+      "twitter": "https://twitter.com/ffilm",
+      "instagram": "https://instagram.com/ffilm"
+    }
+  }
+}
