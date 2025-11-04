@@ -2,6 +2,8 @@ package com.example.project.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "Review")
@@ -17,8 +20,12 @@ public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int reviewID;
-
+    
+    @NotNull(message = "rating is required")
     private int rating;
+
+    @NotNull(message="createAt is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date createAt;
 
     @ManyToOne
@@ -28,6 +35,16 @@ public class Review {
     @ManyToOne
     @JoinColumn(name = "movieID")
     private Movie movie;
+    
+    public Review() {
+    }
+    public Review(int rating, Date createAt, User user, Movie movie) {
+        this.rating = rating;
+        this.createAt = createAt;
+        this.user = user;
+        this.movie = movie;
+    }
+
 
     public int getReviewID() {
         return reviewID;

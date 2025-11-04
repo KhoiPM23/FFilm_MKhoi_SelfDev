@@ -2,6 +2,8 @@ package com.example.project.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "Subscription")
@@ -18,8 +21,14 @@ public class Subscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int subscriptionID;
 
+    @NotNull(message = "startDate is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date startDate;
+
+    @NotNull(message = "endDate is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date endDate;
+    
     private boolean status;
 
     @ManyToOne
@@ -29,6 +38,17 @@ public class Subscription {
     @ManyToOne
     @JoinColumn(name = "planID")
     private SubscriptionPlan plan;
+
+    public Subscription() {
+    }
+
+    public Subscription(Date startDate, Date endDate, boolean status, User user, SubscriptionPlan plan) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.status = status;
+        this.user = user;
+        this.plan = plan;
+    }
 
     public int getSubscriptionID() {
         return subscriptionID;
@@ -78,5 +98,4 @@ public class Subscription {
         this.plan = plan;
     }
 
-    
 }

@@ -9,6 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+
 
 @Entity
 @Table(name = "Category")
@@ -17,7 +19,7 @@ public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int categoryID;
-
+    @NotBlank(message = "name is required")
     private String name;
     private Integer categoryParentID;
 
@@ -26,6 +28,15 @@ public class Category {
 
     // Constructor mặc định
     public Category() {}
+    
+    
+    public Category(int categoryID, String name, Integer categoryParentID, List<Movie> movies) {
+        this.categoryID = categoryID;
+        this.name = name;
+        this.categoryParentID = categoryParentID;
+        this.movies = movies;
+    }
+
 
     // Getter và Setter
     public int getCategoryID() {

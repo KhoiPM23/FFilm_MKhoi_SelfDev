@@ -2,6 +2,8 @@ package com.example.project.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,6 +11,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 
 @Entity
@@ -18,8 +22,12 @@ public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int commentID;
-
+    
+    @NotBlank(message = "content is required")
     private String content;
+
+    @NotNull(message = "CreateAt is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date createAt;
     private String status;
 
@@ -37,6 +45,17 @@ public class Comment {
 
     public Comment() {
     }
+    
+    
+    public Comment(String content, Date createAt, String status, User user, Movie movie, Comment parentComment) {
+        this.content = content;
+        this.createAt = createAt;
+        this.status = status;
+        this.user = user;
+        this.movie = movie;
+        this.parentComment = parentComment;
+    }
+
 
     public int getCommentID() {
         return commentID;

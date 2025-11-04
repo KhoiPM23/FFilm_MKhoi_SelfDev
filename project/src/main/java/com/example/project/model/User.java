@@ -8,21 +8,37 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Entity
-@Table(name = "User")
+@Table(name = "Users")
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int userID;
 
+    @NotBlank(message = "userName is not null")
     private String userName;
+
+    @NotBlank(message = "email is not null")
     private String email;
+
+    @NotBlank(message = "password is not null")
     private String password;
+
+    @NotBlank(message = "role is not null")
     private String role;
+
+    @NotBlank(message = "status is not null")
     private boolean status;
+
+    @NotBlank(message = "phoneNumber is not null")
     private String phoneNumber;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
@@ -39,6 +55,36 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Payment> payments;
+
+    private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    @PrePersist
+    @PreUpdate
+    public void hashPassword() {
+        if (this.password != null && !this.password.startsWith("$2a$")) {
+            this.password = encoder.encode(this.password);
+        }
+    }
+
+    public User() {
+    }
+
+    public User(int userID, String userName, String email, String password, String role, boolean status,
+            String phoneNumber, List<Comment> comments, List<Review> reviews, List<Report> reports,
+            List<Subscription> subscriptions, List<Payment> payments) {
+        this.userID = userID;
+        this.userName = userName;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.status = status;
+        this.phoneNumber = phoneNumber;
+        this.comments = comments;
+        this.reviews = reviews;
+        this.reports = reports;
+        this.subscriptions = subscriptions;
+        this.payments = payments;
+    }
 
     public int getUserID() {
         return userID;
@@ -136,6 +182,4 @@ public class User {
         this.payments = payments;
     }
 
-
-    
 }
