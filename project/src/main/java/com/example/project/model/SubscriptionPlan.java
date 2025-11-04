@@ -30,9 +30,7 @@ public class SubscriptionPlan {
     @NotBlank(message = "description  is not null")
     private String description;
 
-    @NotBlank(message = "isFeatured  is not null")
     private boolean isFeatured;
-    @NotBlank(message = "status  is not null")
     private boolean status;
 
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL)

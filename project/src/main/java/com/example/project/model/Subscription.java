@@ -29,7 +29,6 @@ public class Subscription {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private Date endDate;
     
-    @NotNull(message = "status is required")
     private boolean status;
 
     @ManyToOne
