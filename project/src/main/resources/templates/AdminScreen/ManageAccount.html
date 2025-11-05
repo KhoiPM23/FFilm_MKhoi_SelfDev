@@ -66,9 +66,9 @@
                         <i class="fas fa-users"></i>
                     </div>
                 </div>
-                <div class="stat-value" id="totalUsers">24</div>
+                <div class="stat-value" id="totalUsers">0</div>
                 <div class="stat-change">
-                    <i class="fas fa-arrow-up"></i> +3 tuần này
+                    <i class="fas fa-arrow-up"></i> +0 tuần này
                 </div>
             </div>
 
@@ -79,9 +79,9 @@
                         <i class="fas fa-shield-alt"></i>
                     </div>
                 </div>
-                <div class="stat-value" id="totalModerators">8</div>
+                <div class="stat-value" id="totalModerators">0</div>
                 <div class="stat-change">
-                    <i class="fas fa-arrow-up"></i> +1 tuần này
+                    <i class="fas fa-arrow-up"></i> +0 tuần này
                 </div>
             </div>
 
@@ -92,9 +92,9 @@
                         <i class="fas fa-edit"></i>
                     </div>
                 </div>
-                <div class="stat-value" id="totalContent">12</div>
+                <div class="stat-value" id="totalContent">0</div>
                 <div class="stat-change">
-                    <i class="fas fa-arrow-up"></i> +2 tuần này
+                    <i class="fas fa-arrow-up"></i> +0 tuần này
                 </div>
             </div>
         </div>
@@ -125,66 +125,11 @@
                         <th>Tài khoản</th>
                         <th>Vai trò</th>
                         <th>Trạng thái</th>
-                        <th>Ngày tạo</th>
                         <th>Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="accountTable">
-                    <!-- Sample Data - Replace with dynamic data in backend -->
-                    <tr>
-                        <td>
-                            <div class="user-info">
-                                <div class="user-avatar">M</div>
-                                <div class="user-details">
-                                    <h4>mod_user1</h4>
-                                    <p><a href="/cdn-cgi/l/email-protection" class="__cf_email__"
-                                            data-cfemail="98f5f7fca9d8fde0f9f5e8f4fdb6fbf7f5">[email&#160;protected]</a>
-                                    </p>
-                                </div>
-                            </div>
-                        </td>
-                        <td><span class="badge badge-moderator">Moderator</span></td>
-                        <td><span class="badge badge-active">Hoạt động</span></td>
-                        <td>2025-09-01</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn btn-edit" onclick="openModal('edit', '1')">
-                                    <i class="fas fa-edit"></i> Sửa
-                                </button>
-                                <button class="btn btn-danger" onclick="deleteAccount('1')">
-                                    <i class="fas fa-trash"></i> Xóa
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="user-info">
-                                <div class="user-avatar">C</div>
-                                <div class="user-details">
-                                    <h4>content_user2</h4>
 
-                                    <p><a href="/cdn-cgi/l/email-protection" class="__cf_email__"
-                                            data-cfemail="8deee2e3f9e8e3f9bfcde8f5ece0fde1e8a3eee2e0">[email&#160;protected]</a>
-                                    </p>
-                                </div>
-                            </div>
-                        </td>
-                        <td><span class="badge badge-content">Content Manager</span></td>
-                        <td><span class="badge badge-inactive">Không hoạt động</span></td>
-                        <td>2025-08-15</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn btn-edit" onclick="openModal('edit', '2')">
-                                    <i class="fas fa-edit"></i> Sửa
-                                </button>
-                                <button class="btn btn-danger" onclick="deleteAccount('2')">
-                                    <i class="fas fa-trash"></i> Xóa
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <!-- Add more rows as needed -->
                 </tbody>
             </table>
             <div id="emptyState" class="empty-state" style="display: none;">
@@ -195,13 +140,7 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination">
-            <button disabled><i class="fas fa-chevron-left"></i></button>
-            <button class="active">1</button>
-            <button>2</button>
-            <button>3</button>
-            <button><i class="fas fa-chevron-right"></i></button>
-        </div>
+        <div class="pagination" id="pagination"></div>
     </div>
 
     <!-- Modal for Add/Edit Account -->
@@ -260,94 +199,117 @@
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
     <script>
-        // Dynamic JS: fetch users from backend and perform CRUD via API
         let currentMode = 'add';
         let currentId = null;
+        let currentPage = 0;
+        let pageSize = 5; // Số item mỗi trang
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
             document.getElementById('searchInput').addEventListener('input', applySearch);
-            document.getElementById('roleFilter').addEventListener('change', applyFilters);
-            document.getElementById('statusFilter').addEventListener('change', applyFilters);
-            document.querySelectorAll('.pagination button:not(:disabled)').forEach(btn => btn.addEventListener('click', () => {}));
+            document.getElementById('roleFilter').addEventListener('change', () => { currentPage = 0; loadUsers(); });
+            document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 0; loadUsers(); });
         });
 
         async function loadUsers() {
             try {
-                const res = await fetch('/api/users');
-                if (!res.ok) throw new Error('Failed to load users');
-                const users = await res.json();
-                renderUsers(users);
+                const role = document.getElementById('roleFilter').value;
+                const status = document.getElementById('statusFilter').value;
+                let url = `/api/users/paged?page=${currentPage}&size=${pageSize}`;
+                if (role) url = `/api/users/role/${role}/paged?page=${currentPage}&size=${pageSize}`;
+                else if (status) url = `/api/users/status/${status === 'active' ? 'true' : 'false'}/paged?page=${currentPage}&size=${pageSize}`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to load users: ' + res.status);
+                const data = await res.json();
+                if (!data.content || !Array.isArray(data.content)) throw new Error('Invalid data format');
+
+                // Cập nhật stats
+                document.getElementById('totalUsers').textContent = data.totalElements || 0;
+                document.getElementById('totalModerators').textContent = data.content.filter(u => u.role?.toLowerCase() === 'moderator').length || 0;
+                document.getElementById('totalContent').textContent = data.content.filter(u => u.role?.toLowerCase() === 'content_manager').length || 0;
+
+                // Render table
+                const tbody = document.getElementById('accountTable');
+                tbody.innerHTML = ''; // Xóa nội dung cũ
+
+                data.content.forEach(user => {
+                    const tr = document.createElement('tr');
+                    const avatar = (user.userName || 'U').charAt(0).toUpperCase(); // Avatar từ userName
+
+                    // Định nghĩa rõ ràng từng cột để tránh lỗi cú pháp
+                    tr.innerHTML = `
+        <td>
+            <div class="user-info">
+                <div class="user-avatar">${avatar}</div>
+                <div class="user-details">
+                    <h4>${escapeHtml(user.userName || '')}</h4>
+                </div>
+            </div>
+        </td>
+        <td>${renderRoleBadge(user.role) || '<span class="badge">-</span>'}</td>
+        <td>${renderStatusBadge(user.status) || '<span class="badge">-</span>'}</td>
+        <td>
+            <div class="action-buttons">
+                <button class="btn btn-edit" onclick="openModal('edit', ${user.userID || 0})"><i class="fas fa-edit"></i> Sửa</button>
+                <button class="btn btn-danger" onclick="deleteAccount(${user.userID || 0})"><i class="fas fa-trash"></i> Xóa</button>
+            </div>
+        </td>
+    `; 
+
+                    tr.dataset.role = (user.role || '').toLowerCase();
+                    tr.dataset.status = user.status ? 'active' : 'inactive';
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('emptyState').style.display = data.content.length === 0 ? 'block' : 'none';
+                renderPagination(data.totalPages, currentPage);
+
             } catch (err) {
-                console.error(err);
-                showToast('error', 'Không thể tải danh sách người dùng');
+                console.error('Load users error:', err);
+                showToast('error', 'Không thể tải danh sách người dùng: ' + err.message);
             }
         }
 
-        function renderUsers(users) {
-            const tbody = document.getElementById('accountTable');
-            tbody.innerHTML = '';
-            if (!users || users.length === 0) {
-                document.getElementById('emptyState').style.display = 'block';
-                return;
+        function renderPagination(totalPages, current) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            const prev = document.createElement('button');
+            prev.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prev.disabled = current === 0;
+            prev.onclick = () => { if (currentPage > 0) { currentPage--; loadUsers(); } };
+            pagination.appendChild(prev);
+
+            for (let i = 0; i < totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i + 1;
+                if (i === current) btn.classList.add('active');
+                btn.onclick = () => { currentPage = i; loadUsers(); };
+                pagination.appendChild(btn);
             }
-            document.getElementById('emptyState').style.display = 'none';
 
-            users.forEach(user => {
-                const tr = document.createElement('tr');
-
-                const avatarLetter = (user.userName || user.email || 'U').charAt(0).toUpperCase();
-
-                tr.innerHTML = `
-                    <td>
-                        <div class="user-info">
-                            <div class="user-avatar">${avatarLetter}</div>
-                            <div class="user-details">
-                                <h4>${escapeHtml(user.userName || user.email || '')}</h4>
-                                <p>${escapeHtml(user.email || '')}</p>
-                            </div>
-                        </div>
-                    </td>
-                    <td>${renderRoleBadge(user.role)}</td>
-                    <td>${renderStatusBadge(user.status)}</td>
-                    <td>-</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-edit" onclick="openModal('edit', ${user.userID})"><i class="fas fa-edit"></i> Sửa</button>
-                            <button class="btn btn-danger" onclick="deleteAccount(${user.userID})"><i class="fas fa-trash"></i> Xóa</button>
-                        </div>
-                    </td>
-                `;
-
-                // attach data attrs for filter/search convenience
-                tr.dataset.role = (user.role || '').toLowerCase();
-                tr.dataset.status = (user.status ? 'active' : 'inactive');
-
-                tbody.appendChild(tr);
-            });
-
-            // update stats
-            document.getElementById('totalUsers').textContent = users.length;
-            document.getElementById('totalModerators').textContent = users.filter(u => (u.role || '').toLowerCase() === 'moderator').length;
-            document.getElementById('totalContent').textContent = users.filter(u => (u.role || '').toLowerCase() === 'content').length;
+            const next = document.createElement('button');
+            next.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            next.disabled = current === totalPages - 1;
+            next.onclick = () => { if (currentPage < totalPages - 1) { currentPage++; loadUsers(); } };
+            pagination.appendChild(next);
         }
 
         function renderRoleBadge(role) {
             if (!role) return '<span class="badge">-</span>';
             const lower = role.toLowerCase();
             if (lower === 'moderator') return '<span class="badge badge-moderator">Moderator</span>';
-            if (lower === 'content') return '<span class="badge badge-content">Content Manager</span>';
+            if (lower === 'content_manager') return '<span class="badge badge-content">Content Manager</span>';
             return `<span class="badge">${escapeHtml(role)}</span>`;
         }
 
         function renderStatusBadge(status) {
-            if (status === true || status === 'true' || status === 1) return '<span class="badge badge-active">Hoạt động</span>';
-            return '<span class="badge badge-inactive">Không hoạt động</span>';
+            return status ? '<span class="badge badge-active">Hoạt động</span>' : '<span class="badge badge-inactive">Không hoạt động</span>';
         }
 
-        function escapeHtml(s){
-            if(!s) return '';
-            return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; });
+        function escapeHtml(s) {
+            if (!s) return '';
+            return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
         function openModal(mode, id = null) {
@@ -364,7 +326,6 @@
             } else {
                 title.textContent = 'Sửa tài khoản';
                 document.getElementById('password').required = false;
-                // fetch data from server
                 fetch(`/api/users/${id}`).then(r => {
                     if (!r.ok) throw new Error('Không tìm thấy người dùng');
                     return r.json();
@@ -391,10 +352,12 @@
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             const role = document.getElementById('role').value;
-            const statusVal = document.getElementById('status').value;
-            const status = statusVal === 'active';
+            const status = document.getElementById('status').value === 'active';
 
-            if (!username || !email) { showToast('error', 'Tên và email là bắt buộc'); return; }
+            if (!username || !email) {
+                showToast('error', 'Tên và email là bắt buộc');
+                return;
+            }
 
             const payload = { userName: username, email, role, status };
             if (password) payload.password = password;
@@ -402,9 +365,9 @@
             try {
                 let res;
                 if (currentMode === 'add') {
-                    res = await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 } else {
-                    res = await fetch(`/api/users/${currentId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    res = await fetch(`/api/users/${currentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 }
 
                 if (!res.ok) {
@@ -414,6 +377,7 @@
 
                 showToast('success', currentMode === 'add' ? 'Tài khoản đã được thêm!' : 'Tài khoản đã được cập nhật!');
                 closeModal();
+                currentPage = 0; // Reset về trang 1 sau khi thêm/sửa
                 loadUsers();
             } catch (err) {
                 console.error(err);
@@ -427,6 +391,7 @@
                 const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Delete failed');
                 showToast('success', 'Tài khoản đã được xóa!');
+                if (currentPage > 0 && document.getElementById('accountTable').children.length <= 1) currentPage--; // Quay lại trang trước nếu trang trống
                 loadUsers();
             } catch (err) {
                 console.error(err);
@@ -476,6 +441,11 @@
                 if (show) hasResults = true;
             });
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
+        }
+
+        function exportData() {
+            // Chưa implement, bạn có thể thêm logic export CSV/Excel sau
+            showToast('info', 'Chức năng xuất dữ liệu đang phát triển!');
         }
     </script>
 </body>
