@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Đăng ký - Phim Hay</title>
+    <meta charset="UTF-8">
+    <style>
+        body { background: #000; color: #fff; font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #1a1a1a; padding: 25px; border-radius: 10px; width: 320px; box-shadow: 0 0 15px rgba(255,0,0,0.5); }
+        h2 { color: #ff0000; text-align: center; }
+        input, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; }
+        input { border: 1px solid #ff0000; background: #333; color: #fff; }
+        button { background: #ff0000; border: none; color: #fff; font-weight: bold; cursor: pointer; }
+        button:hover { background: #cc0000; }
+        .error { color: #ff6666; text-align: center; margin-top: 10px; font-size: 14px; }
+        .success { color: #00ff00; text-align: center; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>ĐĂNG KÝ</h2>
+    <form id="registerForm">
+        <input type="text" id="userName" placeholder="Tên người dùng" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Mật khẩu" required>
+        <input type="text" id="phoneNumber" placeholder="Số điện thoại" required>
+        <button type="submit">Đăng ký</button>
+    </form>
+    <p id="message"></p>
+    <p style="text-align: center; margin-top: 15px;">
+        <a th:href="@{/login}" href="../Authentication/login.html" style="color: #ff0000;">Đã có tài khoản? Đăng nhập</a>
+    </p>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const user = {
+        userName: document.getElementById('userName').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        phoneNumber: document.getElementById('phoneNumber').value
+    };
+
+    const messageEl = document.getElementById('message');
+    messageEl.textContent = '';
+    messageEl.className = '';
+
+    try {
+        const response = await fetch('/api/register', {  // DÙNG API TRONG CONTROLLER
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            messageEl.textContent = 'Đăng ký thành công!';
+            messageEl.className = 'success';
+            setTimeout(() => window.location.href = '/login', 1500);
+        } else {
+            messageEl.textContent = result || 'Lỗi đăng ký';
+            messageEl.className = 'error';
+        }
+    } catch (err) {
+        messageEl.textContent = 'Lỗi kết nối server';
+        messageEl.className = 'error';
+    }
+});
+</script>
+</body>
+</html>
