@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Kết quả tìm kiếm: ' + ${query}">Tìm kiếm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+<style>
+/* --- base --- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#141414; color:#fff; min-height:100vh; padding-top:70px; }
+a { color: inherit; text-decoration: none; }
+
+/* container */
+.search-container { max-width:1400px; margin:0 auto; padding: 20px 50px 80px; }
+
+/* Search header + filter bar */
+.search-header { margin-bottom: 18px; }
+.search-title { font-size: 1.7rem; font-weight:700; margin-bottom:6px; }
+.search-title .query { color:#e50914; }
+
+.filter-bar {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin: 14px 0 26px;
+    position: sticky;
+    top:70px;
+    z-index: 30;
+    padding: 12px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* Search info banner */
+.search-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.85);
+    font-size: 0.9rem;
+    flex: 0 0 auto;
+}
+
+.search-info-banner i {
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
+/* search input in result page */
+.filter-search {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex: 1 1 320px;
+}
+.filter-search input[type="search"] {
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    color: white;
+    outline: none;
+}
+.filter-search button { padding:10px 12px; border-radius:8px; border:none; background:#e50914; color:white; cursor:pointer; }
+
+/* selects / controls */
+.filter-controls {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+.select, .small-input {
+    background: rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.06);
+    color: white;
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:0.9rem;
+}
+.select[multiple] { min-width: 200px; max-height: 160px; overflow:auto; }
+
+/* quick filters */
+.quick-filters { display:flex; gap:8px; align-items:center; }
+.qf-btn {
+    padding:8px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    background: transparent;
+    cursor:pointer;
+    color: rgba(255,255,255,0.9);
+    font-size:0.9rem;
+}
+.qf-btn.active { background:#e50914; border-color:#e50914; font-weight:600; color:white; }
+
+/* grid results */
+.results-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:24px; margin-top:18px; }
+@media (max-width:1200px) { .results-grid { grid-template-columns: repeat(4,1fr); } }
+@media (max-width:900px) { .results-grid { grid-template-columns: repeat(3,1fr); } }
+@media (max-width:600px) { .results-grid { grid-template-columns: repeat(2,1fr); } .search-container{ padding: 24px 14px; } }
+
+.movie-card { cursor:pointer; transition: transform .22s; position:relative; }
+.movie-card:hover { transform: scale(1.05); }
+.movie-poster { position:relative; border-radius:8px; overflow:hidden; aspect-ratio:2/3; background:#222; }
+.movie-poster img { width:100%; height:100%; object-fit:cover; display:block; }
+.movie-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.9), transparent); opacity:0; transition:opacity .22s; display:flex; align-items:center; justify-content:center; }
+.movie-card:hover .movie-overlay{ opacity:1; }
+.play-icon { width:48px; height:48px; border-radius:50%; background:rgba(229,9,20,0.95); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:white; }
+
+.movie-info { padding:10px 0; }
+.movie-title { font-size:0.95rem; font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; }
+.movie-meta { display:flex; justify-content:space-between; font-size:0.85rem; color:rgba(255,255,255,0.7); }
+.movie-rating { color:#ffd700; }
+
+/* pagination */
+.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin:36px 0 12px; flex-wrap:wrap; }
+.page-btn { min-width:40px; height:40px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:white; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; text-decoration:none; }
+.page-btn:hover:not(.active):not(.disabled) { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.4); }
+.page-btn.active { background:#e50914; border-color:#e50914; font-weight:600; }
+.page-btn.disabled { opacity:0.35; pointer-events:none; cursor:default; }
+.page-ellipsis { color:rgba(255,255,255,0.5); padding:0 8px; }
+
+/* related section, empty, error same as before */
+.related-section { margin-top: 80px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); }
+.section-title { font-size:1.3rem; font-weight:700; margin-bottom:16px; }
+.related-carousel { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+.related-card img { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:8px; margin-bottom:8px; }
+
+/* empty / error / buttons */
+.empty-state { text-align:center; padding:80px 20px; }
+.empty-icon { font-size:4rem; color: rgba(255,255,255,0.15); margin-bottom:20px; }
+.btn-back { padding:10px 20px; background:#e50914; color:white; border-radius:8px; display:inline-block; text-decoration:none; border:none; }
+
+/* small responsive tweaks */
+@media (max-width:900px) {
+    .filter-bar { top:62px; padding:10px; gap:8px; }
+    .select[multiple] { min-width: 160px; }
+}
+
+/* Inline filter groups */
+.filter-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+}
+
+.filter-label-inline {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+}
+
+/* Genre chips inline */
+.genre-chips-inline {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: 400px;
+}
+
+.genre-chip-inline {
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.genre-chip-inline:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.genre-chip-inline.active {
+    background: #e50914;
+    border-color: #e50914;
+    color: white;
+}
+
+/* Rating slider inline */
+.rating-slider-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rating-value-inline {
+    min-width: 28px;
+    font-weight: 600;
+    color: #e50914;
+    font-size: 0.9rem;
+}
+
+/* Apply button */
+.btn-apply-filter {
+    padding: 8px 16px;
+    background: #e50914;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-apply-filter:hover {
+    background: #f40612;
+    transform: translateY(-1px);
+}
+    </style>
+</head>
+<body>
+    <!-- Header (site header fragment) -->
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="search-container">
+        <!-- Error Banner -->
+        <div th:if="${error}" class="error-banner" style="padding:12px 14px; background: rgba(229,9,20,0.12); border-left:4px solid #e50914; border-radius:6px; margin-bottom:12px;">
+            <i class="fas fa-exclamation-circle" style="margin-right:8px;"></i>
+            <span th:text="${error}">Có lỗi xảy ra</span>
+        </div>
+
+        <!-- Search Header -->
+        <div class="search-header" th:if="${hasResults}">
+            <h1 class="search-title">
+                Tìm thấy <span th:text="${totalResults}">0</span> kết quả cho
+                <span class="query" th:text="'&quot;' + ${query} + '&quot;'">""</span>
+            </h1>
+
+            <!-- Active Filters Display -->
+            <div class="filter-controls">
+                <!-- Genre Filter (display-only chips) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Thể loại:</label>
+                    <div class="genre-chips-inline" id="genreChipsInline">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Year Range (display-only) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Năm:</label>
+                    <input id="display-year-from" type="number" min="1900" max="2100" placeholder="Từ" class="small-input" style="width:80px;" th:value="${yearFrom}">
+                    <span style="color:rgba(255,255,255,0.5);">-</span>
+                    <input id="display-year-to" type="number" min="1900" max="2100" placeholder="Đến" class="small-input" style="width:80px;" th:value="${yearTo}">
+                </div>
+
+                <!-- Rating (display-only range + value) -->
+                <div class="filter-group-inline">
+                    <label class="filter-label-inline">Rating:</label>
+                    <div class="rating-slider-inline">
+                        <input type="range" id="display-minRatingRange" min="0" max="10" step="0.5" style="width:100px;" th:value="${minRating}">
+                        <span class="rating-value-inline" id="ratingValueInline">0.0</span>
+                    </div>
+                </div>
+
+                <!-- Quick Filters (display-only hidden for visual) -->
+                <div class="quick-filters">
+                    <input type="hidden" id="display-quickFilterInput" name="displayQuickFilter" th:value="${quickFilter}">
+                    <button type="button" class="qf-btn" data-filter="trending" title="Thịnh hành"><i class="fas fa-fire"></i></button>
+                    <button type="button" class="qf-btn" data-filter="new" title="Mới nhất"><i class="fas fa-star"></i></button>
+                    <button type="button" class="qf-btn" data-filter="top-rated" title="Đánh giá cao"><i class="fas fa-trophy"></i></button>
+                </div>
+
+                <!-- Apply (for display header it's optional; real submit happens in the form below) -->
+                <button type="button" class="btn-apply-filter" id="display-apply-btn">
+                    <i class="fas fa-check"></i> Áp dụng
+                </button>
+            </div>
+        </div>
+
+        
+
+        
+
+        <!-- Results Grid (container always present) -->
+        <div class="results-grid" id="resultsGridContainer">
+            <div th:if="${hasResults}" th:each="movie : ${searchResults}" class="movie-card"
+                th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                <!-- existing card markup unchanged -->
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
+                    <div class="movie-overlay">
+                        <button class="play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" aria-label="Xem phim">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="movie-info">
+                    <div class="movie-title" th:text="${movie.title}">Movie Title</div>
+                    <div class="movie-meta">
+                        <span class="movie-year" th:text="${movie.year}">2024</span>
+                        <span class="movie-rating">
+                            <i class="fas fa-star"></i>
+                            <span th:text="${movie.rating}">8.5</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- hover popup (kept) -->
+                <div class="movie-hover-card" aria-hidden="true">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span th:text="${movie.releaseDate != null and movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
+                            <span>HD</span>
+                        </div>
+                        <div class="hover-card-genres">
+                            <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
+                            <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
+                        </div>
+                        <p class="hover-card-description" th:text="${movie.overview != null ? movie.overview : 'Mô tả ngắn về phim.'}">
+                            Mô tả ngắn về phim sẽ hiển thị ở đây...
+                        </p>
+
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
+                                <i class="fas fa-play"></i> Xem ngay
+                            </button>
+                            <button class="hover-add-btn" type="button" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" th:if="${hasResults && totalPages > 1}">
+            <!-- Previous -->
+            <a th:if="${currentPage > 1}" href="#" class="page-btn" data-target-page="${currentPage - 1}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <span th:unless="${currentPage > 1}" class="page-btn disabled">
+                <i class="fas fa-chevron-left"></i>
+            </span>
+
+            <th:block th:with="startPage=${currentPage > 3 ? currentPage - 2 : 1}, endPage=${currentPage + 2 < totalPages ? currentPage + 2 : totalPages}">
+                <a th:if="${startPage > 1}" href="#" class="page-btn" data-target-page="1">1</a>
+                <span th:if="${startPage > 2}" class="page-ellipsis">...</span>
+
+                <th:block th:each="pageNum : ${#numbers.sequence(startPage, endPage)}">
+                    <a href="#" class="page-btn" th:classappend="${pageNum == currentPage} ? ' active' : ''" th:text="${pageNum}" th:attr="data-target-page=${pageNum}">1</a>
+                </th:block>
+
+                <span th:if="${endPage < totalPages - 1}" class="page-ellipsis">...</span>
+                <a th:if="${endPage < totalPages}" href="#" class="page-btn" th:attr="data-target-page=${totalPages}" th:text="${totalPages}">10</a>
+            </th:block>
+
+            <!-- Next -->
+            <a th:if="${currentPage < totalPages}" href="#" class="page-btn" data-target-page="${currentPage + 1}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            <span th:unless="${currentPage < totalPages}" class="page-btn disabled">
+                <i class="fas fa-chevron-right"></i>
+            </span>
+        </div>
+
+        <!-- Related Movies -->
+        <div class="related-section" th:if="${hasResults && !relatedMovies.isEmpty()}">
+            <h2 class="section-title">Có thể bạn cũng thích</h2>
+            <div class="related-carousel">
+                <div th:each="movie : ${relatedMovies}" class="related-card" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
+                    <div class="title" th:text="${movie.title}">Title</div>
+                    <div class="rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" th:unless="${hasResults}">
+            <div class="empty-icon"><i class="fas fa-search"></i></div>
+            <h2 class="empty-title">Không tìm thấy kết quả</h2>
+            <p class="empty-message" th:if="${query}">
+                Không có kết quả nào cho từ khóa "<strong th:text="${query}"></strong>"
+            </p>
+            <p class="empty-message" th:unless="${query}">
+                Vui lòng nhập từ khóa để tìm kiếm
+            </p>
+            <a href="/" class="btn-back"><i class="fas fa-home"></i> Về trang chủ</a>
+        </div>
+    </div>
+
+    <!-- Hidden server-data for robust client-side parsing -->
+    <div id="server-data" style="display:none;"
+     th:attr="data-selected-genres=${selectedGenres != null ? selectedGenres : '[]'},
+              data-year-from=${yearFrom != null ? yearFrom : ''},
+              data-year-to=${yearTo != null ? yearTo : ''},
+              data-min-rating=${minRating != null ? minRating : '0'},
+              data-quick-filter=${quickFilter != null ? quickFilter : ''},
+              data-query=${query != null ? query : ''}"></div>
+
+    <!-- Unified client-side search/render logic (paste exactly here) -->
+     
+    <script>
+(function(){
+  // cấu hình
+  const TMDB_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+  const TMDB_BASE = 'https://api.themoviedb.org/3';
+  const IMG_BASE = 'https://image.tmdb.org/t/p/w342';
+  const PAGE_CAP = 20; // giới hạn page để tránh quá nhiều request
+  const PAGE_DELAY_MS = 120;
+
+  // helper
+  function qs(name){ return new URLSearchParams(window.location.search).get(name) || ''; }
+  function createCard(m){
+    const card = document.createElement('div'); card.className='movie-card';
+    const posterWrap = document.createElement('div'); posterWrap.className='movie-poster';
+    const img = document.createElement('img'); img.loading='lazy';
+    img.alt = m.title||m.name||''; img.src = m.poster_path ? (IMG_BASE + m.poster_path) : (m.poster||'/img/placeholder.png');
+    posterWrap.appendChild(img);
+    const overlay = document.createElement('div'); overlay.className='movie-overlay';
+    const play = document.createElement('div'); play.className='play-icon'; play.innerHTML='<i class="fas fa-play"></i>';
+    overlay.appendChild(play); posterWrap.appendChild(overlay); card.appendChild(posterWrap);
+
+    const info = document.createElement('div'); info.className='movie-info';
+    const title = document.createElement('div'); title.className='movie-title'; title.textContent = m.title || m.name || 'Untitled';
+    const meta = document.createElement('div'); meta.className='movie-meta';
+    const year = document.createElement('span'); year.className='movie-year';
+    year.textContent = (m.release_date && m.release_date.length>=4) ? m.release_date.substring(0,4) : (m.year||'');
+    const rating = document.createElement('span'); rating.className='movie-rating';
+    rating.innerHTML = '<i class="fas fa-star"></i> ' + (m.vote_average ? Number(m.vote_average).toFixed(1) : (m.rating ? String(m.rating) : '—'));
+    meta.appendChild(year); meta.appendChild(rating); info.appendChild(title); info.appendChild(meta); card.appendChild(info);
+
+    if(m.id) card.addEventListener('click', ()=> window.location.href = '/movie/detail/' + m.id);
+    return card;
+  }
+
+  async function fetchAllSearch(query){
+    if(!query || !query.trim()) return [];
+    const u1 = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
+    const r1 = await fetch(u1);
+    if(!r1.ok) throw new Error('HTTP ' + r1.status);
+    const d1 = await r1.json();
+    const total = Math.min(d1.total_pages || 1, PAGE_CAP);
+    let all = Array.isArray(d1.results) ? d1.results.slice() : [];
+    for(let p=2; p<=total; p++){
+      try{
+        const u = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=${p}&include_adult=false`;
+        const r = await fetch(u);
+        if(!r.ok){ console.warn('Page', p, 'failed', r.status); break; }
+        const dd = await r.json();
+        if(Array.isArray(dd.results)) all = all.concat(dd.results);
+        await new Promise(res => setTimeout(res, PAGE_DELAY_MS));
+      } catch(e){
+        console.warn('fetch page error', p, e);
+        break;
+      }
+    }
+    return all;
+  }
+
+  function existingCardIds(container){
+    const ids = new Set();
+    (container.querySelectorAll('.movie-card')||[]).forEach(c=>{
+      // try read id from onclick attr or data-id; fallback: none
+      const on = c.getAttribute('onclick') || c.getAttribute('data-id') || '';
+      let id = null;
+      // pattern: /\/movie\/detail\/(\d+)/
+      const m = on.match && on.match(/\/movie\/detail\/(\d+)/);
+      if(m && m[1]) id = m[1];
+      // data-id attribute
+      if(!id && c.dataset && c.dataset.id) id = c.dataset.id;
+      if(id) ids.add(String(id));
+    });
+    return ids;
+  }
+
+  // chạy sau khi page + assets load xong (an toàn hơn DOMContentLoaded)
+  function runWhenReady(cb){
+    if(document.readyState === 'complete') return cb();
+    window.addEventListener('load', cb, {once:true});
+    // fallback: if load doesn't fire, try DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', ()=> setTimeout(cb, 50), {once:true});
+  }
+
+  runWhenReady(async function(){
+    try {
+      const resultsGrid = document.getElementById('resultsGridContainer') || (function(){
+        const sc = document.querySelector('.search-container') || document.body;
+        const d = document.createElement('div'); d.id='resultsGridContainer'; d.className='results-grid';
+        sc.insertBefore(d, sc.querySelector('.pagination') || sc.firstChild);
+        return d;
+      })();
+
+      const serverCount = resultsGrid.querySelectorAll('.movie-card').length;
+      console.log('Server rendered movie-card count =', serverCount);
+
+      // nếu server chỉ render 0 hoặc 1 card -> gọi API client để bung hết
+      if(serverCount <= 1){
+        const q = (document.getElementById('server-data') && document.getElementById('server-data').getAttribute('data-query')) || qs('query') || qs('q') || (document.querySelector('input[name="query"], input[name="q"]') && document.querySelector('input[name="query"], input[name="q"]').value) || '';
+        if(!q) { console.warn('No query found to search'); return; }
+        console.log('Fetching all TMDB pages for query:', q);
+        resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Đang tải tất cả kết quả...</div>';
+        const all = await fetchAllSearch(q);
+        if(!all || all.length === 0){
+          console.log('No results from TMDB for', q);
+          resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Không tìm thấy kết quả khác.</div>';
+          return;
+        }
+        // dedupe by id and append only missing ones (so we don't duplicate server items)
+        const existingIds = existingCardIds(resultsGrid);
+        const toAppend = [];
+        const seen = new Set();
+        for(const m of all){
+          if(!m || !m.id) continue;
+          if(seen.has(m.id)) continue; seen.add(m.id);
+          if(existingIds.has(String(m.id))) continue; // skip ones server already rendered
+          toAppend.push(m);
+        }
+        // if server had 0 items: we will append all; if server had 1 we append rest
+        // If serverCount === 0, clear placeholder (we already set placeholder earlier)
+        resultsGrid.innerHTML = '';
+        // first, if server rendered any cards keep them (re-add) else just append all
+        // collect currently present server nodes to keep order
+        // Note: if serverCount <=1 we assume either 0 or 1 present; keep existing nodes
+        // Append server existing nodes first (if any)
+        if(serverCount > 0){
+          // keep server nodes (they are present in DOM), so no further action needed
+        }
+        // append missing items
+        toAppend.forEach(m => resultsGrid.appendChild(createCard(m)));
+        console.log('Appended', toAppend.length, 'additional items. Total rendered now:', resultsGrid.querySelectorAll('.movie-card').length);
+      } else {
+        console.log('Server already rendered multiple items — no client fetch performed.');
+      }
+
+    } catch (err){
+      console.error('Error in client-side expand script:', err);
+    }
+  });
+})();
+</script>
+
+<div th:replace="fragments/ai-chat :: ai-chat"></div>
+<script th:src="@{/js/movie/ai-agent.js}" defer></script>
+
+</body>
+</html>
+
+
+
+
+

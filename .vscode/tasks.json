@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "open-browser",
+      "type": "shell",
+      "command": "start http://localhost:8080",
+      "problemMatcher": []
+    }
+  ]
+}
