@@ -1,12 +1,9 @@
-
 package com.example.project.model;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,7 +20,6 @@ import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "Movie")
-
 public class Movie {
 
     @Id
@@ -34,6 +30,7 @@ public class Movie {
     private String title;
 
     @NotBlank(message = "description is required")
+    @Column(length = 4000) // Tăng độ dài cho mô tả
     private String description;
 
     @NotNull(message = "releaseDate is not null")
@@ -48,24 +45,34 @@ public class Movie {
     @NotNull(message = "Rating is not null")
     private float rating;
 
-    @NotBlank(message = "url  is not null")
+    @NotBlank(message = "url is not null")
+    @Column(length = 1000) // URL video (giả sử là link file)
     private String url;
+    
+    // ========== BỔ SUNG CÁC TRƯỜNG MỚI ==========
 
-    // Quan hệ 1-N: Movie -> Season
+    @Column(nullable = true)
+    private String posterPath; // Dùng để lưu link ảnh poster (vd: /abc.jpg)
+
+    @Column(nullable = true)
+    private String backdropPath; // Dùng để lưu link ảnh banner (vd: /xyz.jpg)
+
+    @Column(unique = true, nullable = true)
+    private Integer tmdbId; // Dùng để liên kết với TMDB, tránh import trùng lặp
+
+    // ========== KẾT THÚC BỔ SUNG ==========
+
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     private List<Season> seasons = new ArrayList<>();
 
-    // N-N với Person
     @ManyToMany
     @JoinTable(name = "MoviePerson", joinColumns = @JoinColumn(name = "movieID"), inverseJoinColumns = @JoinColumn(name = "personID"))
     private List<Person> persons = new ArrayList<>();
 
-    // N-N với Category
     @ManyToMany
     @JoinTable(name = "MovieCategory", joinColumns = @JoinColumn(name = "movieID"), inverseJoinColumns = @JoinColumn(name = "categoryID"))
     private List<Category> categories = new ArrayList<>();
 
-    // Quan hệ với Review, Comment, Report
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     private List<Review> reviews;
 
@@ -77,7 +84,8 @@ public class Movie {
 
     public Movie() {
     }
-
+    
+    // Constructor cũ của bạn
     public Movie(int movieID, String title, String description, Date releaseDate, boolean isFree, int duration,
             float rating, String url, List<Season> seasons, List<Person> persons, List<Category> categories,
             List<Review> reviews, List<Comment> comments, List<Report> reports) {
@@ -97,6 +105,34 @@ public class Movie {
         this.reports = reports;
     }
 
+
+    // ========== BỔ SUNG GETTERS/SETTERS MỚI ==========
+    public String getPosterPath() {
+        return posterPath;
+    }
+
+    public void setPosterPath(String posterPath) {
+        this.posterPath = posterPath;
+    }
+
+    public String getBackdropPath() {
+        return backdropPath;
+    }
+
+    public void setBackdropPath(String backdropPath) {
+        this.backdropPath = backdropPath;
+    }
+
+    public Integer getTmdbId() {
+        return tmdbId;
+    }
+
+    public void setTmdbId(Integer tmdbId) {
+        this.tmdbId = tmdbId;
+    }
+    
+    // ========== GETTERS/SETTERS CŨ (Giữ nguyên) ==========
+    
     public int getMovieID() {
         return movieID;
     }
@@ -208,5 +244,4 @@ public class Movie {
     public void setReports(List<Report> reports) {
         this.reports = reports;
     }
-
 }

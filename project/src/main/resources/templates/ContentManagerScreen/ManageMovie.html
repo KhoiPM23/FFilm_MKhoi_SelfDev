@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Manager - Quản Lý Phim</title>
+    
+    <link rel="stylesheet" href="/css/ManageMovie.css">
+    <link rel="stylesheet" href="https.cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Các style bên trong này là style BỔ SUNG, không phải style GỐC */
+        .modal-body { max-height: 70vh; overflow-y: auto; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .import-group { display: flex; gap: 10px; }
+        .import-group input { flex: 1; }
+        #description { min-height: 100px; resize: vertical; }
+
+        /* CSS cho nút xóa (từ lần trước) */
+        .btn-danger {
+             background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+             color: #fff;
+        }
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #c82333 0%, #dc3545 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+        }
+        #deleteConfirmMessage strong {
+            color: #e50914;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-film"></i>
+            <span>Content Panel</span>
+        </div>
+        <nav>
+            <a href="/manage-movies" class="nav-item active">
+                <i class="fas fa-video"></i>
+                <span>Quản lý Phim</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-images"></i>
+                <span>Quản lý Banner</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-comments"></i>
+                <span>Quản lý Feedback</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Quản lý phim</h1>
+            <div class="header-actions">
+                <div class="import-group">
+                    <input type="number" id="tmdbIdInput" placeholder="Nhập TMDB ID..." style="width: 150px;">
+                    <button class="btn btn-secondary" onclick="importFromTmdb()">
+                        <i class="fas fa-download"></i> Import
+                    </button>
+                </div>
+                <button class="btn btn-primary" onclick="openModal('add')">
+                    <i class="fas fa-plus"></i>
+                    <span>Thêm thủ công</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tiêu đề</th>
+                        <th>Thời lượng</th>
+                        <th>Miễn phí?</th>
+                        <th>TMDB ID</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="movieTableBody">
+                </tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <i class="fas fa-video-slash"></i>
+                <h3>Chưa có phim nào</h3>
+                <p>Hãy thêm phim mới hoặc import từ TMDB.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="movieModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">Thêm phim mới</span>
+                <button class="close-modal" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="movieForm">
+                    <input type="hidden" id="movieId">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="title">Tiêu đề</label>
+                            <input type="text" id="title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="releaseDate">Ngày phát hành</label>
+                            <input type="date" id="releaseDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="duration">Thời lượng (phút)</label>
+                            <input type="number" id="duration" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="rating">Rating (1-10)</label>
+                            <input type="number" id="rating" step="0.1" value="0.0">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="description">Mô tả</label>
+                            <textarea id="description" rows="3"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="url">URL Video (link .m3u8 hoặc .mp4)</label>
+                            <input type="text" id="url" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="posterPath">Poster Path (vd: /abc.jpg)</label>
+                            <input type="text" id="posterPath">
+                        </div>
+                        <div class="form-group">
+                            <label for="backdropPath">Backdrop Path (vd: /xyz.jpg)</label>
+                            <input type="text" id="backdropPath">
+                        </div>
+                         <div class="form-group">
+                            <label for="isFree">Loại phim</label>
+                            <select id="isFree">
+                                <option value="false">Trả phí</option>
+                                <option value="true">Miễn phí</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-primary" onclick="saveMovie()">
+                    <i class="fas fa-save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast" style="display: none;">
+        <i class="toast-icon"></i>
+        <span id="toastMessage"></span>
+    </div>
+    
+    <div class="modal" id="deleteConfirmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Xác nhận xóa phim</span>
+                <button class="close-modal" onclick="closeDeleteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteConfirmMessage">
+                    Bạn có chắc chắn muốn xóa phim này?
+                </p>
+                <p style="color: #ffc107; margin-top: 10px;">
+                    Hành động này không thể hoàn tác.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">Hủy</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i> Xóa vĩnh viễn
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const API_URL = '/api/content/movies';
+    let currentMode = 'add';
+    let currentId = null;
+
+    document.addEventListener('DOMContentLoaded', loadMovies);
+
+    async function loadMovies() {
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Failed to fetch movies');
+            const movies = await response.json();
+            renderTable(movies);
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Không thể tải danh sách phim.');
+        }
+    }
+
+    function renderTable(movies) {
+        const tbody = document.getElementById('movieTableBody');
+        const emptyState = document.getElementById('emptyState');
+        tbody.innerHTML = '';
+
+        if (!movies || movies.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        movies.forEach(movie => {
+            const tr = document.createElement('tr');
+            const deleteAction = `openDeleteModal(${movie.movieID}, '${escapeHtml(movie.title)}')`;
+            
+            tr.innerHTML = `
+                <td>${movie.movieID}</td>
+                <td>${escapeHtml(movie.title)}</td>
+                <td>${movie.duration} phút</td>
+                <td>${movie.free ? '<span class="badge badge-active">Miễn phí</span>' : '<span class="badge badge-inactive">Trả phí</span>'}</td>
+                <td>${movie.tmdbId || 'N/A'}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-edit" onclick="openModal('edit', ${movie.movieID})">
+                            <i class="fas fa-edit"></i> Sửa
+                        </button>
+                        <button class="btn btn-danger" onclick="${deleteAction}">
+                            <i class="fas fa-trash"></i> Xóa
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function openModal(mode, id = null) {
+        currentMode = mode;
+        currentId = id;
+        const modal = document.getElementById('movieModal');
+        const title = document.getElementById('modalTitle');
+        document.getElementById('movieForm').reset();
+        
+        if (mode === 'add') {
+            title.textContent = 'Thêm phim mới';
+        } else {
+            title.textContent = 'Cập nhật phim';
+            fetch(`${API_URL}/${id}`)
+                .then(res => res.json())
+                .then(movie => {
+                    document.getElementById('movieId').value = movie.movieID;
+                    document.getElementById('title').value = movie.title;
+                    document.getElementById('description').value = movie.description;
+                    document.getElementById('releaseDate').value = movie.releaseDate ? movie.releaseDate.split('T')[0] : '';
+                    document.getElementById('duration').value = movie.duration;
+                    document.getElementById('rating').value = movie.rating;
+                    document.getElementById('url').value = movie.url;
+                    document.getElementById('posterPath').value = movie.posterPath;
+                    document.getElementById('backdropPath').value = movie.backdropPath;
+                    document.getElementById('isFree').value = movie.free ? 'true' : 'false';
+                })
+                .catch(err => showToast('error', 'Không thể tải chi tiết phim.'));
+        }
+        modal.classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('movieModal').classList.remove('active');
+    }
+
+    async function saveMovie() {
+        const movieRequest = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            releaseDate: document.getElementById('releaseDate').value || null,
+            duration: parseInt(document.getElementById('duration').value) || 0,
+            rating: parseFloat(document.getElementById('rating').value) || 0,
+            url: document.getElementById('url').value,
+            posterPath: document.getElementById('posterPath').value,
+            backdropPath: document.getElementById('backdropPath').value,
+            free: document.getElementById('isFree').value === 'true',
+            categoryIds: [],
+            personIds: []
+        };
+        
+        let url = API_URL;
+        let method = 'POST';
+
+        if (currentMode === 'edit') {
+            url = `${API_URL}/${currentId}`;
+            method = 'PUT';
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(movieRequest)
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Lỗi lưu phim');
+            }
+            
+            showToast('success', currentMode === 'add' ? 'Thêm phim thành công!' : 'Cập nhật phim thành công!');
+            closeModal();
+            loadMovies();
+        } catch (error) {
+            console.error('Save error:', error);
+            showToast('error', error.message);
+        }
+    }
+
+    async function importFromTmdb() {
+        const tmdbId = document.getElementById('tmdbIdInput').value;
+        if (!tmdbId) {
+            showToast('error', 'Vui lòng nhập TMDB ID');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/import/${tmdbId}`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Lỗi import');
+            }
+            
+            const newMovie = await response.json();
+            showToast('success', `Import phim '${newMovie.title}' thành công!`);
+            document.getElementById('tmdbIdInput').value = '';
+            loadMovies();
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast('error', error.message);
+        }
+    }
+
+    function openDeleteModal(id, title) {
+        document.getElementById('confirmDeleteBtn').dataset.movieId = id;
+        document.getElementById('deleteConfirmMessage').innerHTML = 
+            `Bạn có chắc chắn muốn xóa phim <strong>"${escapeHtml(title)}"</strong>?`;
+        document.getElementById('deleteConfirmModal').classList.add('active');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteConfirmModal').classList.remove('active');
+    }
+
+    async function confirmDelete() {
+        const id = document.getElementById('confirmDeleteBtn').dataset.movieId;
+        if (!id) return;
+        
+        try {
+            const response = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Lỗi xóa phim');
+            }
+            
+            closeDeleteModal();
+            showToast('success', 'Xóa phim thành công!');
+            loadMovies();
+        } catch (error) {
+            console.error('Delete error:', error);
+            closeDeleteModal();
+            showToast('error', error.message);
+        }
+    }
+    
+    function showToast(type, message) {
+        const toast = document.getElementById('toast');
+        const icon = toast.querySelector('.toast-icon');
+        const msg = document.getElementById('toastMessage');
+        toast.className = `toast ${type}`;
+        if (type === 'success') icon.className = 'toast-icon fas fa-check-circle';
+        if (type === 'error') icon.className = 'toast-icon fas fa-exclamation-circle';
+        msg.textContent = message;
+        toast.style.display = 'flex';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return s.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+    }
+</script>
+
+</body>
+</html>
