@@ -59,7 +59,6 @@ public class UserService {
         return userRepository.findByStatus(status, pageable);
     }
 
-    // SỬA: DÙNG DTO THAY VÌ ENTITY
     public User createUser(UserRegisterDto dto) {
         if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already exists");
@@ -68,9 +67,8 @@ public class UserService {
         User user = new User();
         user.setUserName(dto.getUserName());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword()); // @PrePersist sẽ hash
+        user.setPassword(dto.getPassword());
         user.setPhoneNumber(dto.getPhoneNumber());
-        // role & status → @PrePersist tự set
 
         return userRepository.save(user);
     }

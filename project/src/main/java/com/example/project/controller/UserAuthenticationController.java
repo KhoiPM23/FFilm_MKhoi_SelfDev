@@ -24,11 +24,10 @@ public class UserAuthenticationController {
 
     private final UserService userService;
 
-    // ==================== MVC: FORM ĐĂNG KÝ / ĐĂNG NHẬP ====================
 
     @GetMapping("/register")
     public String showRegisterForm() {
-        return "Authentication/register"; // HTML có JS gọi API
+        return "Authentication/register"; 
     }
 
     @GetMapping("/login")
@@ -43,11 +42,9 @@ public class UserAuthenticationController {
             Model model,
             HttpSession session) {
         try {
-            // GỌI SERVICE CHỈ ĐỂ LẤY USER
             User user = userService.findByEmail(dto.getEmail())
                     .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại"));
 
-            // KIỂM TRA MẬT KHẨU Ở CONTROLLER
             if (!userService.isPasswordValid(dto.getPassword(), user.getPassword())) {
                 throw new IllegalArgumentException("Mật khẩu không đúng");
             }
@@ -60,7 +57,6 @@ public class UserAuthenticationController {
         }
     }
 
-    // ==================== REST API: ĐĂNG KÝ (AJAX) ====================
 
 @PostMapping("/api/register")
 @ResponseBody
@@ -76,7 +72,7 @@ public ResponseEntity<?> registerApi(@Valid @RequestBody UserRegisterDto dto,
     }
 
     try {
-        userService.createUser(dto); // → TỰ ĐỘNG HASH + ROLE + STATUS
+        userService.createUser(dto); 
         return ResponseEntity.ok(Map.of("message", "Đăng ký thành công!"));
     } catch (IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());

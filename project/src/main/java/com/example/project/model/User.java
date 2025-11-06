@@ -59,13 +59,11 @@ public class User {
 
 @PrePersist
 public void prepareForPersist() {
-    // 1. Set role & status
     if (this.role == null || this.role.trim().isEmpty()) {
         this.role = "USER";
     }
     this.status = true;
 
-    // 2. Hash password nếu chưa được hash
     if (this.password != null && !this.password.startsWith("$2a$")) {
         this.password = encoder.encode(this.password);
     }

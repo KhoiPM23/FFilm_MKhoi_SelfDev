@@ -47,7 +47,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     messageEl.className = '';
 
     try {
-        const response = await fetch('/api/register', {  // DÙNG API TRONG CONTROLLER
+        const response = await fetch('/api/register', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(user)

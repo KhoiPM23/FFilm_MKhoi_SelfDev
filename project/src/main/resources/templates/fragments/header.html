@@ -66,11 +66,9 @@
     </div>
 
     <script>
-        // Đảm bảo script chỉ chạy một lần
         if (!window.headerScriptLoaded) {
             window.headerScriptLoaded = true;
             
-            // Toggle ô tìm kiếm
             document.addEventListener('click', function(e) {
                 if (e.target.matches('.search-toggle') || e.target.matches('.fa-search')) {
                     e.preventDefault();
@@ -78,10 +76,8 @@
                     const searchInput = document.querySelector('.search-input');
                     const dropdown = document.querySelector('.notification .dropdown');
                     
-                    // Đóng dropdown thông báo
                     if (dropdown) dropdown.classList.remove('active');
                     
-                    // Toggle search input
                     if (searchInput) {
                         searchInput.classList.toggle('active');
                         if (searchInput.classList.contains('active')) {
@@ -91,7 +87,6 @@
                 }
             });
 
-            // Toggle dropdown thông báo  
             document.addEventListener('click', function(e) {
                 if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
                     e.preventDefault();
@@ -99,10 +94,8 @@
                     const dropdown = document.querySelector('.notification .dropdown');
                     const searchInput = document.querySelector('.search-input');
                     
-                    // Đóng ô tìm kiếm
                     if (searchInput) searchInput.classList.remove('active');
                     
-                    // Toggle notification dropdown
                     if (dropdown) dropdown.classList.toggle('active');
                 }
             });
@@ -120,13 +113,11 @@
                 }
             });
 
-            // Xử lý Enter trong search
             document.addEventListener('keypress', function(e) {
                 if (e.target.matches('.search-input') && e.key === 'Enter') {
                     const searchTerm = e.target.value.trim();
                     if (searchTerm) {
                         console.log('Tìm kiếm:', searchTerm);
-                        // Thêm logic tìm kiếm ở đây
                     }
                 }
             });
