@@ -33,13 +33,13 @@ public class Movie {
     @NotBlank(message = "title is required")
     private String title;
 
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     @NotBlank(message = "description is required")
     private String description;
 
     @NotNull(message = "releaseDate is not null")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private Date releaseDate;
-    
     private boolean isFree;
 
     @NotNull(message = "Duration is not null")

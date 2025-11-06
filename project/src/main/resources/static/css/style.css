@@ -22,7 +22,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    /* box-shadow: 0 2px 8px rgba(0,0,0,0.5); */
 }
 
 /* Logo */
@@ -324,7 +324,7 @@ body {
 }
 
 /* ===== BANNER ===== */
-.banner {
+/* .banner {
     position: relative;
     height: 75vh;
     background-size: cover;
@@ -365,7 +365,7 @@ body {
 }
 .banner .btn:hover {
     background: #f40612;
-}
+} */
 
 /* ===== MOVIES ===== */
 /* ===== MOVIES CAROUSEL - THAY THẾ PHẦN MOVIES CŨ ===== */

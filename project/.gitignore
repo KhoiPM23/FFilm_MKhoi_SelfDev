@@ -31,6 +31,3 @@ build/
 
 ### VS Code ###
 .vscode/
-# Ngoại trừ các file cần thiết cho team chạy/debug
-!.vscode/launch.json
-!.vscode/tasks.json

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title th:text="${categoryName} + ' - FPTPlay Clone'">Danh mục phim</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --bg-dark: #141414;
+        --card-bg: #2a2a2a;
+        --text-light: #fff;
+        --text-muted: #b3b3b3;
+        --primary: #e50914;
+        --free-badge: #00a000;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-light);
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 5%;
+      }
+
+      /* Header */
+      .page-header {
+        padding: 100px 0 40px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.9),
+          rgba(0, 0, 0, 0.5)
+        );
+        text-align: center;
+      }
+
+      .page-header h1 {
+        font-size: 2.8rem;
+        margin: 0;
+        font-weight: 700;
+      }
+
+      .page-header p {
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        margin-top: 10px;
+      }
+
+      /* Movies Grid */
+      .movies-section {
+        padding: 40px 0;
+      }
+
+      .movies-count {
+        color: var(--text-muted);
+        margin-bottom: 20px;
+        font-size: 1rem;
+      }
+
+      .movie-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+      }
+
+      .movie-card {
+        background: var(--card-bg);
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+      }
+
+      .movie-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 12px 30px rgba(229, 9, 20, 0.5);
+      }
+
+      .movie-poster {
+        position: relative;
+        padding-top: 150%; /* 2:3 ratio */
+        overflow: hidden;
+      }
+
+      .movie-poster img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s;
+      }
+
+      .movie-card:hover .movie-poster img {
+        transform: scale(1.08);
+      }
+
+      .badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        z-index: 2;
+      }
+
+      .badge.free {
+        background: var(--free-badge);
+        color: white;
+      }
+
+      .badge.vip {
+        background: var(--primary);
+        color: white;
+      }
+
+      .movie-info {
+        padding: 12px;
+      }
+
+      .movie-info h3 {
+        margin: 0;
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-light);
+      }
+
+      /* Load More */
+      .load-more {
+        text-align: center;
+        margin: 40px 0;
+      }
+
+      .load-more-btn {
+        background: #333;
+        color: white;
+        border: none;
+        padding: 14px 32px;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: 0.3s;
+      }
+
+      .load-more-btn:hover {
+        background: var(--primary);
+      }
+
+      .load-more-btn i {
+        transition: transform 0.3s;
+      }
+
+      .load-more-btn.loading i {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Footer */
+      footer {
+        text-align: center;
+        padding: 30px;
+        color: #666;
+        font-size: 0.9rem;
+        background: #000;
+      }
+
+      @media (max-width: 768px) {
+        .page-header h1 {
+          font-size: 2rem;
+        }
+        .movie-grid {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="page-header">
+      <div class="container">
+        <h1 th:text="${categoryName}">Danh mục phim</h1>
+        <p>Khám phá các bộ phim hay thuộc thể loại này</p>
+      </div>
+    </header>
+
+    <!-- Movies Grid -->
+    <section class="movies-section">
+      <div class="container">
+        <p class="movies-count">
+          Tìm thấy <strong th:text="${#lists.size(movies)}">0</strong> phim
+        </p>
+
+        <div class="movie-grid" id="movieGrid">
+          <div
+            th:each="movie : ${movies}"
+            class="movie-card"
+            th:onclick="'window.location.href=\'/movie/detail/' + ${movie.movieID}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.url}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/default_poster.jpg'"
+              />
+
+              <span th:if="${movie.isFree}" class="badge free">MIỄN PHÍ</span>
+              <span th:unless="${movie.isFree}" class="badge vip">VIP</span>
+            </div>
+
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Tên phim</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Load More Button -->
+        <div class="load-more" th:if="${hasMore}" id="loadMoreContainer">
+          <button class="load-more-btn" id="loadMoreBtn">
+            <i class="fas fa-chevron-down"></i> Xem thêm
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>© 2025 FPTPlay Clone</p>
+    </footer>
+
+    <!-- JavaScript: Load More với AJAX -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const loadMoreBtn = document.getElementById("loadMoreBtn");
+        const movieGrid = document.getElementById("movieGrid");
+        const loadMoreContainer = document.getElementById("loadMoreContainer");
+        let isLoading = false;
+
+        if (!loadMoreBtn) return;
+
+        loadMoreBtn.addEventListener("click", function () {
+          if (isLoading) return;
+          isLoading = true;
+
+          const currentPage = /*[[${currentPage}]]*/ 0;
+          const nextPage = currentPage + 1;
+          const url = new URL(window.location);
+          url.searchParams.set("page", nextPage);
+
+          // Hiệu ứng loading
+          loadMoreBtn.classList.add("loading");
+          loadMoreBtn.innerHTML = '<i class="fas fa-spinner"></i> Đang tải...';
+
+          fetch(url, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+          })
+            .then((response) => response.text())
+            .then((html) => {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, "text/html");
+              const newMovies = doc.querySelectorAll("#movieGrid .movie-card");
+              const newHasMore =
+                doc.querySelector("#loadMoreContainer") !== null;
+
+              // Thêm phim mới
+              newMovies.forEach((card) => {
+                movieGrid.appendChild(card);
+              });
+
+              // Cập nhật nút load more
+              if (newHasMore) {
+                loadMoreBtn.innerHTML =
+                  '<i class="fas fa-chevron-down"></i> Xem thêm';
+                loadMoreBtn.classList.remove("loading");
+              } else {
+                loadMoreContainer.remove();
+              }
+
+              isLoading = false;
+            })
+            .catch((err) => {
+              console.error("Load more failed:", err);
+              loadMoreBtn.innerHTML =
+                '<i class="fas fa-exclamation-triangle"></i> Lỗi';
+              isLoading = false;
+            });
+        });
+      });
+    </script>
+  </body>
+</html>
