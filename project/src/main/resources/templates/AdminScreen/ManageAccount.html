@@ -107,7 +107,7 @@
                     <select class="filter-select" id="roleFilter">
                         <option value="">Lọc theo vai trò</option>
                         <option value="moderator">Moderator</option>
-                        <option value="content">Content Manager</option>
+                        <option value="content_manager">Content Manager</option>
                     </select>
                     <select class="filter-select" id="statusFilter">
                         <option value="">Lọc theo trạng thái</option>
@@ -161,6 +161,11 @@
                         <input type="email" id="email" required>
                     </div>
                     <div class="form-group">
+                        <label for="phoneNumber">Phone Number</label>
+                        <input type="text" id="phoneNumber" required>
+                    </div>
+
+                    <div class="form-group">
                         <label for="password">Mật khẩu (chỉ khi thêm mới)</label>
                         <input type="password" id="password">
                     </div>
@@ -169,7 +174,7 @@
                         <select id="role" required>
                             <option value="">Chọn vai trò</option>
                             <option value="moderator">Moderator</option>
-                            <option value="content">Content Manager</option>
+                            <option value="content_manager">Content Manager</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -216,15 +221,17 @@
                 const role = document.getElementById('roleFilter').value;
                 const status = document.getElementById('statusFilter').value;
                 let url = `/api/users/paged?page=${currentPage}&size=${pageSize}`;
-                if (role) url = `/api/users/role/${role}/paged?page=${currentPage}&size=${pageSize}`;
-                else if (status) url = `/api/users/status/${status === 'active' ? 'true' : 'false'}/paged?page=${currentPage}&size=${pageSize}`;
+                if (role) {
+                    url = `/api/users/role/${role}/paged?page=${currentPage}&size=${pageSize}`;
+                } else if (status) {
+                    url = `/api/users/status/${status}/paged?page=${currentPage}&size=${pageSize}`;
+                }
 
                 const res = await fetch(url);
                 if (!res.ok) throw new Error('Failed to load users: ' + res.status);
                 const data = await res.json();
                 if (!data.content || !Array.isArray(data.content)) throw new Error('Invalid data format');
 
-                // Cập nhật stats
                 document.getElementById('totalUsers').textContent = data.totalElements || 0;
                 document.getElementById('totalModerators').textContent = data.content.filter(u => u.role?.toLowerCase() === 'moderator').length || 0;
                 document.getElementById('totalContent').textContent = data.content.filter(u => u.role?.toLowerCase() === 'content_manager').length || 0;
@@ -237,25 +244,29 @@
                     const tr = document.createElement('tr');
                     const avatar = (user.userName || 'U').charAt(0).toUpperCase(); // Avatar từ userName
 
-                    // Định nghĩa rõ ràng từng cột để tránh lỗi cú pháp
                     tr.innerHTML = `
-        <td>
-            <div class="user-info">
-                <div class="user-avatar">${avatar}</div>
-                <div class="user-details">
-                    <h4>${escapeHtml(user.userName || '')}</h4>
-                </div>
-            </div>
+                   <td>
+                        <div class="user-info">
+                           <div class="user-avatar">${avatar}</div>
+                           <div class="user-details">
+                              <h4>${escapeHtml(user.userName || '')}</h4>
+                              <p>${escapeHtml(user.email || '')}</p>
+                        </div>
+              </div>
         </td>
-        <td>${renderRoleBadge(user.role) || '<span class="badge">-</span>'}</td>
-        <td>${renderStatusBadge(user.status) || '<span class="badge">-</span>'}</td>
+        <td>${renderRoleBadge(user.role)}</td>
+        <td>${renderStatusBadge(user.status)}</td>
         <td>
             <div class="action-buttons">
-                <button class="btn btn-edit" onclick="openModal('edit', ${user.userID || 0})"><i class="fas fa-edit"></i> Sửa</button>
-                <button class="btn btn-danger" onclick="deleteAccount(${user.userID || 0})"><i class="fas fa-trash"></i> Xóa</button>
+                <button class="btn btn-edit" onclick="openModal('edit', ${user.userId})">
+                    <i class="fas fa-edit"></i> Sửa
+                </button>
+                <button class="btn btn-danger" onclick="deleteAccount(${user.userId})">
+                    <i class="fas fa-trash"></i> Xóa
+                </button>
             </div>
         </td>
-    `; 
+    `;
 
                     tr.dataset.role = (user.role || '').toLowerCase();
                     tr.dataset.status = user.status ? 'active' : 'inactive';
@@ -332,8 +343,9 @@
                 }).then(user => {
                     document.getElementById('username').value = user.userName || '';
                     document.getElementById('email').value = user.email || '';
+                    document.getElementById('phoneNumber').value = user.phoneNumber || '';
                     document.getElementById('role').value = user.role || '';
-                    document.getElementById('status').value = user.status ? 'active' : 'inactive';
+                    document.getElementById('status').value = user.status ? 'true' : 'false';
                 }).catch(err => {
                     showToast('error', 'Không thể tải thông tin người dùng');
                     console.error(err);
@@ -351,23 +363,35 @@
             const username = document.getElementById('username').value.trim();
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
             const role = document.getElementById('role').value;
             const status = document.getElementById('status').value === 'active';
 
-            if (!username || !email) {
-                showToast('error', 'Tên và email là bắt buộc');
+            if (!username || !email || !phoneNumber) {
+                showToast('error', 'Tên, email và số điện thoại là bắt buộc');
                 return;
             }
-
-            const payload = { userName: username, email, role, status };
+            if (currentMode === 'add' && !password) {
+                showToast('error', 'Mật khẩu là bắt buộc khi tạo mới');
+                return;
+            }
+            const payload = { userName: username, email, phoneNumber, role, status };
             if (password) payload.password = password;
 
             try {
                 let res;
                 if (currentMode === 'add') {
-                    res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    res = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
                 } else {
-                    res = await fetch(`/api/users/${currentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    res = await fetch(`/api/users/${currentId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
                 }
 
                 if (!res.ok) {
@@ -377,7 +401,7 @@
 
                 showToast('success', currentMode === 'add' ? 'Tài khoản đã được thêm!' : 'Tài khoản đã được cập nhật!');
                 closeModal();
-                currentPage = 0; // Reset về trang 1 sau khi thêm/sửa
+                currentPage = 0;
                 loadUsers();
             } catch (err) {
                 console.error(err);
@@ -425,24 +449,6 @@
             });
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
         }
-
-        function applyFilters() {
-            const role = document.getElementById('roleFilter').value;
-            const status = document.getElementById('statusFilter').value;
-            const rows = document.querySelectorAll('#accountTable tr');
-            let hasResults = false;
-            rows.forEach(row => {
-                const rowRole = row.dataset.role || '';
-                const rowStatus = row.dataset.status || '';
-                const matchRole = !role || rowRole.includes(role);
-                const matchStatus = !status || rowStatus.includes(status);
-                const show = matchRole && matchStatus;
-                row.style.display = show ? '' : 'none';
-                if (show) hasResults = true;
-            });
-            document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
-        }
-
         function exportData() {
             // Chưa implement, bạn có thể thêm logic export CSV/Excel sau
             showToast('info', 'Chức năng xuất dữ liệu đang phát triển!');

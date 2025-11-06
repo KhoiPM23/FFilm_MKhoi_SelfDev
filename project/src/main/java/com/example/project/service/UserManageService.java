@@ -5,7 +5,6 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,31 +20,31 @@ public class UserManageService {
    private UserRepository userRepository;
 
    public List<UserManageDTO> getAllUsers() {
-      return userRepository.findAll().stream().map(UserManageDTO :: new).collect(Collectors.toList());
+      return userRepository.findAll().stream().map(UserManageDTO::new).collect(Collectors.toList());
    }
 
    public Page<UserManageDTO> getAllUsers(Pageable pageable) {
-      return userRepository.findAll(pageable).map(UserManageDTO :: new);
+      return userRepository.findAll(pageable).map(UserManageDTO::new);
    }
 
    public List<UserManageDTO> getUserByRole(String role) {
-      return userRepository.findByRole(role).stream().map(UserManageDTO :: new).collect(Collectors.toList());
+      return userRepository.findByRole(role).stream().map(UserManageDTO::new).collect(Collectors.toList());
    }
 
    public Page<UserManageDTO> getUserByRole(String role, Pageable pageable) {
-      return userRepository.findByRole(role, pageable).map(UserManageDTO :: new);
+      return userRepository.findByRole(role, pageable).map(UserManageDTO::new);
    }
 
    public Page<UserManageDTO> getUserByEmail(String email, Pageable pageable) {
-      return userRepository.findByEmail(email, pageable).map(UserManageDTO :: new);
+      return userRepository.findByEmail(email, pageable).map(UserManageDTO::new);
    }
 
    public List<UserManageDTO> getUserByStatus(boolean status) {
-      return userRepository.findByStatus(status).stream().map(UserManageDTO :: new).collect(Collectors.toList());
+      return userRepository.findByStatus(status).stream().map(UserManageDTO::new).collect(Collectors.toList());
    }
 
    public Page<UserManageDTO> getUserByStatus(boolean status, Pageable pageable) {
-      return userRepository.findByStatus(status, pageable).map(UserManageDTO :: new);
+      return userRepository.findByStatus(status, pageable).map(UserManageDTO::new);
    }
 
    public UserManageDTO createUser(User user) {
@@ -63,6 +62,9 @@ public class UserManageService {
       if (user.getPassword().length() < 6) {
          throw new IllegalArgumentException("Password must be have length >= 6");
       }
+      if (user.getPhoneNumber() == null || user.getPhoneNumber().trim().isEmpty()) {
+         throw new IllegalArgumentException("PhoneNumber is required");
+      }
 
       User saved = userRepository.save(user);
       return new UserManageDTO(saved);
@@ -75,22 +77,31 @@ public class UserManageService {
       userRepository.deleteById(id);
    }
 
-      public UserManageDTO updateUser(int id, User updateUser) {
-         Optional<User> existing = userRepository.findById(id);
-         if (existing.isEmpty()) {
-            throw new IllegalArgumentException("User not found");
-         }
-         User user = existing.get();
-         user.setUserName(updateUser.getUserName());
-         user.setEmail(updateUser.getEmail());
-         if (updateUser.getPassword() != null && !updateUser.getPassword().isEmpty()) {
-            user.setPassword(updateUser.getPassword());
-         }
-         user.setRole(updateUser.getRole());
-         user.setStatus(updateUser.isStatus());
-         user.setPhoneNumber(updateUser.getPhoneNumber());
-         User saved = userRepository.save(user);
-         return new UserManageDTO(saved);
+   public UserManageDTO updateUser(int id, User updateUser) {
+      Optional<User> existing = userRepository.findById(id);
+      if (existing.isEmpty()) {
+         throw new IllegalArgumentException("User not found");
       }
+      User user = existing.get();
+      if (!user.getEmail().equals(updateUser.getEmail())) {
+         if (userRepository.findByEmail(updateUser.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Email already exits");
+         }
+      }
+
+      if (updateUser.getPhoneNumber() == null || updateUser.getPhoneNumber().isEmpty()) {
+         throw new IllegalArgumentException("Phone number is required");
+      }
+      user.setUserName(updateUser.getUserName());
+      user.setEmail(updateUser.getEmail());
+      if (updateUser.getPassword() != null && !updateUser.getPassword().trim().isEmpty()) {
+         user.setPassword(updateUser.getPassword());
+      }
+      user.setRole(updateUser.getRole());
+      user.setStatus(updateUser.isStatus());
+      user.setPhoneNumber(updateUser.getPhoneNumber());
+      User saved = userRepository.save(user);
+      return new UserManageDTO(saved);
+   }
 
 }

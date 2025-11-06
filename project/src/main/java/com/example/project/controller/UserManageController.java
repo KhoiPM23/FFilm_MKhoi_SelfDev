@@ -26,15 +26,15 @@ import org.springframework.data.domain.PageRequest;
 @CrossOrigin(origins = "*")
 public class UserManageController {
     @Autowired
-    private UserManageService userService;    
-    
+    private UserManageService userService;
+
     @GetMapping
-    public List<UserManageDTO> getAllUser(){
+    public List<UserManageDTO> getAllUser() {
         return userService.getAllUsers();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserManageDTO> getUserById(@PathVariable int id){
+    public ResponseEntity<UserManageDTO> getUserById(@PathVariable int id) {
         return userService.getAllUsers().stream()
                 .filter(u -> u.getUserId() == id)
                 .findFirst()
@@ -44,48 +44,64 @@ public class UserManageController {
 
     @GetMapping("/paged")
     public Page<UserManageDTO> getAllUsersPaged(@RequestParam(defaultValue = "0") int page,
-                                               @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return userService.getAllUsers(pageable);
     }
 
+    @GetMapping("/role/{role}/paged")
+    public Page<UserManageDTO> getUserByRolePage(@PathVariable String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return userService.getUserByRole(role, pageable);
+    }
+
+    @GetMapping("/status/{status}/paged")
+    public Page<UserManageDTO> getUserByStatus(@PathVariable boolean status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+            Pageable pageable = PageRequest.of(page, page);
+                return userService.getUserByStatus(status,pageable);
+    }
+
     @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody User user){
-        try{
+    public ResponseEntity<?> createUser(@RequestBody User user) {
+        try {
             UserManageDTO created = userService.createUser(user);
             return ResponseEntity.ok(created);
-        }catch(IllegalArgumentException ex){
+        } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable int id, @RequestBody User user){
-        try{
+    public ResponseEntity<?> updateUser(@PathVariable int id, @RequestBody User user) {
+        try {
             UserManageDTO updated = userService.updateUser(id, user);
             return ResponseEntity.ok(updated);
-        }catch(IllegalArgumentException ex){
+        } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable int id){
-        try{
+    public ResponseEntity<?> deleteUser(@PathVariable int id) {
+        try {
             userService.deleteUser(id);
             return ResponseEntity.ok().build();
-        }catch(Exception ex){
+        } catch (Exception ex) {
             return ResponseEntity.badRequest().body("Delete failed: " + ex.getMessage());
         }
     }
 
     @GetMapping("/role/{role}")
-    public List<UserManageDTO> getUserByRole(@PathVariable String role){
-       return userService.getUserByRole(role);
+    public List<UserManageDTO> getUserByRole(@PathVariable String role) {
+        return userService.getUserByRole(role);
     }
 
     @GetMapping("/status/{status}")
-    public List<UserManageDTO> getUserByStatus(@PathVariable boolean status){
-         return userService.getUserByStatus(status);
+    public List<UserManageDTO> getUserByStatus(@PathVariable boolean status) {
+        return userService.getUserByStatus(status);
     }
 }

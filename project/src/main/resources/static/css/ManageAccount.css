@@ -441,12 +441,7 @@
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; /* Giới hạn chiều rộng cột cố định */
-}
-
-thead {
-    background: rgba(26, 26, 26, 0.8);
-    backdrop-filter: blur(10px);
+    table-layout: fixed;
 }
 
 th {
@@ -457,7 +452,6 @@ th {
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    /* Gán chiều rộng cố định cho từng cột */
     width: 30%; /* Cột Tài khoản */
 }
 th:nth-child(2) { width: 20%; } /* Cột Vai trò */
@@ -467,45 +461,25 @@ th:nth-child(4) { width: 30%; } /* Cột Hành động */
 td {
     padding: 16px 24px;
     border-bottom: 1px solid #2a2a2a;
-    /* Giới hạn chiều rộng và text overflow */
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-word; /* Cho phép wrap từ dài */
+    white-space: normal; /* Cho phép xuống dòng */
 }
-td:nth-child(1) { width: 30%; } /* Cột Tài khoản */
-td:nth-child(2) { width: 20%; } /* Cột Vai trò */
-td:nth-child(3) { width: 20%; } /* Cột Trạng thái */
-td:nth-child(4) { width: 30%; } /* Cột Hành động */
+td:nth-child(1) { width: 30%; max-width: 30%; }
+td:nth-child(2) { width: 20%; max-width: 20%; }
+td:nth-child(3) { width: 20%; max-width: 20%; }
+td:nth-child(4) { width: 30%; max-width: 30%; }
 
-tbody tr {
-    transition: all 0.3s;
-    position: relative;
-}
-
-tbody tr::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 3px;
-    height: 0;
-    background: #e50914;
-    transition: height 0.3s;
-}
-
-tbody tr:hover {
-    background: rgba(229, 9, 20, 0.05);
-    transform: scale(1.01);
-}
-
-tbody tr:hover::before {
-    height: 100%;
-}
-
+/* Cột Tài khoản */
 .user-info {
     display: flex;
     align-items: center;
-    max-width: 100%; /* Giới hạn chiều rộng tối đa */
+    gap: 5px; /* Giảm gap để loại khoảng trắng */
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
 }
 
 .user-avatar {
@@ -516,8 +490,14 @@ tbody tr:hover::before {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 10px;
-    flex-shrink: 0; /* Ngăn avatar co lại */
+    flex-shrink: 0;
+}
+
+.user-details {
+    flex: 1;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
 }
 
 .user-details h4 {
@@ -525,22 +505,21 @@ tbody tr:hover::before {
     font-size: 14px;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-tbody tr:hover .user-avatar {
-    transform: scale(1.1) rotate(5deg);
+    white-space: normal; /* Cho phép wrap tên nếu dài */
+    word-break: break-word;
 }
 
 .user-details p {
+    margin: 0;
     font-size: 13px;
     color: #666;
-    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
 }
 
+/* Cột Vai trò */
 .badge {
     display: inline-block;
     padding: 6px 12px;
@@ -549,7 +528,28 @@ tbody tr:hover .user-avatar {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    transition: all 0.3s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal; /* Cho phép wrap nếu dài */
+    word-break: break-word;
+}
+
+/* Vô hiệu hóa ::before hoàn toàn */
+tbody tr::before {
+    display: none;
+}
+/* Cột Vai trò */
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .badge:hover {
@@ -586,10 +586,12 @@ tbody tr:hover .user-avatar {
     border: 1px solid rgba(220, 53, 69, 0.3);
 }
 
+/* Cột Hành động */
 .action-buttons {
     display: flex;
     gap: 8px;
-    max-width: 100%; /* Giới hạn chiều rộng */
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .action-buttons button {
@@ -598,6 +600,9 @@ tbody tr:hover .user-avatar {
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.3s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .action-buttons .btn-edit {
@@ -617,7 +622,6 @@ tbody tr:hover .user-avatar {
 .action-buttons .btn-danger:hover {
     background: #c82333;
 }
-
  /* Modal */
  .modal {
      display: none;
@@ -913,7 +917,7 @@ tbody tr:hover .user-avatar {
      margin-bottom: 10px;
  }
 
- /* Additional Styles for Improvement */
+
  /* Add subtle glow to active elements */
  .nav-item.active::after {
      content: '';
@@ -960,9 +964,4 @@ tbody tr:hover .user-avatar {
      to {
          opacity: 1;
      }
- }
-
- /* Better modal background */
- .modal {
-     backdrop-filter: blur(8px);
  }
