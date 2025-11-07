@@ -252,20 +252,20 @@
                               <h4>${escapeHtml(user.userName || '')}</h4>
                               <p>${escapeHtml(user.email || '')}</p>
                         </div>
-              </div>
-        </td>
-        <td>${renderRoleBadge(user.role)}</td>
-        <td>${renderStatusBadge(user.status)}</td>
-        <td>
-            <div class="action-buttons">
-                <button class="btn btn-edit" onclick="openModal('edit', ${user.userId})">
-                    <i class="fas fa-edit"></i> Sửa
-                </button>
-                <button class="btn btn-danger" onclick="deleteAccount(${user.userId})">
-                    <i class="fas fa-trash"></i> Xóa
-                </button>
-            </div>
-        </td>
+                  </div>
+                  </td>
+                  <td>${renderRoleBadge(user.role)}</td>
+                  <td>${renderStatusBadge(user.status)}</td>
+                  <td>
+                        <div class="action-buttons">
+                          <button class="btn btn-edit" onclick="openModal('edit', ${user.userId})">
+                          <i class="fas fa-edit"></i> Sửa
+                          </button>
+                          <button class="btn btn-danger" onclick="deleteAccount(${user.userId})">
+                          <i class="fas fa-trash"></i> Xóa
+                          </button>
+                        </div>
+                  </td>
     `;
 
                     tr.dataset.role = (user.role || '').toLowerCase();
@@ -412,14 +412,17 @@
         async function deleteAccount(id) {
             if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) return;
             try {
-                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Delete failed');
+                const res = await fetch(`http://localhost:8080/api/users/${id}`, { method: 'DELETE' });
+                if (!res.ok){
+                    const errorText = await rest.test(); 
+                    throw new Error('Delete failed');
+                } 
                 showToast('success', 'Tài khoản đã được xóa!');
                 if (currentPage > 0 && document.getElementById('accountTable').children.length <= 1) currentPage--; // Quay lại trang trước nếu trang trống
                 loadUsers();
             } catch (err) {
                 console.error(err);
-                showToast('error', 'Xóa thất bại');
+                showToast('error', "Lỗi khi xóa");
             }
         }
 

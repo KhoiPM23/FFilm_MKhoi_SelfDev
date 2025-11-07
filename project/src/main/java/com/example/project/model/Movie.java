@@ -38,8 +38,10 @@ public class Movie {
 
     @NotNull(message = "releaseDate is not null")
     @JsonFormat(pattern = "yyyy-MM-dd")
+    @Column(name = "release_date")
     private Date releaseDate;
     
+    @Column(name = "is_free")
     private boolean isFree;
 
     @NotNull(message = "Duration is not null")
