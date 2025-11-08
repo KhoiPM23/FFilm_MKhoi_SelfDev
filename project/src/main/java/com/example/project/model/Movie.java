@@ -27,10 +27,11 @@ public class Movie {
     private int movieID;
 
     @NotBlank(message = "title is required")
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String title;
 
     @NotBlank(message = "description is required")
-    @Column(length = 4000) // Tăng độ dài cho mô tả
+    @Column(length = 4000, columnDefinition = "NVARCHAR(MAX)") // Tăng độ dài cho mô tả
     private String description;
 
     @NotNull(message = "releaseDate is not null")
@@ -46,15 +47,15 @@ public class Movie {
     private float rating;
 
     @NotBlank(message = "url is not null")
-    @Column(length = 1000) // URL video (giả sử là link file)
+    @Column(length = 1000, columnDefinition = "NVARCHAR(1000)") // URL video (giả sử là link file)
     private String url;
     
     // ========== BỔ SUNG CÁC TRƯỜNG MỚI ==========
 
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "NVARCHAR(255)")
     private String posterPath; // Dùng để lưu link ảnh poster (vd: /abc.jpg)
 
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "NVARCHAR(255)")
     private String backdropPath; // Dùng để lưu link ảnh banner (vd: /xyz.jpg)
 
     @Column(unique = true, nullable = true)

@@ -3,12 +3,14 @@ package com.example.project.controller;
 import com.example.project.dto.MovieRequest;
 import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
+import jakarta.validation.Valid; // <-- THÊM IMPORT NÀY
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/content/movies") // API dành riêng cho Content Manager
@@ -51,22 +53,25 @@ public class ContentMovieController {
             Movie importedMovie = movieService.importFromTmdb(tmdbId);
             return ResponseEntity.status(HttpStatus.CREATED).body(importedMovie);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được GlobalExceptionHandler xử lý
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
     /**
-     * Kịch bản 2: Thêm phim thủ công (sau khi đã có data, vd: tự upload)
+     * Kịch bản 2: Thêm phim thủ công
      * Endpoint: POST /api/content/movies
      * Body: (Xem MovieRequest.java)
      */
     @PostMapping
-    public ResponseEntity<?> createMovie(@RequestBody MovieRequest movieRequest) {
+    public ResponseEntity<?> createMovie(@Valid @RequestBody MovieRequest movieRequest) {
+        // Annotation @Valid sẽ tự động kích hoạt validation
+        // Nếu thất bại, GlobalExceptionHandler sẽ bắt và trả về lỗi 400
         try {
             Movie createdMovie = movieService.createMovie(movieRequest);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdMovie);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
@@ -76,12 +81,13 @@ public class ContentMovieController {
      * Body: (Xem MovieRequest.java)
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateMovie(@PathVariable int id, @RequestBody MovieRequest movieRequest) {
+    public ResponseEntity<?> updateMovie(@PathVariable int id, @Valid @RequestBody MovieRequest movieRequest) {
+        // @Valid cũng được áp dụng cho update
         try {
             Movie updatedMovie = movieService.updateMovie(id, movieRequest);
             return ResponseEntity.ok(updatedMovie);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
@@ -95,7 +101,7 @@ public class ContentMovieController {
             movieService.deleteMovie(id);
             return ResponseEntity.noContent().build(); // HTTP 204
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 }

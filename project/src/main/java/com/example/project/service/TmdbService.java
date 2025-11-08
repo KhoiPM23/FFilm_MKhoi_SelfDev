@@ -15,7 +15,8 @@ public class TmdbService {
     @Value("${tmdb.api.key}")
     private String tmdbApiKey;
 
-    private final String TMDB_BASE_URL = "https.api.themoviedb.org/3";
+    // SỬA LỖI Ở ĐÂY: Thêm "://" sau "https"
+    private final String TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
     /**
      * Gọi TMDB API để lấy chi tiết phim bằng TMDB ID
@@ -31,6 +32,7 @@ public class TmdbService {
             return restTemplate.getForObject(url, TmdbMovieDto.class);
         } catch (Exception e) {
             System.err.println("Lỗi khi gọi TMDB API: " + e.getMessage());
+            // Ném ra lỗi cụ thể hơn để GlobalExceptionHandler có thể bắt
             throw new RuntimeException("Không thể lấy dữ liệu từ TMDB: " + e.getMessage(), e);
         }
     }
