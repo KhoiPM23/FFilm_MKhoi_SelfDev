@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${pageTitle != null ? pageTitle + ' - FFilm' : 'Khám Phá Phim - FFilm'}">Khám Phá Phim</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background: #141414; 
+            color: #fff; 
+            min-height: 100vh;
+        }
+        .discover-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 50px 80px;
+        }
+        .discover-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .discover-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #e50914 0%, #ff6b6b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .discover-header p {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.7);
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .movie-card { cursor: pointer; transition: transform 0.3s; }
+        .movie-card:hover { transform: translateY(-8px) scale(1.03); }
+        .movie-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; background: #222; }
+        .movie-card-info { padding: 12px 0; }
+        .movie-card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .movie-card-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: rgba(255,255,255,0.7); }
+        .movie-card-rating { color: #ffd700; }
+        .pagination { display: flex; justify-content: center; gap: 8px; margin: 40px 0; flex-wrap: wrap; }
+        .page-btn { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+        .page-btn:hover:not(.active):not(.disabled) { background: rgba(255,255,255,0.1); }
+        .page-btn.active { background: #e50914; border-color: #e50914; }
+        .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+        .page-ellipsis { padding: 0 8px; color: rgba(255,255,255,0.5); align-self: center; }
+        .empty-state { text-align: center; padding: 80px 20px; }
+        .empty-icon { font-size: 4rem; color: rgba(255,255,255,0.15); margin-bottom: 20px; }
+        .btn-back { padding: 12px 24px; background: #e50914; color: white; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="discover-container">
+        <div class="discover-header">
+            <h1 th:text="${pageTitle}">Khám Phá Phim</h1>
+            <p th:if="${totalResults != null}">
+                Tìm thấy <strong th:text="${totalResults}"></strong> kết quả
+            </p>
+        </div>
+
+        <div class="results-section" th:if="${hasResults}">
+        <div class="results-grid" id="resultsGrid">
+                <div th:each="movie : ${searchResults}" class="movie-card" 
+                     th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy"
+                         onerror="this.src='/images/placeholder.jpg'">
+                    <div class="movie-card-info">
+                        <div class="movie-card-title" th:text="${movie.title}"></div>
+                        <div class="movie-card-meta">
+                            <span th:text="${movie.year}"></span>
+                            <span class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pagination" 
+                th:if="${totalPages != null && totalPages > 1}" 
+                id="pagination"
+                th:attr="data-current-page=${currentPage}, data-total-pages=${totalPages}, data-genres=${genres}, data-quickFilter=${quickFilter}">
+                </div>
+        </div>
+
+        <div class="empty-state" th:if="${!hasResults}">
+            <div class="empty-icon"><i class="fas fa-film"></i></div>
+            <h2>Không tìm thấy phim nào</h2>
+            <p>Không có phim nào phù hợp với tiêu chí của bạn.</p>
+            <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Về trang chủ</a>
+        </div>
+    </div>
+
+    <div th:replace="fragments/footer :: footer"></div>
+    <div th:replace="fragments/ai-chat :: ai-chat"></div>
+
+    <script th:src="@{/js/movie/ai-agent.js}" defer></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const paginationEl = document.getElementById('pagination');
+        if (paginationEl) {
+            const currentPage = parseInt(paginationEl.dataset.currentPage) || 1;
+            const totalPages = parseInt(paginationEl.dataset.totalPages) || 1;
+            
+            // Lấy filter params từ data-attributes
+            const genres = paginationEl.dataset.genres || '';
+            const quickFilter = paginationEl.dataset.quickfilter || '';
+            
+            if (totalPages > 1) {
+                renderPaginationButtons(currentPage, totalPages, genres, quickFilter);
+            }
+        }
+    });
+
+    function renderPaginationButtons(current, total, genres, quickFilter) {
+        const pagination = document.getElementById('pagination');
+        if (!pagination) return;
+        
+        let html = '';
+        
+        // Nút Previous
+        if (current > 1) {
+            html += `<a class="page-btn" href="${buildPageUrl(current - 1, genres, quickFilter)}">
+                <i class="fas fa-chevron-left"></i>
+            </a>`;
+        } else {
+            html += `<span class="page-btn disabled">
+                <i class="fas fa-chevron-left"></i>
+            </span>`;
+        }
+        
+        // Các nút số
+        const start = Math.max(1, current - 2);
+        const end = Math.min(total, current + 2);
+        
+        if (start > 1) {
+            html += `<a class="page-btn" href="${buildPageUrl(1, genres, quickFilter)}">1</a>`;
+            if (start > 2) {
+                html += `<span class="page-ellipsis">...</span>`;
+            }
+        }
+        
+        for (let i = start; i <= end; i++) {
+            const activeClass = i === current ? 'active' : '';
+            html += `<a class="page-btn ${activeClass}" href="${buildPageUrl(i, genres, quickFilter)}">${i}</a>`;
+        }
+        
+        if (end < total) {
+            if (end < total - 1) {
+                html += `<span class="page-ellipsis">...</span>`;
+            }
+            html += `<a class="page-btn" href="${buildPageUrl(total, genres, quickFilter)}">${total}</a>`;
+        }
+        
+        // Nút Next
+        if (current < total) {
+            html += `<a class="page-btn" href="${buildPageUrl(current + 1, genres, quickFilter)}">
+                <i class="fas fa-chevron-right"></i>
+            </a>`;
+        } else {
+            html += `<span class="page-btn disabled">
+                <i class="fas fa-chevron-right"></i>
+            </span>`;
+        }
+        
+        pagination.innerHTML = html;
+    }
+
+    // Helper build URL phân trang (quan trọng)
+    function buildPageUrl(page, genres, quickFilter) {
+        let url = `/discover?page=${page}`;
+        // Kiểm tra 'null' string vì Thymeleaf có thể truyền 'null'
+        if (genres && genres !== 'null' && genres !== '') { 
+            url += `&genres=${genres}`;
+        }
+        if (quickFilter && quickFilter !== 'null' && quickFilter !== '') { 
+            url += `&quickFilter=${quickFilter}`;
+        }
+        return url;
+    }
+    </script>
+</body>
+</html>

@@ -155,6 +155,38 @@ body {
     transform: scale(1.05);
 }
 
+/* Thêm style cho nút xem thêm */
+    .view-more-link {
+        color: #b3b3b3;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    .view-more-link:hover {
+        color: #e50914;
+        transform: translateX(5px);
+    }
+    .view-more-link i {
+        margin-left: 5px;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .section-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .section-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0; 
+    }
+    
 /* Mini Carousel */
 .mini-carousel {
     position: absolute;
@@ -483,6 +515,9 @@ footer {
 <section class="movies">
     <div class="section-header">
         <h2>🔥 Phim Hot</h2>
+        <a href="/discover?quickFilter=trending" class="view-more-link">
+                Xem thêm <i class="fas fa-chevron-right"></i>
+             </a>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="hotPrevBtn">
                 <i class="fas fa-chevron-left"></i>
@@ -656,6 +691,9 @@ footer {
 <section class="movies">
     <div class="section-header">
         <h2>🆕 Phim Mới Ra Mắt</h2>
+        <a href="/discover?quickFilter=new" class="view-more-link">
+                Xem thêm <i class="fas fa-chevron-right"></i>
+            </a>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="newPrevBtn">
                 <i class="fas fa-chevron-left"></i>
@@ -690,6 +728,9 @@ footer {
 <section class="movies">
     <div class="section-header">
         <h2>🎌 Anime Hot</h2>
+        <a href="/discover?genres=16" class="view-more-link">
+                Xem thêm <i class="fas fa-chevron-right"></i>
+            </a>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="animePrevBtn">
                 <i class="fas fa-chevron-left"></i>
@@ -724,6 +765,9 @@ footer {
 <section class="movies">
     <div class="section-header">
         <h2>👶 Phim Cho Trẻ Em</h2>
+        <a href="/discover?genres=10751" class="view-more-link">
+                Xem thêm <i class="fas fa-chevron-right"></i>
+            </a>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="kidsPrevBtn">
                 <i class="fas fa-chevron-left"></i>
@@ -758,6 +802,9 @@ footer {
 <section class="movies">
     <div class="section-header">
         <h2>💥 Phim Hành Động Hot</h2>
+        <a href="/discover?genres=28" class="view-more-link">
+                Xem thêm <i class="fas fa-chevron-right"></i>
+            </a>
         <div class="carousel-nav">
             <button class="nav-btn prev-btn" id="actionPrevBtn">
                 <i class="fas fa-chevron-left"></i>
