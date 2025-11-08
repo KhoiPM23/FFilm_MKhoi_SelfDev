@@ -458,23 +458,8 @@ footer {
 <body>
 <div th:replace="fragments/header :: header"></div>
 
-<!-- Banner -->
-<!-- <section class="banner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
-    <div class="overlay">
-        <h2 th:text="${banner.title}">Movie Title</h2>
-        <p th:text="${banner.overview}">Movie overview</p>
-        <p>
-            ⭐ <span th:text="${banner.rating}"></span> · 
-            <span th:text="${banner.year}"></span>
-        </p>
-        <a href="#" class="btn">▶ Xem ngay</a>
-    </div>
-</section> -->
-
-<!-- Hero Banner with Mini Carousel -->
 <section class="hero-banner" id="heroBanner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
     <div class="hero-overlay"></div>
-    
     <div class="hero-content">
         <h1 class="hero-title" th:text="${banner.title}">Movie Title</h1>
         
@@ -485,7 +470,6 @@ footer {
             </div>
             <div class="year" th:text="${banner.year}">2025</div>
             <div class="duration" th:text="${banner.runtime != 0 ? banner.runtime + ' phút' : '—'}">120 phút</div>
-
         </div>
         
         <button class="description-toggle" id="descToggle">
@@ -497,338 +481,182 @@ footer {
         </p>
         
         <div class="hero-actions">
-            <button class="btn-play" onclick="location.href='/movie/player/1'">
+            <button class="btn-play" th:onclick="'location.href=\'/movie/detail/' + ${banner.id} + '\''">
                 <i class="fas fa-play"></i>
                 Xem ngay
             </button>
         </div>
     </div>
     
-    <!-- Mini Carousel -->
     <div class="mini-carousel">
-        <div class="mini-carousel-track" id="miniCarousel">
-            <!-- Mini cards will be populated by JS -->
-        </div>
+        <div class="mini-carousel-track" id="miniCarousel"></div>
     </div>
 </section>
-<!-- Danh sách phim hot -->
+
 <section class="movies">
     <div class="section-header">
-        <h2>🔥 Phim Hot</h2>
-        <a href="/discover?quickFilter=trending" class="view-more-link">
+        <div class="section-title-wrapper">
+             <h2 class="section-title">🔥 Phim Hot</h2>
+             <a href="/discover?quickFilter=trending" class="view-more-link">
                 Xem thêm <i class="fas fa-chevron-right"></i>
              </a>
+        </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="hotPrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="hotNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <button class="nav-btn prev-btn" id="hotPrevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn next-btn" id="hotNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
-    
     <div class="movie-carousel">
         <div class="movie-slider" id="hotSlider">
-            <div th:each="movie : ${hotMovies}" class="movie-card">
+            <div th:each="movie : ${hotMovies}" class="movie-card" 
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
                 <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
                     <div class="movie-overlay">
-                        <button class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </button>
+                        <button class="play-btn"><i class="fas fa-play"></i></button>
                     </div>
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- <div class="section-header">
-        <h2 class="section-title">🔥 Phim Hot</h2>
-        <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="hotPrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="hotNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-    </div>
-    
-    <div class="movie-carousel">
-        <div class="movie-slider" id="hotSlider">
-            <div th:each="movie : ${hotMovies}" 
-                 class="movie-card" 
-                 th:attr="data-movie-id=${movie.id}"
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <div class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">
-                        ⭐ <span th:text="${movie.rating}">8.5</span>
-                    </p>
-                </div>
-
-                <div class="movie-hover-card">
-                    <img class="hover-card-image" 
-                         th:src="${movie.poster}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    
-                    <div class="hover-card-content">
-                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
-
-                        <div class="hover-card-meta">
-                            <span class="meta-rating">
-                                <i class="fas fa-star"></i> 
-                                <span th:text="${movie.rating}">8.5</span>
-                            </span>
-                            <span class="meta-year" 
-                                  th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">
-                                2025
-                            </span>
-                            <span class="meta-quality">HD</span>
-                        </div>
-
-                        <div class="hover-card-genres">
-                            <span class="genre-tag loading-genre">Đang tải...</span>
-                        </div>
-
-                        <p class="hover-card-description" 
-                           th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}">
-                            Mô tả ngắn về phim sẽ hiển thị ở đây...
-                        </p>
-
-                        <div class="hover-card-actions">
-                            <button class="hover-play-btn" 
-                                    type="button"
-                                    th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                                <i class="fas fa-play"></i>
-                                Xem ngay
-                            </button>
-                            <button class="hover-add-btn" 
-                                    type="button"
-                                    th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'"
-                                    title="Thêm vào danh sách">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div> -->
-
-    
-
-    <!-- <div th:each="movie : ${hotMovies}" class="movie-card">
-        <div class="movie-poster">
-            <img th:src="${movie.poster}" th:alt="${movie.title}">
-
-            <div class="movie-overlay" aria-hidden="true">
-                <button class="play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
-                    <i class="fas fa-play"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="movie-info">
-            <h3 th:text="${movie.title}">Movie Title</h3>
-            <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-        </div>
-
-
-        <div class="movie-hover-card" aria-hidden="true">
-            <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
-            <div class="hover-card-content">
-                <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
-
-                <div class="hover-card-meta">
-                    <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
-                    <span th:text="${movie.releaseDate != null and movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
-                    <span>HD</span>
-                </div>
-
-                <div class="hover-card-genres">
-                    <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
-                    <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
-                </div>
-
-                <p class="hover-card-description" th:text="${movie.overview != null ? movie.overview : 'Mô tả ngắn về phim...'}">
-                    Mô tả ngắn về phim sẽ hiển thị ở đây khi hover...
-                </p>
-
-                <div class="hover-card-actions">
-                    <button class="hover-play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
-                        <i class="fas fa-play"></i>
-                        Xem ngay
-                    </button>
-                    <button class="hover-add-btn" type="button">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>      -->
 </section>
 
-<!-- Phim mới ra mắt -->
-<section class="movies">
+<section class="movies">    
     <div class="section-header">
-        <h2>🆕 Phim Mới Ra Mắt</h2>
-        <a href="/discover?quickFilter=new" class="view-more-link">
+         <div class="section-title-wrapper">
+            <h2 class="section-title">🆕 Phim Mới Ra Mắt</h2>
+            <a href="/discover?quickFilter=new" class="view-more-link">
                 Xem thêm <i class="fas fa-chevron-right"></i>
             </a>
+        </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="newPrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="newNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <button class="nav-btn prev-btn" id="newPrevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn next-btn" id="newNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
-    
     <div class="movie-carousel">
         <div class="movie-slider" id="newSlider">
-            <div th:each="movie : ${newMovies}" class="movie-card">
+            <div th:each="movie : ${newMovies}" class="movie-card"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
                 <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
                     <div class="movie-overlay">
-                        <button class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </button>
+                        <button class="play-btn"><i class="fas fa-play"></i></button>
                     </div>
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Anime Hot -->
 <section class="movies">
     <div class="section-header">
-        <h2>🎌 Anime Hot</h2>
-        <a href="/discover?genres=16" class="view-more-link">
+         <div class="section-title-wrapper">
+            <h2 class="section-title">🎌 Anime Hot</h2>
+            <a href="/discover?genres=16" class="view-more-link">
                 Xem thêm <i class="fas fa-chevron-right"></i>
             </a>
+        </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="animePrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="animeNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <button class="nav-btn prev-btn" id="animePrevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn next-btn" id="animeNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
-    
     <div class="movie-carousel">
         <div class="movie-slider" id="animeSlider">
-            <div th:each="movie : ${animeMovies}" class="movie-card">
+            <div th:each="movie : ${animeMovies}" class="movie-card"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
                 <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
                     <div class="movie-overlay">
-                        <button class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </button>
+                        <button class="play-btn"><i class="fas fa-play"></i></button>
                     </div>
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Phim cho trẻ em -->
 <section class="movies">
     <div class="section-header">
-        <h2>👶 Phim Cho Trẻ Em</h2>
-        <a href="/discover?genres=10751" class="view-more-link">
+         <div class="section-title-wrapper">
+            <h2 class="section-title">👶 Phim Cho Trẻ Em</h2>
+            <a href="/discover?genres=10751" class="view-more-link">
                 Xem thêm <i class="fas fa-chevron-right"></i>
             </a>
+        </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="kidsPrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="kidsNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <button class="nav-btn prev-btn" id="kidsPrevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn next-btn" id="kidsNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
-    
     <div class="movie-carousel">
         <div class="movie-slider" id="kidsSlider">
-            <div th:each="movie : ${kidsMovies}" class="movie-card">
+            <div th:each="movie : ${kidsMovies}" class="movie-card"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
                 <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
                     <div class="movie-overlay">
-                        <button class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </button>
+                        <button class="play-btn"><i class="fas fa-play"></i></button>
                     </div>
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Phim lẻ hành động -->
 <section class="movies">
     <div class="section-header">
-        <h2>💥 Phim Hành Động Hot</h2>
-        <a href="/discover?genres=28" class="view-more-link">
+         <div class="section-title-wrapper">
+            <h2 class="section-title">💥 Phim Hành Động Hot</h2>
+            <a href="/discover?genres=28" class="view-more-link">
                 Xem thêm <i class="fas fa-chevron-right"></i>
             </a>
+        </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="actionPrevBtn">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="nav-btn next-btn" id="actionNextBtn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <button class="nav-btn prev-btn" id="actionPrevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn next-btn" id="actionNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
-    
     <div class="movie-carousel">
         <div class="movie-slider" id="actionSlider">
-            <div th:each="movie : ${actionMovies}" class="movie-card">
+            <div th:each="movie : ${actionMovies}" class="movie-card"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
                 <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}">
+                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
                     <div class="movie-overlay">
-                        <button class="play-btn">
-                            <i class="fas fa-play"></i>
-                        </button>
+                        <button class="play-btn"><i class="fas fa-play"></i></button>
                     </div>
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
                 </div>
             </div>
         </div>
