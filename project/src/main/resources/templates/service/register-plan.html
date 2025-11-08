@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Đăng ký gói dịch vụ - FFilm</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <style>
+      /* Subscription Page Styles */
+      .subscription-hero {
+        background: linear-gradient(
+            135deg,
+            rgba(229, 9, 20, 0.9) 0%,
+            rgba(0, 0, 0, 0.8) 100%
+          ),
+          url("https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920")
+            center/cover;
+        padding: 150px 50px 100px;
+        text-align: center;
+        position: relative;
+      }
+
+      .subscription-hero h1 {
+        font-size: 48px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: #fff;
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+      }
+
+      .subscription-hero p {
+        font-size: 18px;
+        color: #f0f0f0;
+        max-width: 800px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
+
+      /* Pricing Section */
+      .pricing-section {
+        padding: 80px 50px;
+        background: #0a0a0a;
+      }
+
+      .section-title {
+        text-align: center;
+        font-size: 36px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 60px;
+      }
+
+      .pricing-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 30px;
+      }
+
+      .pricing-card {
+        background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%);
+        border-radius: 15px;
+        padding: 40px 30px;
+        position: relative;
+        border: 2px solid #2a2a2a;
+        transition: all 0.3s ease;
+        overflow: hidden;
+      }
+
+      .pricing-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #e50914 0%, #ff4444 100%);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .pricing-card:hover {
+        transform: translateY(-10px);
+        border-color: #e50914;
+        box-shadow: 0 15px 40px rgba(229, 9, 20, 0.3);
+      }
+
+      .pricing-card:hover::before {
+        opacity: 1;
+      }
+
+      .pricing-card.popular {
+        border-color: #e50914;
+        background: linear-gradient(145deg, #1f1111 0%, #0f0707 100%);
+        box-shadow: 0 10px 30px rgba(229, 9, 20, 0.2);
+      }
+
+      .pricing-card.popular::before {
+        opacity: 1;
+      }
+
+      .popular-badge {
+        position: absolute;
+        top: 20px;
+        right: -35px;
+        background: #e50914;
+        color: white;
+        padding: 8px 40px;
+        transform: rotate(45deg);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        box-shadow: 0 4px 10px rgba(229, 9, 20, 0.4);
+      }
+
+      .plan-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .plan-name {
+        font-size: 28px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 15px;
+      }
+
+      .plan-price {
+        font-size: 48px;
+        font-weight: 700;
+        color: #e50914;
+        margin-bottom: 5px;
+      }
+
+      .plan-price .currency {
+        font-size: 24px;
+        vertical-align: super;
+      }
+
+      .plan-period {
+        color: #888;
+        font-size: 14px;
+      }
+
+      .plan-features {
+        list-style: none;
+        margin: 30px 0;
+        padding: 0;
+      }
+
+      .plan-features li {
+        padding: 15px 0;
+        color: #ccc;
+        border-bottom: 1px solid #2a2a2a;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 15px;
+      }
+
+      .plan-features li:last-child {
+        border-bottom: none;
+      }
+
+      .plan-features li i {
+        color: #4caf50;
+        font-size: 16px;
+        margin-top: 2px;
+      }
+
+      .btn-select {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-select:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(229, 9, 20, 0.4);
+        background: linear-gradient(135deg, #ff4444 0%, #e50914 100%);
+      }
+
+      /* Comparison Section */
+      .comparison-section {
+        padding: 80px 50px;
+        background: #111;
+      }
+
+      .comparison-table-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        overflow-x: auto;
+        border-radius: 15px;
+        background: #1a1a1a;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 20px;
+        text-align: center;
+        border-bottom: 1px solid #2a2a2a;
+        color: #ccc;
+        font-size: 15px;
+      }
+
+      .comparison-table th {
+        background: linear-gradient(180deg, #222 0%, #1a1a1a 100%);
+        font-weight: 700;
+        color: #fff;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      .comparison-table th:first-child {
+        text-align: left;
+        padding-left: 30px;
+      }
+
+      .comparison-table td:first-child {
+        text-align: left;
+        padding-left: 30px;
+      }
+
+      .comparison-table .plan-header th:not(:first-child) {
+        font-size: 20px;
+      }
+
+      .comparison-table .price-row td:not(:first-child) {
+        font-size: 28px;
+        color: #e50914;
+        font-weight: 700;
+      }
+
+      .check {
+        color: #4caf50;
+      }
+
+      .cross {
+        color: #f44336;
+      }
+
+      /* Modal Styles */
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s;
+        z-index: 1000;
+      }
+
+      .modal.active {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .modal-content {
+        background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%);
+        border-radius: 15px;
+        padding: 40px;
+        width: 90%;
+        max-width: 500px;
+        position: relative;
+        box-shadow: 0 20px 50px rgba(229, 9, 20, 0.3);
+        transform: scale(0.9);
+        transition: transform 0.3s;
+      }
+
+      .modal.active .modal-content {
+        transform: scale(1);
+      }
+
+      .close-modal {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 28px;
+        color: #888;
+        cursor: pointer;
+        transition: color 0.3s;
+      }
+
+      .close-modal:hover {
+        color: #e50914;
+      }
+
+      .modal-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .modal-header h2 {
+        font-size: 28px;
+        color: #fff;
+        margin-bottom: 15px;
+      }
+
+      .selected-plan {
+        background: #2a2a2a;
+        padding: 10px 20px;
+        border-radius: 8px;
+        color: #e50914;
+        font-weight: 600;
+        display: inline-block;
+      }
+
+      .form-group {
+        margin-bottom: 25px;
+      }
+
+      .form-group label {
+        display: block;
+        color: #ccc;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 14px;
+        background: #222;
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 15px;
+        transition: all 0.3s;
+      }
+
+      .form-group input:focus {
+        border-color: #e50914;
+        box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2);
+      }
+
+      .btn-submit {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(229, 9, 20, 0.4);
+        background: linear-gradient(135deg, #ff4444 0%, #e50914 100%);
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .subscription-hero {
+          padding: 120px 30px 80px;
+        }
+
+        .subscription-hero h1 {
+          font-size: 36px;
+        }
+
+        .pricing-section,
+        .comparison-section {
+          padding: 60px 30px;
+        }
+
+        .section-title {
+          font-size: 30px;
+        }
+
+        .pricing-card {
+          padding: 30px 20px;
+        }
+
+        .modal-content {
+          padding: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div th:replace="fragments/header :: header"></div>
+    <!-- Hero Section -->
+    <section class="subscription-hero">
+      <h1>Chọn gói dịch vụ phù hợp với bạn</h1>
+      <p>
+        Trải nghiệm hàng ngàn bộ phim, chương trình truyền hình chất lượng cao
+        với giá cả phải chăng. Không hợp đồng ràng buộc, hủy bất cứ lúc nào.
+      </p>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing-section">
+      <h2 class="section-title">Các gói dịch vụ</h2>
+      <div class="pricing-container">
+        <div
+          th:each="plan : ${subscriptionPlans}"
+          class="pricing-card"
+          th:classappend="${plan.featured ? 'popular' : ''}"
+        >
+          <div th:if="${plan.featured}" class="popular-badge">
+            PHỔ BIẾN NHẤT
+          </div>
+          <div class="plan-header">
+            <h3 class="plan-name" th:text="${plan.planName}"></h3>
+            <div class="plan-price">
+              <span
+                th:text="${#numbers.formatDecimal(plan.price, 0, 0, 'COMMA')}"
+              ></span
+              >đ
+            </div>
+            <div class="plan-period">/tháng</div>
+          </div>
+
+          <ul class="plan-features">
+            <li
+              th:each="feature : ${#strings.arraySplit(plan.description, ',')}"
+            >
+              <i class="fas fa-check-circle"></i>
+              <span th:text="${#strings.trim(feature)}"></span>
+            </li>
+          </ul>
+
+          <form
+            th:action="@{/subscription/register}"
+            method="post"
+            style="margin: 0"
+          >
+            <input type="hidden" name="userId" value="3" />
+            <input type="hidden" th:name="planId" th:value="${plan.planID}" />
+            <button type="submit" class="btn-select">
+              <i class="fas fa-arrow-right"></i> Chọn gói này
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="comparison-section">
+      <h2 class="section-title">So sánh các gói</h2>
+      <div class="comparison-table-container">
+        <table class="comparison-table">
+          <thead>
+            <tr class="plan-header">
+              <th></th>
+              <th
+                th:each="plan : ${subscriptionPlans}"
+                th:text="${plan.planName}"
+              ></th>
+            </tr>
+            <tr class="price-row">
+              <td style="text-align: left; font-weight: 600">Giá/tháng</td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span
+                  th:text="${#numbers.formatDecimal(plan.price, 0, 0, 'COMMA')}"
+                ></span
+                >đ
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Chất lượng video
+              </td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span
+                  th:text="${#strings.arraySplit(plan.description, ',')[0]}"
+                ></span>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Số thiết bị xem
+              </td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span
+                  th:text="${#strings.arraySplit(plan.description, ',')[1]}"
+                ></span>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">Tải xuống</td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span
+                  th:if="${#strings.contains(plan.description, 'không tải xuống')}"
+                  class="cross"
+                  >✗</span
+                >
+                <span
+                  th:unless="${#strings.contains(plan.description, 'không tải xuống')}"
+                  class="check"
+                  >✓</span
+                >
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Không quảng cáo
+              </td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span
+                  th:if="${#strings.contains(plan.description, 'có quảng cáo')}"
+                  class="cross"
+                  >✗</span
+                >
+                <span
+                  th:unless="${#strings.contains(plan.description, 'có quảng cáo')}"
+                  class="check"
+                  >✓</span
+                >
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: left; font-weight: 600">
+                Nội dung độc quyền
+              </td>
+              <td th:each="plan : ${subscriptionPlans}">
+                <span th:if="${plan.planName == 'Premium'}" class="check"
+                  >✓</span
+                >
+                <span th:unless="${plan.planName == 'Premium'}" class="cross"
+                  >✗</span
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>© 2025 FPTPlay Clone</p>
+    </footer>
+
+    <!-- Modal -->
+
+    <script></script>
+  </body>
+</html>

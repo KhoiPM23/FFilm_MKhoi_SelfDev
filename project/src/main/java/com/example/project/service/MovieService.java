@@ -27,18 +27,21 @@ public class MovieService {
         this.movieRepository = movieRepository;
     }
 
-    public List<MovieListDTO> getMovieByCategory(int categoryId, int page, int size) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
-        Pageable pageable = PageRequest.of(page, size, Sort.by("releaseDate").descending());
-        Page<Movie> moviePage = movieRepository.findByCategoriesContaining(category, pageable);
-        return moviePage.getContent().stream()
-                .map(movie -> new MovieListDTO(
-                        movie.getMovieID(),
-                        movie.getTitle(),
-                        movie.isFree(),
-                        movie.getUrl() != null ? movie.getUrl() : "/images/default_poster.jpg"))
-                .collect(Collectors.toList());
-    }
+    // public List<MovieListDTO> getMovieByCategory(int categoryId, int page, int
+    // size) {
+    // Category category = categoryRepository.findById(categoryId)
+    // .orElseThrow(() -> new RuntimeException("Category not found"));
+    // Pageable pageable = PageRequest.of(page, size,
+    // Sort.by("releaseDate").descending());
+    // Page<Movie> moviePage = movieRepository.findByCategoriesContaining(category,
+    // pageable);
+    // return moviePage.getContent().stream()
+    // .map(movie -> new MovieListDTO(
+    // movie.getMovieID(),
+    // movie.getTitle(),
+    // movie.isFree(),
+    // movie.getUrl() != null ? movie.getUrl() : "/images/default_poster.jpg"))
+    // .collect(Collectors.toList());
+    // }
 
 }
