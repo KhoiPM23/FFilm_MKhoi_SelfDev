@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title th:text="${banner.title}">Trang chủ</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
 <style>
@@ -787,7 +788,7 @@ footer {
     </div>
 </section>
 <footer>
-    <p>© 2025 FPTPlay Clone</p>
+    <div th:replace="fragments/footer :: footer"></div>
 </footer>
 
 <script>

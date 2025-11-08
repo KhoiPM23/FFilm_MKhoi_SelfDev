@@ -2,565 +2,1797 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:text="'Kết quả tìm kiếm: ' + ${query}">Tìm kiếm</title>
+    <title th:text="${query != null ? 'Tìm kiếm: ' + query : 'Tìm kiếm - FFilm'}">Tìm kiếm</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
-<style>
-/* --- base --- */
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#141414; color:#fff; min-height:100vh; padding-top:70px; }
-a { color: inherit; text-decoration: none; }
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background: #141414; 
+            color: #fff; 
+            min-height: 100vh;
+        }
 
-/* container */
-.search-container { max-width:1400px; margin:0 auto; padding: 20px 50px 80px; }
+        .search-page-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 50px 80px;
+        }
 
-/* Search header + filter bar */
-.search-header { margin-bottom: 18px; }
-.search-title { font-size: 1.7rem; font-weight:700; margin-bottom:6px; }
-.search-title .query { color:#e50914; }
+        /* Hero Section */
+        .search-hero {
+            text-align: center;
+            margin-bottom: 50px;
+        }
 
-.filter-bar {
-    display:flex;
-    gap:12px;
-    align-items:center;
-    flex-wrap:wrap;
-    margin: 14px 0 26px;
-    position: sticky;
-    top:70px;
-    z-index: 30;
-    padding: 12px;
-    border-radius: 10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border: 1px solid rgba(255,255,255,0.03);
-}
+        .search-hero h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #e50914 0%, #ff6b6b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-/* Search info banner */
-.search-info-banner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    background: rgba(102, 126, 234, 0.1);
-    border: 1px solid rgba(102, 126, 234, 0.3);
-    border-radius: 8px;
-    color: rgba(255,255,255,0.85);
-    font-size: 0.9rem;
-    flex: 0 0 auto;
-}
+        .search-hero .query-highlight {
+            color: #e50914;
+        }
 
-.search-info-banner i {
-    color: #667eea;
-    font-size: 1.1rem;
-}
+        .search-hero p {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 30px;
+        }
 
-/* search input in result page */
-.filter-search {
-    display:flex;
-    gap:8px;
-    align-items:center;
-    flex: 1 1 320px;
-}
-.filter-search input[type="search"] {
-    width:100%;
-    padding:10px 12px;
-    border-radius:8px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.02);
-    color: white;
-    outline: none;
-}
-.filter-search button { padding:10px 12px; border-radius:8px; border:none; background:#e50914; color:white; cursor:pointer; }
+        /* Search Box */
+        .search-main-box {
+            max-width: 700px;
+            margin: 0 auto 40px;
+            position: relative;
+        }
 
-/* selects / controls */
-.filter-controls {
-    display:flex;
-    gap:10px;
-    align-items:center;
-    flex-wrap:wrap;
-}
-.select, .small-input {
-    background: rgba(255,255,255,0.02);
-    border:1px solid rgba(255,255,255,0.06);
-    color: white;
-    padding:8px 10px;
-    border-radius:8px;
-    font-size:0.9rem;
-}
-.select[multiple] { min-width: 200px; max-height: 160px; overflow:auto; }
+        .search-main-input {
+            width: 100%;
+            padding: 18px 140px 18px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+        }
 
-/* quick filters */
-.quick-filters { display:flex; gap:8px; align-items:center; }
-.qf-btn {
-    padding:8px 12px;
-    border-radius:8px;
-    border:1px solid rgba(255,255,255,0.06);
-    background: transparent;
-    cursor:pointer;
-    color: rgba(255,255,255,0.9);
-    font-size:0.9rem;
-}
-.qf-btn.active { background:#e50914; border-color:#e50914; font-weight:600; color:white; }
+        .search-main-input:focus {
+            outline: none;
+            border-color: #e50914;
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 0 20px rgba(229,9,20,0.3);
+        }
 
-/* grid results */
-.results-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:24px; margin-top:18px; }
-@media (max-width:1200px) { .results-grid { grid-template-columns: repeat(4,1fr); } }
-@media (max-width:900px) { .results-grid { grid-template-columns: repeat(3,1fr); } }
-@media (max-width:600px) { .results-grid { grid-template-columns: repeat(2,1fr); } .search-container{ padding: 24px 14px; } }
+        .search-main-input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
 
-.movie-card { cursor:pointer; transition: transform .22s; position:relative; }
-.movie-card:hover { transform: scale(1.05); }
-.movie-poster { position:relative; border-radius:8px; overflow:hidden; aspect-ratio:2/3; background:#222; }
-.movie-poster img { width:100%; height:100%; object-fit:cover; display:block; }
-.movie-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.9), transparent); opacity:0; transition:opacity .22s; display:flex; align-items:center; justify-content:center; }
-.movie-card:hover .movie-overlay{ opacity:1; }
-.play-icon { width:48px; height:48px; border-radius:50%; background:rgba(229,9,20,0.95); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:white; }
+        /* live suggestions */
+        .live-suggestions { display: none; }
+        .live-suggestions.show { display: block; }
+        .suggestion-item { display:flex; gap:10px; padding:8px; align-items:center; cursor:pointer; border-radius:8px; }
+        .suggestion-item img { width:46px; height:64px; object-fit:cover; border-radius:4px; }
+        .suggestion-item:hover { background: rgba(255,255,255,0.03); }
+        .suggestion-info { color: rgba(255,255,255,0.9); font-size:0.95rem; }
+        .suggestion-title { font-weight:600; }
+        .suggestion-meta { font-size:0.85rem; color: rgba(255,255,255,0.6); }
 
-.movie-info { padding:10px 0; }
-.movie-title { font-size:0.95rem; font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; }
-.movie-meta { display:flex; justify-content:space-between; font-size:0.85rem; color:rgba(255,255,255,0.7); }
-.movie-rating { color:#ffd700; }
 
-/* pagination */
-.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin:36px 0 12px; flex-wrap:wrap; }
-.page-btn { min-width:40px; height:40px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:white; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; text-decoration:none; }
-.page-btn:hover:not(.active):not(.disabled) { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.4); }
-.page-btn.active { background:#e50914; border-color:#e50914; font-weight:600; }
-.page-btn.disabled { opacity:0.35; pointer-events:none; cursor:default; }
-.page-ellipsis { color:rgba(255,255,255,0.5); padding:0 8px; }
+        /* ============ Filters Panel ============ */
+        .filters-toggle {
+            position: absolute;
+            top: 50%;
+            right: -30px;              
+            transform: translateY(-50%);
+            opacity: 0;
+            pointer-events: none;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.85);
+            font-size: 1.05rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all .18s ease;
+            z-index: 13000 !important;           /* nằm trên suggestions */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-/* related section, empty, error same as before */
-.related-section { margin-top: 80px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); }
-.section-title { font-size:1.3rem; font-weight:700; margin-bottom:16px; }
-.related-carousel { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
-.related-card img { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:8px; margin-bottom:8px; }
+        .search-box:focus-within .filters-toggle,
+        .filters-toggle.visible,
+        .search-input.active ~ .filters-toggle {
+            opacity: 1;
+            pointer-events: auto;
+        }
 
-/* empty / error / buttons */
-.empty-state { text-align:center; padding:80px 20px; }
-.empty-icon { font-size:4rem; color: rgba(255,255,255,0.15); margin-bottom:20px; }
-.btn-back { padding:10px 20px; background:#e50914; color:white; border-radius:8px; display:inline-block; text-decoration:none; border:none; }
+        .filters-toggle {
+            min-width: 40px;
+            min-height: 40px;
+            padding: 8px;
+        }
 
-/* small responsive tweaks */
-@media (max-width:900px) {
-    .filter-bar { top:62px; padding:10px; gap:8px; }
-    .select[multiple] { min-width: 160px; }
-}
+        .filters-toggle:hover {
+            color: #e50914;
+            background: rgba(255,255,255,0.1);
+        }
 
-/* Inline filter groups */
-.filter-group-inline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 8px;
-}
+        .filters-toggle.active {
+            color: #e50914;
+        }
 
-.filter-label-inline {
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.7);
-    white-space: nowrap;
-}
+        @media (max-width: 760px) {
+            .filters-toggle {
+            right: -36px;
+            font-size: 1rem;
+            }
+            .search-input.active { padding-right: 96px; }
+        }
 
-/* Genre chips inline */
-.genre-chips-inline {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    max-width: 400px;
-}
+        .filters-panel {
+            position: fixed;
+            top: 70px;
+            right: 0;
+            width: 320px;
+            max-height: calc(100vh - 90px);
+            background: rgba(20,20,20,0.98);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px 0 0 12px;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+            z-index: 9998;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
 
-.genre-chip-inline {
-    padding: 4px 10px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
+        .filters-panel.show {
+            transform: translateX(0);
+        }
 
-.genre-chip-inline:hover {
-    background: rgba(255,255,255,0.1);
-}
+        .filters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
 
-.genre-chip-inline.active {
-    background: #e50914;
-    border-color: #e50914;
-    color: white;
-}
+        .filters-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+        }
 
-/* Rating slider inline */
-.rating-slider-inline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+        .filters-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
 
-.rating-value-inline {
-    min-width: 28px;
-    font-weight: 600;
-    color: #e50914;
-    font-size: 0.9rem;
-}
+        .filters-close:hover {
+            color: #e50914;
+            background: rgba(255,255,255,0.1);
+        }
 
-/* Apply button */
-.btn-apply-filter {
-    padding: 8px 16px;
-    background: #e50914;
-    border: none;
-    border-radius: 8px;
-    color: white;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
-}
+        .filters-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
 
-.btn-apply-filter:hover {
-    background: #f40612;
-    transform: translateY(-1px);
-}
+        .filter-group {
+            margin-bottom: 24px;
+        }
+
+        .filter-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 10px;
+        }
+
+        /* Quick Filters */
+        .quick-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-filter-chip {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .quick-filter-chip:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .quick-filter-chip.active {
+            background: #e50914;
+            border-color: #e50914;
+            color: white;
+        }
+
+        /* Genre Filters */
+        .genre-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .genre-chip {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .genre-chip:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .genre-chip.active {
+            background: #e50914;
+            border-color: #e50914;
+            color: white;
+        }
+
+        /* Year Filter */
+        .year-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .year-filter input {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .year-filter input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .year-filter span {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Rating Filter */
+        .rating-filter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rating-filter input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .rating-filter input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e50914;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .rating-filter input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #e50914;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .rating-value {
+            min-width: 32px;
+            font-weight: 600;
+            color: #e50914;
+        }
+
+
+        /* Action Buttons */
+        .search-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .search-action-btn:hover {
+            background: #e50914;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .search-action-btn.ai {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .search-action-btn.voice.recording {
+            background: #e50914;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Results Grid */
+        .results-section {
+            margin-top: 60px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .movie-card {
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .movie-card:hover {
+            transform: scale(1.05);
+        }
+
+        .movie-card img {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .movie-card-info {
+            padding: 12px 0;
+        }
+
+        .movie-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .movie-card-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .movie-card-rating {
+            color: #ffd700;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 40px 0;
+        }
+
+        .page-btn {
+            min-width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover:not(.active):not(.disabled) {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .page-btn.active {
+            background: #e50914;
+            border-color: #e50914;
+        }
+
+        .page-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Related Movies Section */
+        .related-section {
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .related-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .related-header i {
+            font-size: 1.8rem;
+            color: #e50914;
+        }
+
+        /* AI Suggestions Carousel */
+        .ai-suggestions-section {
+            margin-top: 80px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .ai-suggestions-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .ai-suggestions-header i {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .ai-carousel-wrapper {
+            position: relative;
+        }
+
+        .ai-carousel {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            padding: 10px 0;
+            scrollbar-width: none;
+        }
+
+        .ai-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .ai-carousel-card {
+            min-width: 180px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .ai-carousel-card:hover {
+            transform: scale(1.05);
+        }
+
+        .ai-carousel-nav {
+            position: absolute;
+            top: 35%;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.8);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .ai-carousel-nav:hover {
+            background: #e50914;
+        }
+
+        .ai-carousel-nav.prev { left: -20px; }
+        .ai-carousel-nav.next { right: -20px; }
+
+        /* Trending Section */
+        .trending-section {
+            margin-top: 60px;
+        }
+
+        .trending-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .fire-icon {
+            font-size: 2rem;
+            animation: fireFlicker 1.5s infinite;
+        }
+
+        @keyframes fireFlicker {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            color: rgba(255,255,255,0.15);
+            margin-bottom: 20px;
+        }
+
+        .btn-back {
+            padding: 12px 24px;
+            background: #e50914;
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .search-page-container {
+                padding: 80px 20px 60px;
+            }
+
+            .search-hero h1 {
+                font-size: 2rem;
+            }
+
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        /* ===== UI/UX IMPROVEMENTS CHO SEARCH PAGE ===== */
+
+        /* 1. Smooth Transitions */
+        .movie-card {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .movie-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            box-shadow: 0 12px 40px rgba(229, 9, 20, 0.3);
+        }
+
+        /* 2. Better Search Input */
+        .search-main-input {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-main-input:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(229, 9, 20, 0.25);
+        }
+
+        /* 3. Enhanced Pagination */
+        .page-btn {
+            transition: all 0.2s ease;
+        }
+
+        .page-btn:hover:not(.active):not(.disabled) {
+            background: rgba(229, 9, 20, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .page-btn.active {
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+        }
+
+        /* 4. Loading Animation for Movie Cards */
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .movie-card.loading {
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0.05) 0%,
+                rgba(255,255,255,0.1) 50%,
+                rgba(255,255,255,0.05) 100%
+            );
+            background-size: 200px 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* 5. Empty State Enhancement */
+        .empty-state {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 6. Carousel Navigation Enhancement */
+        .ai-carousel-nav {
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .ai-carousel-nav:hover:not(.disabled) {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+        }
+
+        .ai-carousel-nav.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* 7. Better Suggestion Chips */
+        .suggestion-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .suggestion-chip:hover {
+            background: rgba(229, 9, 20, 0.2);
+            border-color: #e50914;
+            transform: translateY(-2px);
+        }
+
+        /* 8. Smooth Scroll Behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 9. Better Focus States */
+        *:focus-visible {
+            outline: 2px solid #e50914;
+            outline-offset: 2px;
+        }
+
+        /* 10. Responsive Improvements */
+        @media (max-width: 768px) {
+            .search-page-container {
+                padding: 70px 15px 40px;
+            }
+            
+            .search-hero h1 {
+                font-size: 1.8rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 16px;
+            }
+            
+            .movie-card:hover {
+                transform: scale(1.02);
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- Header (site header fragment) -->
     <div th:replace="fragments/header :: header"></div>
 
-    <div class="search-container">
-        <!-- Error Banner -->
-        <div th:if="${error}" class="error-banner" style="padding:12px 14px; background: rgba(229,9,20,0.12); border-left:4px solid #e50914; border-radius:6px; margin-bottom:12px;">
-            <i class="fas fa-exclamation-circle" style="margin-right:8px;"></i>
-            <span th:text="${error}">Có lỗi xảy ra</span>
-        </div>
-
-        <!-- Search Header -->
-        <div class="search-header" th:if="${hasResults}">
-            <h1 class="search-title">
-                Tìm thấy <span th:text="${totalResults}">0</span> kết quả cho
-                <span class="query" th:text="'&quot;' + ${query} + '&quot;'">""</span>
+    <div class="search-page-container">
+        <!-- Hero Section -->
+        <div class="search-hero">
+            <h1 th:if="${query == null}">Tìm kiếm phim yêu thích</h1>
+            <h1 th:if="${query != null}">
+                Kết quả cho "<span class="query-highlight" th:text="${query}"></span>"
             </h1>
+            <p th:if="${query == null}">Khám phá hàng ngàn bộ phim, series và anime hấp dẫn</p>
+            <p th:if="${query != null && totalResults != null}">
+                Tìm thấy <strong th:text="${totalResults}"></strong> kết quả
+            </p>
+        </div>
 
-            <!-- Active Filters Display -->
-            <div class="filter-controls">
-                <!-- Genre Filter (display-only chips) -->
-                <div class="filter-group-inline">
-                    <label class="filter-label-inline">Thể loại:</label>
-                    <div class="genre-chips-inline" id="genreChipsInline">
-                        <!-- populated by JS -->
-                    </div>
+        <!-- Main Search Box -->
+        <div class="search-main-box">
+            <form id="searchForm" onsubmit="return false;">
+                <input 
+                    type="text" 
+                    id="mainSearchInput"
+                    class="search-main-input" 
+                    placeholder="Nhập tên phim, diễn viên, đạo diễn..."
+                    autocomplete="off"
+                    autofocus
+                    th:value="${query}"
+                />
+                
+                <div class="search-actions">
+                    <button type="button" class="search-action-btn voice" id="voiceSearchPageBtn" title="Giọng nói">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button type="button" class="search-action-btn" id="filterPageBtn" title="Bộ lọc">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                    <button type="button" class="search-action-btn ai" id="aiSearchPageBtn" title="AI">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                    </button>
                 </div>
+            </form>
 
-                <!-- Year Range (display-only) -->
-                <div class="filter-group-inline">
-                    <label class="filter-label-inline">Năm:</label>
-                    <input id="display-year-from" type="number" min="1900" max="2100" placeholder="Từ" class="small-input" style="width:80px;" th:value="${yearFrom}">
-                    <span style="color:rgba(255,255,255,0.5);">-</span>
-                    <input id="display-year-to" type="number" min="1900" max="2100" placeholder="Đến" class="small-input" style="width:80px;" th:value="${yearTo}">
-                </div>
-
-                <!-- Rating (display-only range + value) -->
-                <div class="filter-group-inline">
-                    <label class="filter-label-inline">Rating:</label>
-                    <div class="rating-slider-inline">
-                        <input type="range" id="display-minRatingRange" min="0" max="10" step="0.5" style="width:100px;" th:value="${minRating}">
-                        <span class="rating-value-inline" id="ratingValueInline">0.0</span>
-                    </div>
-                </div>
-
-                <!-- Quick Filters (display-only hidden for visual) -->
+            <div id="filtersPanel" class="filters-panel" hidden>
+            <div class="filters-header">
+              <h3>Lọc kết quả</h3>
+              <button class="filters-close" id="filtersClose">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div class="filters-body">
+              <!-- Quick Filters -->
+              <div class="filter-group">
+                <label class="filter-label">Nhanh</label>
                 <div class="quick-filters">
-                    <input type="hidden" id="display-quickFilterInput" name="displayQuickFilter" th:value="${quickFilter}">
-                    <button type="button" class="qf-btn" data-filter="trending" title="Thịnh hành"><i class="fas fa-fire"></i></button>
-                    <button type="button" class="qf-btn" data-filter="new" title="Mới nhất"><i class="fas fa-star"></i></button>
-                    <button type="button" class="qf-btn" data-filter="top-rated" title="Đánh giá cao"><i class="fas fa-trophy"></i></button>
+                  <button class="quick-filter-chip" data-filter="trending">
+                    <i class="fas fa-fire"></i> Thịnh hành
+                  </button>
+                  <button class="quick-filter-chip" data-filter="new">
+                    <i class="fas fa-star"></i> Mới nhất
+                  </button>
+                  <button class="quick-filter-chip" data-filter="top-rated">
+                    <i class="fas fa-trophy"></i> Đánh giá cao
+                  </button>
                 </div>
-
-                <!-- Apply (for display header it's optional; real submit happens in the form below) -->
-                <button type="button" class="btn-apply-filter" id="display-apply-btn">
-                    <i class="fas fa-check"></i> Áp dụng
-                </button>
+              </div>
+              
+              <!-- Genre Filter -->
+              <div class="filter-group">
+                <label class="filter-label">Thể loại</label>
+                <div class="genre-filters" id="genreFilters">
+                  <!-- Will be populated by JS -->
+                </div>
+              </div>
+              
+              <!-- Year Filter -->
+              <div class="filter-group">
+                <label class="filter-label">Năm phát hành</label>
+                <div class="year-filter">
+                  <input type="number" id="yearFrom" placeholder="Từ năm" min="1900" max="2025">
+                  <span>-</span>
+                  <input type="number" id="yearTo" placeholder="Đến năm" min="1900" max="2025">
+                </div>
+              </div>
+              
+              <!-- Rating Filter -->
+              <div class="filter-group">
+                <label class="filter-label">Đánh giá tối thiểu</label>
+                <div class="rating-filter">
+                  <input type="range" id="minRating" min="0" max="10" step="0.5" value="0">
+                  <span class="rating-value" id="ratingValue">0.0</span>
+                </div>
+              </div>
             </div>
-        </div>
+            
+            <div class="filters-footer">
+              <button class="btn-clear-filters" id="clearFilters">Xóa bộ lọc</button>
+              <button class="btn-apply-filters" id="applyFilters">Áp dụng</button>
+            </div>
+          </div>
 
-        
+            <div id="liveSuggestions" class="live-suggestions" style="display:none; position:absolute; left:0; right:0; top:110%; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:8px; z-index:80;">
+                <!-- JS sẽ render các suggestion items vào đây -->
+            </div>
+        </div>        
 
-        
-
-        <!-- Results Grid (container always present) -->
-        <div class="results-grid" id="resultsGridContainer">
-            <div th:if="${hasResults}" th:each="movie : ${searchResults}" class="movie-card"
-                th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                <!-- existing card markup unchanged -->
-                <div class="movie-poster">
+        <!-- Results Section (shown when there's a query) -->
+        <div class="results-section" th:if="${query != null}" id="resultsSection">
+            <div class="results-grid" id="resultsGrid">
+                <div th:each="movie : ${searchResults}" class="movie-card" 
+                     th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
                     <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
-                    <div class="movie-overlay">
-                        <button class="play-btn" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" aria-label="Xem phim">
-                            <i class="fas fa-play"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="movie-info">
-                    <div class="movie-title" th:text="${movie.title}">Movie Title</div>
-                    <div class="movie-meta">
-                        <span class="movie-year" th:text="${movie.year}">2024</span>
-                        <span class="movie-rating">
-                            <i class="fas fa-star"></i>
-                            <span th:text="${movie.rating}">8.5</span>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- hover popup (kept) -->
-                <div class="movie-hover-card" aria-hidden="true">
-                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}">
-                    <div class="hover-card-content">
-                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
-                        <div class="hover-card-meta">
-                            <span><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
-                            <span th:text="${movie.releaseDate != null and movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">2025</span>
-                            <span>HD</span>
-                        </div>
-                        <div class="hover-card-genres">
-                            <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
-                            <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
-                        </div>
-                        <p class="hover-card-description" th:text="${movie.overview != null ? movie.overview : 'Mô tả ngắn về phim.'}">
-                            Mô tả ngắn về phim sẽ hiển thị ở đây...
-                        </p>
-
-                        <div class="hover-card-actions">
-                            <button class="hover-play-btn" type="button" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\'" >
-                                <i class="fas fa-play"></i> Xem ngay
-                            </button>
-                            <button class="hover-add-btn" type="button" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                    <div class="movie-card-info">
+                        <div class="movie-card-title" th:text="${movie.title}"></div>
+                        <div class="movie-card-meta">
+                            <span th:text="${movie.year}"></span>
+                            <span class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Pagination -->
-        <div class="pagination" th:if="${hasResults && totalPages > 1}">
-            <!-- Previous -->
-            <a th:if="${currentPage > 1}" href="#" class="page-btn" data-target-page="${currentPage - 1}">
-                <i class="fas fa-chevron-left"></i>
-            </a>
-            <span th:unless="${currentPage > 1}" class="page-btn disabled">
-                <i class="fas fa-chevron-left"></i>
-            </span>
-
-            <th:block th:with="startPage=${currentPage > 3 ? currentPage - 2 : 1}, endPage=${currentPage + 2 < totalPages ? currentPage + 2 : totalPages}">
-                <a th:if="${startPage > 1}" href="#" class="page-btn" data-target-page="1">1</a>
-                <span th:if="${startPage > 2}" class="page-ellipsis">...</span>
-
-                <th:block th:each="pageNum : ${#numbers.sequence(startPage, endPage)}">
-                    <a href="#" class="page-btn" th:classappend="${pageNum == currentPage} ? ' active' : ''" th:text="${pageNum}" th:attr="data-target-page=${pageNum}">1</a>
-                </th:block>
-
-                <span th:if="${endPage < totalPages - 1}" class="page-ellipsis">...</span>
-                <a th:if="${endPage < totalPages}" href="#" class="page-btn" th:attr="data-target-page=${totalPages}" th:text="${totalPages}">10</a>
-            </th:block>
-
-            <!-- Next -->
-            <a th:if="${currentPage < totalPages}" href="#" class="page-btn" data-target-page="${currentPage + 1}">
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            <span th:unless="${currentPage < totalPages}" class="page-btn disabled">
-                <i class="fas fa-chevron-right"></i>
-            </span>
-        </div>
-
-        <!-- Related Movies -->
-        <div class="related-section" th:if="${hasResults && !relatedMovies.isEmpty()}">
-            <h2 class="section-title">Có thể bạn cũng thích</h2>
-            <div class="related-carousel">
-                <div th:each="movie : ${relatedMovies}" class="related-card" th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
-                    <div class="title" th:text="${movie.title}">Title</div>
-                    <div class="rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></div>
-                </div>
+            <div class="pagination" 
+                th:if="${query != null && totalPages != null && totalPages > 1}" 
+                id="pagination"
+                th:attr="data-current-page=${currentPage},data-total-pages=${totalPages}">
+                <!-- JavaScript sẽ render pagination buttons -->
             </div>
         </div>
 
         <!-- Empty State -->
-        <div class="empty-state" th:unless="${hasResults}">
+        <div class="empty-state" th:if="${query != null && searchResults.isEmpty()}" id="emptyState">
             <div class="empty-icon"><i class="fas fa-search"></i></div>
-            <h2 class="empty-title">Không tìm thấy kết quả</h2>
-            <p class="empty-message" th:if="${query}">
-                Không có kết quả nào cho từ khóa "<strong th:text="${query}"></strong>"
-            </p>
-            <p class="empty-message" th:unless="${query}">
-                Vui lòng nhập từ khóa để tìm kiếm
-            </p>
-            <a href="/" class="btn-back"><i class="fas fa-home"></i> Về trang chủ</a>
+            <h2>Không tìm thấy kết quả</h2>
+            <p>Không có kết quả nào cho từ khóa của bạn</p>
+            <a href="/search" class="btn-back"><i class="fas fa-arrow-left"></i> Thử lại</a>
         </div>
+
+        <!-- Related Movies (shown after search, before AI suggestions) -->
+        <div class="related-section" th:if="${query != null && !searchResults.isEmpty()}" id="relatedSection">
+            <div class="related-header">
+                <i class="fas fa-film"></i>
+                <h3>Phim liên quan</h3>
+            </div>
+            <div class="ai-carousel-wrapper">
+                <button class="ai-carousel-nav prev" id="relatedCarouselPrev">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="ai-carousel" id="relatedCarousel">
+                    <!-- Populated by JavaScript -->
+                </div>
+                <button class="ai-carousel-nav next" id="relatedCarouselNext">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Suggestions (shown after search) -->
+        <div class="ai-suggestions-section" th:if="${query != null && !aiSuggestions.isEmpty()}" id="aiSuggestionsSection">
+            <div class="ai-suggestions-header">
+                <i class="fas fa-wand-magic-sparkles"></i>
+                <h3>Gợi ý từ AI</h3>
+            </div>
+
+            <div class="ai-carousel-wrapper">
+                <button class="ai-carousel-nav prev" id="aiCarouselPrev">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="ai-carousel" id="aiCarousel">
+                    <div th:each="movie : ${aiSuggestions}" class="ai-carousel-card"
+                         th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                        <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy"
+                             style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;">
+                        <div class="movie-card-title" th:text="${movie.title}"></div>
+                        <div class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></div>
+                    </div>
+                </div>
+                <button class="ai-carousel-nav next" id="aiCarouselNext">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Trending Section (shown when no query) -->
+        <div class="trending-section" th:if="${query == null}" id="trendingSection">
+            <div class="trending-header">
+                <span class="fire-icon">🔥</span>
+                <h2>Xu hướng gần đây</h2>
+            </div>
+
+            <!-- THAY ĐỔI: Dùng carousel thay vì grid -->
+            <div class="ai-carousel-wrapper">
+                <button class="ai-carousel-nav prev" id="trendingCarouselPrev">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="ai-carousel" id="trendingCarousel">
+                    <!-- JS sẽ render 20 phim vào đây -->
+                </div>
+                <button class="ai-carousel-nav next" id="trendingCarouselNext">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>        
     </div>
 
-    <!-- Hidden server-data for robust client-side parsing -->
-    <div id="server-data" style="display:none;"
-     th:attr="data-selected-genres=${selectedGenres != null ? selectedGenres : '[]'},
-              data-year-from=${yearFrom != null ? yearFrom : ''},
-              data-year-to=${yearTo != null ? yearTo : ''},
-              data-min-rating=${minRating != null ? minRating : '0'},
-              data-quick-filter=${quickFilter != null ? quickFilter : ''},
-              data-query=${query != null ? query : ''}"></div>
+    <div th:replace="fragments/footer :: footer"></div>
+    <div th:replace="fragments/ai-chat :: ai-chat"></div>
 
-    <!-- Unified client-side search/render logic (paste exactly here) -->
-     
+
+
     <script>
-(function(){
-  // cấu hình
-  const TMDB_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
-  const TMDB_BASE = 'https://api.themoviedb.org/3';
-  const IMG_BASE = 'https://image.tmdb.org/t/p/w342';
-  const PAGE_CAP = 20; // giới hạn page để tránh quá nhiều request
-  const PAGE_DELAY_MS = 120;
-
-  // helper
-  function qs(name){ return new URLSearchParams(window.location.search).get(name) || ''; }
-  function createCard(m){
-    const card = document.createElement('div'); card.className='movie-card';
-    const posterWrap = document.createElement('div'); posterWrap.className='movie-poster';
-    const img = document.createElement('img'); img.loading='lazy';
-    img.alt = m.title||m.name||''; img.src = m.poster_path ? (IMG_BASE + m.poster_path) : (m.poster||'/img/placeholder.png');
-    posterWrap.appendChild(img);
-    const overlay = document.createElement('div'); overlay.className='movie-overlay';
-    const play = document.createElement('div'); play.className='play-icon'; play.innerHTML='<i class="fas fa-play"></i>';
-    overlay.appendChild(play); posterWrap.appendChild(overlay); card.appendChild(posterWrap);
-
-    const info = document.createElement('div'); info.className='movie-info';
-    const title = document.createElement('div'); title.className='movie-title'; title.textContent = m.title || m.name || 'Untitled';
-    const meta = document.createElement('div'); meta.className='movie-meta';
-    const year = document.createElement('span'); year.className='movie-year';
-    year.textContent = (m.release_date && m.release_date.length>=4) ? m.release_date.substring(0,4) : (m.year||'');
-    const rating = document.createElement('span'); rating.className='movie-rating';
-    rating.innerHTML = '<i class="fas fa-star"></i> ' + (m.vote_average ? Number(m.vote_average).toFixed(1) : (m.rating ? String(m.rating) : '—'));
-    meta.appendChild(year); meta.appendChild(rating); info.appendChild(title); info.appendChild(meta); card.appendChild(info);
-
-    if(m.id) card.addEventListener('click', ()=> window.location.href = '/movie/detail/' + m.id);
-    return card;
-  }
-
-  async function fetchAllSearch(query){
-    if(!query || !query.trim()) return [];
-    const u1 = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
-    const r1 = await fetch(u1);
-    if(!r1.ok) throw new Error('HTTP ' + r1.status);
-    const d1 = await r1.json();
-    const total = Math.min(d1.total_pages || 1, PAGE_CAP);
-    let all = Array.isArray(d1.results) ? d1.results.slice() : [];
-    for(let p=2; p<=total; p++){
-      try{
-        const u = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(TMDB_KEY)}&language=vi-VN&query=${encodeURIComponent(query)}&page=${p}&include_adult=false`;
-        const r = await fetch(u);
-        if(!r.ok){ console.warn('Page', p, 'failed', r.status); break; }
-        const dd = await r.json();
-        if(Array.isArray(dd.results)) all = all.concat(dd.results);
-        await new Promise(res => setTimeout(res, PAGE_DELAY_MS));
-      } catch(e){
-        console.warn('fetch page error', p, e);
-        break;
-      }
-    }
-    return all;
-  }
-
-  function existingCardIds(container){
-    const ids = new Set();
-    (container.querySelectorAll('.movie-card')||[]).forEach(c=>{
-      // try read id from onclick attr or data-id; fallback: none
-      const on = c.getAttribute('onclick') || c.getAttribute('data-id') || '';
-      let id = null;
-      // pattern: /\/movie\/detail\/(\d+)/
-      const m = on.match && on.match(/\/movie\/detail\/(\d+)/);
-      if(m && m[1]) id = m[1];
-      // data-id attribute
-      if(!id && c.dataset && c.dataset.id) id = c.dataset.id;
-      if(id) ids.add(String(id));
+    // ============ PAGINATION INITIALIZATION (đặt ở đầu script) ============
+    document.addEventListener('DOMContentLoaded', function() {
+        const paginationEl = document.getElementById('pagination');
+        
+        if (paginationEl) {
+            const currentPage = parseInt(paginationEl.dataset.currentPage) || 1;
+            const totalPages = parseInt(paginationEl.dataset.totalPages) || 1;
+            
+            console.log('📄 Pagination detected:', { currentPage, totalPages });
+            
+            if (totalPages > 1) {
+                renderPaginationButtons(currentPage, totalPages);
+            }
+        } else {
+            console.log('⚠️ No pagination element found');
+        }
     });
-    return ids;
-  }
 
-  // chạy sau khi page + assets load xong (an toàn hơn DOMContentLoaded)
-  function runWhenReady(cb){
-    if(document.readyState === 'complete') return cb();
-    window.addEventListener('load', cb, {once:true});
-    // fallback: if load doesn't fire, try DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', ()=> setTimeout(cb, 50), {once:true});
-  }
-
-  runWhenReady(async function(){
-    try {
-      const resultsGrid = document.getElementById('resultsGridContainer') || (function(){
-        const sc = document.querySelector('.search-container') || document.body;
-        const d = document.createElement('div'); d.id='resultsGridContainer'; d.className='results-grid';
-        sc.insertBefore(d, sc.querySelector('.pagination') || sc.firstChild);
-        return d;
-      })();
-
-      const serverCount = resultsGrid.querySelectorAll('.movie-card').length;
-      console.log('Server rendered movie-card count =', serverCount);
-
-      // nếu server chỉ render 0 hoặc 1 card -> gọi API client để bung hết
-      if(serverCount <= 1){
-        const q = (document.getElementById('server-data') && document.getElementById('server-data').getAttribute('data-query')) || qs('query') || qs('q') || (document.querySelector('input[name="query"], input[name="q"]') && document.querySelector('input[name="query"], input[name="q"]').value) || '';
-        if(!q) { console.warn('No query found to search'); return; }
-        console.log('Fetching all TMDB pages for query:', q);
-        resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Đang tải tất cả kết quả...</div>';
-        const all = await fetchAllSearch(q);
-        if(!all || all.length === 0){
-          console.log('No results from TMDB for', q);
-          resultsGrid.innerHTML = '<div style="padding:18px;color:#ddd">Không tìm thấy kết quả khác.</div>';
-          return;
+    function renderPaginationButtons(current, total) {
+        const pagination = document.getElementById('pagination');
+        if (!pagination) return;
+        
+        let html = '';
+        
+        // Previous button
+        if (current > 1) {
+            html += `<button class="page-btn" onclick="goToPage(${current - 1})">
+                <i class="fas fa-chevron-left"></i>
+            </button>`;
+        } else {
+            html += `<button class="page-btn disabled" disabled>
+                <i class="fas fa-chevron-left"></i>
+            </button>`;
         }
-        // dedupe by id and append only missing ones (so we don't duplicate server items)
-        const existingIds = existingCardIds(resultsGrid);
-        const toAppend = [];
-        const seen = new Set();
-        for(const m of all){
-          if(!m || !m.id) continue;
-          if(seen.has(m.id)) continue; seen.add(m.id);
-          if(existingIds.has(String(m.id))) continue; // skip ones server already rendered
-          toAppend.push(m);
+        
+        // Page numbers
+        const start = Math.max(1, current - 2);
+        const end = Math.min(total, current + 2);
+        
+        if (start > 1) {
+            html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+            if (start > 2) {
+                html += `<span style="padding:0 8px;color:rgba(255,255,255,0.5)">...</span>`;
+            }
         }
-        // if server had 0 items: we will append all; if server had 1 we append rest
-        // If serverCount === 0, clear placeholder (we already set placeholder earlier)
-        resultsGrid.innerHTML = '';
-        // first, if server rendered any cards keep them (re-add) else just append all
-        // collect currently present server nodes to keep order
-        // Note: if serverCount <=1 we assume either 0 or 1 present; keep existing nodes
-        // Append server existing nodes first (if any)
-        if(serverCount > 0){
-          // keep server nodes (they are present in DOM), so no further action needed
+        
+        for (let i = start; i <= end; i++) {
+            const activeClass = i === current ? 'active' : '';
+            html += `<button class="page-btn ${activeClass}" onclick="goToPage(${i})">${i}</button>`;
         }
-        // append missing items
-        toAppend.forEach(m => resultsGrid.appendChild(createCard(m)));
-        console.log('Appended', toAppend.length, 'additional items. Total rendered now:', resultsGrid.querySelectorAll('.movie-card').length);
-      } else {
-        console.log('Server already rendered multiple items — no client fetch performed.');
-      }
-
-    } catch (err){
-      console.error('Error in client-side expand script:', err);
+        
+        if (end < total) {
+            if (end < total - 1) {
+                html += `<span style="padding:0 8px;color:rgba(255,255,255,0.5)">...</span>`;
+            }
+            html += `<button class="page-btn" onclick="goToPage(${total})">${total}</button>`;
+        }
+        
+        // Next button
+        if (current < total) {
+            html += `<button class="page-btn" onclick="goToPage(${current + 1})">
+                <i class="fas fa-chevron-right"></i>
+            </button>`;
+        } else {
+            html += `<button class="page-btn disabled" disabled>
+                <i class="fas fa-chevron-right"></i>
+            </button>`;
+        }
+        
+        pagination.innerHTML = html;
+        console.log('✅ Pagination rendered:', { current, total });
     }
-  });
-})();
-</script>
 
-<div th:replace="fragments/ai-chat :: ai-chat"></div>
-<script th:src="@{/js/movie/ai-agent.js}" defer></script>
+    function goToPage(page) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const query = urlParams.get('query') || document.getElementById('mainSearchInput')?.value?.trim() || '';
+        
+        if (query) {
+            window.location.href = `/search?query=${encodeURIComponent(query)}&page=${page}`;
+        }
+    }
+    </script>
 
+    <script>
+        // ============ SEARCH PAGE - COMPLETE UNIFIED SCRIPT ============
+    (function() {
+        'use strict';
+        
+        const API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+        const API_BASE = 'https://api.themoviedb.org/3';
+        const IMG_BASE = 'https://image.tmdb.org/t/p';
+        
+        // DOM Elements
+        const mainInput = document.getElementById('mainSearchInput');
+        const voiceBtn = document.getElementById('voiceSearchPageBtn');
+        const filterBtn = document.getElementById('filterPageBtn');
+        const aiBtn = document.getElementById('aiSearchPageBtn');
+        const liveSuggestions = document.getElementById('liveSuggestions');
+        const filtersPanel = document.getElementById('filtersPanel');
+        const pagination = document.getElementById('pagination');
+        const relatedCarousel = document.getElementById('relatedCarousel');
+        const aiCarousel = document.getElementById('aiCarousel');
+        const trendingCarousel = document.getElementById('trendingCarousel');
+        
+        // State Management
+        const PAGE_SIZE = 6; // Load 6 items per scroll
+        let cachedResults = [];
+        let displayedCount = 0;
+        let nextApiPage = 2;
+        let totalApiPages = 1;
+        let lastQuery = '';
+        let peopleCache = new Map();
+        let loadingMore = false;
+        let abortController = null;
+        
+        // Filter State
+        const filterState = {
+            quickFilter: null,
+            genres: [],
+            yearFrom: null,
+            yearTo: null,
+            minRating: 0
+        };
+        
+        const GENRES = [
+            {id: 28, name: 'Hành động'}, {id: 12, name: 'Phiêu lưu'}, {id: 16, name: 'Hoạt hình'},
+            {id: 35, name: 'Hài'}, {id: 80, name: 'Hình sự'}, {id: 18, name: 'Chính kịch'},
+            {id: 10751, name: 'Gia đình'}, {id: 14, name: 'Giả tưởng'}, {id: 27, name: 'Kinh dị'},
+            {id: 10749, name: 'Lãng mạn'}, {id: 878, name: 'Khoa học viễn tưởng'}, 
+            {id: 53, name: 'Gây cấn'}, {id: 10752, name: 'Chiến tranh'}
+        ];
+        
+        // ============ LIVE SUGGESTIONS WITH PEOPLE SEARCH ============
+        let searchTimeout;
+        
+        if (mainInput && liveSuggestions) {
+            mainInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                
+                if (query.length < 2) {
+                    hideLiveSuggestions();
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => fetchLiveSuggestions(query), 300);
+            });
+            
+            // Close on click outside
+            // document.addEventListener('click', (e) => {
+            //     if (!e.target.closest('.search-main-box') && !e.target.closest('.filters-body')) {
+            //         hideLiveSuggestions();
+            //     }
+            // });
+            
+            // Scroll handler for lazy load
+            liveSuggestions.addEventListener('scroll', debounce(async function() {
+                if (liveSuggestions.scrollTop + liveSuggestions.clientHeight >= 
+                    liveSuggestions.scrollHeight - 50) {
+                    await loadMoreSuggestions();
+                }
+            }, 150));
+        }
+        
+        async function fetchLiveSuggestions(query) {
+            // Cancel previous request
+            if (abortController) abortController.abort();
+            abortController = new AbortController();
+            
+            try {
+                // Reset if new query
+                if (query !== lastQuery) {
+                    cachedResults = [];
+                    displayedCount = 0;
+                    nextApiPage = 2;
+                    totalApiPages = 1;
+                    lastQuery = query;
+                }
+                
+                // Fetch movies (page 1)
+                const moviesRes = await fetch(
+                    `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`,
+                    { signal: abortController.signal }
+                );
+                
+                if (!moviesRes.ok) throw new Error('API Error');
+                
+                const moviesData = await moviesRes.json();
+                const movieResults = (moviesData.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
+                totalApiPages = moviesData.total_pages || 1;
+                
+                // Fetch people if query >= 3 chars
+                let peopleMovies = [];
+                if (query.length >= 3) {
+                    const people = await searchPeople(query);
+                    if (people.length > 0) {
+                        const promises = people.map(p => getMoviesFromPerson(p.id, p.name));
+                        const results = await Promise.all(promises);
+                        peopleMovies = results.flat();
+                    }
+                }
+                
+                // Merge & dedupe
+                const uniqueMap = new Map();
+                [...movieResults, ...peopleMovies].forEach(item => {
+                    const key = `${item.media_type || 'movie'}_${item.id}`;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, item);
+                    } else if (item._personName && !uniqueMap.get(key)._personName) {
+                        uniqueMap.set(key, item);
+                    }
+                });
+                
+                let results = Array.from(uniqueMap.values());
+                
+                // Filter by title/person name
+                const qNorm = normalizeVietnamese(query);
+                results = results.filter(item => {
+                    const title = normalizeVietnamese(item.title || item.name || '');
+                    const personName = normalizeVietnamese(item._personName || '');
+                    return title.includes(qNorm) || personName.includes(qNorm);
+                });
+                
+                // Add relevance & sort
+                results = results.map(item => ({
+                    ...item,
+                    _relevance: calculateRelevance(item, query)
+                }));
+                results.sort((a, b) => (b._relevance || 0) - (a._relevance || 0));
+                
+                cachedResults = results;
+                displayedCount = 0;
+                
+                // Render first chunk
+                loadMoreSuggestions();
+                
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Live search error:', error);
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.5)">Lỗi tải dữ liệu</div>';
+                    liveSuggestions.style.display = 'block';
+                }
+            }
+        }
+        
+        async function loadMoreSuggestions() {
+            if (loadingMore) return;
+            if (!cachedResults || cachedResults.length === 0) return;
+            
+            loadingMore = true;
+            
+            // Fetch next API page if needed
+            if (displayedCount >= cachedResults.length && nextApiPage <= totalApiPages) {
+                await fetchNextApiPageAndAppend(lastQuery);
+            }
+            
+            const start = displayedCount;
+            const end = Math.min(cachedResults.length, displayedCount + PAGE_SIZE);
+            const chunk = cachedResults.slice(start, end);
+            const append = start > 0;
+            
+            if (chunk.length === 0) {
+                if (displayedCount === 0) {
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không tìm thấy kết quả</div>';
+                    liveSuggestions.style.display = 'block';
+                }
+                loadingMore = false;
+                return;
+            }
+            
+            renderSuggestionsChunk(chunk, append);
+            displayedCount = end;
+            loadingMore = false;
+        }
+        
+        async function fetchNextApiPageAndAppend(query) {
+            if (nextApiPage > totalApiPages) return;
+            
+            try {
+                const res = await fetch(
+                    `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=${nextApiPage}&include_adult=false`
+                );
+                
+                if (!res.ok) return;
+                
+                const data = await res.json();
+                const more = (data.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
+                nextApiPage++;
+                totalApiPages = data.total_pages || totalApiPages;
+                
+                // Dedupe
+                const existingKeys = new Set(cachedResults.map(it => `${it.media_type || 'movie'}_${it.id}`));
+                const deduped = more.filter(it => !existingKeys.has(`${it.media_type || 'movie'}_${it.id}`));
+                
+                cachedResults = cachedResults.concat(deduped);
+            } catch (e) {
+                console.warn('Fetch next page failed:', e);
+            }
+        }
+        
+        function renderSuggestionsChunk(chunk, append = false) {
+            const html = chunk.map(item => {
+                const poster = item.poster_path ? `${IMG_BASE}/w92${item.poster_path}` : '/images/placeholder.jpg';
+                const title = escapeHtml(item.title || item.name || 'Unknown');
+                const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                const rating = item.vote_average ? item.vote_average.toFixed(1) : '—';
+                const context = item._personName ? `${item._personRole}: ${escapeHtml(item._personName)}` : '';
+                
+                return `
+                    <div class="suggestion-item" onclick="location.href='/movie/detail/${item.id}'" 
+                        style="display:flex;gap:10px;padding:8px;align-items:center;cursor:pointer;border-radius:8px;transition:background 0.2s;">
+                        <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'" 
+                            style="width:46px;height:64px;object-fit:cover;border-radius:4px;">
+                        <div class="suggestion-info" style="flex:1;min-width:0;">
+                            <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
+                            <div class="suggestion-meta" style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-top:4px;">
+                                ${year} ${year ? '•' : ''} ⭐ ${rating} ${context ? '• ' + context : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (append) {
+                liveSuggestions.insertAdjacentHTML('beforeend', html);
+            } else {
+                liveSuggestions.innerHTML = html;
+            }
+            
+            liveSuggestions.style.display = 'block';
+            
+            // Add hover effect
+            liveSuggestions.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('mouseenter', function() {
+                    this.style.background = 'rgba(255,255,255,0.05)';
+                });
+                item.addEventListener('mouseleave', function() {
+                    this.style.background = '';
+                });
+            });
+        }
+        
+        function hideLiveSuggestions() {
+            if (liveSuggestions) {
+                liveSuggestions.style.display = 'none';
+            }
+        }
+        
+        // ============ PEOPLE SEARCH ============
+        async function searchPeople(query) {
+            if (peopleCache.has(query)) {
+                return peopleCache.get(query);
+            }
+            
+            try {
+                const res = await fetch(
+                    `${API_BASE}/search/person?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1`
+                );
+                
+                if (!res.ok) return [];
+                
+                const data = await res.json();
+                const results = (data.results || []).slice(0, 3);
+                peopleCache.set(query, results);
+                return results;
+            } catch (e) {
+                console.warn('People search failed:', e);
+                return [];
+            }
+        }
+        
+        async function getMoviesFromPerson(personId, personName) {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/person/${personId}/movie_credits?api_key=${API_KEY}&language=vi-VN`
+                );
+                
+                if (!res.ok) return [];
+                
+                const data = await res.json();
+                const castMovies = (data.cast || []).slice(0, 3).map(m => ({
+                    ...m,
+                    media_type: 'movie',
+                    _personName: personName,
+                    _personRole: 'Diễn viên'
+                }));
+                
+                const crewMovies = (data.crew || [])
+                    .filter(m => m.job === 'Director')
+                    .slice(0, 2)
+                    .map(m => ({
+                        ...m,
+                        media_type: 'movie',
+                        _personName: personName,
+                        _personRole: 'Đạo diễn'
+                    }));
+                
+                return [...crewMovies, ...castMovies].slice(0, 3);
+            } catch (e) {
+                console.warn('Person credits failed:', e);
+                return [];
+            }
+        }
+        
+        // ============ FILTERS SYSTEM ============
+        function initFilters() {
+            if (!filtersPanel || !filterBtn) return;
+            
+            const filtersClose = document.getElementById('filtersClose');
+            const clearFiltersBtn = document.getElementById('clearFilters');
+            const applyFiltersBtn = document.getElementById('applyFilters');
+            const minRatingSlider = document.getElementById('minRating');
+            const ratingValue = document.getElementById('ratingValue');
+            
+            renderGenres();
+            
+            // Toggle panel
+            filterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                filtersPanel.hidden = !filtersPanel.hidden;
+                filtersPanel.classList.toggle('show');
+                filterBtn.classList.toggle('active');
+            });
+            
+            filtersClose?.addEventListener('click', () => {
+                filtersPanel.hidden = true;
+                filtersPanel.classList.remove('show');
+                filterBtn.classList.remove('active');
+            });
+            
+            // Rating slider
+            minRatingSlider?.addEventListener('input', (e) => {
+                if (ratingValue) {
+                    ratingValue.textContent = parseFloat(e.target.value).toFixed(1);
+                }
+            });
+            
+            // Clear filters
+            clearFiltersBtn?.addEventListener('click', () => {
+                filterState.quickFilter = null;
+                filterState.genres = [];
+                filterState.yearFrom = null;
+                filterState.yearTo = null;
+                filterState.minRating = 0;
+                
+                document.querySelectorAll('.quick-filter-chip').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
+                
+                const yearFrom = document.getElementById('yearFrom');
+                const yearTo = document.getElementById('yearTo');
+                if (yearFrom) yearFrom.value = '';
+                if (yearTo) yearTo.value = '';
+                if (minRatingSlider) minRatingSlider.value = 0;
+                if (ratingValue) ratingValue.textContent = '0.0';
+            });
+            
+            // Apply filters
+            applyFiltersBtn?.addEventListener('click', () => {
+                applyFilters();
+            });
+            
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.filters-panel') && !e.target.closest('#filterPageBtn')) {
+                    filtersPanel.hidden = true;
+                    filtersPanel.classList.remove('show');
+                    filterBtn?.classList.remove('active');
+                }
+            });
+        }
+        
+        function renderGenres() {
+            const container = document.getElementById('genreFilters');
+            if (!container) return;
+            
+            container.innerHTML = GENRES.map(g => 
+                `<button class="genre-chip" data-genre="${g.id}">${g.name}</button>`
+            ).join('');
+            
+            // Quick filters
+            document.querySelectorAll('.quick-filter-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    document.querySelectorAll('.quick-filter-chip').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    filterState.quickFilter = this.dataset.filter;
+                });
+            });
+            
+            // Genre chips
+            container.querySelectorAll('.genre-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    const genreId = parseInt(this.dataset.genre);
+                    this.classList.toggle('active');
+                    
+                    if (filterState.genres.includes(genreId)) {
+                        filterState.genres = filterState.genres.filter(id => id !== genreId);
+                    } else {
+                        filterState.genres.push(genreId);
+                    }
+                });
+            });
+        }
+        
+        // ============ FIX: applyFilters - Check mainInput value ============
+        async function applyFilters() {
+            // CHECK INPUT VALUE, NOT query variable
+            const query = mainInput?.value?.trim() || '';
+            
+            if (!query || query.length === 0) {
+                liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Vui lòng nhập từ khóa tìm kiếm</div>';
+                liveSuggestions.style.display = 'block';
+                return;
+            }
+            
+            // Collect filter values
+            const yearFrom = document.getElementById('yearFrom')?.value;
+            const yearTo = document.getElementById('yearTo')?.value;
+            const minRating = parseFloat(document.getElementById('minRating')?.value || 0);
+            
+            filterState.yearFrom = yearFrom || null;
+            filterState.yearTo = yearTo || null;
+            filterState.minRating = minRating;
+            
+            try {
+                // Ensure we have data
+                if (lastQuery !== query || cachedResults.length === 0) {
+                    await fetchLiveSuggestions(query);
+                }
+                
+                let results = cachedResults.slice();
+                
+                // Apply genre filter
+                if (filterState.genres.length > 0) {
+                    results = results.filter(item => {
+                        const genreIds = item.genre_ids || [];
+                        return filterState.genres.some(g => genreIds.includes(g));
+                    });
+                }
+                
+                // Apply year filter
+                if (filterState.yearFrom) {
+                    results = results.filter(item => {
+                        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                        return year && parseInt(year) >= parseInt(filterState.yearFrom);
+                    });
+                }
+                
+                if (filterState.yearTo) {
+                    results = results.filter(item => {
+                        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                        return year && parseInt(year) <= parseInt(filterState.yearTo);
+                    });
+                }
+                
+                // Apply rating filter
+                if (filterState.minRating > 0) {
+                    results = results.filter(item => (item.vote_average || 0) >= filterState.minRating);
+                }
+                
+                // Apply quick filter sorting
+                if (filterState.quickFilter === 'trending') {
+                    results.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+                } else if (filterState.quickFilter === 'new') {
+                    results.sort((a, b) => {
+                        const dateA = new Date(a.release_date || a.first_air_date || 0).getTime();
+                        const dateB = new Date(b.release_date || b.first_air_date || 0).getTime();
+                        return dateB - dateA;
+                    });
+                } else if (filterState.quickFilter === 'top-rated') {
+                    results = results.filter(r => (r.vote_count || 0) >= 20);
+                    results.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+                }
+                
+                cachedResults = results;
+                displayedCount = 0;
+                nextApiPage = totalApiPages + 1;
+                
+                if (results.length === 0) {
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không có kết quả phù hợp</div>';
+                    liveSuggestions.style.display = 'block';
+                    return;
+                }
+                
+                loadMoreSuggestions();
+                
+                // Close filters panel
+                if (filtersPanel) {
+                    filtersPanel.hidden = true;
+                    filtersPanel.classList.remove('show');
+                }
+                if (filterBtn) {
+                    filterBtn.classList.remove('active');
+                }
+                
+            } catch (error) {
+                console.error('Apply filters error:', error);
+                liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.5)">Lỗi khi áp dụng bộ lọc</div>';
+                liveSuggestions.style.display = 'block';
+            }
+        }
+        
+        // ============ SEARCH ON ENTER ============
+        mainInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+        
+        function performSearch() {
+            const query = mainInput?.value.trim();
+            if (query) {
+                window.location.href = `/search?query=${encodeURIComponent(query)}`;
+            }
+        }
+        
+        // ============ CAROUSELS (Related, AI, Trending) ============
+        function setupCarouselNav(prevBtnId, nextBtnId, scrollerId) {
+            const prevBtn = document.getElementById(prevBtnId);
+            const nextBtn = document.getElementById(nextBtnId);
+            const scroller = document.getElementById(scrollerId);
+            
+            if (!prevBtn || !nextBtn || !scroller) return;
+            
+            const scrollAmount = 360;
+            
+            prevBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                scroller.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            });
+            
+            nextBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                scroller.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            });
+            
+            const updateButtons = () => {
+                prevBtn.disabled = scroller.scrollLeft <= 0;
+                nextBtn.disabled = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
+                prevBtn.classList.toggle('disabled', prevBtn.disabled);
+                nextBtn.classList.toggle('disabled', nextBtn.disabled);
+            };
+            
+            scroller.addEventListener('scroll', updateButtons);
+            window.addEventListener('resize', updateButtons);
+            setTimeout(updateButtons, 100);
+        }
+        
+        // Load Related Movies
+        if (relatedCarousel) {
+            loadRelatedMovies();
+        }
+        
+        async function loadRelatedMovies() {
+            try {
+                const response = await fetch(`${API_BASE}/movie/popular?api_key=${API_KEY}&language=vi-VN&page=1`);
+                const data = await response.json();
+                const movies = (data.results || []).slice(0, 20);
+                
+                relatedCarousel.innerHTML = movies.map(movie => `
+                    <div class="ai-carousel-card" onclick="location.href='/movie/detail/${movie.id}'" style="min-width:180px;cursor:pointer;transition:transform 0.3s;">
+                        <img src="${IMG_BASE}/w342${movie.poster_path}" alt="${movie.title}" loading="lazy"
+                            style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;"
+                            onerror="this.src='/images/placeholder.jpg'">
+                        <div class="movie-card-title" style="font-size:0.95rem;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${movie.title}</div>
+                        <div class="movie-card-rating" style="color:#ffd700;font-size:0.9rem;">⭐ ${movie.vote_average.toFixed(1)}</div>
+                    </div>
+                `).join('');
+                
+                setupCarouselNav('relatedCarouselPrev', 'relatedCarouselNext', 'relatedCarousel');
+            } catch (error) {
+                console.error('Error loading related movies:', error);
+            }
+        }
+        
+        // Load Trending Carousel
+        if (trendingCarousel) {
+            loadTrendingCarousel();
+        }
+        
+        async function loadTrendingCarousel() {
+            try {
+                const response = await fetch(`${API_BASE}/trending/movie/week?api_key=${API_KEY}&language=vi-VN`);
+                const data = await response.json();
+                
+                trendingCarousel.innerHTML = data.results.slice(0, 20).map(movie => `
+                    <div class="ai-carousel-card" onclick="location.href='/movie/detail/${movie.id}'" style="min-width:180px;cursor:pointer;transition:transform 0.3s;">
+                        <img src="${IMG_BASE}/w342${movie.poster_path}" alt="${movie.title}" loading="lazy"
+                            style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;"
+                            onerror="this.src='/images/placeholder.jpg'">
+                        <div class="movie-card-title" style="font-size:0.95rem;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${movie.title}</div>
+                        <div class="movie-card-rating" style="color:#ffd700;font-size:0.9rem;">⭐ ${movie.vote_average.toFixed(1)}</div>
+                    </div>
+                `).join('');
+                
+                setupCarouselNav('trendingCarouselPrev', 'trendingCarouselNext', 'trendingCarousel');
+            } catch (error) {
+                console.error('Error loading trending:', error);
+            }
+        }
+        
+        // Setup AI Carousel navigation if exists
+        if (aiCarousel) {
+            setupCarouselNav('aiCarouselPrev', 'aiCarouselNext', 'aiCarousel');
+        }
+        
+        // ============ UTILITY FUNCTIONS ============
+        function debounce(fn, wait = 250) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return str.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        function normalizeVietnamese(str) {
+            if (!str) return '';
+            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+        
+        function calculateRelevance(item, query) {
+            const q = normalizeVietnamese(query);
+            const title = normalizeVietnamese(item.title || item.name || '');
+            const overview = normalizeVietnamese(item.overview || '');
+            
+            let score = 0;
+            
+            // Title matching
+            if (title === q) score += 100;
+            else if (title.startsWith(q)) score += 80;
+            else if (title.includes(q)) score += 50;
+            
+            // Overview matching
+            if (overview.includes(q)) score += 20;
+            
+            // Popularity & rating boost
+            score += (item.popularity || 0) * 0.1;
+            score += (item.vote_average || 0) * 2;
+            
+            return score;
+        }
+        
+        // ============ VOICE SEARCH ============
+        if (voiceBtn) {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'vi-VI';
+                recognition.interimResults = false;
+                
+                voiceBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (voiceBtn.classList.contains('recording')) {
+                        recognition.stop();
+                    } else {
+                        try {
+                            recognition.start();
+                        } catch (err) {
+                            console.warn('Voice recognition error:', err);
+                        }
+                    }
+                });
+                
+                recognition.onstart = () => {
+                    voiceBtn.classList.add('recording');
+                };
+                
+                recognition.onend = () => {
+                    voiceBtn.classList.remove('recording');
+                };
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    if (mainInput) {
+                        mainInput.value = transcript;
+                        mainInput.focus();
+                        fetchLiveSuggestions(transcript);
+                    }
+                };
+                
+                recognition.onerror = (event) => {
+                    voiceBtn.classList.remove('recording');
+                    console.warn('Voice recognition error:', event.error);
+                };
+            } else {
+                voiceBtn.style.display = 'none';
+            }
+        }
+        
+        // ============ AI SEARCH BUTTON ============
+        if (aiBtn) {
+            aiBtn.addEventListener('click', () => {
+                // Open AI modal (assuming it exists in header fragment)
+                const aiModal = document.getElementById('aiSearchModal');
+                if (aiModal) {
+                    aiModal.hidden = false;
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+        
+        // ============ INITIALIZE ============
+        initFilters();
+        
+        // Debug helpers
+        window.__searchDebug = {
+            getCached: () => cachedResults,
+            getDisplayedCount: () => displayedCount,
+            getFilterState: () => filterState,
+            loadMore: loadMoreSuggestions,
+            applyFilters: applyFilters
+        };
+        
+        console.log('✅ Search page script initialized successfully');
+        
+    })();
+    </script>
+    <script th:src="@{/js/movie/ai-agent.js}" defer></script>
 </body>
 </html>
-
-
-
-
-

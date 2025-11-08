@@ -461,3 +461,353 @@ document.querySelectorAll('.btn-watch').forEach(btn => {
         }
     });
 });
+
+
+
+
+// ============ LOAD EPISODES FOR TV SHOWS ============
+async function loadEpisodes() {
+    const episodesTab = document.getElementById('episodes');
+    if (!episodesTab) return;
+    
+    try {
+        const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+        
+        // Check if it's a TV show
+        const detailRes = await fetch(
+            `${TMDB_BASE_URL}/tv/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`
+        );
+        
+        if (!detailRes.ok) {
+            episodesTab.innerHTML = '<p style="padding:40px;text-align:center;color:#999;">Đây là phim lẻ, không có tập phim</p>';
+            return;
+        }
+        
+        const tvShow = await detailRes.json();
+        const seasons = tvShow.seasons || [];
+        
+        if (seasons.length === 0) {
+            episodesTab.innerHTML = '<p style="padding:40px;text-align:center;color:#999;">Không có thông tin tập phim</p>';
+            return;
+        }
+        
+        // Render seasons
+        episodesTab.innerHTML = `
+            <div style="margin-bottom:30px;">
+                <label style="font-weight:600;margin-bottom:10px;display:block;">Chọn season:</label>
+                <select id="seasonSelect" style="padding:10px;background:#1f1f1f;color:white;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:1rem;">
+                    ${seasons.map(s => `<option value="${s.season_number}">Season ${s.season_number} (${s.episode_count} tập)</option>`).join('')}
+                </select>
+            </div>
+            <div id="episodesContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;"></div>
+        `;
+        
+        const seasonSelect = document.getElementById('seasonSelect');
+        const episodesContainer = document.getElementById('episodesContainer');
+        
+        async function loadSeasonEpisodes(seasonNumber) {
+            const res = await fetch(
+                `${TMDB_BASE_URL}/tv/${movieId}/season/${seasonNumber}?api_key=${TMDB_API_KEY}&language=vi-VN`
+            );
+            const season = await res.json();
+            const episodes = season.episodes || [];
+            
+            episodesContainer.innerHTML = episodes.map(ep => `
+                <div style="background:#1f1f1f;border-radius:8px;overflow:hidden;cursor:pointer;transition:transform 0.3s;" 
+                     onmouseenter="this.style.transform='translateY(-4px)'"
+                     onmouseleave="this.style.transform='translateY(0)'">
+                    <img src="${ep.still_path ? IMG_BASE + '/w500' + ep.still_path : '/images/placeholder.jpg'}" 
+                         style="width:100%;aspect-ratio:16/9;object-fit:cover;">
+                    <div style="padding:15px;">
+                        <h4 style="margin-bottom:8px;">Tập ${ep.episode_number}: ${ep.name}</h4>
+                        <p style="font-size:0.85rem;color:#999;line-height:1.5;">${ep.overview || 'Chưa có mô tả'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        seasonSelect.addEventListener('change', (e) => {
+            loadSeasonEpisodes(e.target.value);
+        });
+        
+        // Load first season
+        loadSeasonEpisodes(seasons[0].season_number);
+        
+    } catch (error) {
+        console.error('Error loading episodes:', error);
+        if (episodesTab) {
+            episodesTab.innerHTML = '<p style="padding:40px;text-align:center;color:#999;">Đây là phim lẻ, không có tập phim</p>';
+        }
+    }
+}
+
+// Call in DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    loadEpisodes();
+});
+
+
+
+
+// ============ LOAD CAST WITH CIRCULAR AVATARS ============
+async function loadCastEnhanced() {
+    const castContainer = document.getElementById('castContainer');
+    if (!castContainer) return;
+    
+    try {
+        const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+        const response = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}/credits?api_key=${TMDB_API_KEY}&language=vi-VN`
+        );
+        
+        if (!response.ok) throw new Error('Failed to load cast');
+        
+        const data = await response.json();
+        const cast = (data.cast || []).slice(0, 12);
+        
+        if (cast.length === 0) {
+            castContainer.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Chưa có thông tin diễn viên</p>';
+            return;
+        }
+        
+        castContainer.innerHTML = cast.map(person => {
+            const photoUrl = person.profile_path 
+                ? `${IMAGE_BASE_URL}/w185${person.profile_path}`
+                : '/images/placeholder-person.jpg';
+            
+            return `
+                <div class="cast-card" style="text-align:center;cursor:pointer;transition:transform 0.3s;" 
+                     onclick="location.href='/person/detail/${person.id}'"
+                     onmouseenter="this.style.transform='translateY(-8px)'" 
+                     onmouseleave="this.style.transform='translateY(0)'">
+                    <div style="width:120px;height:120px;margin:0 auto 12px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);">
+                        <img src="${photoUrl}" alt="${person.name}" 
+                             onerror="this.src='/images/placeholder-person.jpg'"
+                             style="width:100%;height:100%;object-fit:cover;">
+                    </div>
+                    <div style="padding:0 8px;">
+                        <p style="font-weight:600;font-size:0.95rem;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${person.name}</p>
+                        <p style="font-size:0.85rem;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${person.character || 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        console.log('✅ Cast loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading cast:', error);
+        if (castContainer) {
+            castContainer.innerHTML = '<p style="color:#999;text-align:center;padding:40px;">Không thể tải thông tin diễn viên</p>';
+        }
+    }
+}
+
+// ============ LOAD SIMILAR MOVIES CAROUSEL ============
+async function loadSimilarMoviesEnhanced() {
+    const similarContainer = document.getElementById('similarMovies');
+    if (!similarContainer) return;
+    
+    try {
+        const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+        const response = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}/similar?api_key=${TMDB_API_KEY}&language=vi-VN&page=1`
+        );
+        
+        if (!response.ok) throw new Error('Failed to load similar movies');
+        
+        const data = await response.json();
+        const movies = (data.results || []).slice(0, 20);
+        
+        if (movies.length === 0) {
+            similarContainer.innerHTML = '<p style="color:#999;padding:40px;text-align:center;">Không có phim tương tự</p>';
+            return;
+        }
+        
+        similarContainer.innerHTML = movies.map(movie => {
+            const posterUrl = movie.poster_path 
+                ? `${IMAGE_BASE_URL}/w342${movie.poster_path}`
+                : '/images/placeholder.jpg';
+            
+            return `
+                <div class="movie-card" style="min-width:200px;flex-shrink:0;cursor:pointer;transition:transform 0.3s;"
+                     onclick="location.href='/movie/detail/${movie.id}'"
+                     onmouseenter="this.style.transform='scale(1.05)'"
+                     onmouseleave="this.style.transform='scale(1)'">
+                    <div class="movie-poster" style="position:relative;border-radius:8px;overflow:hidden;">
+                        <img src="${posterUrl}" alt="${movie.title}" 
+                             style="width:100%;aspect-ratio:2/3;object-fit:cover;"
+                             onerror="this.src='/images/placeholder.jpg'">
+                        <div class="movie-overlay" style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,0.9) 0%,transparent 50%);opacity:0;transition:opacity 0.3s;display:flex;align-items:flex-end;padding:15px;"
+                             onmouseenter="this.style.opacity='1'"
+                             onmouseleave="this.style.opacity='0'">
+                            <div style="width:100%;">
+                                <p style="font-weight:600;margin-bottom:5px;">${movie.title}</p>
+                                <p style="font-size:0.85rem;color:#999;">⭐ ${movie.vote_average.toFixed(1)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Setup carousel navigation
+        initCarouselControls('similarMovies', 'similarPrev', 'similarNext');
+        
+        console.log('✅ Similar movies loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading similar movies:', error);
+        if (similarContainer) {
+            similarContainer.innerHTML = '<p style="color:#999;padding:40px;text-align:center;">Không thể tải phim tương tự</p>';
+        }
+    }
+}
+
+// ============ LOAD RECOMMENDED MOVIES CAROUSEL ============
+async function loadRecommendedMoviesEnhanced() {
+    const recommendedContainer = document.getElementById('recommendedMovies');
+    if (!recommendedContainer) return;
+    
+    try {
+        const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+        const response = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=vi-VN&page=1`
+        );
+        
+        if (!response.ok) throw new Error('Failed to load recommendations');
+        
+        const data = await response.json();
+        const movies = (data.results || []).slice(0, 20);
+        
+        if (movies.length === 0) {
+            recommendedContainer.innerHTML = '<p style="color:#999;padding:40px;text-align:center;">Không có gợi ý</p>';
+            return;
+        }
+        
+        recommendedContainer.innerHTML = movies.map(movie => {
+            const posterUrl = movie.poster_path 
+                ? `${IMAGE_BASE_URL}/w342${movie.poster_path}`
+                : '/images/placeholder.jpg';
+            
+            return `
+                <div class="movie-card" style="min-width:200px;flex-shrink:0;cursor:pointer;transition:transform 0.3s;"
+                     onclick="location.href='/movie/detail/${movie.id}'"
+                     onmouseenter="this.style.transform='scale(1.05)'"
+                     onmouseleave="this.style.transform='scale(1)'">
+                    <div class="movie-poster" style="position:relative;border-radius:8px;overflow:hidden;">
+                        <img src="${posterUrl}" alt="${movie.title}" 
+                             style="width:100%;aspect-ratio:2/3;object-fit:cover;"
+                             onerror="this.src='/images/placeholder.jpg'">
+                        <div class="movie-overlay" style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,0.9) 0%,transparent 50%);opacity:0;transition:opacity 0.3s;display:flex;align-items:flex-end;padding:15px;"
+                             onmouseenter="this.style.opacity='1'"
+                             onmouseleave="this.style.opacity='0'">
+                            <div style="width:100%;">
+                                <p style="font-weight:600;margin-bottom:5px;">${movie.title}</p>
+                                <p style="font-size:0.85rem;color:#999;">⭐ ${movie.vote_average.toFixed(1)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Setup carousel navigation
+        initCarouselControls('recommendedMovies', 'recommendedPrev', 'recommendedNext');
+        
+        console.log('✅ Recommended movies loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading recommended movies:', error);
+        if (recommendedContainer) {
+            recommendedContainer.innerHTML = '<p style="color:#999;padding:40px;text-align:center;">Không thể tải gợi ý</p>';
+        }
+    }
+}
+
+// ============ LOAD BUDGET INFO ============
+async function loadBudgetInfo() {
+    const budgetEl = document.getElementById('budget');
+    if (!budgetEl) return;
+    
+    try {
+        const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+        const response = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`
+        );
+        
+        if (!response.ok) throw new Error('Failed to load movie details');
+        
+        const movie = await response.json();
+        
+        if (movie.budget && movie.budget > 0) {
+            const budgetInMillions = (movie.budget / 1000000).toFixed(1);
+            budgetEl.textContent = `$${budgetInMillions}M`;
+        } else {
+            budgetEl.textContent = '—';
+        }
+        
+    } catch (error) {
+        console.error('Error loading budget:', error);
+        if (budgetEl) budgetEl.textContent = '—';
+    }
+}
+
+// ============ HELPER: Get Movie ID ============
+function getMovieIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('id')) {
+        return params.get('id');
+    }
+    
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    return pathParts[pathParts.length - 1] || null;
+}
+
+// ============ CAROUSEL NAVIGATION HELPER ============
+function initCarouselControls(trackId, prevBtnId, nextBtnId) {
+    const track = document.getElementById(trackId);
+    const prevBtn = document.getElementById(prevBtnId);
+    const nextBtn = document.getElementById(nextBtnId);
+    
+    if (!track || !prevBtn || !nextBtn) return;
+    
+    let scrollPosition = 0;
+    const scrollAmount = 600;
+    
+    prevBtn.addEventListener('click', () => {
+        scrollPosition = Math.max(0, scrollPosition - scrollAmount);
+        track.style.transform = `translateX(-${scrollPosition}px)`;
+        updateButtonStates();
+    });
+    
+    nextBtn.addEventListener('click', () => {
+        const maxScroll = track.scrollWidth - track.parentElement.offsetWidth;
+        scrollPosition = Math.min(maxScroll, scrollPosition + scrollAmount);
+        track.style.transform = `translateX(-${scrollPosition}px)`;
+        updateButtonStates();
+    });
+    
+    function updateButtonStates() {
+        const maxScroll = track.scrollWidth - track.parentElement.offsetWidth;
+        prevBtn.disabled = scrollPosition <= 0;
+        nextBtn.disabled = scrollPosition >= maxScroll;
+        prevBtn.style.opacity = prevBtn.disabled ? '0.3' : '1';
+        nextBtn.style.opacity = nextBtn.disabled ? '0.3' : '1';
+    }
+    
+    updateButtonStates();
+    
+    window.addEventListener('resize', updateButtonStates);
+}
+
+// ============ AUTO-CALL ON PAGE LOAD ============
+document.addEventListener('DOMContentLoaded', function() {
+    // Call enhanced functions
+    loadCastEnhanced();
+    loadSimilarMoviesEnhanced();
+    loadRecommendedMoviesEnhanced();
+    loadBudgetInfo();
+    
+    console.log('✅ Movie detail enhancements initialized');
+});

@@ -15,11 +15,11 @@
 
     <!-- Navigation -->
     <nav class="main-nav">
-        <a href="#" class="active">Trang chủ</a>
-        <a href="#">Truyền hình</a>
-        <a href="#">Phim bộ</a>
-        <a href="#">Anime</a>
-        <a href="#">Thể thao</a>
+        <a href="/" class="active"><i class="fas fa-home"></i>Trang chủ</a>
+        <a href="#"><i class="fas fa-tv"></i>Truyền hình</a>
+        <a href="#"><i class="fas fa-film"></i>Phim bộ</a>
+        <a href="#"><i class="fas fa-user-secret"></i>Anime</a>
+        <a href="#"><i class="fas fa-futbol"></i>Thể thao</a>
         <!-- Genre Navigation with Dropdown -->
         <div class="genre-nav-wrapper">
             <a href="#" class="genre-toggle">
@@ -1887,9 +1887,8 @@
 
     searchToggle?.addEventListener('click', e => {
       e.preventDefault();
-      searchInput.classList.toggle('active');
-      if (searchInput.classList.contains('active')) setTimeout(()=>searchInput.focus(), 80);
-      else hideSuggestionsPanel();
+      // Navigate to search page instead of opening inline search
+      window.location.href = '/search';
     });
 
     document.addEventListener('click', e => {
@@ -2011,6 +2010,22 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = `/?genre=${genreId}`;
         });
     });
+
+    // ---------- small helpers ----------
+    const safeQuery = (s) => document.querySelector(s);
+
+    // ---------- Header scroll (guarded) ----------
+    try {
+        const header = safeQuery('.main-header');
+        const hero = safeQuery('.hero-banner');
+        if (header && hero) {
+            window.addEventListener('scroll', () => {
+                const heroHeight = hero.offsetHeight || 450;
+                if (window.scrollY > heroHeight - 100) header.classList.add('scrolled');
+                else header.classList.remove('scrolled');
+            });
+        }
+    } catch (e) { console.error('header scroll error', e); }
 });
 </script>
 

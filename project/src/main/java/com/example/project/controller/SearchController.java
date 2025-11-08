@@ -28,26 +28,25 @@ public class SearchController {
             @RequestParam(required = false) String yearTo,
             @RequestParam(required = false) String minRating,
             @RequestParam(required = false) String quickFilter,
-            @RequestParam(defaultValue = "false") boolean aiSearch,
             Model model) {
         
+        // ========== CASE 1: Không có query -> Trang search trống với trending ==========
+        if (query == null || query.trim().isEmpty()) {
+            model.addAttribute("hasResults", false);
+            model.addAttribute("searchResults", new ArrayList<>());
+            model.addAttribute("relatedMovies", new ArrayList<>());
+            model.addAttribute("aiSuggestions", new ArrayList<>());
+            setDefaultAttributes(model);
+            return "search";
+        }
+        
+        // ========== CASE 2: Có query -> Thực hiện tìm kiếm ==========
         try {
             RestTemplate restTemplate = new RestTemplate();
-            
-            // Validate query
-            if (query == null || query.trim().isEmpty()) {
-                model.addAttribute("error", "Vui lòng nhập từ khóa tìm kiếm");
-                model.addAttribute("searchResults", new ArrayList<>());
-                model.addAttribute("relatedMovies", new ArrayList<>());
-                setDefaultAttributes(model);
-                return "search";
-            }
-
             String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
             
-            // Build search URL with filters
+            // Build search URL
             String searchUrl = buildSearchUrl(encodedQuery, page, genres, yearFrom, yearTo, minRating, quickFilter);
-            
             String response = restTemplate.getForObject(searchUrl, String.class);
             
             if (response == null || response.isEmpty()) {
@@ -66,9 +65,7 @@ public class SearchController {
                 for (int i = 0; i < results.length(); i++) {
                     try {
                         JSONObject item = results.getJSONObject(i);
-                        
                         String posterPath = item.optString("poster_path", "");
-                        // if (posterPath.isEmpty()) continue;
                         
                         Map<String, Object> movie = new HashMap<>();
                         movie.put("id", item.optInt("id"));
@@ -77,41 +74,39 @@ public class SearchController {
                         movie.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
                         movie.put("year", extractYear(item));
                         movie.put("overview", item.optString("overview", ""));
-                        movie.put("mediaType", item.optString("media_type", "movie"));
                         
-                        // Genre IDs for filtering
                         JSONArray genreIds = item.optJSONArray("genre_ids");
-                        List<Integer> genres_list = new ArrayList<>();
+                        List<Integer> genresList = new ArrayList<>();
                         if (genreIds != null) {
                             for (int j = 0; j < genreIds.length(); j++) {
-                                genres_list.add(genreIds.getInt(j));
+                                genresList.add(genreIds.getInt(j));
                             }
                         }
-                        movie.put("genreIds", genres_list);
+                        movie.put("genreIds", genresList);
                         
                         movies.add(movie);
                     } catch (Exception e) {
-                        System.err.println("Error parsing movie item: " + e.getMessage());
+                        System.err.println("Error parsing movie: " + e.getMessage());
                     }
                 }
             }
             
-            // Get related movies based on first result's genre
-            List<Map<String, Object>> relatedMovies = new ArrayList<>();
-            if (!movies.isEmpty()) {
-                relatedMovies = getRelatedMovies(restTemplate, movies.get(0));
-            }
+            // Get AI suggestions (related movies based on query)
+            List<Map<String, Object>> aiSuggestions = getAISuggestions(restTemplate, query, movies);
             
-            // Add attributes to model
+            boolean hasResults = !movies.isEmpty();
+            
+            // Add to model
             model.addAttribute("searchResults", movies);
-            model.addAttribute("relatedMovies", relatedMovies);
+            model.addAttribute("aiSuggestions", aiSuggestions);
+            model.addAttribute("relatedMovies", new ArrayList<>()); // Không cần nữa
             model.addAttribute("query", query);
             model.addAttribute("totalResults", totalResults);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
-            model.addAttribute("hasResults", !movies.isEmpty());
+            model.addAttribute("hasResults", hasResults);
             
-            // Preserve filters for UI sync
+            // Preserve filters
             model.addAttribute("selectedGenres", genres != null ? genres : "");
             model.addAttribute("yearFrom", yearFrom != null ? yearFrom : "");
             model.addAttribute("yearTo", yearTo != null ? yearTo : "");
@@ -121,52 +116,32 @@ public class SearchController {
             return "search";
             
         } catch (Exception e) {
-            System.err.println("ERROR in search(): " + e.getMessage());
+            System.err.println("Search error: " + e.getMessage());
             e.printStackTrace();
-            model.addAttribute("error", "Có lỗi xảy ra khi tìm kiếm");
             setEmptyResults(model, query);
+            model.addAttribute("error", "Có lỗi xảy ra: " + e.getMessage());
             return "search";
         }
     }
     
     private String buildSearchUrl(String query, int page, String genres, String yearFrom, 
-                                   String yearTo, String minRating, String quickFilter) {
+                               String yearTo, String minRating, String quickFilter) {
         StringBuilder url = new StringBuilder();
         
-        // Use discover if filters are applied, otherwise use search
+        // Nếu có filters -> dùng discover + search
         if (hasFilters(genres, yearFrom, yearTo, minRating, quickFilter)) {
-            url.append(BASE_URL).append("/discover/movie");
+            // Bước 1: Search để lấy IDs
+            // Bước 2: Discover với filters
+            // => Phức tạp, NÊN đơn giản hóa: chỉ dùng search, filter ở client
+            
+            url.append(BASE_URL).append("/search/multi");
             url.append("?api_key=").append(API_KEY);
             url.append("&language=vi-VN");
+            url.append("&query=").append(query);
             url.append("&page=").append(page);
-            url.append("&query=").append(query); // Still include query for relevance
-            
-            // Apply filters
-            if (genres != null && !genres.isEmpty()) {
-                url.append("&with_genres=").append(genres);
-            }
-            if (yearFrom != null && !yearFrom.isEmpty()) {
-                url.append("&primary_release_date.gte=").append(yearFrom).append("-01-01");
-            }
-            if (yearTo != null && !yearTo.isEmpty()) {
-                url.append("&primary_release_date.lte=").append(yearTo).append("-12-31");
-            }
-            if (minRating != null && !minRating.isEmpty() && !minRating.equals("0")) {
-                url.append("&vote_average.gte=").append(minRating);
-            }
-            
-            // Quick filters
-            if ("trending".equals(quickFilter)) {
-                url.append("&sort_by=popularity.desc");
-            } else if ("new".equals(quickFilter)) {
-                url.append("&sort_by=release_date.desc");
-            } else if ("top-rated".equals(quickFilter)) {
-                url.append("&sort_by=vote_average.desc&vote_count.gte=100");
-            } else {
-                url.append("&sort_by=popularity.desc");
-            }
+            url.append("&include_adult=false");
         } else {
-            // Simple search without filters
+            // Simple search
             url.append(BASE_URL).append("/search/multi");
             url.append("?api_key=").append(API_KEY);
             url.append("&language=vi-VN");
@@ -240,10 +215,61 @@ public class SearchController {
         
         return related;
     }
+
+    private List<Map<String, Object>> getAISuggestions(RestTemplate restTemplate, String query, List<Map<String, Object>> searchResults) {
+        List<Map<String, Object>> suggestions = new ArrayList<>();
+        
+        try {
+            // Lấy genre từ kết quả đầu tiên (nếu có)
+            String genreId = "";
+            if (!searchResults.isEmpty()) {
+                @SuppressWarnings("unchecked")
+                List<Integer> genreIds = (List<Integer>) searchResults.get(0).get("genreIds");
+                if (genreIds != null && !genreIds.isEmpty()) {
+                    genreId = String.valueOf(genreIds.get(0));
+                }
+            }
+            
+            // Fetch similar movies
+            String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
+                        "&language=vi-VN" +
+                        (genreId.isEmpty() ? "" : "&with_genres=" + genreId) +
+                        "&sort_by=popularity.desc&vote_count.gte=50&page=1";
+            
+            String response = restTemplate.getForObject(url, String.class);
+            if (response == null) return suggestions;
+            
+            JSONObject json = new JSONObject(response);
+            JSONArray results = json.optJSONArray("results");
+            
+            if (results != null) {
+                // Lấy 20 phim đầu tiên
+                for (int i = 0; i < Math.min(20, results.length()); i++) {
+                    JSONObject item = results.getJSONObject(i);
+                    String posterPath = item.optString("poster_path", "");
+                    
+                    if (!posterPath.isEmpty()) {
+                        Map<String, Object> movie = new HashMap<>();
+                        movie.put("id", item.optInt("id"));
+                        movie.put("title", item.optString("title", "Unknown"));
+                        movie.put("poster", IMAGE_BASE_URL + "/w500" + posterPath);
+                        movie.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
+                        movie.put("year", extractYear(item));
+                        suggestions.add(movie);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching AI suggestions: " + e.getMessage());
+        }
+        
+        return suggestions;
+    }
     
     private void setEmptyResults(Model model, String query) {
         model.addAttribute("searchResults", new ArrayList<>());
         model.addAttribute("relatedMovies", new ArrayList<>());
+        model.addAttribute("aiSuggestions", new ArrayList<>());
         model.addAttribute("query", query);
         model.addAttribute("totalResults", 0);
         model.addAttribute("currentPage", 1);
