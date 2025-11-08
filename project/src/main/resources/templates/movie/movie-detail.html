@@ -6,6 +6,8 @@
     <title th:text="${movie.title != null ? movie.title + ' - FFilm' : 'Chi tiết phim - FFilm'}">Chi tiết phim</title>
     <meta name="movie-id" th:content="${movieId}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -152,6 +154,32 @@
             margin-bottom: 30px;
             color: rgba(255,255,255,0.9);
             max-width: 600px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .movie-description.expanded {
+            max-height: 200px;
+        }
+
+        .description-toggle {
+            background: none;
+            border: none;
+            color: #e50914;
+            cursor: pointer;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+            opacity: 0;
+        }
+
+        .hero-banner:hover .description-toggle {
+            opacity: 1;
+        }
+
+        .description-toggle.expanded {
+            transform: rotate(180deg);
         }
         
         .action-buttons {
@@ -280,6 +308,60 @@
             height: 30px;
             background: #e50914;
             border-radius: 2px;
+        }
+
+        /* Trailer */
+        .trailer-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .trailer-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .trailer-content {
+            position: relative;
+            width: 90%;
+            max-width: 1200px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+
+        .trailer-close {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .trailer-close:hover {
+            background: #e50914;
+            transform: scale(1.1);
+        }
+
+        .trailer-video-container {
+            width: 100%;
+            height: 100%;
         }
         
         /* Cast Section */
@@ -577,6 +659,10 @@
                     <span class="genre-tag" th:if="${#lists.isEmpty(movie.genres)}">Khác</span>
                     <span class="genre-tag" th:each="g : ${movie.genres}" th:text="${g}">Hành động</span>
                 </div>
+
+                <button class="description-toggle" id="descToggleDetail">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
                 
                 <p class="movie-description" th:text="${movie.overview}">
                     Mô tả phim sẽ hiển thị ở đây...
@@ -600,6 +686,24 @@
                     <button class="btn-circle" id="shareBtn" title="Chia sẻ">
                         <i class="fas fa-share-alt"></i>
                     </button>
+                </div>
+            </div>
+        </div>
+        <!-- Trailer Modal -->
+        <div id="trailerModal" class="trailer-modal" style="display:none;">
+            <div class="trailer-overlay" onclick="closeTrailerModal()"></div>
+            <div class="trailer-content">
+                <button class="trailer-close" onclick="closeTrailerModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="trailer-video-container">
+                    <iframe id="trailerIframe" 
+                            width="100%" 
+                            height="100%" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                    </iframe>
                 </div>
             </div>
         </div>
@@ -698,9 +802,257 @@
         </div>
     </section>
 
+    <!-- Footer -->
     <footer>
-        <p>© 2025 FFilm - Xem phim trực tuyến chất lượng cao</p>
+        <div th:replace="fragments/footer :: footer"></div>
     </footer>
+
+
+    <script>
+        // ============ TRAILER: SMARTER SELECTION & MODAL ============
+
+        const trailerBtn = document.getElementById('trailerBtn');
+        const trailerModal = document.getElementById('trailerModal');
+        const trailerIframe = document.getElementById('trailerIframe');
+
+        function normalizeLang(lang) {
+            if (!lang) return '';
+            // navigator.language -> "vi-VN" or "en-US". We compare prefixes.
+            return lang.toLowerCase();
+        }
+
+        /**
+         * Return a scored best video object or null.
+         * videos: array of TMDB video objects (fields: id, iso_639_1, key, name, site, size, type, official)
+         * preferredLang: e.g. 'vi' or 'en' or 'vi-vn' (we check startsWith)
+         */
+        function selectBestTrailer(videos = [], preferredLang = '') {
+            if (!Array.isArray(videos) || videos.length === 0) return null;
+
+            preferredLang = normalizeLang(preferredLang);
+
+            // priority order for types
+            const typePriority = {
+                'Trailer': 100,
+                'Teaser': 80,
+                'Featurette': 60,
+                'Clip': 40,
+                'Behind the Scenes': 30,
+                'Behind the scene': 30,
+                'Interview': 20
+            };
+
+            // helper to test name for keywords
+            function nameScore(name = '') {
+                if (!name) return 0;
+                const n = name.toLowerCase();
+                let s = 0;
+                if (n.includes('official')) s += 40;
+                if (n.includes('full trailer') || n.includes('full-trailer')) s += 30;
+                if (n.includes('trailer')) s += 20;
+                if (n.includes('teaser')) s += 15;
+                if (n.includes('featurette')) s += 10;
+                if (n.includes('clip')) s += 5;
+                if (n.includes('final trailer')) s += 25;
+                return s;
+            }
+
+            // score each video
+            const scored = videos.map(v => {
+                const site = (v.site || '').toLowerCase();
+                const type = v.type || '';
+                const official = !!v.official;
+                const iso = (v.iso_639_1 || '').toLowerCase();
+                const size = v.size || 0;
+                const name = v.name || '';
+
+                let score = 0;
+
+                // Site preference: YouTube >> Vimeo >> others
+                if (site === 'youtube') score += 200;
+                else if (site === 'vimeo') score += 150;
+                else score += 50;
+
+                // official
+                if (official) score += 80;
+
+                // type priority
+                score += typePriority[type] || 0;
+
+                // name heuristic
+                score += nameScore(name);
+
+                // language match (strong match gets +60, partial prefix +30)
+                if (preferredLang) {
+                    // compare prefix (e.g., 'vi' matches 'vi-vn')
+                    if (iso === preferredLang) score += 60;
+                    else if (preferredLang.startsWith(iso) || iso.startsWith(preferredLang)) score += 40;
+                    else if (iso && preferredLang.startsWith(iso.split('-')[0])) score += 30;
+                }
+                // larger size (higher quality) slightly preferred
+                score += Math.min(size, 1080) / 10; // size up to 1080 adds up to ~108
+
+                // name contains 'official trailer' is very strong
+                if (name.toLowerCase().includes('official trailer')) score += 50;
+
+                return { video: v, score, site, type, name, official, iso, size };
+            });
+
+            // Filter out videos with no key or obviously invalid
+            const valid = scored.filter(s => s.video && s.video.key);
+
+            if (valid.length === 0) return null;
+
+            // sort by descending score
+            valid.sort((a, b) => b.score - a.score);
+
+            // Debug: print top candidates (server console or browser console)
+            console.debug('Trailer candidates (top 5):', valid.slice(0, 5).map(v => ({
+                key: v.video.key, site: v.site, type: v.type, name: v.name, official: v.official, iso: v.iso, score: v.score.toFixed(1)
+            })));
+
+            // Return top candidate's original video object
+            return valid[0].video;
+        }
+
+        async function openTrailerModalWithBest() {
+            try {
+                const movieId = document.body.dataset.movieId || getMovieIdFromUrl();
+                if (!movieId) {
+                    alert('Không xác định được movieId để tải trailer');
+                    return;
+                }
+
+                // 1. Kiểm tra cache (giống code cũ)
+                let videos = null;
+                if (window.movieData && Array.isArray(window.movieData.videos?.results)) {
+                    videos = window.movieData.videos.results;
+                } else if (window.movieData && Array.isArray(window.movieData.videos)) {
+                    videos = window.movieData.videos;
+                }
+
+                // 2. Nếu không có cache, fetch API (ĐÃ SỬA LỖI)
+                if (!videos) {
+                    // Bước 2a: Thử fetch tiếng Việt (vi-VN)
+                    console.debug('Fetching trailers with language=vi-VN');
+                    let resp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/videos?api_key=${TMDB_API_KEY}&language=vi-VN`);
+                    if (!resp.ok) throw new Error('Không lấy được videos (vi-VN) từ TMDB');
+                    
+                    let json = await resp.json();
+                    videos = json.results || [];
+
+                    // Bước 2b: Nếu không có trailer tiếng Việt, fetch tiếng Anh (en-US)
+                    // (Hoặc bỏ hẳn 'language' để lấy tất cả)
+                    if (videos.length === 0) {
+                        console.debug('No vi-VN trailers found. Fetching with language=en-US');
+                        resp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/videos?api_key=${TMDB_API_KEY}&language=en-US`);
+                        if (!resp.ok) throw new Error('Không lấy được videos (en-US) từ TMDB');
+                        
+                        json = await resp.json();
+                        videos = json.results || [];
+                    }
+                }
+
+                // preferred language: try user locale first, then vi-VN fallback to 'vi'
+                const preferredLang = (navigator.language || navigator.userLanguage || 'vi').toLowerCase();
+
+                const best = selectBestTrailer(videos, preferredLang);
+
+                if (!best) {
+                    // LAST RESORT: try relaxed search - any video with 'trailer' in name across all sites
+                    // Bây giờ 'videos' đã có thể chứa trailer tiếng Anh,
+                            // nên 'fallback' này sẽ hoạt động hiệu quả hơn.
+                    const fallback = (videos || []).find(v => (v.name || '').toLowerCase().includes('trailer') || (v.type || '').toLowerCase() === 'trailer');
+                    if (fallback && fallback.key) {
+                        console.debug('Using fallback trailer candidate', fallback);
+                        playVideoInModal(fallback);
+                        return;
+                    }
+
+                    alert('Trailer chưa có sẵn');
+                    return;
+                }
+
+                playVideoInModal(best);
+
+            } catch (err) {
+                console.error('Error while choosing trailer:', err);
+                alert('Không thể tải trailer');
+            }
+        }
+
+
+        function playVideoInModal(video) {
+            if (!video || !video.key) {
+                alert('Trailer không hợp lệ');
+                return;
+            }
+
+            const site = (video.site || '').toLowerCase();
+
+            // Build embed src depending on site
+            let src = '';
+            if (site === 'youtube') {
+                // Use modest params: autoplay, rel=0, modestbranding=1
+                src = `https://www.youtube.com/embed/${video.key}?autoplay=1&rel=0&modestbranding=1`;
+            } else if (site === 'vimeo') {
+                src = `https://player.vimeo.com/video/${video.key}?autoplay=1`;
+            } else {
+                // Generic embed attempt (some sites may not work due to CORS)
+                src = `https://www.youtube.com/embed/${video.key}?autoplay=1&rel=0`; // fallback attempt
+            }
+
+            // Ensure modal elements exist
+            if (!trailerModal || !trailerIframe) {
+                alert('Modal trailer chưa sẵn sàng');
+                return;
+            }
+
+            trailerIframe.src = src;
+            trailerModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Attach improved handler
+        if (trailerBtn) {
+            trailerBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                // small visual feedback (optional)
+                trailerBtn.disabled = true;
+                trailerBtn.classList.add('loading');
+                try {
+                    await openTrailerModalWithBest();
+                } finally {
+                    trailerBtn.disabled = false;
+                    trailerBtn.classList.remove('loading');
+                }
+            });
+        }
+
+        function closeTrailerModal() {
+            if (trailerModal) {
+                trailerModal.style.display = 'none';
+                if (trailerIframe) trailerIframe.src = '';
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && trailerModal && trailerModal.style.display === 'flex') {
+                closeTrailerModal();
+            }
+        });
+
+        // Helper fallback: getMovieIdFromUrl (kept for compatibility)
+        function getMovieIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('id')) return params.get('id');
+            return window.location.pathname.split('/').filter(Boolean).pop();
+        }
+
+    </script>
+
 
     <script>
         // Tab functionality
@@ -725,6 +1077,23 @@
                 header.classList.remove('scrolled');
             }
         });
+
+        // Description toggle
+        const descToggle = document.getElementById('descToggleDetail');
+        const movieDesc = document.querySelector('.movie-description');
+        const heroBanner = document.querySelector('.hero-banner');
+
+        if (descToggle && movieDesc) {
+            descToggle.addEventListener('mouseenter', () => {
+                movieDesc.classList.toggle('expanded');
+                descToggle.classList.toggle('expanded');
+            });
+
+            heroBanner.addEventListener('mouseleave', () => {
+                movieDesc.classList.remove('expanded');
+                descToggle.classList.remove('expanded');
+            });
+        }
     </script>
     <script th:src="@{/js/movie/movie-detail.js}"></script>
 </body>

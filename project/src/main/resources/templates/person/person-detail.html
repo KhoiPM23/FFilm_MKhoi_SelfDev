@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Chi tiết diễn viên - FFilm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #141414; color: #fff; }
+        
+        .person-hero {
+            padding-top: 70px;
+            min-height: 60vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            align-items: center;
+            padding: 100px 4%;
+        }
+        
+        .person-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 50px;
+            align-items: flex-start;
+        }
+        
+        .person-avatar {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 5px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        
+        .person-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .person-info {
+            flex: 1;
+        }
+        
+        .person-name {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        
+        .person-meta {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .meta-label {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+        }
+        
+        .meta-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .person-bio {
+            font-size: 1.05rem;
+            line-height: 1.8;
+            color: rgba(255,255,255,0.9);
+            max-width: 800px;
+        }
+        
+        .content-section {
+            padding: 60px 4%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            padding-left: 15px;
+            border-left: 4px solid #e50914;
+        }
+        
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .movie-card {
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .movie-card:hover {
+            transform: translateY(-8px);
+        }
+        
+        .movie-card img {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        .movie-card-info {
+            padding: 12px 0;
+        }
+        
+        .movie-card-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .movie-card-character {
+            font-size: 0.85rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="fragments/header :: header"></div>
+    
+    <section class="person-hero">
+        <div class="person-container">
+            <div class="person-avatar">
+                <img id="personAvatar" src="/images/placeholder-person.jpg" alt="Actor">
+            </div>
+            
+            <div class="person-info">
+                <h1 class="person-name" id="personName">Loading...</h1>
+                
+                <div class="person-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Nghề nghiệp</span>
+                        <span class="meta-value" id="personJob">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Ngày sinh</span>
+                        <span class="meta-value" id="personBirthday">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Nơi sinh</span>
+                        <span class="meta-value" id="personBirthplace">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Độ nổi tiếng</span>
+                        <span class="meta-value" id="personPopularity">—</span>
+                    </div>
+                </div>
+                
+                <p class="person-bio" id="personBio">Đang tải thông tin...</p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="content-section">
+        <h2 class="section-title">Phim đã tham gia</h2>
+        <div class="movies-grid" id="moviesGrid">
+            <p style="color:#999;">Đang tải...</p>
+        </div>
+    </section>
+    
+    <div th:replace="fragments/footer :: footer"></div>
+    
+    <script>
+        const API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+        const API_BASE = 'https://api.themoviedb.org/3';
+        const IMG_BASE = 'https://image.tmdb.org/t/p';
+        
+        const personId = new URLSearchParams(window.location.search).get('id') || 
+                        window.location.pathname.split('/').filter(Boolean).pop();
+        
+        async function loadPersonDetails() {
+            try {
+                const [personRes, creditsRes] = await Promise.all([
+                    fetch(`${API_BASE}/person/${personId}?api_key=${API_KEY}&language=vi-VN`),
+                    fetch(`${API_BASE}/person/${personId}/movie_credits?api_key=${API_KEY}&language=vi-VN`)
+                ]);
+                
+                const person = await personRes.json();
+                const credits = await creditsRes.json();
+                
+                // Update person info
+                document.getElementById('personName').textContent = person.name;
+                document.title = `${person.name} - FFilm`;
+                
+                if (person.profile_path) {
+                    document.getElementById('personAvatar').src = `${IMG_BASE}/w500${person.profile_path}`;
+                }
+                
+                document.getElementById('personJob').textContent = person.known_for_department || '—';
+                document.getElementById('personBirthday').textContent = person.birthday ? 
+                    new Date(person.birthday).toLocaleDateString('vi-VN') : '—';
+                document.getElementById('personBirthplace').textContent = person.place_of_birth || '—';
+                document.getElementById('personPopularity').textContent = person.popularity ? 
+                    person.popularity.toFixed(1) : '—';
+                document.getElementById('personBio').textContent = person.biography || 'Chưa có thông tin tiểu sử.';
+                
+                // Render movies
+                const movies = [...(credits.cast || []), ...(credits.crew || [])]
+                    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+                    .slice(0, 24);
+                
+                const moviesGrid = document.getElementById('moviesGrid');
+                if (movies.length === 0) {
+                    moviesGrid.innerHTML = '<p style="color:#999;">Chưa có phim</p>';
+                    return;
+                }
+                
+                moviesGrid.innerHTML = movies.map(movie => {
+                    const poster = movie.poster_path ? `${IMG_BASE}/w342${movie.poster_path}` : '/images/placeholder.jpg';
+                    const character = movie.character || movie.job || '';
+                    
+                    return `
+                        <div class="movie-card" onclick="location.href='/movie/detail/${movie.id}'">
+                            <img src="${poster}" alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                            <div class="movie-card-info">
+                                <div class="movie-card-title">${movie.title}</div>
+                                <div class="movie-card-character">${character}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading person:', error);
+            }
+        }
+        
+        loadPersonDetails();
+    </script>
+</body>
+</html>
