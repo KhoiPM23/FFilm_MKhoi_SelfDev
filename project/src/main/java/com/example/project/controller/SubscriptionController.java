@@ -26,8 +26,8 @@ public class SubscriptionController {
             @RequestParam Integer planId,
             RedirectAttributes redirectAttributes) {
 
-        System.out.println("User ID: " + userId); // 1
-        System.out.println("Plan ID: " + planId); // Ví dụ: 2
+        System.out.println("User ID: " + userId);
+        System.out.println("Plan ID: " + planId);
         SubscriptionPlanRegisterRequest planRegisterRequest = new SubscriptionPlanRegisterRequest(userId, planId);
         boolean success = subscriptionService.registerSubscription(planRegisterRequest);
 
