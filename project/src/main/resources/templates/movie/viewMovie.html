@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Điện Thoại Đen 2 - FFilm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            line-height: 1.6;
+        }
+
+        /* ===== HEADER ===== */
+        .main-header {
+            background: rgba(0,0,0,0.95);
+            padding: 15px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #E50914;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .main-nav {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .main-nav a {
+            color: #ddd;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s;
+            position: relative;
+            padding: 5px 0;
+        }
+
+        .main-nav a:hover,
+        .main-nav a.active {
+            color: #fff;
+        }
+
+        .main-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #E50914;
+            transition: width 0.3s;
+        }
+
+        .main-nav a:hover::after,
+        .main-nav a.active::after {
+            width: 100%;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .search-box i,
+        .bell-container {
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .search-box i:hover,
+        .bell-container:hover {
+            color: #E50914;
+            background: rgba(229, 9, 20, 0.1);
+        }
+
+        .lang-select select {
+            background: #222;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .btn-buy {
+            background: linear-gradient(135deg, #E50914, #f40612);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn-login {
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .btn-login:hover {
+            color: #E50914;
+            background: rgba(229, 9, 20, 0.1);
+        }
+
+        /* ===== MAIN CONTENT - YOUTUBE STYLE ===== */
+        .content-wrapper {
+            padding-top: 80px;
+            max-width: 1800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+
+        /* ===== LEFT CONTENT ===== */
+        .main-content {
+            width: 100%;
+        }
+
+        /* VIDEO PLAYER - YOUTUBE STYLE */
+        .video-container {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .video-player {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background: #000;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1920&h=1080&fit=crop') center/cover;
+        }
+
+        .video-placeholder::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .play-button {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 0, 0.9);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-left: 5px;
+        }
+
+        .play-button:hover {
+            background: rgba(255, 0, 0, 1);
+            transform: scale(1.1);
+        }
+
+        /* VIDEO INFO - YOUTUBE STYLE */
+        .video-info {
+            padding: 20px 0;
+        }
+
+        .video-title {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .video-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #3f3f3f;
+        }
+
+        .video-stats {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #272727;
+            border: none;
+            border-radius: 18px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-button:hover {
+            background: #3f3f3f;
+        }
+
+        .action-button i {
+            font-size: 18px;
+        }
+
+        .action-button.liked {
+            background: #065fd4;
+        }
+
+        /* MOVIE DESCRIPTION */
+        .description-box {
+            background: #272727;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            margin-bottom: 24px;
+        }
+
+        .description-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .description-meta {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .description-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #fff;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .description-text.expanded {
+            -webkit-line-clamp: unset;
+        }
+
+        .show-more-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 8px 0;
+            margin-top: 8px;
+        }
+
+        .show-more-btn:hover {
+            color: #aaa;
+        }
+
+        /* COMMENTS SECTION - YOUTUBE STYLE */
+        .comments-section {
+            margin-top: 24px;
+        }
+
+        .comments-header {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+
+        .comments-count {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .sort-comments {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sort-comments i {
+            font-size: 18px;
+        }
+
+        /* COMMENT INPUT */
+        .comment-input-wrapper {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #E50914, #f40612);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .comment-input-box {
+            flex: 1;
+        }
+
+        .comment-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #3f3f3f;
+            color: #fff;
+            font-size: 14px;
+            padding: 8px 0;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .comment-input:focus {
+            border-bottom-color: #fff;
+        }
+
+        .comment-actions {
+            display: none;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .comment-input:focus ~ .comment-actions,
+        .comment-actions.active {
+            display: flex;
+        }
+
+        .comment-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 18px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cancel-btn {
+            background: transparent;
+            color: #fff;
+        }
+
+        .cancel-btn:hover {
+            background: #3f3f3f;
+        }
+
+        .submit-btn {
+            background: #065fd4;
+            color: #fff;
+        }
+
+        .submit-btn:hover {
+            background: #0b7fff;
+        }
+
+        .submit-btn:disabled {
+            background: #3f3f3f;
+            color: #717171;
+            cursor: not-allowed;
+        }
+
+        /* COMMENT LIST */
+        .comment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .comment-item {
+            display: flex;
+            gap: 16px;
+        }
+
+        .comment-content {
+            flex: 1;
+        }
+
+        .comment-author {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .author-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .comment-time {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .comment-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .comment-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comment-like-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .comment-like-btn:hover {
+            background: #3f3f3f;
+        }
+
+        .comment-like-btn i {
+            font-size: 16px;
+        }
+
+        .comment-reply-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .comment-reply-btn:hover {
+            background: #3f3f3f;
+        }
+
+        /* ===== RIGHT SIDEBAR ===== */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-section {
+            background: transparent;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding: 0 12px;
+        }
+
+        /* MOVIE INFO CARD */
+        .movie-info-card {
+            background: #272727;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #3f3f3f;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #aaa;
+        }
+
+        .info-value {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .genre-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .genre-tag {
+            background: rgba(229, 9, 20, 0.15);
+            border: 1px solid rgba(229, 9, 20, 0.3);
+            color: #E50914;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        /* RECOMMENDED VIDEOS - YOUTUBE STYLE */
+        .recommended-video {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .recommended-video:hover {
+            background: #272727;
+        }
+
+        .rec-thumbnail {
+            position: relative;
+            width: 168px;
+            height: 94px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .rec-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .rec-duration {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .rec-badge {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(229, 9, 20, 0.95);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .rec-info {
+            flex: 1;
+            padding-top: 4px;
+        }
+
+        .rec-title {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.3;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        .rec-meta {
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        .rec-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .rec-rating i {
+            color: #ffc107;
+            font-size: 12px;
+        }
+
+        .rec-rating span {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .content-wrapper {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 16px;
+            }
+
+            .rec-thumbnail {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 16/9;
+            }
+
+            .recommended-video {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-header {
+                padding: 12px 16px;
+            }
+
+            .main-nav {
+                display: none;
+            }
+
+            .content-wrapper {
+                padding: 70px 0 0;
+                gap: 16px;
+            }
+
+            .video-info {
+                padding: 12px 16px;
+            }
+
+            .comments-section {
+                padding: 0 16px;
+            }
+
+            .sidebar {
+                padding: 0 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="main-header">
+        <div class="logo">
+            <i class="fas fa-film"></i>
+            <span>FFilm</span>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="#" class="active">Trang chủ</a>
+            <a href="#">Truyền hình</a>
+            <a href="#">Phim bộ</a>
+            <a href="#">Anime</a>
+            <a href="#">Thể thao</a>
+        </nav>
+
+        <div class="header-actions">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="bell-container">
+                <i class="fas fa-bell"></i>
+            </div>
+            <div class="lang-select">
+                <select>
+                    <option value="vi">🇻🇳 Tiếng Việt</option>
+                    <option value="ja">🇯🇵 日本語</option>
+                </select>
+            </div>
+            <a href="#" class="btn-buy">Mua gói</a>
+            <a href="#" class="btn-login">Đăng nhập</a>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <div class="content-wrapper">
+        <!-- LEFT CONTENT -->
+        <div class="main-content">
+            <!-- VIDEO PLAYER -->
+            <div class="video-container">
+                <div class="video-player">
+                    <div class="video-placeholder">
+                        <button class="play-button">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIDEO INFO -->
+            <div class="video-info">
+                <h1 class="video-title">Điện Thoại Đen 2 (Black Phone 2) - 2025 | Phim Kinh Dị Giật Gân</h1>
+                
+                <div class="video-meta">
+                    <div class="video-stats">
+                        <span>2.5M lượt xem</span>
+                        <span>•</span>
+                        <span>3 ngày trước</span>
+                    </div>
+                    <div class="video-actions">
+                        <button class="action-button">
+                            <i class="fas fa-thumbs-up"></i>
+                            <span>15K</span>
+                        </button>
+                        <button class="action-button">
+                            <i class="fas fa-thumbs-down"></i>
+                        </button>
+                        <button class="action-button">
+                            <i class="fas fa-share"></i>
+                            <span>Chia sẻ</span>
+                        </button>
+                        <button class="action-button">
+                            <i class="fas fa-download"></i>
+                            <span>Tải xuống</span>
+                        </button>
+                        <button class="action-button">
+                            <i class="fas fa-bookmark"></i>
+                            <span>Lưu</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESCRIPTION -->
+            <div class="description-box">
+                <div class="description-header">
+                    <div class="description-meta">
+                        <strong>FFilm Official</strong> • 1.2M người đăng ký
+                    </div>
+                </div>
+                <div class="description-text" id="descText">
+                    Sau những sự kiện kinh hoàng của phần đầu tiên, Finney Shaw giờ đây phải đối mặt với một mối đe dọa mới khi những cuộc gọi bí ẩn từ chiếc điện thoại đen trở lại. Lần này, không chỉ riêng cậu, mà cả em gái Gwen cũng bị cuốn vào vòng xoáy của những bí ẩn siêu nhiên đầy ám ảnh. Với sự xuất hiện của những linh hồn mới và những manh mối về quá khứ đen tối của The Grabber, Finney và Gwen phải hợp tác để làm sáng tỏ sự thật và ngăn chặn một thảm kịch khác xảy ra. Bộ phim hứa hẹn mang đến những màn giật gân nghẹt thở và những bất ngờ không thể lường trước.
+                </div>
+                <button class="show-more-btn" onclick="toggleDescription()">Hiển thị thêm</button>
+            </div>
+
+            <!-- COMMENTS -->
+            <div class="comments-section">
+                <div class="comments-header">
+                    <h2 class="comments-count">1.247 bình luận</h2>
+                    <div class="sort-comments">
+                        <i class="fas fa-sort"></i>
+                        <span>Sắp xếp theo</span>
+                    </div>
+                </div>
+
+                <!-- COMMENT INPUT -->
+                <div class="comment-input-wrapper">
+                    <div class="user-avatar">B</div>
+                    <div class="comment-input-box">
+                        <input type="text" class="comment-input" placeholder="Viết bình luận..." id="commentInput">
+                        <div class="comment-actions" id="commentActions">
+                            <button class="comment-btn cancel-btn" onclick="cancelComment()">Hủy</button>
+                            <button class="comment-btn submit-btn" id="submitBtn" disabled onclick="submitComment()">Bình luận</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COMMENT LIST -->
+                <div class="comment-list">
+                    <div class="comment-item">
+                        <div class="user-avatar">N</div>
+                        <div class="comment-content">
+                            <div class="comment-author">
+                                <span class="author-name">@letsdoit9660</span>
+                                <span class="comment-time">2 giờ trước</span>
+                            </div>
+                            <p class="comment-text">Can you pls show your sens? Phim hay quá! Phần 2 còn kinh dị hơn phần 1 nhiều 😱</p>
+                            <div class="comment-toolbar">
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-up"></i>
+                                    <span>245</span>
+                                </button>
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-down"></i>
+                                </button>
+                                <button class="comment-reply-btn">Trả lời</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="comment-item">
+                        <div class="user-avatar">D</div>
+                        <div class="comment-content">
+                            <div class="comment-author">
+                                <span class="author-name">@duongnguyenthanh9837</span>
+                                <span class="comment-time">5 giờ trước</span>
+                            </div>
+                            <p class="comment-text">màn hình máy hz đấy e, a dùng màn 360hz mà sao đi xe mới mất thế nhỉ :(</p>
+                            <div class="comment-toolbar">
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-up"></i>
+                                    <span>89</span>
+                                </button>
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-down"></i>
+                                </button>
+                                <button class="comment-reply-btn">Trả lời</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="comment-item">
+                        <div class="user-avatar">L</div>
+                        <div class="comment-content">
+                            <div class="comment-author">
+                                <span class="author-name">@lequocthinh7525</span>
+                                <span class="comment-time">1 ngày trước</span>
+                            </div>
+                            <p class="comment-text">Làm sao để vứt đồ ra balo nhanh Vụ. Cảm ơn admin đã up phim nhanh. Chất lượng tốt!</p>
+                            <div class="comment-toolbar">
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-up"></i>
+                                    <span>156</span>
+                                </button>
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-down"></i>
+                                </button>
+                                <button class="comment-reply-btn">Trả lời</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="comment-item">
+                        <div class="user-avatar">H</div>
+                        <div class="comment-content">
+                            <div class="comment-author">
+                                <span class="author-name">@hieupham-zd2it</span>
+                                <span class="comment-time">1 ngày trước</span>
+                            </div>
+                            <p class="comment-text">con` bị ban vv~ thi` sao go~ Vu ơi. Diễn xuất quá tuyệt vời!</p>
+                            <div class="comment-toolbar">
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-up"></i>
+                                    <span>234</span>
+                                </button>
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-down"></i>
+                                </button>
+                                <button class="comment-reply-btn">Trả lời</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="comment-item">
+                        <div class="user-avatar">M</div>
+                        <div class="comment-content">
+                            <div class="comment-author">
+                                <span class="author-name">@Minh-tx4pe</span>
+                                <span class="comment-time">2 ngày trước</span>
+                            </div>
+                            <p class="comment-text">súng tập dùng nóng giảm giật cũ hay mới em. Cốt truyện hay, twist bất ngờ!</p>
+                            <div class="comment-toolbar">
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-up"></i>
+                                    <span>98</span>
+                                </button>
+                                <button class="comment-like-btn">
+                                    <i class="far fa-thumbs-down"></i>
+                                </button>
+                                <button class="comment-reply-btn">Trả lời</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <!-- MOVIE INFO -->
+                <div class="movie-info-card">
+                    <div class="info-row">
+                        <span class="info-label">Năm:</span>
+                        <span class="info-value">2025</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Thời lượng:</span>
+                        <span class="info-value">1h 54min</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Quốc gia:</span>
+                        <span class="info-value">Mỹ</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Đạo diễn:</span>
+                        <span class="info-value">Scott Derrickson</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Thể loại:</span>
+                        <div class="genre-tags">
+                            <span class="genre-tag">Kinh Dị</span>
+                            <span class="genre-tag">Giật Gân</span>
+                            <span class="genre-tag">Bí Ẩn</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RECOMMENDED VIDEOS -->
+                <h3 class="section-title">Phim đề xuất</h3>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <span class="rec-badge">HOT</span>
+                        <img src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">1:45:30</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Đảo Hải Tặc - One Piece Tập 1120</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">3.2M lượt xem • 1 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>9.1/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <span class="rec-badge">MỚI</span>
+                        <img src="https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">2:15:45</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Bộ Tứ Báo Thù - The 4 Rascals (2025)</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">1.8M lượt xem • 2 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>8.7/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <img src="https://images.unsplash.com/photo-1574267432644-f74f8ec55984?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">1:58:20</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Thám Tử Kiến: Kỵ Ấn Không Đầu</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">2.1M lượt xem • 3 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>8.9/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <span class="rec-badge">TOP</span>
+                        <img src="https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">2:05:10</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Thanh Phố Ảo - Fabricated City</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">4.5M lượt xem • 1 tuần trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>9.3/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <img src="https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">1:52:30</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Phóng Vấn Sát Nhân - Murderer Report</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">1.6M lượt xem • 4 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>8.8/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <span class="rec-badge">HOT</span>
+                        <img src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">2:20:15</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Sứ Mệnh Đế Vương - L2: Empuraan</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">2.8M lượt xem • 2 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>9.0/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <img src="https://images.unsplash.com/photo-1595769816263-9b910be24d5f?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">2:10:00</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Lật Mặt 7: Một Điều Ước</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">5.2M lượt xem • 1 tuần trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>8.5/10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommended-video">
+                    <div class="rec-thumbnail">
+                        <img src="https://images.unsplash.com/photo-1516041236194-e2ca9e8f21a8?w=400&h=300&fit=crop" alt="Movie">
+                        <span class="rec-duration">1:48:20</span>
+                    </div>
+                    <div class="rec-info">
+                        <h4 class="rec-title">Yêu Nhầm Bạn Thân - Friend Zone</h4>
+                        <p class="rec-meta">FFilm Official</p>
+                        <p class="rec-meta">3.5M lượt xem • 3 ngày trước</p>
+                        <div class="rec-rating">
+                            <i class="fas fa-star"></i>
+                            <span>8.6/10</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Header scroll effect
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('.main-header');
+            if (window.scrollY > 50) {
+                header.style.background = 'rgba(0,0,0,0.98)';
+            } else {
+                header.style.background = 'rgba(0,0,0,0.95)';
+            }
+        });
+
+        // Toggle description
+        function toggleDescription() {
+            const descText = document.getElementById('descText');
+            const btn = event.target;
+            
+            if (descText.classList.contains('expanded')) {
+                descText.classList.remove('expanded');
+                btn.textContent = 'Hiển thị thêm';
+            } else {
+                descText.classList.add('expanded');
+                btn.textContent = 'Ẩn bớt';
+            }
+        }
+
+        // Comment input handler
+        const commentInput = document.getElementById('commentInput');
+        const commentActions = document.getElementById('commentActions');
+        const submitBtn = document.getElementById('submitBtn');
+
+        commentInput.addEventListener('focus', function() {
+            commentActions.classList.add('active');
+        });
+
+        commentInput.addEventListener('input', function() {
+            if (this.value.trim().length > 0) {
+                submitBtn.disabled = false;
+            } else {
+                submitBtn.disabled = true;
+            }
+        });
+
+        function cancelComment() {
+            commentInput.value = '';
+            commentInput.blur();
+            commentActions.classList.remove('active');
+            submitBtn.disabled = true;
+        }
+
+        function submitComment() {
+            if (commentInput.value.trim().length > 0) {
+                alert('Bình luận của bạn: ' + commentInput.value);
+                commentInput.value = '';
+                submitBtn.disabled = true;
+                commentActions.classList.remove('active');
+            }
+        }
+
+        // Play button
+        document.querySelector('.play-button').addEventListener('click', function() {
+            alert('Video player sẽ được tích hợp tại đây!');
+        });
+
+        // Like buttons in comments
+        document.querySelectorAll('.comment-like-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('far')) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                    this.style.color = '#065fd4';
+                } else {
+                    icon.classList.remove('fas');
+                    icon.classList.add('far');
+                    this.style.color = '#fff';
+                }
+            });
+        });
+
+        // Action buttons
+        document.querySelectorAll('.action-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('fa-thumbs-up')) {
+                    if (this.classList.contains('liked')) {
+                        this.classList.remove('liked');
+                    } else {
+                        this.classList.add('liked');
+                    }
+                }
+            });
+        });
+
+        // Reply button handler
+        document.querySelectorAll('.comment-reply-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                commentInput.focus();
+                const authorName = this.closest('.comment-content').querySelector('.author-name').textContent;
+                commentInput.value = authorName + ' ';
+            });
+        });
+    </script>
+</body>
+</html>

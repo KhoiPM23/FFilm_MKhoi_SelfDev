@@ -61,7 +61,7 @@ public class UserManageController {
     public Page<UserManageDTO> getUserByStatus(@PathVariable boolean status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-            Pageable pageable = PageRequest.of(page, page);
+            Pageable pageable = PageRequest.of(page, size);
                 return userService.getUserByStatus(status,pageable);
     }
 

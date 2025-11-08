@@ -111,8 +111,8 @@
                     </select>
                     <select class="filter-select" id="statusFilter">
                         <option value="">Lọc theo trạng thái</option>
-                        <option value="active">Hoạt động</option>
-                        <option value="inactive">Không hoạt động</option>
+                        <option value="true">Hoạt động</option>
+                        <option value="false">Không hoạt động</option>
                     </select>
                     <button class="btn btn-secondary" onclick="exportData()">
                         <i class="fas fa-file-export"></i> Xuất dữ liệu
@@ -207,7 +207,7 @@
         let currentMode = 'add';
         let currentId = null;
         let currentPage = 0;
-        let pageSize = 5; // Số item mỗi trang
+        let pageSize = 5; 
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
@@ -238,11 +238,11 @@
 
                 // Render table
                 const tbody = document.getElementById('accountTable');
-                tbody.innerHTML = ''; // Xóa nội dung cũ
+                tbody.innerHTML = ''; 
 
                 data.content.forEach(user => {
                     const tr = document.createElement('tr');
-                    const avatar = (user.userName || 'U').charAt(0).toUpperCase(); // Avatar từ userName
+                    const avatar = (user.userName || 'U').charAt(0).toUpperCase();
 
                     tr.innerHTML = `
                    <td>
@@ -418,7 +418,7 @@
                     throw new Error('Delete failed');
                 } 
                 showToast('success', 'Tài khoản đã được xóa!');
-                if (currentPage > 0 && document.getElementById('accountTable').children.length <= 1) currentPage--; // Quay lại trang trước nếu trang trống
+                if (currentPage > 0 && document.getElementById('accountTable').children.length <= 1) currentPage--;
                 loadUsers();
             } catch (err) {
                 console.error(err);
@@ -453,7 +453,6 @@
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
         }
         function exportData() {
-            // Chưa implement, bạn có thể thêm logic export CSV/Excel sau
             showToast('info', 'Chức năng xuất dữ liệu đang phát triển!');
         }
     </script>
