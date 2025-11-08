@@ -2,26 +2,28 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:text="${banner.title}">Trang chủ</title>
+    <title th:text="${banner.get('title')}">Trang chủ</title> 
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
 <style>
+    /* (Toàn bộ CSS của file index.html mới của đồng nghiệp bạn) */
+    /* (CSS này rất dài, tôi sẽ không dán lại, chỉ cần giữ nguyên CSS trong file của họ) */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+body {    
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: #141414;
     color: #ffffff;
     overflow-x: hidden;
 }
 
-/* Header với hiệu ứng trong suốt */
+/* Header */
 .main-header {
     min-height: 70px;
     position: fixed;
@@ -43,27 +45,59 @@ body {
     backdrop-filter: blur(10px);
 }
 
-/* Hero Banner với carousel nhỏ */
+/* Hero Banner */
 .hero-banner {
-    padding-top:70px;
+    padding-top: 70px;
     position: relative;
-    height: 100vh;
-    min-height: 600px;
+    height: 56.25vw;
+    max-height: 850px;
+    min-height: 450px;
     overflow: hidden;
+    background-color: #000;
     background-size: cover;
-    background-position: center;
+    background-position: center center;
+    background-repeat: no-repeat;
     transition: background-image 0.5s ease;
+}
+
+.hero-video-container {
+    opacity: 0; 
+    transition: opacity 1s ease;
+    z-index: 5;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; 
+    pointer-events: none; 
+}
+
+.hero-banner[data-video-active="true"] .hero-video-container {
+    opacity: 1; 
+}
+
+#heroPlayer {
+    width: 110%; 
+    height: 120%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); 
+    pointer-events: none; 
 }
 
 .hero-overlay {
     position: absolute;
     inset: 0;
+    z-index: 5;
     background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 30%, transparent 100%),
-            linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
-    
+                linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
+    pointer-events: none;
 }
 
 .hero-content {
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
     position: absolute;
     bottom: 25%;
     left: 50px;
@@ -71,243 +105,323 @@ body {
     z-index: 10;
 }
 
+/* Title Container */
+.hero-title-container {
+    min-height: 80px;
+    margin-bottom: 15px;
+}
+
+.hero-logo-image {
+    max-width: 400px;
+    max-height: 120px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+}
+
 .hero-title {
     font-size: 3.5rem;
     font-weight: 800;
-    margin-bottom: 20px;
     text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+    line-height: 1.2;
 }
 
+/* Metadata */
 .hero-meta {
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 18px;
+    font-size: 1rem;
+    font-weight: 600;
 }
-
-.rating {
-    display: flex;
+.hero-meta > div {
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(42, 42, 42, 0.85); 
+    backdrop-filter: blur(8px);
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 12px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 6px;
+    gap: 6px;
+    transition: background 0.3s;
 }
 
-.year, .duration {
-    padding: 5px 12px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 6px;
+.hero-meta > div:hover {
+    background: rgba(60, 60, 60, 0.9);
 }
 
+.hero-meta .content-rating {
+    background: rgba(220, 53, 69, 0.85);
+    font-weight: 700;
+}
+.hero-meta .rating i {
+    color: #ffd700;
+    font-size: 1rem;
+}
+.hero-meta .year,
+.hero-meta .duration,
+.hero-meta .country {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Description */
 .hero-description {
     font-size: 1.1rem;
     line-height: 1.6;
     margin-bottom: 25px;
     color: rgba(255,255,255,0.9);
-    max-height: 0;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+    max-height: 0; 
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    transition: all 0.4s ease;
 }
-
 .hero-description.expanded {
-    max-height: 100px;
+    max-height: 5.5em; 
+    -webkit-line-clamp: 3; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
 }
-
 .description-toggle {
     background: none;
     border: none;
     color: #e50914;
     cursor: pointer;
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-    transition: transform 0.3s;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+    padding: 8px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
-
+.description-toggle:hover {
+    background: rgba(229, 9, 20, 0.15);
+    transform: scale(1.1);
+}
 .description-toggle.expanded {
     transform: rotate(180deg);
 }
 
-.hero-actions {
+/* Actions */
+.action-buttons-group {
     display: flex;
-    gap: 15px;
+    gap: 10px;
+    align-items: center;
 }
-
+.hero-actions {
+    display: flex; 
+    align-items: center;
+    margin-top: 30px;
+    gap: 12px;
+}
 .btn-play {
-    padding: 15px 40px;
-    background: #e50914;
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #e50914 0%, #c40812 100%);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: 600;
+    border-radius: 10px; 
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+.btn-play:hover {
+    background: linear-gradient(135deg, #f40612 0%, #d10711 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
+}
+.action-buttons-group .btn-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(60, 60, 60, 0.75); 
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 17px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
-    transition: all 0.3s;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+.action-buttons-group .btn-circle:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.08);
+}
+.action-buttons-group .volume-btn:hover {
+    background: rgba(229, 9, 20, 0.8);
 }
 
-.btn-play:hover {
-    background: #f40612;
-    transform: scale(1.05);
-}
-
-/* Thêm style cho nút xem thêm */
-    .view-more-link {
-        color: #b3b3b3;
-        text-decoration: none;
-        font-size: 0.9rem;
-        font-weight: 500;
-        transition: all 0.3s;
-    }
-    .view-more-link:hover {
-        color: #e50914;
-        transform: translateX(5px);
-    }
-    .view-more-link i {
-        margin-left: 5px;
-    }
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    .section-title-wrapper {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-    .section-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0; 
-    }
-    
 /* Mini Carousel */
 .mini-carousel {
     position: absolute;
-    bottom: 50px;
-    left: 0;
-    right: 0;
-    padding: 0 50px;
+    bottom: 200px; 
+    right: 50px; 
     z-index: 20;
+    max-width: 58%; 
+    overflow: hidden;
 }
-
 .mini-carousel-track {
     display: flex;
-    gap: 15px;
-    overflow-x: hidden;
-    padding: 10px 0;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 8px;
     scroll-behavior: smooth;
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
 }
-
-.mini-movie-card {
-    flex: 0 0 150px;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.3s;
-    border: 2px solid transparent;
-}
-
-.mini-movie-card.active {
-    border-color: #e50914;
-    transform: scale(1.1);
-}
-
-.mini-movie-card img {
-    width: 100%;
-    height: 85px;
-    object-fit: cover;
+.mini-carousel-track::-webkit-scrollbar { display: none; }
+.mini-card {
+    flex: 0 0 calc(100% / 7 - 10px);
+    width: 120px;
+    height: 67px; 
     border-radius: 6px;
-}
-
-.mini-movie-info {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 5px;
-    background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%);
-    border-radius: 0 0 6px 6px;
-}
-
-.mini-movie-title {
-    font-size: 0.75rem;
-    font-weight: 500;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 3px solid transparent;
+}
+.mini-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: none;
+    filter: brightness(1.1) contrast(1.05);
+}
+.mini-card.active {
+    transform: scale(1.1);
+    border-color: #e50914;
+    box-shadow: 0 0 20px rgba(229, 9, 20, 0.8);
+}
+.mini-card.active img {
+    filter: brightness(1.2) contrast(1.1); 
+}
+.mini-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3); 
+    transition: opacity 0.3s;
+}
+.mini-card.active::after {
+    opacity: 0; 
+}
+.mini-card:hover {
+    transform: scale(1.05);
+}
+.mini-card.active:hover {
+    transform: scale(1.12);
 }
 
 /* Movie Sections */
-.movies-section {
-    padding: 40px 50px;
+.movies { /* Đổi tên từ .movies-section */
+    padding: 40px 0; /* Giảm padding top */
     position: relative;
+    opacity: 0; /* Mặc định ẩn */
+    transform: translateY(20px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
-
+.movies.loaded { /* Class khi lazy-load */
+    opacity: 1;
+    transform: translateY(0);
+}
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    padding: 0 50px;
 }
-
+.section-title-wrapper { /* Thêm từ code của bạn */
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
 .section-title {
     font-size: 1.8rem;
     font-weight: 700;
 }
+.view-more-link { /* Thêm từ code của bạn */
+    color: #b3b3b3;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+.view-more-link:hover {
+    color: #e50914;
+    transform: translateX(5px);
+}
+.view-more-link i { margin-left: 5px; }
 
-/* Movie Cards với Hover */
+/* Movie Carousel (Main) */
 .movie-carousel {
     position: relative;
     overflow: hidden;
+    padding: 0 50px; /* Thêm padding cho carousel */
 }
-
 .movie-slider {
     display: flex;
     gap: 15px;
     transition: transform 0.5s ease;
     padding: 10px 0;
 }
-
 .movie-card {
     flex: 0 0 200px;
     cursor: pointer;
     position: relative;
-    transition: transform 0.3s;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-
 .movie-card:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) translateY(-5px);
     z-index: 10;
 }
-
 .movie-poster {
     position: relative;
     border-radius: 8px;
     overflow: hidden;
+    background: #2a2a2a;
 }
-
 .movie-poster img {
     width: 100%;
     height: 300px;
     object-fit: cover;
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-
+.movie-card:hover .movie-poster img {
+    transform: scale(1.05);
+}
 .movie-info {
     padding: 10px 0;
 }
-
 .movie-info h3 {
     font-size: 0.95rem;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.movie-rating {
+    font-size: 14px;
+    color: #bbb;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 /* Hover Card Popup */
@@ -324,53 +438,52 @@ body {
     visibility: hidden;
     transition: all 0.3s;
     pointer-events: none;
+    will-change: transform, opacity;
 }
-
 .movie-card:hover .movie-hover-card {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
 }
-
 .hover-card-image {
     width: 100%;
     height: 180px;
     object-fit: cover;
     border-radius: 8px 8px 0 0;
+    background: #2a2a2a;
 }
-
-.hover-card-content {
-    padding: 15px;
-}
-
+.hover-card-content { padding: 15px; }
 .hover-card-title {
     font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 10px;
 }
-
 .hover-card-meta {
     display: flex;
     gap: 15px;
     margin-bottom: 10px;
     font-size: 0.9rem;
-    color: #46d369;
 }
-
+.meta-rating { color: #46d369; }
+.meta-year { color: #b3b3b3; }
+.meta-quality {
+    border: 1px solid #b3b3b3;
+    padding: 0 4px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+}
 .hover-card-genres {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
     flex-wrap: wrap;
 }
-
 .genre-tag {
     padding: 3px 8px;
     background: rgba(255,255,255,0.1);
     border-radius: 4px;
     font-size: 0.75rem;
 }
-
 .hover-card-description {
     font-size: 0.85rem;
     color: #d1d1d1;
@@ -381,12 +494,7 @@ body {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
-
-.hover-card-actions {
-    display: flex;
-    gap: 10px;
-}
-
+.hover-card-actions { display: flex; gap: 10px; }
 .hover-play-btn {
     flex: 1;
     padding: 10px;
@@ -401,7 +509,6 @@ body {
     justify-content: center;
     gap: 8px;
 }
-
 .hover-add-btn {
     width: 40px;
     height: 40px;
@@ -417,59 +524,66 @@ body {
 
 /* Carousel Navigation */
 .carousel-nav {
-    /* position: absolute; */
-    top: 50%;
-    transform: translateY(-50%);
-    /* width: 50px; */
-    height: 50px;
-    background: rgba(0,0,0,0.7);
-    border: none;
+    display: flex;
+    gap: 10px;
+}
+.carousel-nav .nav-btn {
+    width: 45px;
+    height: 45px;
+    background: rgba(42, 42, 42, 0.8);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.1);
     color: white;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 1.2rem;
-    z-index: 50;
-    transition: all 0.3s;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-
-/* .carousel-nav:hover {
-    background: rgba(255,255,255,0.2);
+.carousel-nav .nav-btn:hover:not(:disabled) {
+    background: rgba(229, 9, 20, 0.9);
+    border-color: rgba(229, 9, 20, 0.5);
+    transform: scale(1.1);
 }
-
-.carousel-nav.prev {
-    left: 10px;
-}
-
-.carousel-nav.next {
-    right: 10px;
-} */
- 
-
-/* Footer */
-footer {
-    padding: 30px 50px;
-    background: #0c0c0c;
-    text-align: center;
-    margin-top: 50px;
-    border-top: 1px solid rgba(255,255,255,0.1);
+.carousel-nav .nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 </style>
 </head>
 <body>
 <div th:replace="fragments/header :: header"></div>
 
-<section class="hero-banner" id="heroBanner" th:style="'background-image: url(' + ${banner.backdrop} + ')'">
+<section class="hero-banner" 
+         id="heroBanner" 
+         th:attr="data-movie-id=${banner.id}, 
+                  data-title=${banner.title}"
+         th:style="'background-image: url(' + ${banner.backdrop} + ')'"> 
+    
+    <div class="hero-video-container" id="heroVideoContainer">
+        <div id="heroPlayer"></div>
+    </div>
     <div class="hero-overlay"></div>
+    
     <div class="hero-content">
-        <h1 class="hero-title" th:text="${banner.title}">Movie Title</h1>
+        <div class="hero-title-container">
+            <img class="hero-logo-image" id="heroLogo" src="" alt="Movie Logo" style="display:none;">
+            <h1 class="hero-title" id="heroTitleText" th:text="${banner.title}">Movie Title</h1>
+        </div>
         
         <div class="hero-meta">
+            <div class="content-rating" id="contentRating">
+                <span>T13+</span>
+            </div>
             <div class="rating">
-                <i class="fas fa-star" style="color: #ffd700;"></i>
+                <i class="fas fa-star"></i>
                 <span th:text="${banner.rating}">8.5</span>
             </div>
             <div class="year" th:text="${banner.year}">2025</div>
-            <div class="duration" th:text="${banner.runtime != 0 ? banner.runtime + ' phút' : '—'}">120 phút</div>
+            <div class="duration" id="heroDuration" th:text="${banner.runtime != 0 ? banner.runtime + ' phút' : '—'}">120 phút</div>
+            <div class="country" id="heroCountry">—</div>
         </div>
         
         <button class="description-toggle" id="descToggle">
@@ -481,19 +595,42 @@ footer {
         </p>
         
         <div class="hero-actions">
-            <button class="btn-play" th:onclick="'location.href=\'/movie/detail/' + ${banner.id} + '\''">
+            <a th:href="@{'/movie/detail/' + ${banner.id}}" class="btn-play">
                 <i class="fas fa-play"></i>
                 Xem ngay
-            </button>
+            </a>
+            
+            <div class="action-buttons-group">
+                <button class="btn-circle volume-btn" id="volumeBtn" title="Bật/Tắt tiếng">
+                    <i class="fas fa-volume-mute"></i>
+                </button>
+                </div>
         </div>
     </div>
-    
+
     <div class="mini-carousel">
-        <div class="mini-carousel-track" id="miniCarousel"></div>
+        <div class="mini-carousel-track" id="miniCarousel">
+            <div th:each="movie, iterStat : ${hotMovies}" 
+                class="mini-card"
+                th:classappend="${iterStat.index == 0 ? 'active' : ''}" 
+                th:attr="data-movie-id=${movie.id}, 
+                        data-title=${movie.title}, 
+                        data-overview=${movie.overview},
+                        data-backdrop=${movie.backdrop},  
+                        data-rating=${movie.rating},
+                        data-year=${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}"
+                onclick="switchBanner(this)">
+                
+                <img th:src="${movie.poster}" th:alt="${movie.title}" 
+                     onerror="this.src='/images/placeholder.jpg'"> 
+                <div class="mini-card-overlay"></div>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="movies">
+
+<section class="movies movie-list-section">
     <div class="section-header">
         <div class="section-title-wrapper">
              <h2 class="section-title">🔥 Phim Hot</h2>
@@ -506,28 +643,73 @@ footer {
             <button class="nav-btn next-btn" id="hotNextBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
+    
     <div class="movie-carousel">
         <div class="movie-slider" id="hotSlider">
-            <div th:each="movie : ${hotMovies}" class="movie-card" 
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
+            <div th:each="movie : ${hotMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
                 <div class="movie-poster">
-                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
+                    <img th:src="${movie.poster}" 
                          th:alt="${movie.title}"
                          onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <button class="play-btn"><i class="fas fa-play"></i></button>
-                    </div>
                 </div>
+                
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
+                    <p class="movie-rating">
+                        ⭐ <span th:text="${movie.rating}">8.5</span>
+                    </p>
+                </div>
+                
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" 
+                         th:src="${movie.poster}" 
+                         th:alt="${movie.title}"
+                         onerror="this.src='/images/placeholder.jpg'">
+                    
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating">
+                                <i class="fas fa-star"></i> 
+                                <span th:text="${movie.rating}">8.5</span>
+                            </span>
+                            <span class="meta-year" 
+                                  th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}">
+                                2025
+                            </span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-genres">
+                            <span class="genre-tag loading-genre">Đang tải...</span>
+                        </div>
+                        <p class="hover-card-description" 
+                           th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}">
+                        </p>
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" 
+                                    type="button"
+                                    th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                                <i class="fas fa-play"></i> Xem ngay
+                            </button>
+                            <button class="hover-add-btn" 
+                                    type="button"
+                                    th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'"
+                                    title="Thêm vào danh sách">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="movies">    
+<section class="movies movie-list-section">
     <div class="section-header">
          <div class="section-title-wrapper">
             <h2 class="section-title">🆕 Phim Mới Ra Mắt</h2>
@@ -542,26 +724,42 @@ footer {
     </div>
     <div class="movie-carousel">
         <div class="movie-slider" id="newSlider">
-            <div th:each="movie : ${newMovies}" class="movie-card"
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
+            <div th:each="movie : ${newMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
                 <div class="movie-poster">
-                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <button class="play-btn"><i class="fas fa-play"></i></button>
-                    </div>
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+                
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span class="meta-year" th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}"></span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-genres"><span class="genre-tag loading-genre">Đang tải...</span></div>
+                        <p class="hover-card-description" th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}"></p>
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''"><i class="fas fa-play"></i> Xem ngay</button>
+                            <button class="hover-add-btn" type="button" th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="movies">
+<section class="movies movie-list-section">
     <div class="section-header">
          <div class="section-title-wrapper">
             <h2 class="section-title">🎌 Anime Hot</h2>
@@ -576,26 +774,42 @@ footer {
     </div>
     <div class="movie-carousel">
         <div class="movie-slider" id="animeSlider">
-            <div th:each="movie : ${animeMovies}" class="movie-card"
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
+            <div th:each="movie : ${animeMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
                 <div class="movie-poster">
-                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <button class="play-btn"><i class="fas fa-play"></i></button>
-                    </div>
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+                
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span class="meta-year" th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}"></span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-genres"><span class="genre-tag loading-genre">Đang tải...</span></div>
+                        <p class="hover-card-description" th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}"></p>
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''"><i class="fas fa-play"></i> Xem ngay</button>
+                            <button class="hover-add-btn" type="button" th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="movies">
+<section class="movies movie-list-section">
     <div class="section-header">
          <div class="section-title-wrapper">
             <h2 class="section-title">👶 Phim Cho Trẻ Em</h2>
@@ -610,26 +824,42 @@ footer {
     </div>
     <div class="movie-carousel">
         <div class="movie-slider" id="kidsSlider">
-            <div th:each="movie : ${kidsMovies}" class="movie-card"
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
+            <div th:each="movie : ${kidsMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
                 <div class="movie-poster">
-                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <button class="play-btn"><i class="fas fa-play"></i></button>
-                    </div>
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+                
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span class="meta-year" th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}"></span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-genres"><span class="genre-tag loading-genre">Đang tải...</span></div>
+                        <p class="hover-card-description" th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}"></p>
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''"><i class="fas fa-play"></i> Xem ngay</button>
+                            <button class="hover-add-btn" type="button" th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="movies">
+<section class="movies movie-list-section">
     <div class="section-header">
          <div class="section-title-wrapper">
             <h2 class="section-title">💥 Phim Hành Động Hot</h2>
@@ -644,30 +874,671 @@ footer {
     </div>
     <div class="movie-carousel">
         <div class="movie-slider" id="actionSlider">
-            <div th:each="movie : ${actionMovies}" class="movie-card"
-                 th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''">
+            <div th:each="movie : ${actionMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}"
+                 th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
+                
                 <div class="movie-poster">
-                    <img th:src="${movie.posterPath.startsWith('http') ? movie.posterPath : 'https://image.tmdb.org/t/p/w500' + movie.posterPath}" 
-                         th:alt="${movie.title}"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-overlay">
-                        <button class="play-btn"><i class="fas fa-play"></i></button>
-                    </div>
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
                 </div>
                 <div class="movie-info">
                     <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${#numbers.formatDecimal(movie.rating, 1, 1)}">8.5</span></p>
+                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                </div>
+                
+                <div class="movie-hover-card">
+                    <img class="hover-card-image" th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                    <div class="hover-card-content">
+                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating"><i class="fas fa-star"></i> <span th:text="${movie.rating}">8.5</span></span>
+                            <span class="meta-year" th:text="${movie.releaseDate != null && movie.releaseDate != '' ? movie.releaseDate.substring(0,4) : '—'}"></span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-genres"><span class="genre-tag loading-genre">Đang tải...</span></div>
+                        <p class="hover-card-description" th:text="${movie.overview != null && movie.overview != '' ? movie.overview : 'Đang tải mô tả...'}"></p>
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" th:onclick="'event.stopPropagation(); location.href=\'/movie/detail/' + ${movie.id} + '\''"><i class="fas fa-play"></i> Xem ngay</button>
+                            <button class="hover-add-btn" type="button" th:onclick="'event.stopPropagation(); addToList(' + ${movie.id} + ')'" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
+
 <footer>
     <div th:replace="fragments/footer :: footer"></div>
 </footer>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
+
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script th:inline="javascript">
+    // =========================================================================
+    // CẤU HÌNH VÀ BIẾN TOÀN CỤC
+    // =========================================================================
+    let heroPlayer = null;
+    let videoTimeout = null;
+    let movieDetailCache = {}; 
+    let genreMap = {}; 
+    let isGenreMapLoaded = false;
+    let carouselRotateInterval = null; 
+
+    const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+    const COUNTRY_MAP = {
+        'JP': 'Nhật Bản', 'KR': 'Hàn Quốc', 'CN': 'Trung Quốc', 'HK': 'Hồng Kông',
+        'TW': 'Đài Loan', 'TH': 'Thái Lan', 'VN': 'Việt Nam', 'IN': 'Ấn Độ',
+        'GB': 'Vương Quốc Anh', 'FR': 'Pháp', 'DE': 'Đức', 'IT': 'Ý', 
+        'ES': 'Tây Ban Nha', 'RU': 'Nga', 
+        'US': 'Mỹ', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
+        'AU': 'Úc', 'NZ': 'New Zealand'
+    };
+    
+    // DOM Elements
+    const heroBanner = document.getElementById('heroBanner');
+    const heroContent = document.getElementById('heroContent');
+    const heroLogo = document.getElementById('heroLogo');
+    const heroTitleText = document.getElementById('heroTitleText');
+    const videoContainer = document.getElementById('heroVideoContainer');
+    const volumeBtn = document.getElementById('volumeBtn');
+    const heroCountry = document.getElementById('heroCountry');
+    const contentRatingSpan = document.getElementById('contentRating')?.querySelector('span');
+    const heroDuration = document.getElementById('heroDuration');
+    const heroOverview = document.getElementById('heroDesc');
+    const heroPlayLink = document.querySelector('.hero-actions .btn-play');
+    const descToggleBtn = document.getElementById('descToggle');
+    const miniCarouselTrack = document.getElementById('miniCarousel');
+
+
+    // =========================================================================
+    // LOGIC YOUTUBE PLAYER VÀ TRAILER
+    // =========================================================================
+
+    function initHeroVideo(movieId) {
+        if (videoTimeout) {
+            clearTimeout(videoTimeout);
+            videoTimeout = null;
+        }
+        if (heroPlayer) {
+            heroPlayer.destroy();
+            heroPlayer = null;
+        }
+        videoContainer.style.opacity = '0';
+        heroBanner.setAttribute('data-video-active', 'false');
+        if (movieId !== heroBanner.dataset.movieId) return;
+
+        let overlay = document.getElementById('videoOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'videoOverlay';
+            overlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; cursor: default;';
+            videoContainer.appendChild(overlay);
+        }
+        overlay.style.display = 'block';
+
+        videoTimeout = setTimeout(async () => {
+            const bestTrailer = await fetchAndSelectTrailer(movieId);
+            if (!bestTrailer) {
+                console.warn(`Không tìm thấy YouTube trailer cho ID: ${movieId}.`);
+                return;
+            }
+
+            heroPlayer = new YT.Player('heroPlayer', {
+                height: '100%',
+                width: '100%',
+                videoId: bestTrailer.key,
+                playerVars: {
+                    'autoplay': 1, 'mute': 1, 'controls': 0, 'start': 5, 'loop': 1,
+                    'playlist': bestTrailer.key, 'rel': 0, 'iv_load_policy': 3,
+                    'modestbranding': 1, 'showinfo': 0, 'origin': window.location.origin,
+                    'wmode': 'opaque', 'disablekb': 1, 'playsinline': 1
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+            videoContainer.style.pointerEvents = 'none'; 
+            overlay.style.display = 'none';
+        }, 500); 
+    }
+
+    function onPlayerReady(event) {
+        let overlay = document.getElementById('videoOverlay');
+        if (overlay) {
+            overlay.style.display = 'block';
+            overlay.style.zIndex = '10';
+        }
+        event.target.playVideo();
+        videoContainer.style.pointerEvents = 'auto'; 
+
+        setTimeout(() => {
+            videoContainer.style.opacity = '1';
+            heroBanner.setAttribute('data-video-active', 'true');
+        }, 1000);
+        setupVolumeControl();
+    }
+
+    function onPlayerStateChange(event) {
+        if (event.data === YT.PlayerState.ENDED) {
+            heroPlayer.seekTo(5, true);
+        }
+    }
+
+    function setupVolumeControl() {
+        if (volumeBtn && heroPlayer) {
+            volumeBtn.onclick = () => {
+                if (heroPlayer.isMuted()) {
+                    heroPlayer.unMute();
+                    volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                } else {
+                    heroPlayer.mute();
+                    volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                }
+            };
+        }
+    }
+
+    async function fetchAndSelectTrailer(movieId) {
+        try {
+            let resp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/videos?api_key=${TMDB_API_KEY}&language=vi-VN`);
+            let videos = (await resp.json()).results || [];
+            if (!videos.some(v => ['Trailer', 'Teaser'].includes(v.type))) {
+                 resp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/videos?api_key=${TMDB_API_KEY}&language=en-US`);
+                 videos = videos.concat((await resp.json()).results || []); 
+            }
+            
+            const priority = (v) => {
+                let score = 0;
+                if (v.type === 'Trailer') score += 10;
+                else if (v.type === 'Teaser') score += 5;
+                else if (v.type === 'Clip') score += 1;
+                if (v.iso_639_1 === 'en') score += 2;
+                if (v.iso_639_1 === 'vi') score += 1;
+                return score;
+            };
+
+            videos.sort((a, b) => priority(b) - priority(a));
+            return videos.find(v => v.site === 'YouTube');
+        } catch (e) {
+            console.error('Lỗi tìm trailer:', e);
+        }
+        return null;
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+        const initialMovieId = heroBanner.dataset.movieId;
+        if (initialMovieId && typeof initHeroVideo === 'function') {
+            initHeroVideo(initialMovieId); 
+        }
+    }
+
+    // =========================================================================
+    // LOGIC LOAD METADATA & LOGO
+    // =========================================================================
+
+    function selectBestLogo(logos) {
+        if (!logos || logos.length === 0) return null;
+        const idealRatio = 3; const minWidth = 200;
+        const getScore = (logo) => {
+            let score = 0;
+            if (logo.iso_639_1 === 'vi') score += 1000;
+            else if (logo.iso_639_1 === 'en') score += 500;
+            else if (!logo.iso_639_1) score += 100;
+            const ratio = logo.width / logo.height;
+            score -= Math.abs(ratio - idealRatio) * 50;
+            if (logo.width >= 400) score += 150;
+            else if (logo.width >= 300) score += 100;
+            else if (logo.width >= minWidth) score += 50;
+            else score -= 100;
+            if (logo.file_path && logo.file_path.toLowerCase().includes('logo')) score += 50;
+            return score;
+        };
+        const sortedLogos = logos.slice().sort((a, b) => getScore(b) - getScore(a));
+        return sortedLogos[0];
+    }
+
+    async function fetchAndDisplayExtraData(movieId) {
+        if (movieId !== heroBanner.dataset.movieId) return;
+        
+        try {
+            if (heroLogo) heroLogo.style.display = 'none';
+            if (heroTitleText) heroTitleText.style.display = 'none';
+            
+            const detailUrl = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN&append_to_response=release_dates,images&include_image_language=vi,en,null`;
+            const resp = await fetch(detailUrl);
+            if (!resp.ok) throw new Error('Failed to fetch movie details');
+            
+            const detailData = await resp.json();
+            
+            if (heroDuration) {
+                heroDuration.textContent = detailData.runtime != null && detailData.runtime !== 0 ? detailData.runtime + ' phút' : '—';
+            }
+        
+            let countryName = '—';
+            const productionCountries = detailData.production_countries;
+            if (productionCountries && productionCountries.length > 0 && heroCountry) {
+                const isoCode = productionCountries[0].iso_3166_1.toUpperCase();
+                countryName = COUNTRY_MAP[isoCode] || isoCode;
+                heroCountry.textContent = countryName;
+            }
+            
+            let logos = detailData.images?.logos || [];
+            if (logos.length === 0) {
+                try {
+                    const imgResp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/images?api_key=${TMDB_API_KEY}&include_image_language=vi,en,null`);
+                    logos = (await imgResp.json()).logos || [];
+                } catch (e) { /* ignore fallback fail */ }
+            }
+            
+            const bestLogo = selectBestLogo(logos);
+            
+            if (bestLogo) {
+                if (heroLogo) {
+                    heroLogo.src = `https://image.tmdb.org/t/p/w500${bestLogo.file_path}`;
+                    heroLogo.style.display = 'block';
+                    heroLogo.style.maxWidth = '450px';
+                    heroLogo.style.maxHeight = '140px';
+                }
+                if (heroTitleText) heroTitleText.style.display = 'none';
+            } else {
+                if (heroLogo) heroLogo.style.display = 'none';
+                if (heroTitleText) heroTitleText.style.display = 'block';
+            }
+            
+            if (contentRatingSpan) {
+                let finalRating = 'T';
+                const usRelease = detailData.release_dates?.results.find(r => r.iso_3166_1 === 'US'); 
+                const certification = usRelease?.release_dates.find(d => d.certification && (d.type === 4 || d.type === 3))?.certification;
+                
+                if (certification) {
+                    switch(certification.toUpperCase()) {
+                        case 'G': case 'TV-G': finalRating = 'T'; break;
+                        case 'PG': case 'PG-13': case 'TV-PG': finalRating = 'T13+'; break;
+                        case 'R': case 'TV-14': finalRating = 'T16+'; break;
+                        case 'NC-17': case 'TV-MA': finalRating = 'T18+'; break;
+                        default: finalRating = 'T';
+                    }
+                } else if (detailData.adult) {
+                    finalRating = 'T18+';
+                }
+                contentRatingSpan.textContent = finalRating;
+            }
+
+        } catch (e) {
+            console.error('❌ Error fetching metadata:', e);
+            if (heroCountry) heroCountry.textContent = '—';
+            if (contentRatingSpan) contentRatingSpan.textContent = 'T';
+            if (heroDuration) heroDuration.textContent = '—';
+            if (heroLogo) heroLogo.style.display = 'none';
+            if (heroTitleText) heroTitleText.style.display = 'block';
+        }
+    }
+
+    // =========================================================================
+    // LOGIC CHUYỂN BANNER & MINI CAROUSEL
+    // =========================================================================
+
+    window.switchBanner = function(cardElement) {
+        const newId = cardElement.dataset.movieId;
+        if (newId === heroBanner.dataset.movieId) return;
+        
+        const movieData = cardElement.dataset;
+        const heroContentEl = document.querySelector('.hero-content');
+        
+        if (heroContentEl) {
+            heroContentEl.style.transition = 'opacity 0.25s ease-out';
+            heroContentEl.style.opacity = '0';
+        }
+        
+        setTimeout(() => {
+            if (heroBanner) heroBanner.style.backgroundImage = `url(${movieData.backdrop})`;
+            if (heroTitleText) heroTitleText.textContent = movieData.title;
+            const ratingSpan = document.querySelector('.hero-meta .rating span');
+            if (ratingSpan) ratingSpan.textContent = movieData.rating;
+            const yearDiv = document.querySelector('.hero-meta .year');
+            if (yearDiv) yearDiv.textContent = movieData.year;
+            if (heroOverview) heroOverview.textContent = movieData.overview;
+            if (heroPlayLink) heroPlayLink.href = `/movie/detail/${newId}`; // Sửa lại link play
+            
+            if (heroBanner) {
+                heroBanner.dataset.movieId = newId;
+                heroBanner.dataset.title = movieData.title;
+            }
+
+            if (heroCountry) heroCountry.textContent = '—';
+            if (contentRatingSpan) contentRatingSpan.textContent = 'T';
+            if (heroDuration) heroDuration.textContent = '—';
+            if (heroLogo) heroLogo.style.display = 'none';
+            if (heroTitleText) heroTitleText.style.display = 'block';
+
+            if (heroOverview) heroOverview.classList.remove('expanded');
+            if (descToggleBtn) descToggleBtn.classList.remove('expanded'); 
+
+            if (heroContentEl) {
+                heroContentEl.style.transition = 'none';
+                heroContentEl.style.transform = 'translateX(-60px)';
+                heroContentEl.style.opacity = '0';
+                heroContentEl.offsetHeight;
+                
+                setTimeout(() => {
+                    heroContentEl.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.6s ease-out';
+                    heroContentEl.style.transform = 'translateX(0)';
+                    heroContentEl.style.opacity = '1';
+                }, 50);
+            }
+            
+        }, 250);
+
+        document.querySelectorAll('.mini-card').forEach(c => c.classList.remove('active'));
+        cardElement.classList.add('active');
+        centerActiveMiniCard(cardElement);
+
+        setTimeout(() => {
+            fetchAndDisplayExtraData(newId);
+            if (typeof YT !== 'undefined' && YT.Player) {
+                initHeroVideo(newId);
+            }
+        }, 300);
+        
+        stopAutoRotate();
+        startAutoRotate();
+    }
+    
+    function centerActiveMiniCard(activeCard) {
+        if (!activeCard || !miniCarouselTrack) return;
+        const trackRect = miniCarouselTrack.getBoundingClientRect();
+        const cardRect = activeCard.getBoundingClientRect();
+        const scrollPosition = activeCard.offsetLeft - (trackRect.width / 2) + (cardRect.width / 2);
+        miniCarouselTrack.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+    }
+
+    function startAutoRotate() {
+        if (carouselRotateInterval) clearInterval(carouselRotateInterval);
+        const cards = Array.from(document.querySelectorAll('.mini-card'));
+        if (cards.length < 2) return;
+
+        carouselRotateInterval = setInterval(() => {
+            const activeCard = document.querySelector('.mini-card.active');
+            let nextCardIndex = 0;
+            if (activeCard) {
+                let currentIndex = cards.indexOf(activeCard);
+                nextCardIndex = (currentIndex + 1) % cards.length;
+            }
+            if (cards[nextCardIndex]) {
+                window.switchBanner(cards[nextCardIndex]);
+            }
+        }, 11000); 
+    }
+    
+    function stopAutoRotate() {
+        if (carouselRotateInterval) {
+            clearInterval(carouselRotateInterval);
+            carouselRotateInterval = null;
+        }
+    }
+    
+    if (miniCarouselTrack) {
+        miniCarouselTrack.addEventListener('mouseenter', stopAutoRotate);
+        miniCarouselTrack.addEventListener('mouseleave', startAutoRotate);
+    }
+    
+    // =========================================================================
+    // LOGIC UI CHUNG (HEADER SCROLL, DESCRIPTION HOVER, LAZY LOAD)
+    // =========================================================================
+
+    function setupHeaderScroll() {
+        const header = document.querySelector('.main-header');
+        const hero = document.querySelector('.hero-banner');
+        if (header && hero) {
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) header.classList.add('scrolled');
+                else header.classList.remove('scrolled');
+            });
+        }
+    }
+
+    function setupDescriptionToggle() {
+        if (!descToggleBtn || !heroOverview) return;
+        const heroContentEl = document.querySelector('.hero-content');
+        
+        descToggleBtn.addEventListener('mouseenter', () => {
+            heroOverview.classList.add('expanded');
+            descToggleBtn.classList.add('expanded');
+        });
+        
+        if (heroContentEl) {
+            heroContentEl.addEventListener('mouseleave', () => {
+                heroOverview.classList.remove('expanded');
+                descToggleBtn.classList.remove('expanded');
+            });
+        }
+    }
+
+    function setupBackToTopButton() {
+        let backToTopBtn = document.getElementById('backToTopBtn');
+        if (!backToTopBtn) {
+            backToTopBtn = document.createElement('button');
+            backToTopBtn.id = 'backToTopBtn';
+            backToTopBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            backToTopBtn.style.cssText = `
+                position: fixed; bottom: 30px; right: 110px; z-index: 99999;
+                width: 50px; height: 50px; border: none; border-radius: 50%;
+                background-color: rgba(229, 9, 20, 0.9); color: white;
+                cursor: pointer; opacity: 0; visibility: hidden;
+                transition: all 0.3s ease; transform: translateY(20px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px;
+            `;
+            document.body.appendChild(backToTopBtn);
+        }
+        
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 400) {
+                backToTopBtn.style.opacity = '1';
+                backToTopBtn.style.visibility = 'visible';
+                backToTopBtn.style.transform = 'translateY(0)';
+            } else {
+                backToTopBtn.style.opacity = '0';
+                backToTopBtn.style.visibility = 'hidden';
+                backToTopBtn.style.transform = 'translateY(20px)';
+            }
+        });
+        
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+    
+    // =========================================================================
+    // LOGIC CAROUSEL & HOVER CARD
+    // =========================================================================
+    
+    function initializeCarousel(sliderId, prevBtnId, nextBtnId) {
+        const slider = document.getElementById(sliderId);
+        const prevBtn = document.getElementById(prevBtnId);
+        const nextBtn = document.getElementById(nextBtnId);
+        
+        if (!slider || !prevBtn || !nextBtn) return;
+        
+        const cards = slider.querySelectorAll('.movie-card');
+        if (cards.length === 0) return;
+        
+        const container = slider.parentElement;
+        let currentScroll = 0;
+        
+        function updateSlider() {
+            const containerWidth = container.offsetWidth;
+            const cardWidth = cards[0].offsetWidth + 15; // 200px + 15px gap
+            const visibleCards = Math.floor(containerWidth / cardWidth);
+            const maxScroll = Math.max(0, (cards.length * cardWidth) - containerWidth + 15); // +15 để bù gap cuối
+            
+            slider.style.transform = `translateX(-${currentScroll}px)`;
+            
+            prevBtn.disabled = currentScroll <= 0;
+            nextBtn.disabled = currentScroll >= maxScroll;
+            
+            prevBtn.classList.toggle('disabled', prevBtn.disabled);
+            nextBtn.classList.toggle('disabled', nextBtn.disabled);
+        }
+        
+        prevBtn.addEventListener('click', function() {
+            const containerWidth = container.offsetWidth;
+            currentScroll = Math.max(0, currentScroll - containerWidth * 0.8);
+            updateSlider();
+        });
+        
+        nextBtn.addEventListener('click', function() {
+            const containerWidth = container.offsetWidth;
+            const maxScroll = Math.max(0, (slider.scrollWidth - containerWidth));
+            currentScroll = Math.min(maxScroll, currentScroll + containerWidth * 0.8);
+            updateSlider();
+        });
+        
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(updateSlider, 250);
+        });
+        
+        updateSlider();
+    }
+    
+    async function loadGenreMap() {
+        if (isGenreMapLoaded) return;
+        try {
+            const resp = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}&language=vi-VN`);
+            const data = await resp.json();
+            data.genres.forEach(genre => { genreMap[genre.id] = genre.name; });
+            isGenreMapLoaded = true;
+        } catch (error) {
+            console.error('Error loading genre map:', error);
+        }
+    }
+
+    async function enhanceHoverCard(card) {
+        const movieId = card.dataset.movieId;
+        if (card.dataset.enhanced === 'true' || !movieId) return;
+
+        if (movieDetailCache[movieId] && movieDetailCache[movieId].genres) {
+            updateGenres(card, movieDetailCache[movieId].genres);
+            card.dataset.enhanced = 'true';
+            return;
+        }
+
+        if (!isGenreMapLoaded) await loadGenreMap();
+
+        try {
+            const detailResp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`);
+            const detailData = await detailResp.json();
+            
+            const genreNames = detailData.genres.map(g => g.name).slice(0, 3);
+            
+            movieDetailCache[movieId] = { genres: genreNames }; 
+            updateGenres(card, genreNames);
+            card.dataset.enhanced = 'true';
+        } catch (error) {
+            console.warn('⚠️ Error enhancing hover card:', error);
+            updateGenres(card, ['Khác']);
+        }
+    }
+
+    function updateGenres(card, genreNames) {
+        const genresContainer = card.querySelector('.hover-card-genres');
+        if (!genresContainer) return;
+        genresContainer.innerHTML = genreNames.map(name => `<span class="genre-tag">${name}</span>`).join('');
+    }
+
+    let hoverTimeout;
+    function handleCardHover(event) {
+        const card = event.currentTarget;
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(() => {
+            enhanceHoverCard(card);
+        }, 300);
+    }
+
+    function initHoverCards() {
+        const movieCards = document.querySelectorAll('.movie-card[data-movie-id]');
+        movieCards.forEach(card => {
+            if (card.dataset.hoverBoundGenre !== 'true') {
+                card.addEventListener('mouseenter', handleCardHover);
+                card.dataset.hoverBoundGenre = 'true';
+            }
+        });
+        
+        attachHoverPositionHandlers();
+    }
+    
+    function attachHoverPositionHandlers(){
+        const cards = document.querySelectorAll('.movie-card');
+        if (!cards.length) return;
+        cards.forEach(card => {
+            if (card.__hoverBoundPosition) return;
+            const hoverCard = card.querySelector('.movie-hover-card');
+            if (!hoverCard) return;
+            
+            card.__hoverBoundPosition = true;
+            let leaveTimer = null;
+            
+            card.addEventListener('mouseenter', function(){
+                hoverCard.style.left = ''; hoverCard.style.right = ''; 
+                const rect = card.getBoundingClientRect();
+                const popupW = hoverCard.offsetWidth || 320;
+                const spaceRight = window.innerWidth - rect.right; 
+                
+                if (spaceRight < popupW - 100) { 
+                    hoverCard.style.left = 'auto';
+                    hoverCard.style.right = '0';
+                } else {
+                    hoverCard.style.left = '-20px';
+                    hoverCard.style.right = 'auto';
+                }
+
+                if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
+            });
+            card.addEventListener('mouseleave', function(){
+                leaveTimer = setTimeout(()=>{ hoverCard.style.left=''; hoverCard.style.right=''; leaveTimer=null; }, 120);
+            });
+        });
+    }
+
+    function setupLazyLoading() {
+        const sections = document.querySelectorAll('.movie-list-section');
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('loaded');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            rootMargin: '0px 0px -100px 0px',
+            threshold: 0.05
+        });
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+    }
+    
+    // Add to list function (placeholder)
+    window.addToList = function(movieId) {
+         console.log('Added to list (demo):', movieId);
+    };
+
+    // =========================================================================
+    // KHỞI TẠO CHUNG
+    // =========================================================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupHeaderScroll();
+        setupDescriptionToggle();
+        setupBackToTopButton();
+        setupLazyLoading();
+        
         // Initialize all carousels
         const carousels = [
             { slider: 'hotSlider', prevBtn: 'hotPrevBtn', nextBtn: 'hotNextBtn' },
@@ -681,454 +1552,29 @@ footer {
         carousels.forEach(carousel => {
             initializeCarousel(carousel.slider, carousel.prevBtn, carousel.nextBtn);
         });
-    });
 
-    function initializeCarousel(sliderId, prevBtnId, nextBtnId) {
-        const slider = document.getElementById(sliderId);
-        const prevBtn = document.getElementById(prevBtnId);
-        const nextBtn = document.getElementById(nextBtnId);
         
-        if (!slider || !prevBtn || !nextBtn) return;
-        
-        const cards = slider.querySelectorAll('.movie-card');
-        if (cards.length === 0) return;
-        
-        const cardWidth = 200; // Width of each card + gap
-        const containerWidth = slider.parentElement.offsetWidth;
-        const visibleCards = Math.floor(containerWidth / cardWidth);
-        const maxScroll = Math.max(0, (cards.length - visibleCards) * cardWidth);
-        
-        let currentScroll = 0;
-        
-        function updateSlider() {
-            slider.style.transform = `translateX(-${currentScroll}px)`;
-            
-            // Update button states
-            prevBtn.disabled = currentScroll <= 0;
-            nextBtn.disabled = currentScroll >= maxScroll;
-            
-            prevBtn.classList.toggle('disabled', currentScroll <= 0);
-            nextBtn.classList.toggle('disabled', currentScroll >= maxScroll);
-        }
-        
-        prevBtn.addEventListener('click', function() {
-            currentScroll = Math.max(0, currentScroll - cardWidth * 3);
-            updateSlider();
-        });
-        
-        nextBtn.addEventListener('click', function() {
-            currentScroll = Math.min(maxScroll, currentScroll + cardWidth * 3);
-            updateSlider();
-        });
-        
-        // Initialize
-        updateSlider();
-        
-        // Handle window resize for this carousel
-        let resizeTimer;
-        window.addEventListener('resize', function() {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function() {
-                currentScroll = 0;
-                updateSlider();
-            }, 250);
-        });
-    }
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // ---------- small helpers ----------
-    const safeQuery = (s) => document.querySelector(s);
-    const safeQueryAll = (s) => Array.from(document.querySelectorAll(s || '')).filter(Boolean);
-
-    // ---------- Header scroll (guarded) ----------
-    try {
-        const header = safeQuery('.main-header');
-        const hero = safeQuery('.hero-banner');
-        if (header && hero) {
-            window.addEventListener('scroll', () => {
-                const heroHeight = hero.offsetHeight || 450;
-                if (window.scrollY > heroHeight - 100) header.classList.add('scrolled');
-                else header.classList.remove('scrolled');
-            });
-        }
-    } catch (e) { console.error('header scroll error', e); }
-
-    // ---------- description toggle (guarded) ----------
-    const heroBanner = document.querySelector('.hero-banner');
-    try {
-        const descToggle = safeQuery('#descToggle');
-        const heroDesc = safeQuery('#heroDesc');
-        if (descToggle && heroDesc) {
-            descToggle.addEventListener('mouseenter', () => {
-                heroDesc.classList.toggle('expanded');
-                descToggle.classList.toggle('expanded');
-            });
-
-            heroBanner.addEventListener('mouseleave', () => {
-                heroDesc.classList.remove('expanded');
-                descToggle.classList.remove('expanded');
-            });
-        }
-    } catch (e) { console.error('desc toggle error', e); }
-
-    // ---------- Carousels init (reuse your function initializeCarousel) ----------
-    try {
-        const carousels = [
-            { slider: 'hotSlider', prevBtn: 'hotPrevBtn', nextBtn: 'hotNextBtn' },
-            { slider: 'newSlider', prevBtn: 'newPrevBtn', nextBtn: 'newNextBtn' },
-            { slider: 'animeSlider', prevBtn: 'animePrevBtn', nextBtn: 'animeNextBtn' },
-            { slider: 'kidsSlider', prevBtn: 'kidsPrevBtn', nextBtn: 'kidsNextBtn' },
-            { slider: 'actionSlider', prevBtn: 'actionPrevBtn', nextBtn: 'actionNextBtn' },
-        ];
-        carousels.forEach(c => initializeCarousel(c.slider, c.prevBtn, c.nextBtn));
-    } catch (e) { console.error('init carousels error', e); }
-
-    // ---------- Mini carousel data + render ----------
-    let miniCarouselData = [];
-    let currentMovieIndex = 0;
-    const TMDB_API_KEY = window.TMDB_API_KEY || 'eac03c4e09a0f5099128e38cb0e67a8f'; // debug only, remove in prod
-
-    async function loadMiniCarousel() {
-        try {
-            const API_KEY = TMDB_API_KEY;
-            const res = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=vi-VN&page=1`);
-            if (!res.ok) { console.warn('TMDB popular failed', res.status); return; }
-            const data = await res.json();
-            miniCarouselData = Array.isArray(data.results) ? data.results.slice(0, 10) : [];
-            renderMiniCarousel();
-        } catch (e) { console.error('loadMiniCarousel error', e); }
-    }
-
-    function renderMiniCarousel() {
-        try {
-            const carousel = safeQuery('#miniCarousel');
-            if (!carousel) return;
-            carousel.innerHTML = miniCarouselData.map((movie, index) => `
-                <div class="mini-movie-card ${index===0?'active':''}" data-index="${index}" onclick="selectMovie(${index})">
-                    <img src="https://image.tmdb.org/t/p/w500${movie.backdrop_path||''}" alt="${movie.title||''}">
-                    <div class="mini-movie-info"><div class="mini-movie-title">${movie.title||''}</div></div>
-                </div>
-            `).join('');
-            // safe center
-            setTimeout(centerActiveCard, 60);
-
-            // Attach hover handlers to server-rendered cards as well
-            attachHoverHandlers();
-            // start auto rotate only when data loaded
-            if (miniCarouselData.length > 0) startAutoRotate();
-        } catch (e) { console.error('renderMiniCarousel error', e); }
-    }
-
-    // ---------- selectMovie (safe, logs) ----------
-    window.selectMovie = async function(index) {
-        try {
-            if (!Array.isArray(miniCarouselData) || miniCarouselData.length === 0) return;
-            if (index == null || index < 0 || index >= miniCarouselData.length) return;
-            currentMovieIndex = index;
-            const movie = miniCarouselData[index];
-
-            // update UI basics
-            const heroBanner = safeQuery('#heroBanner');
-            if (heroBanner) heroBanner.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdrop_path||movie.backdrop||''})`;
-            const titleEl = safeQuery('.hero-title'); if (titleEl) titleEl.textContent = movie.title || '—';
-            const ratingEl = safeQuery('.rating span'); if (ratingEl) ratingEl.textContent = movie.vote_average !== undefined ? Number(movie.vote_average).toFixed(1) : '—';
-            const yearEl = safeQuery('.year'); if (yearEl) yearEl.textContent = (movie.release_date||movie.first_air_date) ? new Date((movie.release_date||movie.first_air_date)).getFullYear() : '—';
-            const descEl = safeQuery('#heroDesc'); if (descEl) descEl.textContent = movie.overview || '';
-
-            // mark active
-            document.querySelectorAll('.mini-movie-card').forEach(c=>c.classList.remove('active'));
-            const active = document.querySelector(`.mini-movie-card[data-index="${index}"]`);
-            if (active) active.classList.add('active');
-            centerActiveCard();
-
-            // fetch runtime via TMDB (debug direct call). Safe guards + logs
-            const durationEl = safeQuery('.duration');
-            if (!durationEl) { console.warn('duration element not found'); }
-            else {
-                durationEl.textContent = '...';
-                try {
-                    if (!movie.id) { durationEl.textContent='—'; return; }
-                    const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=vi-VN`);
-                    if (!detailRes.ok) { console.warn('detail fetch failed', detailRes.status); durationEl.textContent='—'; return; }
-                    const detail = await detailRes.json();
-                    if (detail && detail.runtime) durationEl.textContent = `${detail.runtime} phút`;
-                    else durationEl.textContent = '—';
-                } catch (e) { console.error('runtime fetch error', e); if (durationEl) durationEl.textContent='—'; }
-            }
-        } catch (e) { console.error('selectMovie error', e); }
-    };
-
-    // ---------- centerActiveCard ----------
-    function centerActiveCard() {
-        try {
-            const carousel = safeQuery('#miniCarousel'); if (!carousel) return;
-            const activeCard = carousel.querySelector('.active'); if (!activeCard) return;
-            const cardLeft = activeCard.offsetLeft, cardWidth = activeCard.offsetWidth, carouselWidth = carousel.offsetWidth;
-            carousel.scrollTo({ left: cardLeft - (carouselWidth / 2) + (cardWidth / 2), behavior: 'smooth' });
-        } catch (e) { console.error('centerActiveCard error', e); }
-    }
-
-    // ---------- auto rotate ----------
-    let autoRotateTimer = null;
-    function startAutoRotate(){ if(autoRotateTimer||!miniCarouselData.length) return; autoRotateTimer = setInterval(()=>{ currentMovieIndex=(currentMovieIndex+1)%miniCarouselData.length; selectMovie(currentMovieIndex); },8000); }
-    function stopAutoRotate(){ if(autoRotateTimer){ clearInterval(autoRotateTimer); autoRotateTimer=null; } }
-
-    // ---------- Hover handlers (idempotent & safe) ----------
-    function attachHoverHandlers(){
-        try {
-            const cards = safeQueryAll('.movie-card');
-            if (!cards.length) return;
-            cards.forEach(card => {
-                if (card.__hoverBound) return;
-                const hoverCard = card.querySelector('.movie-hover-card');
-                if (!hoverCard) return;
-                card.__hoverBound = true;
-                hoverCard.style.left = ''; hoverCard.style.right = '';
-                let leaveTimer = null;
-
-                card.addEventListener('mouseenter', function(){
-                    try {
-                        hoverCard.style.left = ''; hoverCard.style.right = '';
-                        const rect = card.getBoundingClientRect();
-                        const popupW = hoverCard.offsetWidth || 320;
-                        const spaceRight = window.innerWidth - rect.left;
-                        if (spaceRight < popupW + 40) { hoverCard.style.left = 'auto'; hoverCard.style.right = '0'; }
-                        else { hoverCard.style.left = '-20px'; hoverCard.style.right = ''; }
-                        if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
-                    } catch(e){ console.warn('hover mouseenter inner error', e); }
-                });
-
-                card.addEventListener('mouseleave', function(){
-                    try { leaveTimer = setTimeout(()=>{ hoverCard.style.left=''; hoverCard.style.right=''; leaveTimer=null; }, 120); } catch(e){ }
-                });
-
-                window.addEventListener('resize', ()=>{ try{ hoverCard.style.left=''; hoverCard.style.right=''; }catch(e){} });
-            });
-        } catch(e){ console.error('attachHoverHandlers error', e); }
-    }
-
-    // initial attach for server-rendered movie-cards
-    attachHoverHandlers();
-
-    // start loading mini carousel
-    loadMiniCarousel();
-
-    // expose helpers for debugging
-    window.startAutoRotate = startAutoRotate;
-    window.stopAutoRotate = stopAutoRotate;
-});
-</script>
-
-<script>
-// ========== SAFE HOVER CARD ENHANCEMENT ==========
-(function() {
-    'use strict';
-    
-    const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
-    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-    const genreCache = new Map(); // Cache genres để tránh gọi API nhiều lần
-    let isGenreMapLoaded = false;
-    let genreMap = {};
-
-    // Load genre mapping một lần duy nhất
-    async function loadGenreMap() {
-        if (isGenreMapLoaded) return;
-        
-        try {
-            const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}&language=vi-VN`);
-            if (!response.ok) return;
-            
-            const data = await response.json();
-            if (data.genres) {
-                data.genres.forEach(g => {
-                    genreMap[g.id] = g.name;
-                });
-                isGenreMapLoaded = true;
-                console.log('✅ Genre map loaded:', genreMap);
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not load genre map:', error);
-        }
-    }
-
-    // Enhanced hover card data loading
-    async function enhanceHoverCard(card) {
-        // Chỉ load một lần
-        if (card.dataset.enhanced === 'true') return;
-        
-        const movieId = card.dataset.movieId;
-        if (!movieId) return;
-
-        try {
-            // Check cache first
-            if (genreCache.has(movieId)) {
-                updateGenres(card, genreCache.get(movieId));
-                card.dataset.enhanced = 'true';
-                return;
-            }
-
-            // Fetch movie details
-            const response = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`);
-            if (!response.ok) throw new Error('Failed to fetch');
-
-            const movie = await response.json();
-            
-            // Update genres
-            if (movie.genres && movie.genres.length > 0) {
-                const genreNames = movie.genres.map(g => g.name);
-                genreCache.set(movieId, genreNames);
-                updateGenres(card, genreNames);
-            } else {
-                updateGenres(card, ['Khác']);
-            }
-
-            card.dataset.enhanced = 'true';
-            console.log('✅ Enhanced hover card for movie:', movieId);
-
-        } catch (error) {
-            console.warn('⚠️ Error enhancing hover card:', error);
-            // Fallback: keep loading state
-        }
-    }
-
-    function updateGenres(card, genreNames) {
-        const genresContainer = card.querySelector('.hover-card-genres');
-        if (!genresContainer) return;
-
-        genresContainer.innerHTML = genreNames.map(name => 
-            `<span class="genre-tag">${name}</span>`
-        ).join('');
-    }
-
-    // Safe hover handler với debounce
-    let hoverTimeout;
-    function handleCardHover(event) {
-        const card = event.currentTarget;
-        
-        clearTimeout(hoverTimeout);
-        hoverTimeout = setTimeout(() => {
-            enhanceHoverCard(card);
-        }, 300); // Delay 300ms trước khi load data
-    }
-
-    // Initialize hover cards
-    function initHoverCards() {
-        try {
-            const movieCards = document.querySelectorAll('.movie-card[data-movie-id]');
-            console.log(`🎬 Initializing ${movieCards.length} hover cards...`);
-
-            movieCards.forEach(card => {
-                // Tránh bind multiple times
-                if (card.dataset.hoverBound === 'true') return;
-
-                card.addEventListener('mouseenter', handleCardHover);
-                card.dataset.hoverBound = 'true';
-
-                // Adjust position nếu card gần edge
-                const hoverCard = card.querySelector('.movie-hover-card');
-                if (hoverCard) {
-                    card.addEventListener('mouseenter', function adjustPosition() {
-                        const rect = card.getBoundingClientRect();
-                        const hoverWidth = 320;
-                        const spaceRight = window.innerWidth - rect.right;
-                        
-                        if (spaceRight < hoverWidth - 180) {
-                            // Card gần edge bên phải
-                            hoverCard.style.left = 'auto';
-                            hoverCard.style.right = '-20px';
-                        } else {
-                            // Normal position
-                            hoverCard.style.left = '-20px';
-                            hoverCard.style.right = 'auto';
-                        }
-                    });
-                }
-            });
-
-            console.log('✅ Hover cards initialized successfully');
-
-        } catch (error) {
-            console.error('❌ Error initializing hover cards:', error);
-        }
-    }
-
-    // Add to list function (placeholder)
-    window.addToList = function(movieId) {
-        try {
-            let myList = JSON.parse(localStorage.getItem('myList') || '[]');
-            
-            if (!myList.includes(movieId)) {
-                myList.push(movieId);
-                localStorage.setItem('myList', JSON.stringify(myList));
-                showToast('Đã thêm vào danh sách của tôi', 'success');
-            } else {
-                showToast('Phim đã có trong danh sách', 'info');
-            }
-        } catch (error) {
-            console.error('Error adding to list:', error);
-            showToast('Có lỗi xảy ra', 'error');
-        }
-    };
-
-    // Toast notification
-    function showToast(message, type = 'success') {
-        let toast = document.getElementById('toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'toast';
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 30px;
-                right: 30px;
-                background: #1f1f1f;
-                color: white;
-                padding: 16px 24px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                z-index: 10000;
-                opacity: 0;
-                transform: translateY(20px);
-                transition: all 0.3s;
-                border-left: 4px solid ${type === 'success' ? '#46d369' : type === 'error' ? '#e50914' : '#3b82f6'};
-            `;
-            document.body.appendChild(toast);
-        }
-
-        toast.textContent = message;
-        toast.style.borderLeftColor = type === 'success' ? '#46d369' : type === 'error' ? '#e50914' : '#3b82f6';
-
-        setTimeout(() => {
-            toast.style.opacity = '1';
-            toast.style.transform = 'translateY(0)';
-        }, 100);
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(20px)';
-        }, 3000);
-    }
-
-    // Initialize when DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            loadGenreMap();
+        loadGenreMap().then(() => {
             initHoverCards();
         });
-    } else {
-        loadGenreMap();
-        initHoverCards();
-    }
+        
+        const initialMovieId = heroBanner.dataset.movieId;
+        if (initialMovieId) {
+            fetchAndDisplayExtraData(initialMovieId);
+        }
+        
+        // Khởi tạo Mini Carousel tự động chuyển
+        startAutoRotate();
+        
+        // Khởi tạo video nếu YT API đã sẵn sàng
+        if (typeof YT !== 'undefined' && YT.Player) {
+             if (initialMovieId) initHeroVideo(initialMovieId);
+        }
+    });
 
-    // Re-initialize after dynamic content load
-    window.reinitHoverCards = initHoverCards;
-
-})();
 </script>
 
 <div th:replace="fragments/ai-chat :: ai-chat"></div>
 <script th:src="@{/js/movie/ai-agent.js}" defer></script>
-
 </body>
 </html>

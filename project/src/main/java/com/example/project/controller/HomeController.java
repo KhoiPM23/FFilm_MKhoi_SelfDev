@@ -26,21 +26,19 @@ public class HomeController {
     private final String BASE_URL = "https://api.themoviedb.org/3";
     private final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
 
-    // === BỔ SUNG DEPENDENCIES ===
+    // === MERGE: Giữ lại Autowired cho cả hai ===
     @Autowired
     private RestTemplate restTemplate;
 
     @Autowired
     private MovieService movieService;
-    // ============================
+    // =======================================
 
     @GetMapping("/")
     public String home(Model model) {
         try {
-            // Banner - Phim phổ biến nhất (SỬ DỤNG LOGIC SYNC MỚI)
+            // MERGE: Các hàm này đã được sửa lại bên dưới
             setBanner(model, restTemplate);
-            
-            // Các danh mục phim (SỬ DỤNG LOGIC SYNC MỚI)
             setHotMovies(model, restTemplate);
             setNewReleases(model, restTemplate);
             setAnimeHot(model, restTemplate);
@@ -51,14 +49,15 @@ public class HomeController {
         } catch (Exception e) {
             System.err.println("ERROR in home(): " + e.getMessage());
             e.printStackTrace();
-            
             ensureDefaultAttributes(model);
             return "index";
         }
     }
 
-    // === SỬA LẠI HOÀN TOÀN TẤT CẢ CÁC HÀM BÊN DƯỚI ===
-
+    /**
+     * MERGE: setBanner
+     * Giữ logic Sync-on-Demand (của bạn) VÀ trả về Map (cho đồng nghiệp).
+     */
     private void setBanner(Model model, RestTemplate restTemplate) {
         try {
             String listUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
@@ -73,22 +72,19 @@ public class HomeController {
                     int tmdbId = firstMovieJson.optInt("id", -1);
 
                     if (tmdbId > 0) {
-                        // Dùng findOrImport để lấy đủ chi tiết (runtime, genres...)
-                        // Hàm này sẽ tự động lưu phim vào DB nếu chưa có
+                        // 1. SYNC: Dùng service của bạn để lấy/lưu phim
                         Movie bannerMovie = movieService.findOrImportMovieByTmdbId(tmdbId);
                         
-                        // Xử lý genres (vì findOrImport không tự map categories)
-                        // (Bỏ qua bước này để đơn giản hóa, banner chỉ cần runtime)
-
-                        // Tạo Map cho banner từ Movie entity
+                        // 2. CONVERT: Chuyển Movie entity thành Map
                         Map<String, Object> bannerMap = new HashMap<>();
-                        bannerMap.put("id", bannerMovie.getTmdbId()); // Dùng TMDB ID
+                        bannerMap.put("id", bannerMovie.getTmdbId()); // JS cần "id"
                         bannerMap.put("title", bannerMovie.getTitle());
                         bannerMap.put("overview", bannerMovie.getDescription());
                         bannerMap.put("backdrop", IMAGE_BASE_URL + "/original" + bannerMovie.getBackdropPath());
                         bannerMap.put("rating", String.format("%.1f", bannerMovie.getRating()));
                         bannerMap.put("year", bannerMovie.getReleaseDate() != null ? new SimpleDateFormat("yyyy").format(bannerMovie.getReleaseDate()) : "N/A");
-                        bannerMap.put("runtime", bannerMovie.getDuration()); // Đã có runtime
+                        bannerMap.put("runtime", bannerMovie.getDuration()); 
+                        bannerMap.put("genres", Collections.emptyList()); // JS mới không dùng genres ở đây
 
                         model.addAttribute("banner", bannerMap);
                         return;
@@ -100,35 +96,49 @@ public class HomeController {
         }
         model.addAttribute("banner", createDefaultBanner());
     }
-
-    // Hàm helper mới, thay thế `getMoviesFromUrl`
-    private List<Movie> syncMoviesFromUrl(RestTemplate restTemplate, String url, int maxCount) {
-        List<Movie> syncedMovies = new ArrayList<>();
+    
+    /**
+     * MERGE: getMoviesFromUrl (Đổi tên thành syncAndMapMoviesFromUrl)
+     * Giữ logic Sync (của bạn) VÀ trả về List<Map> (cho đồng nghiệp).
+     */
+    private List<Map<String, Object>> syncAndMapMoviesFromUrl(RestTemplate restTemplate, String url, int maxCount) {
+        List<Map<String, Object>> moviesForTemplate = new ArrayList<>();
+        
         try {
             String response = restTemplate.getForObject(url, String.class);
             if (response == null || response.isEmpty()) {
-                return syncedMovies;
+                return moviesForTemplate;
             }
             
             JSONObject json = new JSONObject(response);
             JSONArray results = json.optJSONArray("results");
             
             if (results == null) {
-                return syncedMovies;
+                return moviesForTemplate;
             }
 
             for (int i = 0; i < Math.min(maxCount, results.length()); i++) {
                 try {
                     JSONObject item = results.getJSONObject(i);
-                    // Bỏ qua phim không có poster
-                    if (item.optString("poster_path", "").isEmpty()) {
-                        continue;
-                    }
-                    
-                    // Dùng hàm sync đã sửa lỗi (không ném lỗi @NotBlank)
+                    String posterPath = item.optString("poster_path", "");
+                    if (posterPath.isEmpty()) continue; // Bỏ qua nếu không có ảnh
+
+                    // 1. SYNC: Dùng service của bạn (đã sửa lỗi)
                     Movie movie = movieService.syncMovieFromTmdbData(item);
+                    
                     if (movie != null) {
-                        syncedMovies.add(movie);
+                        // 2. CONVERT: Chuyển Movie entity thành Map
+                        Map<String, Object> movieMap = new HashMap<>();
+                        movieMap.put("id", movie.getTmdbId()); // Dùng tmdbId
+                        movieMap.put("title", movie.getTitle());
+                        // JS của đồng nghiệp cần 'poster' (w500) và 'backdrop' (original)
+                        movieMap.put("poster", IMAGE_BASE_URL + "/w500" + movie.getPosterPath());
+                        movieMap.put("backdrop", IMAGE_BASE_URL + "/original" + movie.getBackdropPath());
+                        movieMap.put("rating", String.format("%.1f", movie.getRating()));
+                        movieMap.put("overview", movie.getDescription());
+                        movieMap.put("releaseDate", movie.getReleaseDate() != null ? new SimpleDateFormat("yyyy-MM-dd").format(movie.getReleaseDate()) : "");
+
+                        moviesForTemplate.add(movieMap);
                     }
                 } catch (Exception e) {
                     System.err.println("Error parsing movie at index " + i + ": " + e.getMessage());
@@ -137,14 +147,17 @@ public class HomeController {
         } catch (Exception e) {
             System.err.println("Error fetching from: " + url + " - " + e.getMessage());
         }
-        return syncedMovies;
+        
+        return moviesForTemplate;
     }
 
+
+    // === MERGE: Sửa các hàm set... để gọi hàm syncAndMapMoviesFromUrl mới ===
 
     private void setHotMovies(Model model, RestTemplate restTemplate) {
         try {
             String url = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
-            model.addAttribute("hotMovies", syncMoviesFromUrl(restTemplate, url, 20));
+            model.addAttribute("hotMovies", syncAndMapMoviesFromUrl(restTemplate, url, 20));
         } catch (Exception e) {
             System.err.println("Error in setHotMovies: " + e.getMessage());
             model.addAttribute("hotMovies", new ArrayList<>());
@@ -154,7 +167,7 @@ public class HomeController {
     private void setNewReleases(Model model, RestTemplate restTemplate) {
         try {
             String url = BASE_URL + "/movie/now_playing?api_key=" + API_KEY + "&language=vi-VN&page=1";
-            model.addAttribute("newMovies", syncMoviesFromUrl(restTemplate, url, 20));
+            model.addAttribute("newMovies", syncAndMapMoviesFromUrl(restTemplate, url, 20));
         } catch (Exception e) {
             System.err.println("Error in setNewReleases: " + e.getMessage());
             model.addAttribute("newMovies", new ArrayList<>());
@@ -165,7 +178,7 @@ public class HomeController {
         try {
             String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
                         "&language=vi-VN&with_genres=16&sort_by=popularity.desc&page=1";
-            model.addAttribute("animeMovies", syncMoviesFromUrl(restTemplate, url, 20));
+            model.addAttribute("animeMovies", syncAndMapMoviesFromUrl(restTemplate, url, 20));
         } catch (Exception e) {
             System.err.println("Error in setAnimeHot: " + e.getMessage());
             model.addAttribute("animeMovies", new ArrayList<>());
@@ -176,7 +189,7 @@ public class HomeController {
         try {
             String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
                         "&language=vi-VN&with_genres=10751&sort_by=popularity.desc&page=1";
-            model.addAttribute("kidsMovies", syncMoviesFromUrl(restTemplate, url, 20));
+            model.addAttribute("kidsMovies", syncAndMapMoviesFromUrl(restTemplate, url, 20));
         } catch (Exception e) {
             System.err.println("Error in setKidsMovies: " + e.getMessage());
             model.addAttribute("kidsMovies", new ArrayList<>());
@@ -187,16 +200,17 @@ public class HomeController {
         try {
             String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
                         "&language=vi-VN&with_genres=28&sort_by=popularity.desc&page=1";
-            model.addAttribute("actionMovies", syncMoviesFromUrl(restTemplate, url, 20));
+            model.addAttribute("actionMovies", syncAndMapMoviesFromUrl(restTemplate, url, 20));
         } catch (Exception e) {
             System.err.println("Error in setActionMovies: " + e.getMessage());
             model.addAttribute("actionMovies", new ArrayList<>());
         }
     }
     
-    // (Hàm createDefaultBanner và ensureDefaultAttributes giữ nguyên)
+    // (Các hàm createDefaultBanner và ensureDefaultAttributes giữ nguyên)
     private Map<String, Object> createDefaultBanner() {
         Map<String, Object> banner = new HashMap<>();
+        banner.put("id", 550); // Fallback ID (Vd: Fight Club)
         banner.put("title", "Welcome to FFilm");
         banner.put("overview", "Discover amazing movies and TV shows");
         banner.put("backdrop", "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg");
