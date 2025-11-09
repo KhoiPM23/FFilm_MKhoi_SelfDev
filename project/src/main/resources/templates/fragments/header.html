@@ -69,7 +69,7 @@
 
     <!-- Right Menu -->
     <div class="header-actions">
-        <!-- 🔎 Tìm kiếm với dropdown -->
+        <!-- 🔎 Tìm kiếm với dropdown (Giữ nguyên logic từ file bạn cung cấp) -->
         <div class="search-box" style="position:relative;">
           <i class="fas fa-search search-toggle" aria-hidden="true" style="cursor:pointer;"></i>
           
@@ -174,10 +174,10 @@
 
         <!-- Các nút hành động -->
         <a href="#" class="btn-buy">Mua gói</a>
-
+        
         <!--
-        BẮT ĐẦU KHỐI MERGE
-        Đây là logic (Đăng nhập/Đăng ký) từ nhánh 'Authentication/Cuong'
+        BẮT ĐẦU KHỐI LOGIN/LOGOUT ĐÃ CẬP NHẬT
+        Thay thế cho <a href="#" class="btn-login">Đăng nhập</a>
         -->
         <div th:unless="${session.user}" class="auth-buttons">
             <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
@@ -188,12 +188,9 @@
             <span class="user-name" th:text="${session.user.userName}">User</span>
             <a th:href="@{/logout}" class="btn-logout">Đăng xuất</a>
         </div>
-        <!-- KẾT THÚC KHỐI MERGE (Auth) -->
-
-        <!--
-        BẮT ĐẦU KHỐI TỪ NHÁNH 'ChatSystem/MinhKhoi'
-        Đây là Modal cho AI Search
-        -->
+        <!-- KẾT THÚC KHỐI LOGIN/LOGOUT -->
+        
+        <!-- AI Search Modal (Giữ nguyên từ file bạn cung cấp) -->
         <div id="aiSearchModal" class="ai-search-modal" hidden>
           <div class="ai-modal-overlay"></div>
           <div class="ai-modal-content">
@@ -260,11 +257,10 @@
             </div>
           </div>
         </div>
-        <!-- KẾT THÚC KHỐI TỪ NHÁNH 'ChatSystem/MinhKhoi' -->
-
+        <!-- Dọn dẹp conflict marker cũ -->
     </div> <!-- Đóng .header-actions -->
 
-    <!-- Styles cho search (Từ nhánh MinhKhoi) -->
+    <!-- Styles cho search (Giữ nguyên từ file bạn cung cấp) -->
     <style>
     /* Ensure parent doesn't clip dropdown */
     .main-header, .header-actions, .search-box { overflow: visible; }
@@ -280,12 +276,6 @@
     }
     .search-input.active{ width:300px; opacity:1; }
     .search-input::placeholder{ color:rgba(255,255,255,0.5); }
-
-    /* style for mobile smaller width */
-    @media (max-width: 760px) {
-      .search-input.active { width: 220px; }
-      .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
-    }
 
     /* Suggestions panel: fixed positioning so it's never clipped by parents */
     .search-suggestions{
@@ -304,6 +294,12 @@
       box-shadow: 0 12px 40px rgba(0,0,0,0.6);
       z-index: 9999;                 /* high so it stays on top */
       display: none;                 /* controlled by JS */
+    }
+
+    /* style for mobile smaller width */
+    @media (max-width: 760px) {
+      .search-input.active { width: 220px; }
+      .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
     }
 
     /* suggestion entries */
@@ -1903,34 +1899,26 @@
     // ============ Event handling for input & keyboard & click ============
     const debouncedSearch = debounce(q => fetchSuggestions(q), 400);
 
-    /* MERGE FIX:
-    Thay thế logic 'click' của searchToggle (từ nhánh MinhKhoi)
-    bằng logic toggle input (từ nhánh Cuong)
-    để khớp với CSS và phần còn lại của script.
+    /*
+    ĐÂY LÀ LOGIC GỐC MÀ BẠN CUNG CẤP (searchToggle điều hướng)
+    Tôi sẽ giữ nguyên logic này.
     */
     searchToggle?.addEventListener('click', e => {
       e.preventDefault();
-      e.stopPropagation();
-      const searchInput = document.getElementById('searchInput');
-      const dropdown = document.querySelector('.notification .dropdown');
-      
-      if (dropdown) dropdown.classList.remove('active');
-      
-      if (searchInput) {
-        searchInput.classList.toggle('active');
-        if (searchInput.classList.contains('active')) {
-          setTimeout(() => searchInput.focus(), 100);
-        } else {
-          // If we toggle it off, hide suggestions
-          hideSuggestionsPanel();
-        }
+      // Navigate to search page instead of opening inline search
+      window.location.href = '/search';
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.search-box') && !e.target.closest('#searchSuggestions')) {
+        searchInput.classList.remove('active');
+        hideSuggestionsPanel();
       }
     });
 
     /*
     MERGE ADD:
     Thêm lại logic click cho chuông thông báo (từ nhánh Cuong)
-    vì nhánh MinhKhoi đã bỏ quên.
     */
     document.addEventListener('click', function(e) {
       if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
@@ -1949,14 +1937,6 @@
       }
     });
 
-
-    document.addEventListener('click', e => {
-      // Logic này để đóng suggestions khi click ra ngoài
-      if (!e.target.closest('.search-box') && !e.target.closest('#searchSuggestions')) {
-        searchInput.classList.remove('active');
-        hideSuggestionsPanel();
-      }
-    });
 
     searchInput.addEventListener('input', e => {
       const v = e.target.value.trim();
