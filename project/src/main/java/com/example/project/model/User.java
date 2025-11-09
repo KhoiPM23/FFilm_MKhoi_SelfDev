@@ -35,7 +35,6 @@ public class User {
     @NotBlank(message = "role is not null")
     private String role;
 
-    @NotBlank(message = "status is not null")
     private boolean status;
 
     @NotBlank(message = "phoneNumber is not null")
@@ -58,14 +57,25 @@ public class User {
 
     private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    @PrePersist
-    @PreUpdate
-    public void hashPassword() {
+@PrePersist
+public void prepareForPersist() {
+    if (this.role == null || this.role.trim().isEmpty()) {
+        this.role = "USER";
+    }
+    this.status = true;
+
+    if (this.password != null && !this.password.startsWith("$2a$")) {
+        this.password = encoder.encode(this.password);
+    }
+}
+
+@PreUpdate
+    public void prepareForUpdate() {
         if (this.password != null && !this.password.startsWith("$2a$")) {
             this.password = encoder.encode(this.password);
         }
     }
-
+    
     public User() {
     }
 

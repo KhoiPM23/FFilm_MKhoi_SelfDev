@@ -54,7 +54,7 @@ public class MovieRequest {
     public void setDescription(String description) { this.description = description; }
     public Date getReleaseDate() { return releaseDate; }
     public void setReleaseDate(Date releaseDate) { this.releaseDate = releaseDate; }
-    public boolean isFree() { return isFree; }
+    public boolean isFree() { return isFree; }  
     public void setFree(boolean isFree) { this.isFree = isFree; }
     public int getDuration() { return duration; }
     public void setDuration(int duration) { this.duration = duration; }

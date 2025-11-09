@@ -150,7 +150,7 @@
           <button class="ai-search-toggle" id="aiSearchToggle" type="button" title="Tìm kiếm bằng AI">
             <i class="fas fa-wand-magic-sparkles"></i>
           </button>
-      </div>
+        </div>
 
         <!-- Thông báo -->
         <div class="notification">
@@ -174,8 +174,26 @@
 
         <!-- Các nút hành động -->
         <a href="#" class="btn-buy">Mua gói</a>
-        <a href="#" class="btn-login">Đăng nhập</a>
-        <!-- AI Search Modal -->
+
+        <!--
+        BẮT ĐẦU KHỐI MERGE
+        Đây là logic (Đăng nhập/Đăng ký) từ nhánh 'Authentication/Cuong'
+        -->
+        <div th:unless="${session.user}" class="auth-buttons">
+            <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
+            <a th:href="@{/register}" class="btn-buy">Đăng ký</a>
+        </div>
+        
+        <div th:if="${session.user}" class="user-menu">
+            <span class="user-name" th:text="${session.user.userName}">User</span>
+            <a th:href="@{/logout}" class="btn-logout">Đăng xuất</a>
+        </div>
+        <!-- KẾT THÚC KHỐI MERGE (Auth) -->
+
+        <!--
+        BẮT ĐẦU KHỐI TỪ NHÁNH 'ChatSystem/MinhKhoi'
+        Đây là Modal cho AI Search
+        -->
         <div id="aiSearchModal" class="ai-search-modal" hidden>
           <div class="ai-modal-overlay"></div>
           <div class="ai-modal-content">
@@ -242,10 +260,11 @@
             </div>
           </div>
         </div>
-<!-- >>>>>>> origin/feature/ChatSystem/ChatAI/MinhKhoi -->
-    </div>
+        <!-- KẾT THÚC KHỐI TỪ NHÁNH 'ChatSystem/MinhKhoi' -->
 
-    <!-- Styles cho search -->
+    </div> <!-- Đóng .header-actions -->
+
+    <!-- Styles cho search (Từ nhánh MinhKhoi) -->
     <style>
     /* Ensure parent doesn't clip dropdown */
     .main-header, .header-actions, .search-box { overflow: visible; }
@@ -262,13 +281,19 @@
     .search-input.active{ width:300px; opacity:1; }
     .search-input::placeholder{ color:rgba(255,255,255,0.5); }
 
+    /* style for mobile smaller width */
+    @media (max-width: 760px) {
+      .search-input.active { width: 220px; }
+      .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
+    }
+
     /* Suggestions panel: fixed positioning so it's never clipped by parents */
     .search-suggestions{
-      position: fixed;                 /* fixed so it sits above everything */
+      position: fixed;               /* fixed so it sits above everything */
       top: 0; left: 0;
-      transform: translateY(8px);      /* slight offset from input */
+      transform: translateY(8px);    /* slight offset from input */
       min-width: 260px;
-      max-width: 560px;                /* wider on desktop */
+      max-width: 560px;              /* wider on desktop */
       width: auto;
       max-height: 56vh;
       overflow: auto;
@@ -277,14 +302,8 @@
       border-radius: 10px;
       padding: 6px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-      z-index: 9999;                   /* high so it stays on top */
-      display: none;                   /* controlled by JS */
-    }
-
-    /* style for mobile smaller width */
-    @media (max-width: 760px) {
-      .search-input.active { width: 220px; }
-      .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
+      z-index: 9999;                 /* high so it stays on top */
+      display: none;                 /* controlled by JS */
     }
 
     /* suggestion entries */
@@ -398,14 +417,14 @@
 
   .header-actions {
     position: relative; /* override if needed */
-    z-index: 11000;     /* baseline so contained controls are above page content */
+    z-index: 11000;      /* baseline so contained controls are above page content */
   }
 
   /* ============ Filters Panel ============ */
   .filters-toggle {
     position: absolute;
     top: 50%;
-    right: -30px;              
+    right: -30px;        
     transform: translateY(-50%);
     opacity: 0;
     pointer-events: none;
@@ -417,7 +436,7 @@
     padding: 8px;
     border-radius: 50%;
     transition: all .18s ease;
-    z-index: 13000 !important;           /* nằm trên suggestions */
+    z-index: 13000 !important;         /* nằm trên suggestions */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1250,14 +1269,14 @@
     let recognition = null;
 
     // ========== Pagination / caching for suggestions ==========
-    const PAGE_SIZE = 8;            // how many results to show per "page" in suggestions
-    let cachedResults = [];        // all results fetched so far (merged from pages and people)
-    let displayedCount = 0;        // how many results are currently rendered in suggestions
-    let nextApiPage = 2;           // next TMDB API page to fetch (we fetch page 1 first)
-    let totalApiPages = 1;         // total pages available from TMDB for the current query
-    let lastQuery = '';            // current search query (to avoid mixing queries)
-    let peopleCache = new Map();   // THÊM - Cache people search
-    let abortController = null;    // THÊM - Cancel old requests
+    const PAGE_SIZE = 8;        // how many results to show per "page" in suggestions
+    let cachedResults = [];       // all results fetched so far (merged from pages and people)
+    let displayedCount = 0;     // how many results are currently rendered in suggestions
+    let nextApiPage = 2;        // next TMDB API page to fetch (we fetch page 1 first)
+    let totalApiPages = 1;      // total pages available from TMDB for the current query
+    let lastQuery = '';         // current search query (to avoid mixing queries)
+    let peopleCache = new Map();  // THÊM - Cache people search
+    let abortController = null;   // THÊM - Cancel old requests
 
     // ============ AI Search System ============
     function initAISearch() {
@@ -1657,7 +1676,7 @@
 
         // people results & their movies
         let peopleMovies = [];
-        if (q.length >= 3) {   // only search people for 3+ chars to reduce noise
+        if (q.length >= 3) {  // only search people for 3+ chars to reduce noise
           const people = await searchPeople(q); 
           if (people.length > 0) {
             const prs = await Promise.all(people.map(p => getMoviesFromPerson(p.id, p.name)));
@@ -1884,13 +1903,55 @@
     // ============ Event handling for input & keyboard & click ============
     const debouncedSearch = debounce(q => fetchSuggestions(q), 400);
 
+    /* MERGE FIX:
+    Thay thế logic 'click' của searchToggle (từ nhánh MinhKhoi)
+    bằng logic toggle input (từ nhánh Cuong)
+    để khớp với CSS và phần còn lại của script.
+    */
     searchToggle?.addEventListener('click', e => {
       e.preventDefault();
-      // Navigate to search page instead of opening inline search
-      window.location.href = '/search';
+      e.stopPropagation();
+      const searchInput = document.getElementById('searchInput');
+      const dropdown = document.querySelector('.notification .dropdown');
+      
+      if (dropdown) dropdown.classList.remove('active');
+      
+      if (searchInput) {
+        searchInput.classList.toggle('active');
+        if (searchInput.classList.contains('active')) {
+          setTimeout(() => searchInput.focus(), 100);
+        } else {
+          // If we toggle it off, hide suggestions
+          hideSuggestionsPanel();
+        }
+      }
     });
 
+    /*
+    MERGE ADD:
+    Thêm lại logic click cho chuông thông báo (từ nhánh Cuong)
+    vì nhánh MinhKhoi đã bỏ quên.
+    */
+    document.addEventListener('click', function(e) {
+      if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dropdown = document.querySelector('.notification .dropdown');
+        const searchInput = document.getElementById('searchInput');
+        
+        // Hide search input if it's active
+        if (searchInput && searchInput.classList.contains('active')) {
+          searchInput.classList.remove('active');
+          hideSuggestionsPanel(); // Use new hide function
+        }
+        
+        if (dropdown) dropdown.classList.toggle('active');
+      }
+    });
+
+
     document.addEventListener('click', e => {
+      // Logic này để đóng suggestions khi click ra ngoài
       if (!e.target.closest('.search-box') && !e.target.closest('#searchSuggestions')) {
         searchInput.classList.remove('active');
         hideSuggestionsPanel();

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Đăng ký - Phim Hay</title>
+    <meta charset="UTF-8">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+    height: 100vh;
+    background:
+      linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.45), rgba(0,0,0,0.85)),
+      url('https://images.unsplash.com/photo-1581905764498-f1b60bae941a?auto=format&fit=crop&w=1470&q=80') 
+      center/cover no-repeat;
+    font-family: 'Poppins', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* FORM BOX STYLE – giống login */
+.box {
+    background: rgba(0,0,0,0.78);
+    padding: 60px 55px;
+    border-radius: 10px;
+    width: 380px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 0 45px rgba(0,0,0,0.8);
+    animation: fadeIn 0.9s ease;
+}
+
+h2 {
+    text-align: center;
+    color: #fff;
+    font-size: 30px;
+    margin-bottom: 30px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+/* INPUT giống login */
+input {
+    width: 100%;
+    padding: 15px;
+    margin: 14px 0;
+    border: none;
+    border-radius: 6px;
+    background: #222;
+    color: #fff;
+    font-size: 15px;
+    transition: 0.3s;
+}
+
+input:focus {
+    background: #333;
+    box-shadow: 0 0 8px #e50914;
+}
+
+/* BUTTON giống login */
+button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 20px;
+    border: none;
+    border-radius: 6px;
+    background: #e50914;
+    color: #fff;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #f40612;
+    transform: translateY(-2px);
+}
+
+p {
+    text-align: center;
+    margin-top: 25px;
+    color: #ccc;
+    font-size: 14px;
+}
+
+a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+a:hover {
+    color: #e50914;
+}
+
+/* Hiệu ứng fade */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* message */
+.error { color: #ff4d4d; margin-top: 15px; }
+.success { color: #00ff7f; margin-top: 15px; }
+
+  </style>
+</head>
+<body>
+<div class="box">
+    <h2>ĐĂNG KÝ</h2>
+    <form id="registerForm">
+        <input type="text" id="userName" placeholder="Tên người dùng" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Mật khẩu" required>
+        <input type="text" id="phoneNumber" placeholder="Số điện thoại" required>
+        <button type="submit">Đăng ký</button>
+    </form>
+    <p id="message"></p>
+    <p style="text-align: center; margin-top: 15px;">
+        <a th:href="@{/login}" href="../Authentication/login.html" style="color: #ff0000;">Đã có tài khoản? Đăng nhập</a>
+    </p>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const user = {
+        userName: document.getElementById('userName').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        phoneNumber: document.getElementById('phoneNumber').value
+    };
+
+    const messageEl = document.getElementById('message');
+    messageEl.textContent = '';
+    messageEl.className = '';
+
+    try {
+        const response = await fetch('/api/register', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            messageEl.textContent = 'Đăng ký thành công!';
+            messageEl.className = 'success';
+            setTimeout(() => window.location.href = '/login', 1500);
+        } else {
+            messageEl.textContent = result || 'Lỗi đăng ký';
+            messageEl.className = 'error';
+        }
+    } catch (err) {
+        messageEl.textContent = 'Lỗi kết nối server';
+        messageEl.className = 'error';
+    }
+});
+</script>
+</body>
+</html>
