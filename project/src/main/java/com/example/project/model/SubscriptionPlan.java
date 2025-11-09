@@ -2,8 +2,8 @@ package com.example.project.model;
 
 import java.util.List;
 
-import io.micrometer.common.lang.NonNull;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,12 +21,14 @@ public class SubscriptionPlan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int planID;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
     @NotBlank(message = "planName is not null")
     private String planName;
 
     @NotNull(message = "price is required")
     private float price;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
     @NotBlank(message = "description  is not null")
     private String description;
 

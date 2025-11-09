@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFilm - Admin Home Dashboard</title>
+    <!-- Tải Font Awesome cho các icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Tải Font Inter từ Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* Định nghĩa các biến CSS cho màu sắc */
+        :root {
+            --color-dark: #121212; /* Nền tối chính */
+            --color-black: #000000; /* Đen tuyệt đối cho header */
+            --color-red: #E50914; /* Màu đỏ đặc trưng của dự án (Điểm nhấn) */
+            --color-white: #FFFFFF;
+            --color-light-gray: #AAAAAA; /* Chữ phụ */
+            --card-bg: #1A1A1A; /* Nền card đậm hơn */
+        }
+
+        body {
+            background-color: var(--color-dark);
+            color: var(--color-white);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        /* --- Thanh Header (Navbar) --- */
+        #main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background-color: var(--color-black);
+            border-bottom: 3px solid var(--color-red);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--color-red); /* Tên dự án FFilm màu đỏ */
+            letter-spacing: 1px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-item {
+            color: var(--color-white);
+            text-decoration: none;
+            font-size: 16px;
+            padding: 8px 15px;
+            border-radius: 6px;
+            transition: background-color 0.2s, color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            margin-right: 15px;
+        }
+
+        .nav-item:hover {
+            background-color: #333333;
+            color: var(--color-red);
+        }
+
+        .nav-item i {
+            color: var(--color-red); /* Icon Home màu đỏ */
+            margin-right: 8px;
+            font-size: 18px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: var(--color-light-gray);
+            font-size: 15px;
+            padding: 8px 0;
+        }
+
+        .user-info i {
+            color: var(--color-red); /* Icon user màu đỏ */
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        /* --- Nội dung chính (Dashboard) Styling - Sử dụng GRID cho 3 cột --- */
+        #dashboard-content {
+            display: grid; /* Sử dụng Grid layout */
+            grid-template-columns: repeat(3, 1fr); /* 3 cột bằng nhau */
+            gap: 30px;
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: stretch;
+        }
+
+        .dashboard-card {
+            /* flex: 1; Thuộc tính này không cần thiết khi dùng Grid */
+            min-height: 200px; /* Giảm chiều cao tối thiểu cho 6 card */
+            padding: 30px 20px;
+            text-align: center;
+            background-color: var(--card-bg);
+            border: 1px solid #282828;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s;
+            text-decoration: none;
+            color: var(--color-white);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-8px); /* Nhấc lên */
+            border-color: var(--color-red);
+            box-shadow: 0 12px 30px rgba(229, 9, 20, 0.4); /* Shadow nổi bật màu đỏ */
+        }
+
+        .dashboard-card i {
+            font-size: 56px; /* Giảm kích thước icon một chút */
+            margin-bottom: 15px;
+            color: var(--color-red); /* Icon trong card màu đỏ */
+        }
+
+        .dashboard-card h2 {
+            font-size: 22px; /* Giảm kích thước tiêu đề */
+            margin: 0;
+            color: var(--color-white);
+            font-weight: 700;
+        }
+
+        .dashboard-card p {
+            color: var(--color-light-gray);
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 1024px) {
+            #dashboard-content {
+                grid-template-columns: repeat(2, 1fr); /* 2 cột trên Tablet/Màn hình nhỏ */
+                gap: 25px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #main-header {
+                flex-direction: column;
+                padding: 15px 20px;
+            }
+
+            .header-controls {
+                margin-top: 10px;
+                justify-content: center;
+                width: 100%;
+            }
+
+            .nav-item {
+                margin: 0 10px;
+            }
+
+            .user-info {
+                display: none; /* Ẩn thông tin user để tiết kiệm không gian */
+            }
+
+            #dashboard-content {
+                grid-template-columns: 1fr; /* 1 cột trên Mobile */
+                padding: 30px 20px;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Thanh Header -->
+    <header id="main-header">
+        <div class="logo">FFilm</div>
+        <div class="header-controls">
+            <!-- Nút Home -->
+            <a href="index.html" class="nav-item home-link" aria-label="Trang chủ">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <!-- Thông tin người dùng (Đã đổi thành Admin) -->
+            <div class="user-info">
+                <i class="fas fa-user-shield"></i> System Admin
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. Nội dung chính - Admin Dashboard Cards (6 Thẻ) -->
+    <main id="dashboard-content">
+
+        <!-- Hệ thống Quản lý Tài khoản & Nhân sự -->
+        <a href="manage-staff.html" class="dashboard-card staff-card" title="Quản lý Tài khoản Nhân sự">
+            <i class="fas fa-users-gear"></i>
+            <h2>Manage Staff Account</h2>
+            <p>Tạo, sửa, phân quyền cho các tài khoản Content Manager và Admin khác.</p>
+        </a>
+
+        <!-- Quản lý Tài chính -->
+        <a href="manage-revenue.html" class="dashboard-card revenue-card" title="Quản lý Doanh thu">
+            <i class="fas fa-chart-line"></i>
+            <h2>Manage Revenue</h2>
+            <p>Theo dõi báo cáo doanh thu, lợi nhuận và các chỉ số tài chính.</p>
+        </a>
+
+        <!-- Quản lý Gói đăng ký -->
+        <a href="manage-subscriptions.html" class="dashboard-card subscription-card" title="Quản lý Gói đăng ký">
+            <i class="fas fa-gem"></i>
+            <h2>Manage Subscription Plans</h2>
+            <p>Thiết lập, điều chỉnh các gói cước và ưu đãi đăng ký (Basic, Premium...).</p>
+        </a>
+
+        <!-- Quản lý Nội dung (Đã có sẵn) -->
+        <a href="manage-movie.html" class="dashboard-card movie-card" title="Quản lý Phim">
+            <i class="fas fa-film"></i>
+            <h2>Manage Movies</h2>
+            <p>Quản lý nội dung, thêm/sửa/xóa phim, cập nhật trạng thái.</p>
+        </a>
+
+        <!-- Quản lý Banner (Đã có sẵn) -->
+        <a href="manage-banner.html" class="dashboard-card banner-card" title="Quản lý Banner">
+            <i class="fas fa-images"></i>
+            <h2>Manage Banners</h2>
+            <p>Cập nhật slide show, banner quảng cáo trên trang chủ và các trang khác.</p>
+        </a>
+
+        <!-- Quản lý Bình luận -->
+        <a href="manage-comments.html" class="dashboard-card comment-card" title="Quản lý Bình luận">
+            <i class="fas fa-comments"></i>
+            <h2>Manage Comments</h2>
+            <p>Kiểm duyệt, xóa hoặc phản hồi các bình luận của người dùng.</p>
+        </a>
+        
+        <!-- Quản lý Hỗ trợ Khách hàng (Chat) -->
+        <a href="manage-chat.html" class="dashboard-card chat-card" title="Quản lý Chat Khách hàng">
+            <i class="fas fa-headset"></i>
+            <h2>Manage Customer Chat</h2>
+            <p>Theo dõi và phản hồi các cuộc trò chuyện hỗ trợ trực tiếp từ khách hàng.</p>
+        </a>
+
+    </main>
+
+</body>
+</html>
