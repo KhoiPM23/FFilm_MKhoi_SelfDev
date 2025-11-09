@@ -4,6 +4,7 @@ import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -26,6 +27,7 @@ public class Review {
 
     @NotNull(message="createAt is required")
     @JsonFormat(pattern = "yyyy-MM-dd")
+    @Column(name = "create_at")
     private Date createAt;
 
     @ManyToOne
