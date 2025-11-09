@@ -13,7 +13,8 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
+import com.example.project.dto.UserProfileUpdateDto; 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -168,4 +169,37 @@ public class UserService {
         // 2. Xóa token đã sử dụng
         tokenRepository.delete(tokenEntity);
     }
+    @Transactional
+public boolean updateProfile(UserProfileUpdateDto dto) {
+    User existingUser = getUserById(dto.getId());
+    boolean emailChanged = !existingUser.getEmail().equalsIgnoreCase(dto.getEmail());
+
+    // 1. KIỂM TRA RÀNG BUỘC (EMAIL VÀ SỐ ĐIỆN THOẠI)
+    
+    // Kiểm tra Email trùng lặp (nếu Email bị thay đổi)
+    if (emailChanged) {
+        Optional<User> userWithNewEmail = userRepository.findByEmail(dto.getEmail());
+        if (userWithNewEmail.isPresent() && userWithNewEmail.get().getUserID() != existingUser.getUserID()) {
+            // Ném ra ngoại lệ để Controller bắt và hiển thị lỗi
+            throw new IllegalArgumentException("Email đã tồn tại. Vui lòng sử dụng Email khác.");
+        }
+    }
+
+    // Kiểm tra Số điện thoại trùng lặp (Giả định UserRepository có findByPhoneNumber)
+    /* // Nếu bạn có findByPhoneNumber trong UserRepository, hãy bật đoạn này:
+    Optional<User> userWithNewPhone = userRepository.findByPhoneNumber(dto.getPhoneNumber());
+    if (userWithNewPhone.isPresent() && userWithNewPhone.get().getId() != existingUSser.getId()) {
+        throw new IllegalArgumentException("Số điện thoại đã được đăng ký. Vui lòng sử dụng số khác.");
+    }
+    */
+    
+    // 2. CẬP NHẬT DỮ LIỆU
+    existingUser.setUserName(dto.getUserName());
+    existingUser.setEmail(dto.getEmail());
+    existingUser.setPhoneNumber(dto.getPhoneNumber());
+    
+    userRepository.save(existingUser);
+    
+    return emailChanged;
+}
 }

@@ -1,6 +1,7 @@
 package com.example.project.controller;
 
 import com.example.project.dto.UserLoginDto;
+import com.example.project.dto.UserProfileUpdateDto;
 import com.example.project.dto.UserRegisterDto;
 import com.example.project.model.PasswordResetToken; // Import bị trùng, nhưng giữ lại cho rõ ràng
 import com.example.project.model.User;
@@ -170,5 +171,94 @@ public ResponseEntity<?> registerApi(@Valid @RequestBody UserRegisterDto dto,
     public String resetPasswordSuccess(Model model) {
         // Template này chứa JS để tự động redirect sau 10s
         return "Authentication/reset-password-success"; 
+    }
+    @GetMapping("/profile")
+    public String showProfile(HttpSession session, Model model) {
+        // Kiểm tra đăng nhập
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return "redirect:/login";
+        }
+        
+        // Tạo DTO từ User hiện tại để điền vào form chỉnh sửa
+        UserProfileUpdateDto updateDto = new UserProfileUpdateDto(
+            user.getUserID(), 
+            user.getUserName(), 
+            user.getEmail(), 
+            user.getPhoneNumber()
+        );
+
+        model.addAttribute("userProfile", updateDto);
+        
+        // Lấy thông báo flash (thành công hoặc lỗi)
+        if (model.containsAttribute("message")) {
+            model.addAttribute("message", model.getAttribute("message"));
+        }
+        if (model.containsAttribute("error")) {
+            model.addAttribute("error", model.getAttribute("error"));
+        }
+        
+        return "User/profile"; // Template mới
+    }
+
+
+    // --- 7. Xử lý Chỉnh sửa Profile ---
+    @PostMapping("/profile/update")
+    public String updateProfile(@Valid @ModelAttribute("userProfile") UserProfileUpdateDto dto,
+                                BindingResult bindingResult,
+                                HttpSession session,
+                                RedirectAttributes redirectAttributes) {
+
+        // 1. Validation từ DTO (ví dụ: @Email, @NotBlank)
+        if (bindingResult.hasErrors()) {
+            // Lấy lỗi đầu tiên và quay lại trang profile
+            String errorMsg = bindingResult.getFieldErrors()
+                    .stream()
+                    .map(FieldError::getDefaultMessage)
+                    .findFirst()
+                    .orElse("Dữ liệu nhập vào không hợp lệ.");
+            redirectAttributes.addFlashAttribute("error", errorMsg);
+            
+            // Lỗi validation không cập nhật session, chỉ redirect về trang profile
+            return "redirect:/profile";
+        }
+
+        try {
+            boolean emailChanged = userService.updateProfile(dto);
+            
+            if (emailChanged) {
+                // Ràng buộc: Email thay đổi -> Thông báo và chuyển hướng đăng nhập lại
+                session.invalidate(); // Hủy session cũ
+                redirectAttributes.addFlashAttribute("message", 
+                    "Email của bạn đã được cập nhật thành công! Vui lòng đăng nhập lại bằng Email mới.");
+                
+                // Chuyển hướng đến trang thông báo
+                return "redirect:/profile/update-success"; 
+            } else {
+                // Chỉ thay đổi UserName/SĐT -> Cập nhật Session và tiếp tục
+                User updatedUser = userService.getUserById(dto.getId());
+                session.setAttribute("user", updatedUser);
+                redirectAttributes.addFlashAttribute("message", "Cập nhật hồ sơ thành công!");
+                return "redirect:/profile";
+            }
+        } catch (IllegalArgumentException e) {
+            // Lỗi nghiệp vụ (Email/SĐT đã tồn tại)
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/profile";
+        }
+    }
+    
+    // --- 8. Trang Thông báo Cập nhật thành công và Chuyển hướng (cho trường hợp đổi Email) ---
+    @GetMapping("/profile/update-success")
+    public String updateSuccess(Model model, HttpSession session) {
+        // Nhận flash message và chuẩn bị cho việc tự động chuyển hướng
+        if (model.containsAttribute("message")) {
+            model.addAttribute("message", model.getAttribute("message"));
+        } else {
+            // Nếu không có message, có thể đây là truy cập trực tiếp
+            return "redirect:/login"; 
+        }
+        
+        return "User/update-success"; // Template mới
     }
 }
