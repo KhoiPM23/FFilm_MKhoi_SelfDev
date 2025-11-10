@@ -182,10 +182,11 @@
         <div th:unless="${session.user}" class="auth-buttons">
             <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
             <a th:href="@{/register}" class="btn-buy">Đăng ký</a>
-        </div>
-        
+        </div> 
         <div th:if="${session.user}" class="user-menu">
-            <span class="user-name" th:text="${session.user.userName}">User</span>
+            <a th:href="@{/profile}" class="user-name" style="text-decoration:none; color:white;">
+                <span th:text="${session.user.userName}">User</span>
+            </a>
             <a th:href="@{/logout}" class="btn-logout">Đăng xuất</a>
         </div>
         <!-- KẾT THÚC KHỐI LOGIN/LOGOUT -->

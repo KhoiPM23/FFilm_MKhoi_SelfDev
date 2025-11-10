@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Cập Nhật Thành Công - FFlix</title>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS LẤY CẢM HỨNG TỪ RESET-PASSWORD-SUCCESS.HTML */
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'Poppins', sans-serif; 
+        }
+        
+        body { 
+            min-height: 100vh;
+            /* Background tối giản và hiện đại */
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.95)), 
+                        url('https://bloganchoi.com/wp-content/uploads/2021/09/5-series-phim-netflix-cuc-chat-1068x601.jpg') 
+                        center/cover no-repeat fixed;
+            color: #fff; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .box { 
+            background: rgba(31, 31, 31, 0.9); /* Màu tối mờ */
+            padding: 60px 50px; 
+            border-radius: 12px; 
+            max-width: 450px; 
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); 
+        }
+        
+        .success-icon {
+            color: #00ff7f; /* Xanh lá cây nổi bật */
+            font-size: 50px; 
+            margin-bottom: 15px;
+            line-height: 1;
+            font-weight: 700;
+        }
+        
+        h2 { 
+            color: #fff; 
+            font-size: 32px; 
+            margin-bottom: 25px; 
+            font-weight: 700; 
+        }
+        
+        .message { 
+            color: #fff; /* Đổi màu message thành trắng để nổi bật trên nền tối */
+            font-size: 16px; 
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #252525;
+            border-radius: 4px;
+        }
+        
+        .countdown { 
+            color: #aaa; 
+            font-size: 14px; 
+            margin-top: 20px; 
+        }
+        
+        .countdown span {
+            color: #e50914; /* Đỏ Netflix cho số giây */
+            font-weight: 600;
+        }
+        
+        .manual-link a {
+            color: #e50914;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+            display: inline-block;
+        }
+        .manual-link a:hover {
+            text-decoration: underline;
+        }
+        
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var seconds = 10;
+            var countdownElement = document.getElementById('countdown');
+
+            function updateCountdown() {
+                countdownElement.textContent = seconds;
+                seconds--;
+                if (seconds < 0) {
+                    // Chuyển hướng về trang login sau khi hết 10 giây
+                    window.location.href = '/login'; 
+                } else {
+                    setTimeout(updateCountdown, 1000);
+                }
+            }
+            updateCountdown();
+        });
+    </script>
+</head>
+<body>
+    <div class="box">
+        <div class="success-icon">&#10003;</div>
+        
+        <h2>Hoàn Tất Cập Nhật!</h2>
+        
+        <p th:if="${message}" class="message" th:text="${message}"></p>
+        
+        <p class="countdown">
+            Bạn sẽ được chuyển hướng đến trang Đăng nhập sau <span id="countdown">10</span> giây.
+        </p>
+        
+        <div class="manual-link">
+            <a th:href="@{/login}">Đăng Nhập Ngay</a>
+        </div>
+    </div>
+</body>
+</html>
