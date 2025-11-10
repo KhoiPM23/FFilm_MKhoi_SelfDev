@@ -7,6 +7,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+
+import com.example.project.model.Movie;
+import com.example.project.service.MovieService;
+
 import org.json.JSONObject;
 import org.json.JSONArray;
 
@@ -21,7 +25,10 @@ public class MovieDetailController {
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
     private final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
-
+    
+    @Autowired
+    private MovieService movieService;
+ 
     @Autowired(required = false)
     private RestTemplate restTemplate;
     
@@ -228,20 +235,21 @@ public class MovieDetailController {
         return "movie/movie-detail";  // ← SỬA ĐÂY: thêm "movie/" prefix
     }
     
-    /**
-     * Hiển thị trang player
-     */
+    // lấy dữ liệu cho lớp player of Nguyên
     @GetMapping("/movie/player/{id}")
-    public String moviePlayer(
-            @PathVariable String id,
-            Model model
-    ) {
-        if (id == null || id.isEmpty()) {
+    public String watchMovie(@PathVariable("id") int id, Model model) {
+        try{
+            Movie movie = movieService.getMovieById(id); 
+            model.addAttribute("movie", movie);
+
+            List<Movie> recommendedMovies = movieService.getRecommendedMovies();
+            recommendedMovies.removeIf(m -> m.getMovieID() == id);
+            model.addAttribute("recommendedMovies", recommendedMovies);
+            return "movie/player";
+        } catch (RuntimeException e){
+            System.err.println("Lỗi: " +e.getMessage());
             return "redirect:/";
         }
-        
-        System.out.println("Loading player for movie ID: " + id);
-        model.addAttribute("movieId", id);
-        return "player";
     }
+    
 }

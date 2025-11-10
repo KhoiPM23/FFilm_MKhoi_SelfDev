@@ -226,4 +226,20 @@ public class MovieService {
             return null;
         }
     }
+
+
+
+    // Lấy phim theo ID for player.html
+    public List<Movie> getRecommendedMovies(){
+        return movieRepository.findTop10ByOrderByReleaseDateDesc();
+    }
+    public Movie getMovieId(int id){
+        Optional<Movie> movieOtp = movieRepository.findById(id);
+
+        if (movieOtp.isPresent()){
+            return movieOtp.get();
+        } else {
+            throw new RuntimeException ("Không tìm thấy phim có ID: " + id);
+        }
+    }
 }
