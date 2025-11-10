@@ -120,8 +120,7 @@ body {
 
     </form>
 
-    <p th:if="${error}" class="error" th:text="${error}"></p>
-    <p th:if="${message}" class="message" th:text="${message}"></p>
+   <p th:if="${loginError}" class="error" th:text="${loginError}"></p>
 <div class="extra">
   Chưa có tài khoản? <a th:href="@{/register}">Đăng ký ngay</a>
 </div>

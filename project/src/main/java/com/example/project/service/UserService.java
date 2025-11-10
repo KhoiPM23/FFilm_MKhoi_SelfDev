@@ -92,4 +92,15 @@ public class UserService {
         }
         userRepository.deleteById(id);
     }
+
+
+public String getInitials(String userName) {
+    if (userName == null || userName.isEmpty()) {
+        return "U"; 
+    }
+    
+    return userName.trim().substring(0, 1).toUpperCase();
+}
+
+    
 }
