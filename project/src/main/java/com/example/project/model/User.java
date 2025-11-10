@@ -209,8 +209,4 @@ public void prepareForPersist() {
             this.payments = payments;
         }
 
-// <<<<<<< HEAD
 }
-// =======
-//     }
-// >>>>>>> origin/feature/Authentication/UserAccountManagement/Nguyen

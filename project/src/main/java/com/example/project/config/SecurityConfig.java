@@ -14,9 +14,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())  // Disable CSRF for development
+            .csrf(csrf -> csrf.disable())  
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/**").permitAll()  // Allow access to all paths
+                .requestMatchers("/**").permitAll()
+            )
+            .logout(logout -> logout
+                .logoutSuccessUrl("/") 
+                // Vẫn giữ URL xử lý logout là /logout (mặc định)
+                .logoutUrl("/logout") 
+                // Vô hiệu hóa session của Spring Security
+                .invalidateHttpSession(true) 
+                // Xóa cookie phiên
+                .deleteCookies("JSESSIONID")
             );
             
         return http.build();

@@ -179,16 +179,26 @@
         BẮT ĐẦU KHỐI LOGIN/LOGOUT ĐÃ CẬP NHẬT
         Thay thế cho <a href="#" class="btn-login">Đăng nhập</a>
         -->
-        <div th:unless="${session.user}" class="auth-buttons">
-            <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
-            <a th:href="@{/register}" class="btn-buy">Đăng ký</a>
-        </div> 
-        <div th:if="${session.user}" class="user-menu">
-            <a th:href="@{/profile}" class="user-name" style="text-decoration:none; color:white;">
-                <span th:text="${session.user.userName}">User</span>
-            </a>
-            <a th:href="@{/logout}" class="btn-logout">Đăng xuất</a>
+<div th:unless="${session.user}" class="auth-buttons">
+    <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
+    <a th:href="@{/register}" class="btn-register">Đăng ký</a> </div>
+<div th:if="${session.user}" class="user-dropdown-wrapper">
+    <div class="user-avatar-btn" id="userAvatarBtn" role="button" tabindex="0">
+        <span class="avatar-initials" th:text="${@userService.getInitials(session.user.userName)}"></span>
+    </div>
+
+    <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
+        <div class="dropdown-header">
+            Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
         </div>
+        <a th:href="@{/profile}" class="dropdown-item">
+            <i class="fas fa-user-circle"></i> Profile
+        </a>
+        <a th:href="@{/logout}" class="dropdown-item logout-item">
+            <i class="fas fa-sign-out-alt"></i> Đăng xuất
+        </a>
+    </div>
+</div>
         <!-- KẾT THÚC KHỐI LOGIN/LOGOUT -->
         
         <!-- AI Search Modal (Giữ nguyên từ file bạn cung cấp) -->
@@ -576,7 +586,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    
   }
+
+  
 
   .genre-chip {
     padding: 6px 12px;
@@ -1218,6 +1231,87 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+</style>
+
+<style>
+.user-avatar-btn {
+ width: 40px;
+height: 40px;
+background-color: #e50914;
+border-radius: 50%;
+display: flex;
+justify-content: center;
+align-items: center;
+cursor: pointer;
+font-size: 16px;
+font-weight: 700;
+color: white;
+box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
+}
+.user-dropdown-wrapper {
+position: relative;
+z-index: 1000;
+}
+.user-dropdown-menu {
+position: absolute;
+top: 100%;
+right: 0;
+min-width: 150px;
+background: #111;
+border: 1px solid #333;
+border-radius: 8px;
+margin-top: 10px;
+box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+}
+.user-dropdown-menu[hidden] {
+display: none;
+}
+.dropdown-header {
+padding: 10px 15px;
+color: #e50914;
+font-weight: 600;
+border-bottom: 1px solid #333;
+font-size: 0.95rem;
+}
+.dropdown-item {
+padding: 10px 15px;
+display: flex;
+align-items: center;
+gap: 10px;
+color: #ccc;
+text-decoration: none;
+transition: background 0.2s;
+font-size: 0.9rem;
+}
+.dropdown-item:hover {
+background: #e50914;
+color: white;
+}
+.logout-item {
+border-top: 1px solid #333;
+margin-top: 5px;
+}
+
+.auth-buttons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.auth-buttons a { 
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    padding: 5px 0; 
+}
+
+.auth-buttons a:hover {
+    color: #e50914; 
+}
+
+
 </style>
 
 <script>
@@ -2057,6 +2151,28 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } catch (e) { console.error('header scroll error', e); }
+});
+</script>
+
+<script>
+  // Thêm vào cuối khối script trong header.html
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarBtn = document.getElementById('userAvatarBtn');
+    const dropdownMenu = document.getElementById('userDropdownMenu');
+
+    if (avatarBtn && dropdownMenu) {
+        avatarBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.toggleAttribute('hidden');
+        });
+
+        // Đóng dropdown khi nhấp vào nơi khác
+        document.addEventListener('click', (e) => {
+            if (!avatarBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.hidden = true;
+            }
+        });
+    }
 });
 </script>
 
