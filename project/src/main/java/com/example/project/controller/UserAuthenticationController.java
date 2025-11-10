@@ -29,6 +29,11 @@
         return "ModeratorScreen/homeModeratorManage"; 
     }
 
+            @GetMapping("/AdminScreen/homeAdminManager")
+    public String showAdminManager() {
+        return "AdminScreen/homeAdminManager"; 
+    }
+
             @GetMapping("/ContentManagerScreen/homeContentManager")
     public String showContentManagement() {
         return "ContentManagerScreen/homeContentManager"; 
@@ -69,7 +74,7 @@ public String login(
             return "redirect:/";
         } else if ("admin".equals(userRole)) { 
             session.setAttribute("admin", user);
-            return "redirect:/admin/home";
+            return "redirect:/AdminScreen/homeAdminManager";
         } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) { 
             session.setAttribute("contentManager", user); 
             return "redirect:ContentManagerScreen/homeContentManager";
