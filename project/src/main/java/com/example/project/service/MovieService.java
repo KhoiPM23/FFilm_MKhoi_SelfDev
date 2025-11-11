@@ -231,7 +231,7 @@ public class MovieService {
 
     // Lấy phim theo ID for player.html
     public List<Movie> getRecommendedMovies(){
-        return movieRepository.findTop10ByOrderByReleaseDateDesc();
+        return movieRepository.findTop20ByOrderByReleaseDateDesc();
     }
     public Movie getMovieId(int id){
         Optional<Movie> movieOtp = movieRepository.findById(id);

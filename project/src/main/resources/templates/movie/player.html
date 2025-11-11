@@ -176,7 +176,7 @@
         </div>
 
         <div class="sidebar">
-            <h3 class="section-title">Có thể bạn thích</h3>
+            <h3 class="section-title">Top phim</h3>
             <a th:each="rec : ${recommendedMovies}" 
                th:href="@{/movie/player/{id}(id=${rec.movieID})}" 
                class="recommended-video">
@@ -202,8 +202,6 @@
             </a>
         </div>
     </div>
-
-    <div th:replace="~{fragments/footer :: footer}"></div>
 
     <script>
         function toggleDescription() {
