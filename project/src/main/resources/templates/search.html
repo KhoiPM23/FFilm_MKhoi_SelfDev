@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <title th:text="${query != null ? 'Tìm kiếm: ' + query : 'Tìm kiếm - FFilm'}">Tìm kiếm</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="/css/style.css" />
     <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+    <link rel="stylesheet" href="/css/style.css" />
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -382,59 +383,7 @@
             50% { transform: scale(1.1); }
         }
 
-        /* Results Grid */
-        .results-section {
-            margin-top: 60px;
-        }
-
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
-        }
-
-        .movie-card {
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-
-        .movie-card:hover {
-            transform: scale(1.05);
-        }
-
-        .movie-card img {
-            width: 100%;
-            aspect-ratio: 2/3;
-            object-fit: cover;
-            border-radius: 8px;
-        }
-
-        .movie-card-info {
-            padding: 12px 0;
-        }
-
-        .movie-card-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-        }
-
-        .movie-card-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.7);
-        }
-
-        .movie-card-rating {
-            color: #ffd700;
-        }
+        
 
         /* Pagination */
         .pagination {
@@ -472,106 +421,44 @@
             cursor: not-allowed;
         }
 
-        /* Related Movies Section */
-        .related-section {
-            margin-top: 60px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+        /* BỔ SUNG LẠI ĐỊNH NGHĨA GRID CHO KẾT QUẢ TÌM KIẾM */
+        .results-grid {
+            display: grid;
+            /* Đây là logic "5 cột" cậu muốn: 
+            Tự động lấp đầy, mỗi cột tối thiểu 200px, tối đa 1fr (chia đều).
+            Trên container 1300px, nó sẽ tự động chia 5 cột.
+            */
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px; /* Giống gap của carousel */
+            margin-bottom: 40px; /* Thêm khoảng cách với pagination */
         }
 
-        .related-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 30px;
+        /* Kế thừa responsive cũ */
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 16px;
+            }
         }
 
-        .related-header i {
-            font-size: 1.8rem;
-            color: #e50914;
-        }
-
-        /* AI Suggestions Carousel */
-        .ai-suggestions-section {
-            margin-top: 80px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .ai-suggestions-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 30px;
-        }
-
-        .ai-suggestions-header i {
-            font-size: 1.8rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .ai-carousel-wrapper {
+        .movies.movie-list-section {
             position: relative;
+            z-index: 1;
+            left: 0;
+            /* Kéo section ra sát mép trái container cha (do container cha đang padding 50px) */
+            margin-left: -150px;
+            /* Bù lại chiều rộng đã bị kéo */
+            width: calc(100% + 100px);
+            /* Padding trong để nội dung thẳng hàng lại với header */
+            padding: 40px 50px;
         }
-
-        .ai-carousel {
-            display: flex;
-            gap: 16px;
-            overflow-x: auto;
-            scroll-behavior: smooth;
-            padding: 10px 0;
-            scrollbar-width: none;
-        }
-
-        .ai-carousel::-webkit-scrollbar {
-            display: none;
-        }
-
-        .ai-carousel-card {
-            min-width: 180px;
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-
-        .ai-carousel-card:hover {
-            transform: scale(1.05);
-        }
-
-        .ai-carousel-nav {
-            position: absolute;
-            top: 35%;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.8);
-            border: none;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        .ai-carousel-nav:hover {
-            background: #e50914;
-        }
-
-        .ai-carousel-nav.prev { left: -20px; }
-        .ai-carousel-nav.next { right: -20px; }
-
-        /* Trending Section */
-        .trending-section {
-            margin-top: 60px;
-        }
-
-        .trending-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 30px;
+        /* Responsive cho màn hình nhỏ */
+        @media (max-width: 768px) {
+            .movies.movie-list-section {
+                margin-left: -20px;
+                width: calc(100% + 40px);
+                padding: 30px 20px;
+            }
         }
 
         .fire-icon {
@@ -624,14 +511,15 @@
 
         /* ===== UI/UX IMPROVEMENTS CHO SEARCH PAGE ===== */
 
-        /* 1. Smooth Transitions */
-        .movie-card {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Fix: Căn lề trái cho results grid giống index */
+        .results-section {
+            padding-left: 50px; /* Đồng bộ với index */
         }
 
-        .movie-card:hover {
-            transform: translateY(-8px) scale(1.03);
-            box-shadow: 0 12px 40px rgba(229, 9, 20, 0.3);
+        @media (max-width: 768px) {
+            .results-section {
+                padding-left: 20px;
+            }
         }
 
         /* 2. Better Search Input */
@@ -685,21 +573,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 6. Carousel Navigation Enhancement */
-        .ai-carousel-nav {
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-        }
-
-        .ai-carousel-nav:hover:not(.disabled) {
-            transform: scale(1.1);
-            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
-        }
-
-        .ai-carousel-nav.disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
+        
 
         /* 7. Better Suggestion Chips */
         .suggestion-chip {
@@ -852,7 +726,7 @@
             </div>
           </div>
 
-            <div id="liveSuggestions" class="live-suggestions" style="display:none; position:absolute; left:0; right:0; top:110%; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:8px; z-index:80;">
+            <div id="liveSuggestions" class="live-suggestions" style="display:none; position:absolute; left:0; right:0; top:110%; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:8px; z-index:80; max-height: 450px; overflow-y: auto;">
                 <!-- JS sẽ render các suggestion items vào đây -->
             </div>
         </div>        
@@ -860,16 +734,24 @@
         <!-- Results Section (shown when there's a query) -->
         <div class="results-section" th:if="${query != null}" id="resultsSection">
             <div class="results-grid" id="resultsGrid">
-                <div th:each="movie : ${searchResults}" class="movie-card" 
-                     th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy">
-                    <div class="movie-card-info">
-                        <div class="movie-card-title" th:text="${movie.title}"></div>
-                        <div class="movie-card-meta">
-                            <span th:text="${movie.year}"></span>
-                            <span class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></span>
-                        </div>
+                <div th:each="movie : ${searchResults}" 
+                    class="movie-card" 
+                    th:attr="data-movie-id=${movie.id}">
+                    
+                    <div class="movie-poster">
+                        <img th:src="${movie.poster}" 
+                            th:alt="${movie.title}"
+                            onerror="this.src='/images/placeholder.jpg'">
                     </div>
+                    
+                    <div class="movie-info">
+                        <h3 th:text="${movie.title}">Movie Title</h3>
+                        <p class="movie-rating">
+                            ⭐ <span th:text="${movie.rating}">8.5</span>
+                        </p>
+                    </div>
+                    
+                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
                 </div>
             </div>
 
@@ -890,70 +772,124 @@
         </div>
 
         <!-- Related Movies (shown after search, before AI suggestions) -->
-        <div class="related-section" th:if="${query != null && !searchResults.isEmpty()}" id="relatedSection">
-            <div class="related-header">
-                <i class="fas fa-film"></i>
-                <h3>Phim liên quan</h3>
-            </div>
-            <div class="ai-carousel-wrapper">
-                <button class="ai-carousel-nav prev" id="relatedCarouselPrev">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="ai-carousel" id="relatedCarousel">
-                    <!-- Populated by JavaScript -->
+        <section class="movies movie-list-section" th:if="${!relatedMovies.isEmpty()}" id="relatedSection">
+            
+            <div class="section-header">
+                <div class="section-title-wrapper">
+                    <h2 class="section-title" style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-film" style="color: #e50914;"></i>
+                        Phim liên quan
+                    </h2>
                 </div>
-                <button class="ai-carousel-nav next" id="relatedCarouselNext">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
+                <div class="carousel-nav">
+                    <button class="nav-btn prev-btn" id="relatedCarouselPrev">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="nav-btn next-btn" id="relatedCarouselNext">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
-        </div>
-
-        <!-- AI Suggestions (shown after search) -->
-        <div class="ai-suggestions-section" th:if="${query != null && !aiSuggestions.isEmpty()}" id="aiSuggestionsSection">
-            <div class="ai-suggestions-header">
-                <i class="fas fa-wand-magic-sparkles"></i>
-                <h3>Gợi ý từ AI</h3>
-            </div>
-
-            <div class="ai-carousel-wrapper">
-                <button class="ai-carousel-nav prev" id="aiCarouselPrev">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="ai-carousel" id="aiCarousel">
-                    <div th:each="movie : ${aiSuggestions}" class="ai-carousel-card"
-                         th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                        <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy"
-                             style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;">
-                        <div class="movie-card-title" th:text="${movie.title}"></div>
-                        <div class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></div>
+            <div class="movie-carousel">
+                <div class="movie-slider" id="relatedCarousel">
+                    <div th:each="movie : ${relatedMovies}" 
+                        class="movie-card" 
+                        th:attr="data-movie-id=${movie.id}">
+                        
+                        <div class="movie-poster">
+                            <img th:src="${movie.poster}" 
+                                th:alt="${movie.title}"
+                                onerror="this.src='/images/placeholder.jpg'">
+                        </div>
+                        <div class="movie-info">
+                            <h3 th:text="${movie.title}">Movie Title</h3>
+                            <p class="movie-rating">
+                                ⭐ <span th:text="${movie.rating}">8.5</span>
+                            </p>
+                        </div>
+                        <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
                     </div>
                 </div>
-                <button class="ai-carousel-nav next" id="aiCarouselNext">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
             </div>
-        </div>
+        </section>
+
+        <!-- AI Suggestions (shown after search) -->
+        <section class="movies movie-list-section" th:if="${query != null && !aiSuggestions.isEmpty()}" id="aiSuggestionsSection">
+    
+            <div class="section-header">
+                <div class="section-title-wrapper">
+                    <h2 class="section-title" style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-wand-magic-sparkles" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                        Gợi ý từ AI
+                    </h2>
+                </div>
+                
+                <div class="carousel-nav">
+                    <button class="nav-btn prev-btn" id="aiCarouselPrev">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="nav-btn next-btn" id="aiCarouselNext">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="movie-carousel">
+                <div class="movie-slider" id="aiCarousel">
+                    
+                    <div th:each="movie : ${aiSuggestions}" 
+                        class="movie-card" 
+                        th:attr="data-movie-id=${movie.id}">
+                        
+                        <div class="movie-poster">
+                            <img th:src="${movie.poster}" 
+                                th:alt="${movie.title}"
+                                onerror="this.src='/images/placeholder.jpg'">
+                        </div>
+                        
+                        <div class="movie-info">
+                            <h3 th:text="${movie.title}">Movie Title</h3>
+                            <p class="movie-rating">
+                                ⭐ <span th:text="${movie.rating}">8.5</span>
+                            </p>
+                        </div>
+                        
+                        <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
 
         <!-- Trending Section (shown when no query) -->
-        <div class="trending-section" th:if="${query == null}" id="trendingSection">
-            <div class="trending-header">
-                <span class="fire-icon">🔥</span>
-                <h2>Xu hướng gần đây</h2>
-            </div>
-
-            <!-- THAY ĐỔI: Dùng carousel thay vì grid -->
-            <div class="ai-carousel-wrapper">
-                <button class="ai-carousel-nav prev" id="trendingCarouselPrev">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="ai-carousel" id="trendingCarousel">
-                    <!-- JS sẽ render 20 phim vào đây -->
+        <section class="movies movie-list-section" th:if="${query == null}" id="trendingSection">
+    
+            <div class="section-header">
+                <div class="section-title-wrapper">
+                    <h2 class="section-title" style="display: flex; align-items: center; gap: 10px;">
+                        <span class="fire-icon" style="font-size: 1.8rem;">🔥</span> 
+                        Xu hướng gần đây
+                    </h2>
+                    <a href="/discover?quickFilter=trending" class="view-more-link" style="margin-left: 20px;">
+                        Xem thêm <i class="fas fa-chevron-right"></i>
+                    </a>
                 </div>
-                <button class="ai-carousel-nav next" id="trendingCarouselNext">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
+                
+                <div class="carousel-nav">
+                    <button class="nav-btn prev-btn" id="trendingCarouselPrev">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="nav-btn next-btn" id="trendingCarouselNext">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
-        </div>        
+            
+            <div class="movie-carousel">
+                <div class="movie-slider" id="trendingCarousel">
+                    </div>
+            </div>
+        </section>        
     </div>
 
     <div th:replace="fragments/footer :: footer"></div>
@@ -961,89 +897,7 @@
 
 
 
-    <script>
-    // ============ PAGINATION INITIALIZATION (đặt ở đầu script) ============
-    document.addEventListener('DOMContentLoaded', function() {
-        const paginationEl = document.getElementById('pagination');
-        
-        if (paginationEl) {
-            const currentPage = parseInt(paginationEl.dataset.currentPage) || 1;
-            const totalPages = parseInt(paginationEl.dataset.totalPages) || 1;
-            
-            console.log('📄 Pagination detected:', { currentPage, totalPages });
-            
-            if (totalPages > 1) {
-                renderPaginationButtons(currentPage, totalPages);
-            }
-        } else {
-            console.log('⚠️ No pagination element found');
-        }
-    });
 
-    function renderPaginationButtons(current, total) {
-        const pagination = document.getElementById('pagination');
-        if (!pagination) return;
-        
-        let html = '';
-        
-        // Previous button
-        if (current > 1) {
-            html += `<button class="page-btn" onclick="goToPage(${current - 1})">
-                <i class="fas fa-chevron-left"></i>
-            </button>`;
-        } else {
-            html += `<button class="page-btn disabled" disabled>
-                <i class="fas fa-chevron-left"></i>
-            </button>`;
-        }
-        
-        // Page numbers
-        const start = Math.max(1, current - 2);
-        const end = Math.min(total, current + 2);
-        
-        if (start > 1) {
-            html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
-            if (start > 2) {
-                html += `<span style="padding:0 8px;color:rgba(255,255,255,0.5)">...</span>`;
-            }
-        }
-        
-        for (let i = start; i <= end; i++) {
-            const activeClass = i === current ? 'active' : '';
-            html += `<button class="page-btn ${activeClass}" onclick="goToPage(${i})">${i}</button>`;
-        }
-        
-        if (end < total) {
-            if (end < total - 1) {
-                html += `<span style="padding:0 8px;color:rgba(255,255,255,0.5)">...</span>`;
-            }
-            html += `<button class="page-btn" onclick="goToPage(${total})">${total}</button>`;
-        }
-        
-        // Next button
-        if (current < total) {
-            html += `<button class="page-btn" onclick="goToPage(${current + 1})">
-                <i class="fas fa-chevron-right"></i>
-            </button>`;
-        } else {
-            html += `<button class="page-btn disabled" disabled>
-                <i class="fas fa-chevron-right"></i>
-            </button>`;
-        }
-        
-        pagination.innerHTML = html;
-        console.log('✅ Pagination rendered:', { current, total });
-    }
-
-    function goToPage(page) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const query = urlParams.get('query') || document.getElementById('mainSearchInput')?.value?.trim() || '';
-        
-        if (query) {
-            window.location.href = `/search?query=${encodeURIComponent(query)}&page=${page}`;
-        }
-    }
-    </script>
 
     <script>
         // ============ SEARCH PAGE - COMPLETE UNIFIED SCRIPT ============
@@ -1302,6 +1156,35 @@
                     this.style.background = '';
                 });
             });
+            // [LOGIC MỚI] Gửi ID lên server để đồng bộ
+            const idsToSync = chunk.map(item => item.id);
+            syncIdsToDatabase(idsToSync);
+        }
+
+        /**
+         * Gửi một danh sách ID phim lên API để yêu cầu đồng bộ về DB.
+         * Không cần chờ kết quả (fire-and-forget).
+         */
+        function syncIdsToDatabase(ids) {
+            if (!ids || ids.length === 0) return;
+            
+            // Dùng fetch để gửi yêu cầu POST
+            fetch('/api/content/movies/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ids)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    console.log('Sync request sent for IDs:', ids);
+                }
+            })
+            .catch(error => {
+                console.error('Error sending sync request:', error);
+            });
         }
         
         function hideLiveSuggestions() {
@@ -1423,12 +1306,28 @@
                 applyFilters();
             });
             
-            // Close on outside click
+            // [FIX] Xử lý sự kiện click toàn cục
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.filters-panel') && !e.target.closest('#filterPageBtn')) {
-                    filtersPanel.hidden = true;
-                    filtersPanel.classList.remove('show');
-                    filterBtn?.classList.remove('active');
+                const liveSuggestions = document.getElementById('liveSuggestions');
+                const mainInput = document.getElementById('mainSearchInput');
+                const filtersPanel = document.getElementById('filtersPanel');
+                const filterBtn = document.getElementById('filterPageBtn');
+
+                // 1. Xử lý Live Suggestions
+                // Chỉ đóng nếu click ra ngoài ô input VÀ ra ngoài suggestions VÀ ra ngoài filter panel
+                if (liveSuggestions && liveSuggestions.style.display === 'block') {
+                    if (!mainInput.contains(e.target) && 
+                        !liveSuggestions.contains(e.target) && 
+                        (!filtersPanel || !filtersPanel.contains(e.target))) {
+                        liveSuggestions.style.display = 'none';
+                    }
+                }
+
+                // 2. Xử lý đóng Filter Panel (khi click ra ngoài nó)
+                if (filtersPanel && filtersPanel.classList.contains('show')) {
+                    if (!filtersPanel.contains(e.target) && !filterBtn.contains(e.target)) {
+                        closeFilters();
+                    }
                 }
             });
         }
@@ -1468,11 +1367,13 @@
         // ============ FIX: applyFilters - Check mainInput value ============
         async function applyFilters() {
             // CHECK INPUT VALUE, NOT query variable
+            const mainInput = document.getElementById('mainSearchInput');
             const query = mainInput?.value?.trim() || '';
             
-            if (!query || query.length === 0) {
-                liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Vui lòng nhập từ khóa tìm kiếm</div>';
-                liveSuggestions.style.display = 'block';
+            // Chỉ báo lỗi nếu ô input thực sự trống
+            if (!mainInput.value.trim()) {
+                alert("Vui lòng nhập từ khóa tìm kiếm trước khi lọc.");
+                if (mainInput) mainInput.focus();
                 return;
             }
             
@@ -1497,7 +1398,7 @@
                 if (filterState.genres.length > 0) {
                     results = results.filter(item => {
                         const genreIds = item.genre_ids || [];
-                        return filterState.genres.some(g => genreIds.includes(g));
+                        return filterState.genres.every(g => genreIds.includes(g));
                     });
                 }
                 
@@ -1578,64 +1479,9 @@
             }
         }
         
-        // ============ CAROUSELS (Related, AI, Trending) ============
-        function setupCarouselNav(prevBtnId, nextBtnId, scrollerId) {
-            const prevBtn = document.getElementById(prevBtnId);
-            const nextBtn = document.getElementById(nextBtnId);
-            const scroller = document.getElementById(scrollerId);
-            
-            if (!prevBtn || !nextBtn || !scroller) return;
-            
-            const scrollAmount = 360;
-            
-            prevBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                scroller.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-            });
-            
-            nextBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                scroller.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            });
-            
-            const updateButtons = () => {
-                prevBtn.disabled = scroller.scrollLeft <= 0;
-                nextBtn.disabled = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
-                prevBtn.classList.toggle('disabled', prevBtn.disabled);
-                nextBtn.classList.toggle('disabled', nextBtn.disabled);
-            };
-            
-            scroller.addEventListener('scroll', updateButtons);
-            window.addEventListener('resize', updateButtons);
-            setTimeout(updateButtons, 100);
-        }
         
-        // Load Related Movies
-        if (relatedCarousel) {
-            loadRelatedMovies();
-        }
         
-        async function loadRelatedMovies() {
-            try {
-                const response = await fetch(`${API_BASE}/movie/popular?api_key=${API_KEY}&language=vi-VN&page=1`);
-                const data = await response.json();
-                const movies = (data.results || []).slice(0, 20);
-                
-                relatedCarousel.innerHTML = movies.map(movie => `
-                    <div class="ai-carousel-card" onclick="location.href='/movie/detail/${movie.id}'" style="min-width:180px;cursor:pointer;transition:transform 0.3s;">
-                        <img src="${IMG_BASE}/w342${movie.poster_path}" alt="${movie.title}" loading="lazy"
-                            style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;"
-                            onerror="this.src='/images/placeholder.jpg'">
-                        <div class="movie-card-title" style="font-size:0.95rem;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${movie.title}</div>
-                        <div class="movie-card-rating" style="color:#ffd700;font-size:0.9rem;">⭐ ${movie.vote_average.toFixed(1)}</div>
-                    </div>
-                `).join('');
-                
-                setupCarouselNav('relatedCarouselPrev', 'relatedCarouselNext', 'relatedCarousel');
-            } catch (error) {
-                console.error('Error loading related movies:', error);
-            }
-        }
+        
         
         // Load Trending Carousel
         if (trendingCarousel) {
@@ -1647,27 +1493,29 @@
                 const response = await fetch(`${API_BASE}/trending/movie/week?api_key=${API_KEY}&language=vi-VN`);
                 const data = await response.json();
                 
-                trendingCarousel.innerHTML = data.results.slice(0, 20).map(movie => `
-                    <div class="ai-carousel-card" onclick="location.href='/movie/detail/${movie.id}'" style="min-width:180px;cursor:pointer;transition:transform 0.3s;">
-                        <img src="${IMG_BASE}/w342${movie.poster_path}" alt="${movie.title}" loading="lazy"
-                            style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;margin-bottom:10px;"
-                            onerror="this.src='/images/placeholder.jpg'">
-                        <div class="movie-card-title" style="font-size:0.95rem;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${movie.title}</div>
-                        <div class="movie-card-rating" style="color:#ffd700;font-size:0.9rem;">⭐ ${movie.vote_average.toFixed(1)}</div>
-                    </div>
-                `).join('');
+                // SỬA Ở ĐÂY: Dùng hàm helper mới, isRanked = true
+                trendingCarousel.innerHTML = data.results.slice(0, 20).map((movie, index) => {
+                    // Cậu muốn layout ranked, nên ta đặt isRanked = true
+                    return createMovieCardHTML(movie, index, true); 
+                }).join('');
                 
-                setupCarouselNav('trendingCarouselPrev', 'trendingCarouselNext', 'trendingCarousel');
+                // [THÊM] KÍCH HOẠT LẠI HOVER CHO CARD MỚI
+                // (Giống hệt hàm loadRelatedMovies)
+                if (typeof initHoverCards === 'function') {
+                    console.log('Re-initializing hover cards for Trending Movies...');
+                    initHoverCards();
+                }
+
+                // [THÊM] KÍCH HOẠT NÚT BẤM CAROUSEL
+                if (typeof initCarousel === 'function') {
+                    initCarousel('trendingCarousel', 'trendingCarouselPrev', 'trendingCarouselNext');
+                }
+
             } catch (error) {
                 console.error('Error loading trending:', error);
             }
         }
-        
-        // Setup AI Carousel navigation if exists
-        if (aiCarousel) {
-            setupCarouselNav('aiCarouselPrev', 'aiCarouselNext', 'aiCarousel');
-        }
-        
+
         // ============ UTILITY FUNCTIONS ============
         function debounce(fn, wait = 250) {
             let timeout;
@@ -1687,6 +1535,86 @@
                 "'": '&#39;'
             };
             return str.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        /**
+         * HÀM MỚI: TẠO CHUỖI HTML CHO MOVIE CARD CHUẨN
+         * Hàm này tái tạo 1-1 cấu trúc từ index.html và hover-card.html
+         * @param {object} movie - Object phim từ API TMDB
+         * @param {number} index - Vị trí trong danh sách (cho ranked)
+         * @param {boolean} isRanked - Áp dụng style 'ranked' hay không
+         */
+        function createMovieCardHTML(movie, index, isRanked = false) {
+            const poster = movie.poster_path ? `${IMG_BASE}/w500${movie.poster_path}` : '/images/placeholder.jpg';
+            const backdrop = movie.backdrop_path ? `${IMG_BASE}/original${movie.backdrop_path}` : '/images/placeholder.jpg';
+            const rating = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
+            const year = (movie.release_date || '').substring(0, 4) || '—';
+            const safeTitle = escapeHtml(movie.title || movie.name || 'Unknown');
+            const safeOverview = escapeHtml(movie.overview || 'Đang tải mô tả...');
+            const playerId = `hover-player-search-${movie.id}-${index}`; // ID duy nhất
+
+            // Logic cho ranked
+            const rankClass = isRanked ? `ranked rank-${((index % 5) + 1)}` : '';
+            const rankOverlay = isRanked ? '<div class="ranking-overlay"></div>' : '';
+            const rankNumber = isRanked ? `<div class="ranking-number">${index + 1}</div>` : '';
+
+            return `
+            <div class="movie-card ${rankClass}" data-movie-id="${movie.id}">
+                
+                <div class="movie-poster">
+                    <img src="${poster}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
+                    ${rankOverlay}
+                    ${rankNumber}
+                </div>
+                
+                <div class="movie-info">
+                    <h3>${safeTitle}</h3>
+                    <p class="movie-rating">⭐ <span>${rating}</span></p>
+                </div>
+                
+                <div class="movie-hover-card" data-movie-id="${movie.id}">
+                    <div class="hover-card-media">
+                        <img class="hover-card-image" src="${backdrop}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
+                        <div class="hover-player-container">
+                            <div class="hover-player" id="${playerId}"></div>
+                        </div>
+                        <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng">
+                            <i class="fas fa-volume-mute"></i>
+                        </button>
+                    </div>
+                    <div class="hover-card-content">
+                        <div class="hover-card-actions">
+                            <button class="hover-play-btn" type="button" data-movie-id="${movie.id}" onclick="event.stopPropagation(); goToMovieDetail(this)">
+                                <i class="fas fa-play"></i> Xem ngay
+                            </button>
+                            <button class="hover-action-icon hover-like-btn" type="button" onclick="event.stopPropagation(); toggleHoverLike(this)" title="Thêm vào danh sách">
+                                <i class="far fa-heart"></i>
+                            </button>
+                            <button class="hover-action-icon hover-share-btn" type="button"
+                                    data-movie-id="${movie.id}" data-movie-title="${safeTitle}"
+                                    onclick="event.stopPropagation(); showShareModal(this)" title="Chia sẻ">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                        <h3 class="hover-card-title">${safeTitle}</h3>
+                        <div class="hover-card-meta">
+                            <span class="meta-rating"><i class="fas fa-star"></i> <span>${rating}</span></span>
+                            <span class="meta-year">${year}</span>
+                            <span class="meta-quality">HD</span>
+                        </div>
+                        <div class="hover-card-meta-extra">
+                            <span class="meta-extra-rating loading-meta">T</span>
+                            <span class="meta-extra-runtime loading-meta">— phút</span>
+                            <span class="meta-extra-country loading-meta">Quốc gia</span>
+                        </div>
+                        <div class="hover-card-genres">
+                            <span class="genre-tag loading-genre">Đang tải...</span>
+                        </div>
+                        <p class="hover-card-description">${safeOverview}</p>
+                    </div>
+                </div>
+                </div>
+            `;
         }
         
         function normalizeVietnamese(str) {
@@ -1779,6 +1707,30 @@
         
         // ============ INITIALIZE ============
         initFilters();
+
+        // ✅ Khởi tạo hover cards VÀ CAROUSELS sau khi DOM load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Import functions từ script.js
+            if (typeof initHoverCards === 'function') {
+                initHoverCards();
+            }
+            
+            // Đảm bảo genre map đã load
+            if (typeof loadGenreMap === 'function') {
+                loadGenreMap();
+            }
+
+            // [THÊM] KÍCH HOẠT CÁC CAROUSEL RENDER BỞI JAVA
+            if (typeof initCarousel === 'function') {
+                // (trendingCarousel đã được init ở hàm loadTrendingCarousel)
+                if (document.getElementById('relatedCarousel')) {
+                    initCarousel('relatedCarousel', 'relatedCarouselPrev', 'relatedCarouselNext');
+                }
+                if (document.getElementById('aiCarousel')) {
+                    initCarousel('aiCarousel', 'aiCarouselPrev', 'aiCarouselNext');
+                }
+            }
+        });
         
         // Debug helpers
         window.__searchDebug = {
@@ -1793,6 +1745,11 @@
         
     })();
     </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script th:src="@{/js/movie/ai-agent.js}" defer></script>
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
+
+    <div th:replace="fragments/share-modal :: shareModal"></div>
 </body>
 </html>

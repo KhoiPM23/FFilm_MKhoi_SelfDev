@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Danh sách Yêu thích</title>
+
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/footer.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}" />
+
+    <style>
+      /* Đảm bảo nội dung không bị che bởi header fixed */
+      .page-container {
+        padding-top: 100px; /* 70px header + 30px đệm */
+        padding-bottom: 60px;
+        min-height: 90vh;
+        background: #141414; /* Giống body của index */
+      }
+
+      /* Tái sử dụng padding của index.html */
+      .page-content-wrapper {
+        padding: 0 50px;
+      }
+
+      /* Tùy chỉnh lại section-header cho cân đối */
+      .section-header {
+        padding: 0; /* Wrapper đã có padding */
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .section-title {
+        font-size: 2rem; /* Làm tiêu đề to rõ hơn */
+      }
+
+      .total-count {
+        color: #b3b3b3;
+        font-size: 1.1rem;
+        font-weight: 500;
+      }
+
+      /* 4. CSS cho Grid hiển thị phim */
+      .favorite-grid {
+        display: grid;
+        /* * Grid responsive:
+             * - auto-fill: Tự động lấp đầy hàng
+             * - minmax(200px, 1fr): Cột linh hoạt, 
+             * rộng tối thiểu 200px (bằng .movie-card) và tối đa 1fr
+            */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px; /* Khoảng cách giữa các thẻ */
+      }
+
+      /* * Tinh chỉnh .movie-card để hoạt động tốt trong grid.
+         * CSS gốc từ index.html đã xử lý hầu hết.
+         */
+      .movie-card {
+        width: 100%; /* Cho phép card co giãn theo grid */
+        flex: 1 1 200px; /* Dành cho flex, nhưng cũng tốt cho grid */
+      }
+
+      /* 5. CSS cho thông báo khi danh sách rỗng */
+      .empty-list-message {
+        text-align: center;
+        padding: 80px 0;
+        color: #888;
+      }
+      .empty-list-message h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+      }
+      /* Tái sử dụng .btn-play từ index.html */
+      .empty-list-message .btn-play {
+        text-decoration: none;
+      }
+
+      /* 6. CSS cho phân trang (Pagination) */
+      .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 50px;
+        gap: 10px;
+        user-select: none;
+      }
+      .pagination-container a,
+      .pagination-container span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 42px;
+        height: 42px;
+        padding: 0 15px;
+        background: #2a2a2a;
+        color: #f1f1f1;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .pagination-container a:hover {
+        background: #e50914; /* Màu chủ đạo */
+        color: #ffffff;
+      }
+      /* Nút Trang hiện tại */
+      .pagination-container span.active {
+        background: #e50914;
+        color: #ffffff;
+        font-weight: 700;
+        cursor: default;
+      }
+      /* Nút bị vô hiệu hóa */
+      .pagination-container a.disabled {
+        background: #1f1f1f;
+        color: #555;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      .pagination-container span.ellipsis {
+        background: none;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="page-container">
+      <div class="page-content-wrapper">
+        <div class="section-header">
+          <h2 class="section-title">❤️ Danh sách Yêu thích</h2>
+          <span
+            class="total-count"
+            th:if="${totalItems > 0}"
+            th:text="${totalItems} + ' phim'"
+          ></span>
+        </div>
+
+        <div th:if="${movieFavorites.isEmpty()}" class="empty-list-message">
+          <h3>Bạn chưa có phim yêu thích nào.</h3>
+          <p style="margin-bottom: 25px; font-size: 1.1rem; color: #777">
+            Hãy khám phá và thêm phim vào danh sách của bạn!
+          </p>
+          <a th:href="@{/}" class="btn-play">
+            <i class="fas fa-home"></i>
+            Khám phá ngay
+          </a>
+        </div>
+
+        <div th:if="${!movieFavorites.isEmpty()}" class="favorite-grid">
+          <div
+            th:each="movie : ${movieFavorites}"
+            class="movie-card"
+            th:attr="data-movie-id=${movie.id}"
+            th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''"
+          >
+            <div class="movie-poster">
+              <img
+              th:src="'https://image.tmdb.org/t/p/w500/'+${movie.posterPath}"
+              th:alt="${movie.title}"
+            </div>
+
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+            </div>
+          </div>
+        </div>
+
+        <div th:if="${totalPages > 1}" class="pagination-container">
+          <a
+            th:classappend="${currentPage == 0 ? 'disabled' : ''}"
+            th:href="@{?page=${currentPage - 1}, size=${size}}"
+          >
+            <i class="fas fa-chevron-left"></i>
+          </a>
+
+          <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+            <a
+              th:if="${i != currentPage}"
+              th:href="@{?page=${i}, size=${size}}"
+              th:text="${i + 1}"
+            >
+            </a>
+            <span
+              th:if="${i == currentPage}"
+              class="active"
+              th:text="${i + 1}"
+            ></span>
+          </th:block>
+
+          <a
+            th:classappend="${currentPage == totalPages - 1 ? 'disabled' : ''}"
+            th:href="@{?page=${currentPage + 1}, size=${size}}"
+          >
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div th:replace="fragments/footer :: footer"></div>
+    </footer>
+
+    <div th:replace="fragments/ai-chat :: ai-chat"></div>
+    <script th:src="@{/js/movie/ai-agent.js}" defer></script>
+  </body>
+</html>

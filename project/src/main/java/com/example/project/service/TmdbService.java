@@ -11,7 +11,6 @@ public class TmdbService {
 
     @Autowired
     private RestTemplate restTemplate;
-
     @Value("${tmdb.api.key}")
     private String tmdbApiKey;
 

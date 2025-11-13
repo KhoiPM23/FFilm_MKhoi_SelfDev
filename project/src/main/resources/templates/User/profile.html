@@ -148,17 +148,17 @@
         <p th:if="${error}" class="message-error" th:text="${error}"></p>
 
         <div class="info-row">
-            <span class="info-label">Tên người dùng:</span>
-            <span class="info-value" th:text="${session.user.userName}"></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Email:</span>
-            <span class="info-value" th:text="${session.user.email}"></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Số điện thoại:</span>
-            <span class="info-value" th:text="${session.user.phoneNumber}"></span>
-        </div>
+            <span class="info-label">Tên người dùng:</span>
+            <span class="info-value" th:text="${userProfile.userName}"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Email:</span>
+            <span class="info-value" th:text="${userProfile.email}"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Số điện thoại:</span>
+                        <span class="info-value" th:text="${userProfile.phoneNumber}"></span>
+        </div>
         <div class="info-row">
             <span class="info-label">Mật khẩu:</span>
             <span class="info-value">***********</span>

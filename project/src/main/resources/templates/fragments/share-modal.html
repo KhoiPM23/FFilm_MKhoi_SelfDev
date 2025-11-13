@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="shareModal" class="share-modal-overlay" id="shareModalOverlay" onclick="closeShareModal()">
+    <div class="share-modal" id="shareModal" onclick="event.stopPropagation()">
+        <div class="share-modal-header">
+            <h4>Chia sẻ</h4>
+            <button class="share-modal-close" onclick="closeShareModal()">&times;</button>
+        </div>
+        <div class="share-social-icons">
+            <a href="#" class="social-icon-link" id="shareFacebook" target="_blank">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/1024px-Facebook_Logo_%282019%29.png" alt="Facebook">
+                <span>Facebook</span>
+            </a>
+            <a href="#" class="social-icon-link" id="shareX" target="_blank">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/X_logo_2023.svg/1024px-X_logo_2023.svg.png" alt="X">
+                <span>X (Twitter)</span>
+            </a>
+            <a href="#" class="social-icon-link" id="shareEmail" target="_blank">
+                <img src="https://cdn4.iconfinder.com/data/icons/social-media-logos-6/512/112-gmail_email_mail-512.png" alt="Email">
+                <span>Email</span>
+            </a>
+            <a href="#" class="social-icon-link" id="shareCopyLink" onclick="event.preventDefault(); copyShareUrl();">
+                <i class="fas fa-copy"></i>
+                <span>Sao chép liên kết</span>
+            </a>
+        </div>
+        <div class="share-url-container">
+            <input type="text" id="shareUrlInput" readonly>
+            <button id="copyButton" onclick="copyShareUrl()">Sao chép</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

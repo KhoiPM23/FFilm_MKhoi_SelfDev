@@ -2,217 +2,164 @@ package com.example.project.controller;
 
 import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.springframework.web.client.RestTemplate; // [G29] Vẫn cần vì hàm buildDiscoverUrl dùng
 
-import java.util.*;
-import java.text.SimpleDateFormat;
-import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @Controller
 public class DiscoverController {
 
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
-    private final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
 
-    @Autowired
-    private MovieService movieService; 
-
-    @Autowired
-    private RestTemplate restTemplate; 
+    @Autowired private MovieService movieService;
+    @Autowired private RestTemplate restTemplate; // [G29] Giữ lại
 
     @GetMapping("/discover")
     public String discover(
-            @RequestParam(defaultValue = "1") int page, 
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(required = false) String genres,
             @RequestParam(required = false) String quickFilter,
             Model model) {
-        
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        String threeMonthsAgo = LocalDate.now().minusMonths(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        
-        List<Map<String, Object>> moviesForTemplate = new ArrayList<>();
-        
-        int totalApiResults = 0;
-        int totalApiPages = 1;
-        boolean hasResults = false;
 
         try {
-            String discoverUrl = buildDiscoverUrl(page, genres, quickFilter, today, threeMonthsAgo);
-            String response = restTemplate.getForObject(discoverUrl, String.class);
-            
-            if (response == null || response.isEmpty()) {
-                setEmptyResults(model, genres, quickFilter);
-                return "discover"; 
+            // [SỬA] BƯỚC 1: LUÔN LUÔN LẤY BANNER TỪ PAGE 1
+            // Xây dựng URL cho page 1 (để lấy banner + top movies)
+            String page1Url = buildDiscoverUrl(1, genres, quickFilter);
+            int discoverLimit = 20; 
+            Map<String, Object> page1Data = movieService.loadAndSyncPaginatedMovies(page1Url, discoverLimit);
+            List<Map<String, Object>> topMovies = (List<Map<String, Object>>) page1Data.get("movies");
+
+            // [SỬA] BƯỚC 2: GÁN BANNER VÀ TOP MOVIES (Luôn cố định)
+            if (!topMovies.isEmpty()) {
+                // Lấy bannerTmdbId từ topMovies (của page 1)
+                int bannerTmdbId = (int) topMovies.get(0).get("id");
+                // Gọi getMoviePartial để nâng cấp (lấy duration/country)
+                Movie bannerMovie = movieService.getMoviePartial(bannerTmdbId); 
+                Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
+
+                String trailerKey = movieService.findBestTrailerKey(bannerTmdbId);
+                String logoPath = movieService.findBestLogoPath(bannerTmdbId);
+                
+                bannerMap.put("trailerKey", trailerKey);
+                bannerMap.put("logoPath", logoPath);
+                
+                model.addAttribute("banner", bannerMap);
+                // topMovies carousel luôn là danh sách của page 1
+                model.addAttribute("topMovies", topMovies.subList(0, Math.min(topMovies.size(), 10)));
+            } else {
+                // Fallback nếu page 1 cũng không có gì
+                setEmptyResults(model, genres, quickFilter); // setEmptyResults sẽ tự tạo banner rỗng
             }
             
-            JSONObject json = new JSONObject(response);
-            JSONArray results = json.optJSONArray("results"); 
-            totalApiResults = json.optInt("total_results", 0);
-            totalApiPages = json.optInt("total_pages", 1);
+            // [SỬA] BƯỚC 3: LẤY KẾT QUẢ CHO GRID PHÂN TRANG
+            List<Map<String, Object>> gridMovies;
+            int totalResults = (int) page1Data.get("totalResults");
+            int totalPages = (int) page1Data.get("totalPages");
+
+            if (page == 1) {
+                // Tiết kiệm API: Nếu đang ở trang 1, dùng luôn kết quả đã lấy
+                gridMovies = topMovies;
+            } else {
+                // Nếu ở trang > 1, gọi API lần nữa CHỈ để lấy grid
+                String currentPageUrl = buildDiscoverUrl(page, genres, quickFilter);
+                Map<String, Object> currentPageData = movieService.loadAndSyncPaginatedMovies(currentPageUrl, discoverLimit);
+                gridMovies = (List<Map<String, Object>>) currentPageData.get("movies");
+                // (totalResults và totalPages đã lấy từ page 1 là đủ)
+            }
             
-            // ----- SỬA LỖI P5 (Đảm bảo 20 phim ĐƯỢC LƯU) -----
-            if (results != null && results.length() > 0) {
-                
-                for (int i = 0; i < results.length(); i++) { 
-                    JSONObject item = results.getJSONObject(i);
-                    int tmdbId = item.optInt("id");
-                    if (tmdbId <= 0) continue; 
-
-                    Movie syncedMovie = null;
-                    try {
-                        // 1. GỌI PHƯƠNG THỨC MỚI
-                        // Phương thức này SẼ LƯU phim partial ngay cả khi fetch detail lỗi
-                        syncedMovie = movieService.syncMovieFromTmdbData(item);
-                        
-                    } catch (Exception e) {
-                        // Catch này chỉ bắt lỗi nghiêm trọng (vd: mất kết nối DB)
-                        // Lỗi 404 của TMDB đã được service xử lý nội bộ
-                        System.err.println("CRITICAL SYNC ERROR (P5): Không thể lưu movie (TMDB ID: " + tmdbId + "): " + e.getMessage());
-                        // syncedMovie sẽ là null, chúng ta fallback hiển thị dữ liệu thô
-                    }
-
-                    // 3. Tạo Map để hiển thị
-                    Map<String, Object> map = new HashMap<>();
-                    
-                    if (syncedMovie != null) {
-                        // TRƯỜNG HỢP 1: Phim đã có hoặc VỪA SYNC THÀNH CÔNG (full hoặc partial)
-                        // Luôn dùng `syncedMovie` (từ DB) để hiển thị
-                        map.put("id", syncedMovie.getTmdbId()); 
-                        map.put("title", syncedMovie.getTitle());
-                        
-                        String posterUrl = "/images/placeholder.jpg";
-                        if(syncedMovie.getPosterPath() != null && !syncedMovie.getPosterPath().isEmpty()) {
-                            if (syncedMovie.getPosterPath().startsWith("http")) {
-                                posterUrl = syncedMovie.getPosterPath();
-                            } else {
-                                posterUrl = IMAGE_BASE_URL + "/w500" + syncedMovie.getPosterPath();
-                            }
-                        }
-                        map.put("poster", posterUrl);
-                        map.put("rating", String.format("%.1f", syncedMovie.getRating()));
-                        map.put("year", syncedMovie.getReleaseDate() != null ? new SimpleDateFormat("yyyy").format(syncedMovie.getReleaseDate()) : "");
-                        map.put("overview", syncedMovie.getDescription());
-                    } else {
-                        // TRƯỜNG HỢP 2: Phim lỗi sync NGHIÊM TRỌNG (vd: Lỗi DB)
-                        // Hiển thị dữ liệu thô (giống lần trước)
-                        map.put("id", tmdbId); 
-                        map.put("title", item.optString("title", "N/A"));
-                        String posterPath = item.optString("poster_path", "");
-                        map.put("poster", posterPath.isEmpty() ? "/images/placeholder.jpg" : IMAGE_BASE_URL + "/w500" + posterPath);
-                        map.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
-                        String releaseDate = item.optString("release_date", "");
-                        map.put("year", releaseDate.length() >= 4 ? releaseDate.substring(0, 4) : "");
-                        map.put("overview", item.optString("overview", ""));
-                    }
-                    
-                    moviesForTemplate.add(map);
-                }
-            } // ----- KẾT THÚC SỬA LỖI P5 -----
-
-            hasResults = !moviesForTemplate.isEmpty();
+            // Gán model cho grid
+            model.addAttribute("searchResults", gridMovies);
+            model.addAttribute("totalResults", totalResults);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("hasResults", !gridMovies.isEmpty());
+            model.addAttribute("genres", genres);
+            model.addAttribute("quickFilter", quickFilter);
+            model.addAttribute("pageTitle", getPageTitle(genres, quickFilter));
 
         } catch (Exception e) {
-            System.err.println("Discover error: " + e.getMessage());
             e.printStackTrace();
-            setEmptyResults(model, genres, quickFilter); 
-            model.addAttribute("error", "Có lỗi xảy ra: " + e.getMessage());
-            return "discover"; 
+            setEmptyResults(model, genres, quickFilter);
         }
-
-        // 4. Đẩy dữ liệu ra Model (Giữ nguyên)
-        int totalUserPages = Math.min(totalApiPages, 500); 
-
-        model.addAttribute("searchResults", moviesForTemplate); 
-        model.addAttribute("pageTitle", getPageTitle(genres, quickFilter)); 
-        model.addAttribute("totalResults", totalApiResults); 
-        model.addAttribute("currentPage", page); 
-        model.addAttribute("totalPages", totalUserPages); 
-        model.addAttribute("hasResults", hasResults);
-        
-        model.addAttribute("genres", genres);
-        model.addAttribute("quickFilter", quickFilter);
-        
         return "discover";
     }
 
-    // (Hàm buildDiscoverUrl giữ nguyên)
-    private String buildDiscoverUrl(int page, String genres, String quickFilter, String today, String threeMonthsAgo) {
+    // (Hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
+    
+    private String buildDiscoverUrl(int page, String genres, String quickFilter) {
         StringBuilder url = new StringBuilder();
-        url.append(BASE_URL).append("/discover/movie");
-        url.append("?api_key=").append(API_KEY);
-        url.append("&language=vi-VN");
-        url.append("&page=").append(page); 
-        url.append("&include_adult=false");
-        
-        if (genres != null && !genres.isEmpty()) {
-            url.append("&with_genres=").append(genres);
-        }
-        
-        String sortBy = "popularity.desc"; 
-        if (quickFilter != null && !quickFilter.isEmpty()) {
+        url.append(BASE_URL).append("/discover/movie?api_key=").append(API_KEY)
+           .append("&language=vi-VN&include_adult=false&page=").append(page);
+        if (genres != null && !genres.isEmpty()) url.append("&with_genres=").append(genres);
+        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String threeMonthsAgo = LocalDate.now().minusMonths(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String sortBy = "popularity.desc";
+        if (quickFilter != null) {
             switch (quickFilter) {
-                case "trending":
-                    sortBy = "popularity.desc";
-                    break;
-                case "new":
+                case "trending": sortBy = "popularity.desc"; break;
+                case "new": 
                     sortBy = "primary_release_date.desc";
-                    url.append("&primary_release_date.lte=").append(today);
-                    url.append("&primary_release_date.gte=").append(threeMonthsAgo);
-                    url.append("&vote_count.gte=10"); 
+                    url.append("&primary_release_date.lte=").append(today)
+                       .append("&primary_release_date.gte=").append(threeMonthsAgo)
+                       .append("&vote_count.gte=10");
                     break;
-                case "top-rated":
+                case "top-rated": 
                     sortBy = "vote_average.desc";
-                    url.append("&vote_count.gte=200"); 
+                    url.append("&vote_count.gte=200");
                     break;
             }
         }
         url.append("&sort_by=").append(sortBy);
-        
         return url.toString();
     }
-    
-    // (Hàm getPageTitle giữ nguyên)
+
     private String getPageTitle(String genres, String quickFilter) {
-        if (quickFilter != null) {
-            if (quickFilter.equals("trending")) return "Phim Hot Nhất";
-            if (quickFilter.equals("new")) return "Phim Mới Ra Mắt";
-            if (quickFilter.equals("top-rated")) return "Phim Đánh Giá Cao";
-        }
+        if ("trending".equals(quickFilter)) return "Phim Hot Nhất";
+        if ("new".equals(quickFilter)) return "Phim Mới Ra Mắt";
+        if ("top-rated".equals(quickFilter)) return "Phim Đánh Giá Cao";
         if (genres != null) {
             switch (genres) {
-                case "16": return "Phim Anime";
-                case "10751": return "Phim Cho Trẻ Em";
                 case "28": return "Phim Hành Động";
                 case "12": return "Phim Phiêu Lưu";
+                case "16": return "Phim Hoạt Hình";
                 case "35": return "Phim Hài";
                 case "80": return "Phim Hình Sự";
+                case "99": return "Phim Tài Liệu";
                 case "18": return "Phim Chính Kịch";
+                case "10751": return "Phim Gia Đình";
                 case "14": return "Phim Giả Tưởng";
+                case "36": return "Phim Lịch Sử";
                 case "27": return "Phim Kinh Dị";
+                case "10402": return "Phim Âm Nhạc";
+                case "9648": return "Phim Bí Ẩn";
                 case "10749": return "Phim Lãng Mạn";
                 case "878": return "Phim Khoa Học Viễn Tưởng";
+                case "10770": return "Phim Truyền Hình";
                 case "53": return "Phim Gây Cấn";
-                default: return "Phim Theo Thể Loại"; 
+                case "10752": return "Phim Chiến Tranh";
+                case "37": return "Phim Miền Tây";
             }
         }
         return "Khám Phá Phim";
     }
 
-    // (Hàm setEmptyResults giữ nguyên)
     private void setEmptyResults(Model model, String genres, String quickFilter) {
+        model.addAttribute("banner", null);
+        model.addAttribute("topMovies", new ArrayList<>());
         model.addAttribute("searchResults", new ArrayList<>());
-        model.addAttribute("pageTitle", getPageTitle(genres, quickFilter));
+        model.addAttribute("pageTitle", "Khám Phá Phim");
         model.addAttribute("totalResults", 0);
         model.addAttribute("currentPage", 1);
         model.addAttribute("totalPages", 1);

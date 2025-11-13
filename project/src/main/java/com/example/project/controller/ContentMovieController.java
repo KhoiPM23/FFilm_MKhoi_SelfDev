@@ -104,4 +104,21 @@ public class ContentMovieController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
+
+    // [THÊM HÀM NÀY VÀO ContentMovieController.java]
+
+    /**
+     * Endpoint cho client-side (Live Suggestion) yêu cầu đồng bộ nhanh 1 danh sách ID.
+     * Endpoint: POST /api/content/movies/sync
+     * Body: [123, 456, 789]
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<?> syncMoviesByIds(@RequestBody List<Integer> tmdbIds) {
+        try {
+            movieService.syncTmdbIds(tmdbIds);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã yêu cầu đồng bộ " + tmdbIds.size() + " phim."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
 }

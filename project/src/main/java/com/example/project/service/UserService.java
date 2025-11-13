@@ -202,4 +202,10 @@ public boolean updateProfile(UserProfileUpdateDto dto) {
     
     return emailChanged;
 }
+public String getInitials(String userName) {
+        if (userName == null || userName.trim().isEmpty()) {
+            return "U"; // Chữ cái mặc định
+        }
+        return userName.trim().substring(0, 1).toUpperCase();
+    }
 }

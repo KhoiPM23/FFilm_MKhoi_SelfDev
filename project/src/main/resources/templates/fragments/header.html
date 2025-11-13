@@ -1,81 +1,40 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <!-- FontAwesome import trong fragment để đảm bảo load -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
 <header class="main-header" th:fragment="header" style="--accent:#e50914">
-    <!-- Logo -->
     <div class="logo">
         <img src="/images/logo.png" alt="">
         <span>FFilm</span>
     </div>
 
-    <!-- Navigation -->
     <nav class="main-nav">
-    <a href="/" class="active"><i class="fas fa-home"></i>Trang chủ</a>
-    <a href="#"><i class="fas fa-tv"></i>Truyền hình</a>
-    <a href="#"><i class="fas fa-film"></i>Phim bộ</a>
-    <a href="#"><i class="fas fa-user-secret"></i>Anime</a>
-    <a href="#"><i class="fas fa-futbol"></i>Thể thao</a>
-    <div class="genre-nav-wrapper">
-        <a href="#" class="genre-toggle">
-            Thể loại <i class="fas fa-caret-down"></i>
+        <a href="/" class="active"><i class="fas fa-home"></i>Trang chủ</a>
+        
+        <a href="/discover?genres=28" class="genre-item-flat" data-genre="28">
+            <i class="fas fa-fist-raised"></i> Hành động
         </a>
-        <div class="genre-dropdown" id="genreDropdown">
-            <div class="genre-grid">
-                <a href="/discover?genres=28" class="genre-item" data-genre="28">
-                    <i class="fas fa-fist-raised"></i> Hành động
-                </a>
-                <a href="/discover?genres=12" class="genre-item" data-genre="12">
-                    <i class="fas fa-compass"></i> Phiêu lưu
-                </a>
-                <a href="/discover?genres=16" class="genre-item" data-genre="16">
-                    <i class="fas fa-palette"></i> Hoạt hình
-                </a>
-                <a href="/discover?genres=35" class="genre-item" data-genre="35">
-                    <i class="fas fa-laugh"></i> Hài
-                </a>
-                <a href="/discover?genres=80" class="genre-item" data-genre="80">
-                    <i class="fas fa-user-secret"></i> Hình sự
-                </a>
-                <a href="/discover?genres=18" class="genre-item" data-genre="18">
-                    <i class="fas fa-theater-masks"></i> Chính kịch
-                </a>
-                <a href="/discover?genres=10751" class="genre-item" data-genre="10751">
-                    <i class="fas fa-home"></i> Gia đình
-                </a>
-                <a href="/discover?genres=14" class="genre-item" data-genre="14">
-                    <i class="fas fa-dragon"></i> Giả tưởng
-                </a>
-                <a href="/discover?genres=27" class="genre-item" data-genre="27">
-                    <i class="fas fa-ghost"></i> Kinh dị
-                </a>
-                <a href="/discover?genres=10749" class="genre-item" data-genre="10749">
-                    <i class="fas fa-heart"></i> Lãng mạn
-                </a>
-                <a href="/discover?genres=878" class="genre-item" data-genre="878">
-                    <i class="fas fa-rocket"></i> Khoa học viễn tưởng
-                </a>
-                <a href="/discover?genres=53" class="genre-item" data-genre="53">
-                    <i class="fas fa-exclamation-triangle"></i> Gây cấn
-                </a>
-            </div>
-        </div>
-    </div>
-</nav>
-
-    <!-- Right Menu -->
+        <a href="/discover?genres=35" class="genre-item-flat" data-genre="35">
+            <i class="fas fa-laugh"></i> Hài
+        </a>
+        
+        <a href="/discover?genres=27" class="genre-item-flat" data-genre="27">
+            <i class="fas fa-ghost"></i> Kinh dị
+        </a>
+        <a href="/discover?genres=10749" class="genre-item-flat" data-genre="10749">
+            <i class="fas fa-heart"></i> Lãng mạn
+        </a>
+        
+    </nav>
     <div class="header-actions">
-        <!-- 🔎 Tìm kiếm với dropdown (Giữ nguyên logic từ file bạn cung cấp) -->
         <div class="search-box" style="position:relative;">
           <i class="fas fa-search search-toggle" aria-hidden="true" style="cursor:pointer;"></i>
           
           <input type="text" id="searchInput" aria-label="Tìm kiếm phim" placeholder="Tìm kiếm phim, diễn viên..." class="search-input" autocomplete="off">
           
-          <!-- Voice button PHẢI sau input -->
           <button class="voice-search-btn" id="voiceSearchBtn" type="button" aria-label="Tìm kiếm bằng giọng nói" title="Tìm kiếm bằng giọng nói">
               <i class="fas fa-microphone"></i>
           </button>
@@ -91,7 +50,6 @@
             </div>
             
             <div class="filters-body">
-              <!-- Quick Filters -->
               <div class="filter-group">
                 <label class="filter-label">Nhanh</label>
                 <div class="quick-filters">
@@ -107,15 +65,12 @@
                 </div>
               </div>
               
-              <!-- Genre Filter -->
               <div class="filter-group">
                 <label class="filter-label">Thể loại</label>
                 <div class="genre-filters" id="genreFilters">
-                  <!-- Will be populated by JS -->
-                </div>
+                  </div>
               </div>
               
-              <!-- Year Filter -->
               <div class="filter-group">
                 <label class="filter-label">Năm phát hành</label>
                 <div class="year-filter">
@@ -125,7 +80,6 @@
                 </div>
               </div>
               
-              <!-- Rating Filter -->
               <div class="filter-group">
                 <label class="filter-label">Đánh giá tối thiểu</label>
                 <div class="rating-filter">
@@ -141,18 +95,15 @@
             </div>
           </div>
 
-          <!-- Filters Toggle Button -->
           <button class="filters-toggle" id="filtersToggle" type="button" title="Bộ lọc tìm kiếm">
             <i class="fas fa-filter"></i>
           </button>
 
-          <!-- AI Search Button -->
           <button class="ai-search-toggle" id="aiSearchToggle" type="button" title="Tìm kiếm bằng AI">
             <i class="fas fa-wand-magic-sparkles"></i>
           </button>
         </div>
 
-        <!-- Thông báo -->
         <div class="notification">
             <div class="bell-container" title="Thông báo" role="button" tabindex="0">
                 <i class="fas fa-bell"></i>
@@ -163,35 +114,48 @@
             </div>
         </div>
 
-        <!-- Chọn ngôn ngữ -->
-        <div class="lang-select">
-            <i class="fas fa-globe"></i>
-            <select>
-                <option value="vi">🇻🇳 Tiếng Việt</option>
-                <option value="ja">🇯🇵 日本語</option>
-            </select>
+        
+
+         <a
+          th:if="${session.user}"
+          th:href="@{/favorites/my-list}"
+          class="btn-buy"
+          >Yêu thích</a
+        >
+        <a th:unless="${session.user}" th:href="@{/login}" class="btn-buy"
+          >Yêu thích</a
+        >
+
+        <a
+          th:if="${session.user}"
+          th:href="@{/subscriptionPlan}"
+          class="btn-buy"
+          >Mua gói</a
+        >
+        <a th:unless="${session.user}" th:href="@{/login}" class="btn-buy"
+          >Mua gói</a
+        >
+        
+        <div th:unless="${session.user}" class="auth-buttons">
+        <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
+        <a th:href="@{/register}" class="btn-register">Đăng ký</a> </div>
+    <div th:if="${session.user}" class="user-dropdown-wrapper">
+        <div class="user-avatar-btn" id="userAvatarBtn" role="button" tabindex="0">
+            <span class="avatar-initials" th:text="${@userService.getInitials(session.user.userName)}"></span>
         </div>
 
-        <!-- Các nút hành động -->
-        <a href="/subscriptionPlan" class="btn-buy">Mua gói</a>
-        
-        <!--
-        BẮT ĐẦU KHỐI LOGIN/LOGOUT ĐÃ CẬP NHẬT
-        Thay thế cho <a href="#" class="btn-login">Đăng nhập</a>
-        -->
-        <div th:unless="${session.user}" class="auth-buttons">
-            <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
-            <a th:href="@{/register}" class="btn-buy">Đăng ký</a>
-        </div> 
-        <div th:if="${session.user}" class="user-menu">
-            <a th:href="@{/profile}" class="user-name" style="text-decoration:none; color:white;">
-                <span th:text="${session.user.userName}">User</span>
+        <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
+            <div class="dropdown-header">
+                Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
+            </div>
+            <a th:href="@{/profile}" class="dropdown-item">
+                <i class="fas fa-user-circle"></i> Profile
             </a>
-            <a th:href="@{/logout}" class="btn-logout">Đăng xuất</a>
+            <a th:href="@{/logout}" class="dropdown-item logout-item">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+            </a>
         </div>
-        <!-- KẾT THÚC KHỐI LOGIN/LOGOUT -->
-        
-        <!-- AI Search Modal (Giữ nguyên từ file bạn cung cấp) -->
+    </div>
         <div id="aiSearchModal" class="ai-search-modal" hidden>
           <div class="ai-modal-overlay"></div>
           <div class="ai-modal-content">
@@ -234,7 +198,6 @@
                 <p>AI đang phân tích mô tả của bạn...</p>
               </div>
               
-              <!-- XÓA phần ai-results cũ, THÊM MỚI: -->
               <div class="ai-movie-results" id="aiMovieResults" hidden>
                 <p class="results-label">
                   <i class="fas fa-film"></i>
@@ -258,11 +221,7 @@
             </div>
           </div>
         </div>
-        <!-- Dọn dẹp conflict marker cũ -->
-    </div> <!-- Đóng .header-actions -->
-
-    <!-- Styles cho search (Giữ nguyên từ file bạn cung cấp) -->
-    <style>
+        </div> <style>
     /* Ensure parent doesn't clip dropdown */
     .main-header, .header-actions, .search-box { overflow: visible; }
     .search-box { position: relative; /* đảm bảo chứa các absolute */ }
@@ -280,7 +239,7 @@
 
     /* Suggestions panel: fixed positioning so it's never clipped by parents */
     .search-suggestions{
-      position: fixed;               /* fixed so it sits above everything */
+      position: fixed;              /* fixed so it sits above everything */
       top: 0; left: 0;
       transform: translateY(8px);    /* slight offset from input */
       min-width: 260px;
@@ -421,7 +380,7 @@
   .filters-toggle {
     position: absolute;
     top: 50%;
-    right: -30px;        
+    right: -30px;      
     transform: translateY(-50%);
     opacity: 0;
     pointer-events: none;
@@ -433,7 +392,7 @@
     padding: 8px;
     border-radius: 50%;
     transition: all .18s ease;
-    z-index: 13000 !important;         /* nằm trên suggestions */
+    z-index: 13000 !important;       /* nằm trên suggestions */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -576,7 +535,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    
   }
+
+  
 
   .genre-chip {
     padding: 6px 12px;
@@ -1132,92 +1094,117 @@
 </style>
 
 <style>
-.genre-nav-wrapper {
-    position: relative;
-}
 
-.genre-toggle {
-    padding: 8px 12px;
-    cursor: pointer;
+
+
+/* ĐÃ THÊM CSS CHO CÁC MỤC MENU MỚI
+  Chúng ta cần làm cho chúng giống với mục "Trang chủ"
+*/
+.main-nav a.genre-item-flat {
+    /* Đây là style copy từ .main-nav a của bạn */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    padding: 8px 12px; /* Tùy chỉnh padding nếu muốn */
+    font-weight: 500;
+    font-size: 0.95rem;
     transition: color 0.3s;
 }
 
-.genre-toggle:hover {
-    color: #e50914;
+.main-nav a.genre-item-flat:hover,
+.main-nav a.genre-item-flat.active {
+    color: #e50914; /* var(--accent) */
 }
 
-.genre-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(20,20,20,0.98);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 20px;
-    min-width: 400px;
-    max-width: 500px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-    backdrop-filter: blur(20px);
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s;
-    z-index: 1000;
-    margin-top: 10px;
-}
-
-.genre-nav-wrapper:hover .genre-dropdown {
-    opacity: 1;
-    visibility: visible;
-}
-
-.genre-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-
-.genre-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
-    transition: all 0.3s;
-    color: rgba(255,255,255,0.9);
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-
-.genre-item:hover {
-    background: #e50914;
-    border-color: #e50914;
-    color: white;
-    transform: translateY(-2px);
-}
-
-.genre-item i {
-    font-size: 1.1rem;
-    width: 20px;
+.main-nav a.genre-item-flat i {
+    font-size: 1rem; /* Kích thước icon */
+    width: 18px;     /* Đảm bảo icon thẳng hàng */
     text-align: center;
 }
 
-@media (max-width: 768px) {
-    .genre-dropdown {
-        position: fixed;
-        left: 10px;
-        right: 10px;
-        transform: translateX(0);
-        width: auto;
-        min-width: auto;
-    }
-    
-    .genre-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+</style>
+
+<style>
+.user-avatar-btn {
+ width: 40px;
+height: 40px;
+background-color: #e50914;
+border-radius: 50%;
+display: flex;
+justify-content: center;
+align-items: center;
+cursor: pointer;
+font-size: 16px;
+font-weight: 700;
+color: white;
+box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
 }
+.user-dropdown-wrapper {
+position: relative;
+z-index: 1000;
+}
+.user-dropdown-menu {
+position: absolute;
+top: 100%;
+right: 0;
+min-width: 150px;
+background: #111;
+border: 1px solid #333;
+border-radius: 8px;
+margin-top: 10px;
+box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+}
+.user-dropdown-menu[hidden] {
+display: none;
+}
+.dropdown-header {
+padding: 10px 15px;
+color: #e50914;
+font-weight: 600;
+border-bottom: 1px solid #333;
+font-size: 0.95rem;
+}
+.dropdown-item {
+padding: 10px 15px;
+display: flex;
+align-items: center;
+gap: 10px;
+color: #ccc;
+text-decoration: none;
+transition: background 0.2s;
+font-size: 0.9rem;
+}
+.dropdown-item:hover {
+background: #e50914;
+color: white;
+}
+.logout-item {
+border-top: 1px solid #333;
+margin-top: 5px;
+}
+
+.auth-buttons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.auth-buttons a { 
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    padding: 5px 0; 
+}
+
+.auth-buttons a:hover {
+    color: #e50914; 
+}
+
+
 </style>
 
 <script>
@@ -1267,11 +1254,11 @@
 
     // ========== Pagination / caching for suggestions ==========
     const PAGE_SIZE = 8;        // how many results to show per "page" in suggestions
-    let cachedResults = [];       // all results fetched so far (merged from pages and people)
-    let displayedCount = 0;     // how many results are currently rendered in suggestions
-    let nextApiPage = 2;        // next TMDB API page to fetch (we fetch page 1 first)
-    let totalApiPages = 1;      // total pages available from TMDB for the current query
-    let lastQuery = '';         // current search query (to avoid mixing queries)
+    let cachedResults = [];        // all results fetched so far (merged from pages and people)
+    let displayedCount = 0;   // how many results are currently rendered in suggestions
+    let nextApiPage = 2;       // next TMDB API page to fetch (we fetch page 1 first)
+    let totalApiPages = 1;     // total pages available from TMDB for the current query
+    let lastQuery = '';        // current search query (to avoid mixing queries)
     let peopleCache = new Map();  // THÊM - Cache people search
     let abortController = null;   // THÊM - Cancel old requests
 
@@ -1578,11 +1565,11 @@
         const context = r._personName ? `${r._personRole}: ${escapeHtml(r._personName)}` : '';
         const subInfo = [year, type, rating, context].filter(Boolean).join(' • ');
         return `<div class="search-suggestion" role="option" tabindex="0" data-id="${r.id}" data-type="${r.media_type}">
-                  <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'"/>
-                  <div class="suggestion-meta">
-                    <div class="suggestion-title">${title}</div>
-                    <div class="suggestion-sub">${subInfo}</div>
-                  </div>
+                    <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'"/>
+                    <div class="suggestion-meta">
+                      <div class="suggestion-title">${title}</div>
+                      <div class="suggestion-sub">${subInfo}</div>
+                    </div>
                 </div>`;
       }).join('');
 
@@ -2057,6 +2044,28 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } catch (e) { console.error('header scroll error', e); }
+});
+</script>
+
+<script>
+  // Thêm vào cuối khối script trong header.html
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarBtn = document.getElementById('userAvatarBtn');
+    const dropdownMenu = document.getElementById('userDropdownMenu');
+
+    if (avatarBtn && dropdownMenu) {
+        avatarBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.toggleAttribute('hidden');
+        });
+
+        // Đóng dropdown khi nhấp vào nơi khác
+        document.addEventListener('click', (e) => {
+            if (!avatarBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.hidden = true;
+            }
+        });
+    }
 });
 </script>
 

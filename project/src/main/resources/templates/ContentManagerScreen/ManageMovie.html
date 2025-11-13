@@ -1,798 +1,952 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Content Manager - Quản Lý Phim</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+      @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
 
-        :root {
-            --primary-color: #e50914;
-            --background-dark: #0a0a0a;
-            --background-light: #141414;
-            --background-surface: #1a1a1a;
-            --border-color: #2a2a2a;
-            --text-primary: #ffffff;
-            --text-secondary: #b3b3b3;
-            --red-hover: #ff6b6b;
-            --red-shadow: rgba(229, 9, 20, 0.4);
-        }
+      :root {
+        --primary-color: #e50914;
+        --background-dark: #0a0a0a;
+        --background-light: #141414;
+        --background-surface: #1a1a1a;
+        --border-color: #2a2a2a;
+        --text-primary: #ffffff;
+        --text-secondary: #b3b3b3;
+        --red-hover: #ff6b6b;
+        --red-shadow: rgba(229, 9, 20, 0.4);
+      }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Roboto', 'Segoe UI', sans-serif;
-            background: var(--background-dark);
-            color: var(--text-primary);
-            overflow-x: hidden;
-            line-height: 1.5;
-        }
+      body {
+        font-family: "Roboto", "Segoe UI", sans-serif;
+        background: var(--background-dark);
+        color: var(--text-primary);
+        overflow-x: hidden;
+        line-height: 1.5;
+      }
 
-        /* Sidebar */
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 260px;
-            height: 100vh;
-            background: linear-gradient(180deg, var(--background-light) 0%, var(--background-dark) 100%);
-            padding: 20px;
-            border-right: 1px solid var(--border-color);
-            z-index: 100;
-        }
+      /* Sidebar */
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 260px;
+        height: 100vh;
+        background: linear-gradient(
+          180deg,
+          var(--background-light) 0%,
+          var(--background-dark) 100%
+        );
+        padding: 20px;
+        border-right: 1px solid var(--border-color);
+        z-index: 100;
+      }
 
-        .logo {
-            color: var(--primary-color);
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 40px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-        }
+      .logo {
+        color: var(--primary-color);
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 40px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+      }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            margin-bottom: 8px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 8px;
-            transition: all 0.3s;
-            cursor: pointer;
-            position: relative;
-        }
-        
-        .nav-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 60%;
-            width: 4px;
-            background: var(--primary-color);
-            border-radius: 0 2px 2px 0;
-            opacity: 0;
-            transition: all 0.3s;
-        }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+      }
 
-        .nav-item:hover {
-            background: var(--background-surface);
-            color: var(--text-primary);
-        }
+      .nav-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 60%;
+        width: 4px;
+        background: var(--primary-color);
+        border-radius: 0 2px 2px 0;
+        opacity: 0;
+        transition: all 0.3s;
+      }
 
-        .nav-item.active {
-            background: linear-gradient(90deg, rgba(229, 9, 20, 0.2) 0%, transparent 100%);
-            color: var(--text-primary);
-        }
-        .nav-item.active::before {
-            opacity: 1;
-        }
-        
-        .nav-item i { width: 20px; text-align: center; }
+      .nav-item:hover {
+        background: var(--background-surface);
+        color: var(--text-primary);
+      }
 
-        /* Main Content */
-        .main-content {
-            margin-left: 260px;
-            padding: 30px;
-            min-height: 100vh;
-        }
+      .nav-item.active {
+        background: linear-gradient(
+          90deg,
+          rgba(229, 9, 20, 0.2) 0%,
+          transparent 100%
+        );
+        color: var(--text-primary);
+      }
+      .nav-item.active::before {
+        opacity: 1;
+      }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
+      .nav-item i {
+        width: 20px;
+        text-align: center;
+      }
 
-        .header h1 {
-            font-size: 32px;
-            font-weight: 600;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-color) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+      /* Main Content */
+      .main-content {
+        margin-left: 260px;
+        padding: 30px;
+        min-height: 100vh;
+      }
 
-        .header-actions {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
 
-        .import-group {
-            display: flex;
-        }
+      .header h1 {
+        font-size: 32px;
+        font-weight: 600;
+        background: linear-gradient(
+          135deg,
+          var(--text-primary) 0%,
+          var(--primary-color) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
 
-        .import-group input {
-            background: var(--background-surface);
-            border: 1px solid var(--border-color);
-            padding: 10px 16px;
-            border-radius: 8px 0 0 8px;
-            color: var(--text-primary);
-            width: 150px;
-            outline: none;
-            transition: all 0.3s;
-        }
-        .import-group input:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.1);
-        }
+      .header-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+      }
 
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            text-decoration: none;
-        }
+      .import-group {
+        display: flex;
+      }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--red-hover) 100%);
-            color: var(--text-primary);
-        }
+      .import-group input {
+        background: var(--background-surface);
+        border: 1px solid var(--border-color);
+        padding: 10px 16px;
+        border-radius: 8px 0 0 8px;
+        color: var(--text-primary);
+        width: 150px;
+        outline: none;
+        transition: all 0.3s;
+      }
+      .import-group input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.1);
+      }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px var(--red-shadow);
-        }
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+      }
 
-        .btn-secondary {
-            background: var(--border-color);
-            color: var(--text-primary);
-        }
-        .btn-secondary:hover {
-            background: #3a3a3a;
-        }
-        
-        .import-group .btn-secondary {
-            border-radius: 0 8px 8px 0;
-            border-left: 0;
-        }
+      .btn-primary {
+        background: linear-gradient(
+          135deg,
+          var(--primary-color) 0%,
+          var(--red-hover) 100%
+        );
+        color: var(--text-primary);
+      }
 
-        .btn-edit {
-            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-            color: #000;
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-        .btn-edit:hover {
-            transform: translateY(-2px);
-        }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px var(--red-shadow);
+      }
 
-        .btn-danger {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: #fff;
-            padding: 8px 16px;
-            font-size: 13px;
-        }
+      .btn-secondary {
+        background: var(--border-color);
+        color: var(--text-primary);
+      }
+      .btn-secondary:hover {
+        background: #3a3a3a;
+      }
 
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
-        }
+      .import-group .btn-secondary {
+        border-radius: 0 8px 8px 0;
+        border-left: 0;
+      }
 
-        /* Table */
-        .table-container {
-            background: var(--background-light);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
+      .btn-edit {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: #000;
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+      .btn-edit:hover {
+        transform: translateY(-2px);
+      }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
+      .btn-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: #fff;
+        padding: 8px 16px;
+        font-size: 13px;
+      }
 
-        thead {
-            background: rgba(26, 26, 26, 0.8);
-        }
+      .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+      }
 
-        th {
-            padding: 16px 12px;
-            text-align: left;
-            font-weight: 600;
-            color: var(--text-secondary);
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+      /* Table */
+      .table-container {
+        background: var(--background-light);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      }
 
-        td {
-            padding: 14px 12px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
-        }
-        
-        /* Cột độ rộng */
-        th:nth-child(1), td:nth-child(1) { width: 6%; text-align: center; } /* ID */
-        th:nth-child(2), td:nth-child(2) { width: 30%; } /* Tiêu đề */
-        th:nth-child(3), td:nth-child(3) { width: 12%; } /* Ảnh */
-        th:nth-child(4), td:nth-child(4) { width: 10%; text-align: center; } /* Thời lượng */
-        th:nth-child(5), td:nth-child(5) { width: 12%; text-align: center; } /* Miễn phí */
-        th:nth-child(6), td:nth-child(6) { width: 10%; text-align: center; } /* TMDB ID */
-        th:nth-child(7), td:nth-child(7) { width: 20%; text-align: center; } /* Hành động */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
 
-        /* Cột tiêu đề (cho phép truncate) */
-        td:nth-child(2) {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 500;
-        }
-        
-        /* Cột ảnh poster */
-        .table-poster {
-            width: 45px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            background: var(--background-surface);
-        }
+      thead {
+        background: rgba(26, 26, 26, 0.8);
+      }
 
-        tbody tr:hover {
-            background: rgba(229, 9, 20, 0.05);
-        }
-        
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
+      th {
+        padding: 16px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
 
-        .badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
+      td {
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+      }
 
-        .badge-active {
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.4));
-            color: #28a745;
-            border: 1px solid rgba(40, 167, 69, 0.3);
-        }
+      /* Cột độ rộng */
+      th:nth-child(1),
+      td:nth-child(1) {
+        width: 6%;
+        text-align: center;
+      } /* ID */
+      th:nth-child(2),
+      td:nth-child(2) {
+        width: 30%;
+      } /* Tiêu đề */
+      th:nth-child(3),
+      td:nth-child(3) {
+        width: 12%;
+      } /* Ảnh */
+      th:nth-child(4),
+      td:nth-child(4) {
+        width: 10%;
+        text-align: center;
+      } /* Thời lượng */
+      th:nth-child(5),
+      td:nth-child(5) {
+        width: 12%;
+        text-align: center;
+      } /* Miễn phí */
+      th:nth-child(6),
+      td:nth-child(6) {
+        width: 10%;
+        text-align: center;
+      } /* TMDB ID */
+      th:nth-child(7),
+      td:nth-child(7) {
+        width: 20%;
+        text-align: center;
+      } /* Hành động */
 
-        .badge-inactive {
-            background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(220, 53, 69, 0.4));
-            color: #dc3545;
-            border: 1px solid rgba(220, 53, 69, 0.3);
-        }
+      /* Cột tiêu đề (cho phép truncate) */
+      td:nth-child(2) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 500;
+      }
 
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-        }
+      /* Cột ảnh poster */
+      .table-poster {
+        width: 45px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: var(--background-surface);
+      }
 
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
+      tbody tr:hover {
+        background: rgba(229, 9, 20, 0.05);
+      }
 
-        .modal.active {
-            display: flex;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
 
-        .modal-content {
-            background: var(--background-light);
-            border-radius: 12px;
-            width: 90%;
-            max-width: 700px; /* Rộng hơn cho form nhiều trường */
-            border: 1px solid var(--border-color);
-            animation: modalSlide 0.3s ease-out;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-        }
+      .badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
 
-        @keyframes modalSlide {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+      .badge-active {
+        background: linear-gradient(
+          135deg,
+          rgba(40, 167, 69, 0.2),
+          rgba(40, 167, 69, 0.4)
+        );
+        color: #28a745;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+      }
 
-        .modal-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      .badge-inactive {
+        background: linear-gradient(
+          135deg,
+          rgba(220, 53, 69, 0.2),
+          rgba(220, 53, 69, 0.4)
+        );
+        color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+      }
 
-        .modal-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
 
-        .close-modal {
-            background: var(--border-color);
-            border: none;
-            color: var(--text-secondary);
-            font-size: 16px;
-            cursor: pointer;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.3s;
-        }
+      /* Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(5px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
 
-        .close-modal:hover {
-            background: var(--primary-color);
-            color: var(--text-primary);
-            transform: rotate(90deg);
-        }
+      .modal.active {
+        display: flex;
+        animation: fadeIn 0.3s ease;
+      }
 
-        .modal-body {
-            padding: 24px;
-            max-height: 70vh;
-            overflow-y: auto;
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
         }
-        
-        /* Scrollbar */
-        .modal-body::-webkit-scrollbar { width: 8px; }
-        .modal-body::-webkit-scrollbar-track { background: var(--background-dark); border-radius: 4px; }
-        .modal-body::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 4px; }
+        to {
+          opacity: 1;
+        }
+      }
 
-        /* Form Grid (from ManageAccount) */
+      .modal-content {
+        background: var(--background-light);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 700px; /* Rộng hơn cho form nhiều trường */
+        border: 1px solid var(--border-color);
+        animation: modalSlide 0.3s ease-out;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+      }
+
+      @keyframes modalSlide {
+        from {
+          opacity: 0;
+          transform: translateY(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .close-modal {
+        background: var(--border-color);
+        border: none;
+        color: var(--text-secondary);
+        font-size: 16px;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.3s;
+      }
+
+      .close-modal:hover {
+        background: var(--primary-color);
+        color: var(--text-primary);
+        transform: rotate(90deg);
+      }
+
+      .modal-body {
+        padding: 24px;
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+
+      /* Scrollbar */
+      .modal-body::-webkit-scrollbar {
+        width: 8px;
+      }
+      .modal-body::-webkit-scrollbar-track {
+        background: var(--background-dark);
+        border-radius: 4px;
+      }
+      .modal-body::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 4px;
+      }
+
+      /* Form Grid (from ManageAccount) */
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .form-group {
+        margin-bottom: 0; /* Xóa margin vì grid đã có gap */
+      }
+
+      .form-group.full-width {
+        grid-column: 1 / -1;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        width: 100%;
+        padding: 12px 16px;
+        background: var(--background-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 14px;
+        outline: none;
+        font-family: inherit;
+        transition: all 0.3s;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus,
+      .form-group textarea:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.1);
+      }
+
+      .form-group input::placeholder,
+      .form-group textarea::placeholder {
+        color: #555;
+      }
+
+      /* CSS cho validation */
+      .form-group input:invalid {
+        border-color: var(--primary-color);
+      }
+
+      .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+
+      .modal-footer {
+        padding: 20px 24px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        background: rgba(10, 10, 10, 0.5);
+      }
+
+      /* Toast (from ManageAccount) */
+      .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--background-surface);
+        color: var(--text-primary);
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        z-index: 2000;
+        display: none; /* Thay đổi: mặc định là none */
+        align-items: center;
+        gap: 12px;
+        min-width: 300px;
+      }
+
+      .toast.show {
+        display: flex;
+        animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
+      .toast.success {
+        border-left: 4px solid #28a745;
+      }
+      .toast.error {
+        border-left: 4px solid #dc3545;
+      }
+
+      .toast-icon {
+        font-size: 24px;
+      }
+      .toast.success .toast-icon {
+        color: #28a745;
+      }
+      .toast.error .toast-icon {
+        color: #dc3545;
+      }
+
+      /* Empty State (from ManageAccount) */
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+        display: none; /* Mặc định ẩn */
+      }
+      .empty-state i {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+      }
+      .empty-state h3 {
+        font-size: 20px;
+        margin-bottom: 10px;
+      }
+
+      /* Responsive */
+      @media (max-width: 900px) {
         .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+          grid-template-columns: 1fr;
         }
-
-        .form-group {
-            margin-bottom: 0; /* Xóa margin vì grid đã có gap */
-        }
-
         .form-group.full-width {
-            grid-column: 1 / -1;
+          grid-column: 1;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          transform: translateX(-100%);
+        }
+        .main-content {
+          margin-left: 0;
+          padding: 20px;
+        }
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .header-actions {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .import-group {
+          display: grid;
+          grid-template-columns: 1fr auto;
+        }
+        .import-group input {
+          width: 100%;
         }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-secondary);
-            font-size: 14px;
-            font-weight: 500;
+        /* Table responsive */
+        .table-container {
+          overflow-x: auto;
         }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--background-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 14px;
-            outline: none;
-            font-family: inherit;
-            transition: all 0.3s;
+        table {
+          min-width: 700px;
         }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-             border-color: var(--primary-color);
-             box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.1);
-        }
-        
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-            color: #555;
-        }
-        
-        /* CSS cho validation */
-        .form-group input:invalid {
-            border-color: var(--primary-color);
-        }
-
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .modal-footer {
-            padding: 20px 24px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            background: rgba(10, 10, 10, 0.5);
-        }
-        
-        /* Toast (from ManageAccount) */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--background-surface);
-            color: var(--text-primary);
-            padding: 16px 24px;
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-            z-index: 2000;
-            display: none; /* Thay đổi: mặc định là none */
-            align-items: center;
-            gap: 12px;
-            min-width: 300px;
-        }
-        
-        .toast.show {
-            display: flex;
-            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-
-        .toast.success { border-left: 4px solid #28a745; }
-        .toast.error { border-left: 4px solid #dc3545; }
-
-        .toast-icon { font-size: 24px; }
-        .toast.success .toast-icon { color: #28a745; }
-        .toast.error .toast-icon { color: #dc3545; }
-
-        /* Empty State (from ManageAccount) */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-            display: none; /* Mặc định ẩn */
-        }
-        .empty-state i {
-            font-size: 64px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        .empty-state h3 {
-            font-size: 20px;
-            margin-bottom: 10px;
-        }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            .form-group.full-width {
-                grid-column: 1;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
-            }
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .header-actions {
-                width: 100%;
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .import-group {
-                display: grid;
-                grid-template-columns: 1fr auto;
-            }
-            .import-group input { width: 100%; }
-            
-            /* Table responsive */
-            .table-container {
-                overflow-x: auto;
-            }
-            table {
-                min-width: 700px;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="sidebar" id="sidebar">
-<div class="logo">
-            <i class="fas fa-film"></i>
-            <span>Content Panel</span>
-        </div>
-        <nav>
-            <a href="/manage-movies" class="nav-item active">
-                <i class="fas fa-video"></i>
-                <span>Quản lý Phim</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-images"></i>
-                <span>Quản lý Banner</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-comments"></i>
-                <span>Quản lý Feedback</span>
-            </a>
-        </nav>
+      <div class="logo">
+        <i class="fas fa-film"></i>
+        <span>Content Panel</span>
+      </div>
+      <nav>
+        <a href="/manage-movies" class="nav-item active">
+          <i class="fas fa-video"></i>
+          <span>Quản lý Phim</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-images"></i>
+          <span>Quản lý Banner</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-comments"></i>
+          <span>Quản lý Feedback</span>
+        </a>
+      </nav>
     </div>
 
     <div class="main-content">
-<div class="header">
-            <h1>Quản lý phim</h1>
-            <div class="header-actions">
-                <div class="import-group">
-                    <input type="number" id="tmdbIdInput" placeholder="Nhập TMDB ID...">
-                    <button class="btn btn-secondary" onclick="importFromTmdb()">
-                        <i class="fas fa-download"></i> Import
-                    </button>
-                </div>
-                <button class="btn btn-primary" onclick="openModal('add')">
-                    <i class="fas fa-plus"></i>
-                    <span>Thêm thủ công</span>
-                </button>
-            </div>
+      <div class="header">
+        <h1>Quản lý phim</h1>
+        <div class="header-actions">
+          <div class="import-group">
+            <input
+              type="number"
+              id="tmdbIdInput"
+              placeholder="Nhập TMDB ID..."
+            />
+            <button class="btn btn-secondary" onclick="importFromTmdb()">
+              <i class="fas fa-download"></i> Import
+            </button>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('add')">
+            <i class="fas fa-plus"></i>
+            <span>Thêm thủ công</span>
+          </button>
         </div>
+      </div>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Tiêu đề</th>
-                        <th>Poster</th>
-                        <th>Thời lượng</th>
-                        <th>Miễn phí?</th>
-                        <th>TMDB ID</th>
-                        <th>Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="movieTableBody">
-                    </tbody>
-            </table>
-            <div id="emptyState" class="empty-state">
-                <i class="fas fa-video-slash"></i>
-                <h3>Chưa có phim nào</h3>
-                <p>Hãy thêm phim mới hoặc import từ TMDB.</p>
-            </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tiêu đề</th>
+              <th>Poster</th>
+              <th>Thời lượng</th>
+              <th>Miễn phí?</th>
+              <th>TMDB ID</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="movieTableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">
+          <i class="fas fa-video-slash"></i>
+          <h3>Chưa có phim nào</h3>
+          <p>Hãy thêm phim mới hoặc import từ TMDB.</p>
         </div>
+      </div>
     </div>
 
-<div class="modal" id="movieModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-title" id="modalTitle">Thêm phim mới</span>
-                <button class="close-modal" onclick="closeModal()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <form id="movieForm" onsubmit="event.preventDefault(); saveMovie();">
-                    <input type="hidden" id="movieId">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="title">Tiêu đề *</label>
-                            <input type="text" id="title" required placeholder="Vd: Avengers: Endgame">
-                        </div>
-                        <div class="form-group">
-                            <label for="releaseDate">Ngày phát hành *</label>
-                            <input type="date" id="releaseDate" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="duration">Thời lượng (phút) *</label>
-                            <input type="number" id="duration" value="0" min="0" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="rating">Rating (0-10) *</label>
-                            <input type="number" id="rating" step="0.1" value="0.0" min="0" max="10" required>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label for="description">Mô tả</label>
-                            <textarea id="description" rows="3" placeholder="Nhập mô tả phim..."></textarea>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label for="url">URL Video *</label>
-                            <input type="text" id="url" required placeholder="Vd: https://.../video.m3u8 hoặc CHƯA CẬP NHẬT">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="posterPath">Poster Path</label>
-                            <input type="text" id="posterPath" placeholder="Vd: /abc.jpg (lấy từ TMDB) hoặc https://...">
-                        </div>
-                        <div class="form-group">
-                            <label for="backdropPath">Backdrop Path</label>
-                            <input type="text" id="backdropPath" placeholder="Vd: /xyz.jpg (lấy từ TMDB) hoặc https://...">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="isFree">Loại phim</label>
-                            <select id="isFree">
-                                <option value="false">Trả phí</option>
-                                <option value="true">Miễn phí</option>
-                            </select>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-                <button type="submit" form="movieForm" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Lưu
-                </button>
-            </div>
+    <div class="modal" id="movieModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title" id="modalTitle">Thêm phim mới</span>
+          <button class="close-modal" onclick="closeModal()">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <form id="movieForm" onsubmit="event.preventDefault(); saveMovie();">
+            <input type="hidden" id="movieId" />
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="title">Tiêu đề *</label>
+                <input
+                  type="text"
+                  id="title"
+                  required
+                  placeholder="Vd: Avengers: Endgame"
+                />
+              </div>
+              <div class="form-group">
+                <label for="releaseDate">Ngày phát hành *</label>
+                <input type="date" id="releaseDate" required />
+              </div>
+              <div class="form-group">
+                <label for="duration">Thời lượng (phút) *</label>
+                <input type="number" id="duration" value="0" min="0" required />
+              </div>
+              <div class="form-group">
+                <label for="rating">Rating (0-10) *</label>
+                <input
+                  type="number"
+                  id="rating"
+                  step="0.1"
+                  value="0.0"
+                  min="0"
+                  max="10"
+                  required
+                />
+              </div>
+
+              <div class="form-group full-width">
+                <label for="description">Mô tả</label>
+                <textarea
+                  id="description"
+                  rows="3"
+                  placeholder="Nhập mô tả phim..."
+                ></textarea>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="url">URL Video *</label>
+                <input
+                  type="text"
+                  id="url"
+                  required
+                  placeholder="Vd: https://.../video.m3u8 hoặc CHƯA CẬP NHẬT"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="posterPath">Poster Path</label>
+                <input
+                  type="text"
+                  id="posterPath"
+                  placeholder="Vd: /abc.jpg (lấy từ TMDB) hoặc https://..."
+                />
+              </div>
+              <div class="form-group">
+                <label for="backdropPath">Backdrop Path</label>
+                <input
+                  type="text"
+                  id="backdropPath"
+                  placeholder="Vd: /xyz.jpg (lấy từ TMDB) hoặc https://..."
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="isFree">Loại phim</label>
+                <select id="isFree">
+                  <option value="false">Trả phí</option>
+                  <option value="true">Miễn phí</option>
+                </select>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="closeModal()"
+          >
+            Hủy
+          </button>
+          <button type="submit" form="movieForm" class="btn btn-primary">
+            <i class="fas fa-save"></i> Lưu
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="modal" id="deleteConfirmModal">
-<div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <span class="modal-title">Xác nhận xóa phim</span>
-                <button class="close-modal" onclick="closeDeleteModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p id="deleteConfirmMessage"></p>
-                <p style="color: #ffc107; margin-top: 10px; font-weight: 500;">
-                    <i class="fas fa-exclamation-triangle"></i> Hành động này không thể hoàn tác.
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Hủy</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">
-                    <i class="fas fa-trash"></i> Xóa vĩnh viễn
-                </button>
-            </div>
+      <div class="modal-content" style="max-width: 500px">
+        <div class="modal-header">
+          <span class="modal-title">Xác nhận xóa phim</span>
+          <button class="close-modal" onclick="closeDeleteModal()">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <p id="deleteConfirmMessage"></p>
+          <p style="color: #ffc107; margin-top: 10px; font-weight: 500">
+            <i class="fas fa-exclamation-triangle"></i> Hành động này không thể
+            hoàn tác.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="closeDeleteModal()"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            id="confirmDeleteBtn"
+            onclick="confirmDelete()"
+          >
+            <i class="fas fa-trash"></i> Xóa vĩnh viễn
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="toast" id="toast">
-<i class="toast-icon fas fa-check-circle"></i>
-        <span id="toastMessage"></span>
+      <i class="toast-icon fas fa-check-circle"></i>
+      <span id="toastMessage"></span>
     </div>
 
     <script>
-        const API_URL = '/api/content/movies';
-        let currentMode = 'add';
-        let currentId = null;
+      const API_URL = "/api/content/movies";
+      let currentMode = "add";
+      let currentId = null;
 
-        document.addEventListener('DOMContentLoaded', loadMovies);
+      document.addEventListener("DOMContentLoaded", loadMovies);
 
-        async function loadMovies() {
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('Failed to fetch movies');
-                const movies = await response.json();
-                renderTable(movies);
-            } catch (error) {
-                console.error(error);
-                showToast('error', 'Không thể tải danh sách phim.');
-            }
+      async function loadMovies() {
+        try {
+          const response = await fetch(API_URL);
+          if (!response.ok) throw new Error("Failed to fetch movies");
+          const movies = await response.json();
+          renderTable(movies);
+        } catch (error) {
+          console.error(error);
+          showToast("error", "Không thể tải danh sách phim.");
         }
+      }
 
-        /**
-         * Đây là hàm đã được sửa lỗi logic hiển thị poster
-         */
-        function renderTable(movies) {
-            const tbody = document.getElementById('movieTableBody');
-            const emptyState = document.getElementById('emptyState');
-            tbody.innerHTML = '';
+      /**
+       * Đây là hàm đã được sửa lỗi logic hiển thị poster
+       */
+      function renderTable(movies) {
+        const tbody = document.getElementById("movieTableBody");
+        const emptyState = document.getElementById("emptyState");
+        tbody.innerHTML = "";
 
-            if (!movies || movies.length === 0) {
-                emptyState.style.display = 'table-row'; // Hiển thị empty state
-                return;
+        if (!movies || movies.length === 0) {
+          emptyState.style.display = "table-row"; // Hiển thị empty state
+          return;
+        }
+        emptyState.style.display = "none";
+
+        movies.sort((a, b) => b.movieID - a.movieID); // Sắp xếp ID mới nhất lên đầu
+
+        movies.forEach((movie) => {
+          const tr = document.createElement("tr");
+          const deleteAction = `openDeleteModal(${movie.movieID}, '${escapeHtml(
+            movie.title
+          )}')`;
+
+          // === LOGIC SỬA LỖI HIỂN THỊ POSTER (BẮT ĐẦU) ===
+          let posterUrl =
+            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; // Ảnh placeholder
+
+          if (movie.posterPath) {
+            // Loại bỏ khoảng trắng (trim) ở đầu và cuối
+            const path = movie.posterPath.trim();
+
+            if (path.startsWith("http://") || path.startsWith("https://")) {
+              // 1. Nếu đã là URL đầy đủ (do thêm thủ công, vd: https://.../anh.jpg) -> dùng luôn
+              posterUrl = path;
+            } else {
+              // 2. Nếu chỉ là path (do import từ TMDB, vd: /abc.jpg) -> ghép với base URL
+              // Đảm bảo path bắt đầu bằng /
+              const tmdbPath = path.startsWith("/") ? path : "/" + path;
+              posterUrl = `https://image.tmdb.org/t/p/w92${tmdbPath}`;
             }
-            emptyState.style.display = 'none';
+          }
+          // === KẾT THÚC LOGIC SỬA LỖI ===
 
-            movies.sort((a, b) => b.movieID - a.movieID); // Sắp xếp ID mới nhất lên đầu
-
-            movies.forEach(movie => {
-                const tr = document.createElement('tr');
-                const deleteAction = `openDeleteModal(${movie.movieID}, '${escapeHtml(movie.title)}')`;
-                
-                // === LOGIC SỬA LỖI HIỂN THỊ POSTER (BẮT ĐẦU) ===
-                let posterUrl = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // Ảnh placeholder
-                
-                if (movie.posterPath) {
-                    // Loại bỏ khoảng trắng (trim) ở đầu và cuối
-                    const path = movie.posterPath.trim();
-                    
-                    if (path.startsWith('http://') || path.startsWith('https://')) {
-                        // 1. Nếu đã là URL đầy đủ (do thêm thủ công, vd: https://.../anh.jpg) -> dùng luôn
-                        posterUrl = path;
-                    } else {
-                        // 2. Nếu chỉ là path (do import từ TMDB, vd: /abc.jpg) -> ghép với base URL
-                        // Đảm bảo path bắt đầu bằng /
-                        const tmdbPath = path.startsWith('/') ? path : '/' + path;
-                        posterUrl = `https://image.tmdb.org/t/p/w92${tmdbPath}`;
-                    }
-                }
-                // === KẾT THÚC LOGIC SỬA LỖI ===
-
-                tr.innerHTML = `
+          tr.innerHTML = `
                     <td>${movie.movieID}</td>
-                    <td title="${escapeHtml(movie.title)}">${escapeHtml(movie.title)}</td>
+                    <td title="${escapeHtml(movie.title)}">${escapeHtml(
+            movie.title
+          )}</td>
                     <td><img src="${posterUrl}" alt="Poster" class="table-poster" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; this.style.opacity=0.3;"></td>
                     <td>${movie.duration} phút</td>
-                    <td>${movie.free ? '<span class="badge badge-active">Miễn phí</span>' : '<span class="badge badge-inactive">Trả phí</span>'}</td>
-                    <td>${movie.tmdbId || 'N/A'}</td>
+                    <td>${
+                      movie.free
+                        ? '<span class="badge badge-active">Miễn phí</span>'
+                        : '<span class="badge badge-inactive">Trả phí</span>'
+                    }</td>
+                    <td>${movie.tmdbId || "N/A"}</td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-edit" onclick="openModal('edit', ${movie.movieID})">
+                            <button class="btn btn-edit" onclick="openModal('edit', ${
+                              movie.movieID
+                            })">
                                 <i class="fas fa-edit"></i> Sửa
                             </button>
                             <button class="btn btn-danger" onclick="${deleteAction}">
@@ -801,255 +955,279 @@
                         </div>
                     </td>
                 `;
-                tbody.appendChild(tr);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function openModal(mode, id = null) {
+        currentMode = mode;
+        currentId = id;
+        const modal = document.getElementById("movieModal");
+        const title = document.getElementById("modalTitle");
+        document.getElementById("movieForm").reset();
+
+        if (mode === "add") {
+          title.textContent = "Thêm phim mới";
+        } else {
+          title.textContent = "Cập nhật phim";
+          fetch(`${API_URL}/${id}`)
+            .then((res) => {
+              if (!res.ok) throw new Error("Không tìm thấy phim");
+              return res.json();
+            })
+            .then((movie) => {
+              document.getElementById("movieId").value = movie.movieID;
+              document.getElementById("title").value = movie.title;
+              document.getElementById("description").value = movie.description;
+              document.getElementById("releaseDate").value = movie.releaseDate
+                ? movie.releaseDate.split("T")[0]
+                : "";
+              document.getElementById("duration").value = movie.duration;
+              document.getElementById("rating").value = movie.rating;
+              document.getElementById("url").value = movie.url;
+              document.getElementById("posterPath").value = movie.posterPath;
+              document.getElementById("backdropPath").value =
+                movie.backdropPath;
+              document.getElementById("isFree").value = movie.free
+                ? "true"
+                : "false";
+            })
+            .catch((err) => {
+              console.error(err);
+              showToast("error", "Không thể tải chi tiết phim.");
+              closeModal();
             });
         }
+        modal.classList.add("active");
+      }
 
+      function closeModal() {
+        document.getElementById("movieModal").classList.remove("active");
+      }
 
-        function openModal(mode, id = null) {
-            currentMode = mode;
-            currentId = id;
-            const modal = document.getElementById('movieModal');
-            const title = document.getElementById('modalTitle');
-            document.getElementById('movieForm').reset();
-            
-            if (mode === 'add') {
-                title.textContent = 'Thêm phim mới';
-            } else {
-                title.textContent = 'Cập nhật phim';
-                fetch(`${API_URL}/${id}`)
-                    .then(res => {
-                        if (!res.ok) throw new Error('Không tìm thấy phim');
-                        return res.json();
-                    })
-                    .then(movie => {
-                        document.getElementById('movieId').value = movie.movieID;
-                        document.getElementById('title').value = movie.title;
-                        document.getElementById('description').value = movie.description;
-                        document.getElementById('releaseDate').value = movie.releaseDate ? movie.releaseDate.split('T')[0] : '';
-                        document.getElementById('duration').value = movie.duration;
-                        document.getElementById('rating').value = movie.rating;
-                        document.getElementById('url').value = movie.url;
-                        document.getElementById('posterPath').value = movie.posterPath;
-                        document.getElementById('backdropPath').value = movie.backdropPath;
-                        document.getElementById('isFree').value = movie.free ? 'true' : 'false';
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        showToast('error', 'Không thể tải chi tiết phim.');
-                        closeModal();
-                    });
-            }
-            modal.classList.add('active');
+      // ================= VALIDATION =================
+      function validateForm() {
+        const title = document.getElementById("title").value.trim();
+        const releaseDate = document.getElementById("releaseDate").value;
+        const duration = parseInt(document.getElementById("duration").value);
+        const rating = parseFloat(document.getElementById("rating").value);
+        const url = document.getElementById("url").value.trim();
+
+        if (!title) {
+          showToast("error", "Tiêu đề phim không được để trống.");
+          return false;
+        }
+        if (!releaseDate) {
+          showToast("error", "Ngày phát hành không được để trống.");
+          return false;
+        }
+        if (isNaN(duration) || duration < 0) {
+          showToast("error", "Thời lượng phải là một số không âm.");
+          return false;
+        }
+        if (isNaN(rating) || rating < 0 || rating > 10) {
+          showToast("error", "Rating phải là một số từ 0 đến 10.");
+          return false;
+        }
+        if (!url) {
+          showToast("error", "URL Video không được để trống.");
+          return false;
+        }
+        // Khi thêm mới, không chấp nhận URL mặc định "CHƯA CẬP NHẬT"
+        if (currentMode === "add" && url.toUpperCase() === "CHƯA CẬP NHẬT") {
+          showToast("error", "Vui lòng cung cấp URL video cụ thể.");
+          return false;
+        }
+        return true;
+      }
+
+      async function saveMovie() {
+        // Chạy validation trước
+        if (!validateForm()) {
+          return;
         }
 
-        function closeModal() {
-            document.getElementById('movieModal').classList.remove('active');
-        }
-        
-        // ================= VALIDATION =================
-        function validateForm() {
-            const title = document.getElementById('title').value.trim();
-            const releaseDate = document.getElementById('releaseDate').value;
-            const duration = parseInt(document.getElementById('duration').value);
-            const rating = parseFloat(document.getElementById('rating').value);
-            const url = document.getElementById('url').value.trim();
+        // Lấy dữ liệu (sau khi đã validate)
+        const movieRequest = {
+          title: document.getElementById("title").value.trim(),
+          description: document.getElementById("description").value.trim(),
+          releaseDate: document.getElementById("releaseDate").value || null,
+          duration: parseInt(document.getElementById("duration").value) || 0,
+          rating: parseFloat(document.getElementById("rating").value) || 0,
+          url: document.getElementById("url").value.trim(),
+          posterPath: document.getElementById("posterPath").value.trim(),
+          backdropPath: document.getElementById("backdropPath").value.trim(),
+          free: document.getElementById("isFree").value === "true",
+          categoryIds: [], // Sẽ cập nhật ở bước sau
+          personIds: [], // Sẽ cập nhật ở bước sau
+        };
 
-            if (!title) {
-                showToast('error', 'Tiêu đề phim không được để trống.');
-                return false;
-            }
-            if (!releaseDate) {
-                showToast('error', 'Ngày phát hành không được để trống.');
-                return false;
-            }
-            if (isNaN(duration) || duration < 0) {
-                showToast('error', 'Thời lượng phải là một số không âm.');
-                return false;
-            }
-             if (isNaN(rating) || rating < 0 || rating > 10) {
-                showToast('error', 'Rating phải là một số từ 0 đến 10.');
-                return false;
-            }
-            if (!url) {
-                showToast('error', 'URL Video không được để trống.');
-                return false;
-            }
-            // Khi thêm mới, không chấp nhận URL mặc định "CHƯA CẬP NHẬT"
-            if (currentMode === 'add' && url.toUpperCase() === 'CHƯA CẬP NHẬT') {
-                 showToast('error', 'Vui lòng cung cấp URL video cụ thể.');
-                return false;
-            }
-            return true;
+        let url = API_URL;
+        let method = "POST";
+
+        if (currentMode === "edit") {
+          url = `${API_URL}/${currentId}`;
+          method = "PUT";
         }
 
-        async function saveMovie() {
-            // Chạy validation trước
-            if (!validateForm()) {
-                return;
-            }
-            
-            // Lấy dữ liệu (sau khi đã validate)
-            const movieRequest = {
-                title: document.getElementById('title').value.trim(),
-                description: document.getElementById('description').value.trim(),
-                releaseDate: document.getElementById('releaseDate').value || null,
-                duration: parseInt(document.getElementById('duration').value) || 0,
-                rating: parseFloat(document.getElementById('rating').value) || 0,
-                url: document.getElementById('url').value.trim(),
-                posterPath: document.getElementById('posterPath').value.trim(),
-                backdropPath: document.getElementById('backdropPath').value.trim(),
-                free: document.getElementById('isFree').value === 'true',
-                categoryIds: [], // Sẽ cập nhật ở bước sau
-                personIds: []  // Sẽ cập nhật ở bước sau
-            };
-            
-            let url = API_URL;
-            let method = 'POST';
+        try {
+          const response = await fetch(url, {
+            method: method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(movieRequest),
+          });
 
-            if (currentMode === 'edit') {
-                url = `${API_URL}/${currentId}`;
-                method = 'PUT';
-            }
-
+          if (!response.ok) {
+            // Cố gắng đọc lỗi JSON từ server (do GlobalExceptionHandler trả về)
+            let errorMsg = "Lỗi lưu phim";
             try {
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(movieRequest)
-                });
-
-                if (!response.ok) {
-                    // Cố gắng đọc lỗi JSON từ server (do GlobalExceptionHandler trả về)
-                    let errorMsg = 'Lỗi lưu phim';
-                    try {
-                        // Thử parse JSON trước
-                        const errorData = await response.json();
-                        // Lấy lỗi từ validation
-                        if (errorData.errors) {
-                            errorMsg = Object.values(errorData.errors).join(', ');
-                        } else {
-                            errorMsg = errorData.message || 'Lỗi không xác định';
-                        }
-                    } catch (e) {
-                        // Nếu không phải JSON, đọc text
-                        errorMsg = await response.text();
-                    }
-                    throw new Error(errorMsg);
-                }
-                
-                showToast('success', currentMode === 'add' ? 'Thêm phim thành công!' : 'Cập nhật phim thành công!');
-                closeModal();
-                loadMovies();
-            } catch (error) {
-                console.error('Save error:', error);
-                showToast('error', error.message);
+              // Thử parse JSON trước
+              const errorData = await response.json();
+              // Lấy lỗi từ validation
+              if (errorData.errors) {
+                errorMsg = Object.values(errorData.errors).join(", ");
+              } else {
+                errorMsg = errorData.message || "Lỗi không xác định";
+              }
+            } catch (e) {
+              // Nếu không phải JSON, đọc text
+              errorMsg = await response.text();
             }
+            throw new Error(errorMsg);
+          }
+
+          showToast(
+            "success",
+            currentMode === "add"
+              ? "Thêm phim thành công!"
+              : "Cập nhật phim thành công!"
+          );
+          closeModal();
+          loadMovies();
+        } catch (error) {
+          console.error("Save error:", error);
+          showToast("error", error.message);
+        }
+      }
+
+      async function importFromTmdb() {
+        const tmdbIdInput = document.getElementById("tmdbIdInput");
+        const tmdbId = tmdbIdInput.value;
+        if (!tmdbId) {
+          showToast("error", "Vui lòng nhập TMDB ID");
+          return;
         }
 
-        async function importFromTmdb() {
-            const tmdbIdInput = document.getElementById('tmdbIdInput');
-            const tmdbId = tmdbIdInput.value;
-            if (!tmdbId) {
-                showToast('error', 'Vui lòng nhập TMDB ID');
-                return;
-            }
+        try {
+          const response = await fetch(`${API_URL}/import/${tmdbId}`, {
+            method: "POST",
+          });
 
+          if (!response.ok) {
+            let errorMsg = "Lỗi import";
             try {
-                const response = await fetch(`${API_URL}/import/${tmdbId}`, {
-                    method: 'POST'
-                });
-                
-                if (!response.ok) {
-                    let errorMsg = 'Lỗi import';
-                    try {
-                        const errorData = await response.json();
-                        errorMsg = errorData.message || 'Lỗi không xác định';
-                    } catch (e) {
-                        errorMsg = await response.text();
-                    }
-                    throw new Error(errorMsg);
-                }
-                
-                const newMovie = await response.json();
-                showToast('success', `Import phim '${newMovie.title}' thành công!`);
-                tmdbIdInput.value = '';
-                loadMovies();
-            } catch (error) {
-                console.error('Import error:', error);
-                showToast('error', error.message);
+              const errorData = await response.json();
+              errorMsg = errorData.message || "Lỗi không xác định";
+            } catch (e) {
+              errorMsg = await response.text();
             }
-        }
+            throw new Error(errorMsg);
+          }
 
-        // --- Delete Modal Functions ---
-        function openDeleteModal(id, title) {
-            document.getElementById('confirmDeleteBtn').dataset.movieId = id;
-            document.getElementById('deleteConfirmMessage').innerHTML =
-                `Bạn có chắc chắn muốn xóa phim <strong style="color: var(--primary-color)">"${escapeHtml(title)}"</strong>?`;
-            document.getElementById('deleteConfirmModal').classList.add('active');
+          const newMovie = await response.json();
+          showToast("success", `Import phim '${newMovie.title}' thành công!`);
+          tmdbIdInput.value = "";
+          loadMovies();
+        } catch (error) {
+          console.error("Import error:", error);
+          showToast("error", error.message);
         }
+      }
 
-        function closeDeleteModal() {
-            document.getElementById('deleteConfirmModal').classList.remove('active');
-        }
+      // --- Delete Modal Functions ---
+      function openDeleteModal(id, title) {
+        document.getElementById("confirmDeleteBtn").dataset.movieId = id;
+        document.getElementById(
+          "deleteConfirmMessage"
+        ).innerHTML = `Bạn có chắc chắn muốn xóa phim <strong style="color: var(--primary-color)">"${escapeHtml(
+          title
+        )}"</strong>?`;
+        document.getElementById("deleteConfirmModal").classList.add("active");
+      }
 
-        async function confirmDelete() {
-            const id = document.getElementById('confirmDeleteBtn').dataset.movieId;
-            if (!id) return;
-            
+      function closeDeleteModal() {
+        document
+          .getElementById("deleteConfirmModal")
+          .classList.remove("active");
+      }
+
+      async function confirmDelete() {
+        const id = document.getElementById("confirmDeleteBtn").dataset.movieId;
+        if (!id) return;
+
+        try {
+          const response = await fetch(`${API_URL}/${id}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            let errorMsg = "Lỗi xóa phim";
             try {
-                const response = await fetch(`${API_URL}/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (!response.ok) {
-                    let errorMsg = 'Lỗi xóa phim';
-                    try {
-                        const errorData = await response.json();
-                        errorMsg = errorData.message || 'Lỗi không xác định';
-                    } catch (e) {
-                        errorMsg = await response.text();
-                    }
-                    throw new Error(errorMsg);
-                }
-                
-                closeDeleteModal();
-                showToast('success', 'Xóa phim thành công!');
-                loadMovies();
-            } catch (error) {
-                console.error('Delete error:', error);
-                closeDeleteModal();
-                showToast('error', error.message);
+              const errorData = await response.json();
+              errorMsg = errorData.message || "Lỗi không xác định";
+            } catch (e) {
+              errorMsg = await response.text();
             }
-        }
-        
-        // --- Utilities ---
-        let toastTimeout;
-        function showToast(type, message) {
-            const toast = document.getElementById('toast');
-            const icon = toast.querySelector('.toast-icon');
-            const msg = document.getElementById('toastMessage');
-            
-            toast.className = `toast ${type}`;
-            if (type === 'success') icon.className = 'toast-icon fas fa-check-circle';
-            if (type === 'error') icon.className = 'toast-icon fas fa-exclamation-circle';
-            msg.textContent = message;
-            
-            toast.classList.add('show');
-            
-            // Clear
-            if (toastTimeout) clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => { 
-                toast.classList.remove('show'); 
-            }, 3000);
-        }
+            throw new Error(errorMsg);
+          }
 
-        function escapeHtml(s) {
-            if (!s) return '';
-            return s.replace(/[&<>"']/g, c => 
-                ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
-            );
+          closeDeleteModal();
+          showToast("success", "Xóa phim thành công!");
+          loadMovies();
+        } catch (error) {
+          console.error("Delete error:", error);
+          closeDeleteModal();
+          showToast("error", error.message);
         }
+      }
+
+      // --- Utilities ---
+      let toastTimeout;
+      function showToast(type, message) {
+        const toast = document.getElementById("toast");
+        const icon = toast.querySelector(".toast-icon");
+        const msg = document.getElementById("toastMessage");
+
+        toast.className = `toast ${type}`;
+        if (type === "success")
+          icon.className = "toast-icon fas fa-check-circle";
+        if (type === "error")
+          icon.className = "toast-icon fas fa-exclamation-circle";
+        msg.textContent = message;
+
+        toast.classList.add("show");
+
+        // Clear
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 3000);
+      }
+
+      function escapeHtml(s) {
+        if (!s) return "";
+        return s.replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c])
+        );
+      }
     </script>
-</body>
+  </body>
 </html>
