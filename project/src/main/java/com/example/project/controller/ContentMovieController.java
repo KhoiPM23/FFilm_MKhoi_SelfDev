@@ -53,7 +53,8 @@ public class ContentMovieController {
             Movie importedMovie = movieService.importFromTmdb(tmdbId);
             return ResponseEntity.status(HttpStatus.CREATED).body(importedMovie);
         } catch (Exception e) {
-            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được GlobalExceptionHandler xử lý
+            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được
+            // GlobalExceptionHandler xử lý
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
@@ -91,10 +92,6 @@ public class ContentMovieController {
         }
     }
 
-    /**
-     * Xóa phim
-     * Endpoint: DELETE /api/content/movies/{id}
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteMovie(@PathVariable int id) {
         try {
