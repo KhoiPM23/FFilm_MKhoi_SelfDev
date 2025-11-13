@@ -116,7 +116,25 @@
 
         
 
-        <a href="/subscriptionPlan" class="btn-buy">Mua gói</a>
+         <a
+          th:if="${session.user}"
+          th:href="@{/favorites/my-list}"
+          class="btn-buy"
+          >Yêu thích</a
+        >
+        <a th:unless="${session.user}" th:href="@{/login}" class="btn-buy"
+          >Yêu thích</a
+        >
+
+        <a
+          th:if="${session.user}"
+          th:href="@{/subscriptionPlan}"
+          class="btn-buy"
+          >Mua gói</a
+        >
+        <a th:unless="${session.user}" th:href="@{/login}" class="btn-buy"
+          >Mua gói</a
+        >
         
         <div th:unless="${session.user}" class="auth-buttons">
         <a th:href="@{/login}" class="btn-login">Đăng nhập</a>

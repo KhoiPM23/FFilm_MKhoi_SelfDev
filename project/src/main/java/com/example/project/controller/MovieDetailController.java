@@ -244,4 +244,5 @@ public class MovieDetailController {
         model.addAttribute("movieId", id);
         return "player";
     }
+    
 }
