@@ -353,7 +353,7 @@ body {
 /* Navigation */
 .main-nav {
     display: flex;
-    gap: 25px;
+    gap: 10px;
     align-items: center;
 }
 .main-nav a {
