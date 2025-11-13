@@ -308,8 +308,10 @@ public class MovieService {
                     String mediaType = item.optString("media_type", "movie"); 
                     if (mediaType.equals("movie") || mediaType.equals("tv")) {
                         
-                        // [G46] SỬA LỖI G29: Gọi hàm LAZY
-                        Movie movie = this.syncMovieFromList(item); // ĐÚNG
+                        int tmdbId = item.optInt("id");
+                        if (tmdbId <= 0) continue; 
+
+                        Movie movie = this.getMoviePartial(tmdbId);
                         
                         if (movie != null) {
                             movies.add(this.convertToMap(movie));

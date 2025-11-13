@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/movie")
@@ -19,7 +22,6 @@ public class MovieApiController {
     @Autowired
     private MovieService movieService;
 
-    // Trong file MovieApiController.java
 
     /**
      * [G43] Sửa lỗi: Hover Card phải gọi hàm LAZY
