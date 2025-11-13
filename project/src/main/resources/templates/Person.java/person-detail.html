@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết diễn viên - FFilm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+
+    <style>
+        /* Giữ nền tối đồng bộ */
+        body { background: #0c0c0c; }
+        
+        .person-hero {
+            padding-top: 100px;
+            min-height: 60vh;
+            background: linear-gradient(to right, #0f0f0f 0%, #1a1a1a 100%);
+            display: flex;
+            align-items: center;
+            padding-bottom: 60px;
+        }
+        
+        .person-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 50px;
+            display: flex;
+            gap: 60px;
+            align-items: flex-start;
+        }
+        
+        .person-avatar {
+            width: 320px;
+            height: 480px; /* Đổi sang tỉ lệ dọc chuẩn poster/ảnh thờ cho chuyên nghiệp hơn */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+        }
+        
+        .person-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .person-info {
+            flex: 1;
+            padding-top: 20px;
+        }
+        
+        .person-name {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 25px;
+            line-height: 1.2;
+        }
+        
+        .person-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 25px;
+            margin-bottom: 35px;
+            background: rgba(255,255,255,0.03);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .meta-label {
+            font-size: 0.9rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .meta-value {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #e5e5e5;
+        }
+        
+        .person-bio-section {
+            margin-bottom: 30px;
+        }
+        .person-bio-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #fff;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .person-bio {
+            font-size: 1.05rem;
+            line-height: 1.8;
+            color: #ccc;
+            max-width: 900px;
+        }
+        
+        .content-section {
+            padding: 60px 50px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            padding-left: 15px;
+            border-left: 4px solid #e50914;
+        }
+        
+        /* [QUAN TRỌNG] Grid giống trang Search */
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .person-container { flex-direction: column; align-items: center; text-align: center; }
+            .person-meta { justify-content: center; text-align: left; }
+            .person-avatar { width: 250px; height: 375px; }
+        }
+        @media (max-width: 768px) {
+            .person-container { padding: 0 20px; }
+            .content-section { padding: 40px 20px; }
+            .movies-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: header}"></div>
+    
+    <section class="person-hero">
+        <div class="person-container">
+            <div class="person-avatar">
+                <img id="personAvatar" th:src="${person.avatar}" alt="Actor" onerror="this.src='/images/placeholder-user.jpg'">
+            </div>
+            
+            <div class="person-info">
+                <h1 class="person-name" id="personName" th:text="${person.name}">Loading...</h1>
+                
+                <div class="person-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Nghề nghiệp</span>
+                        <span class="meta-value" id="personJob" th:text="${person.known_for_department}">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Ngày sinh</span>
+                        <span class="meta-value" id="personBirthday" th:text="${person.birthday}">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Nơi sinh</span>
+                        <span class="meta-value" id="personBirthplace" th:text="${person.place_of_birth}">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Độ nổi tiếng</span>
+                        <span class="meta-value" id="personPopularity" th:text="${person.popularity} + ' điểm'">—</span>
+                    </div>
+                </div>
+                
+                <div class="person-bio-section">
+                    <h3 class="person-bio-title"><i class="fas fa-align-left" style="color: #e50914;"></i> Tiểu sử</h3>
+                    <p class="person-bio" id="personBio" th:text="${person.biography}">Đang tải thông tin...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="content-section">
+        <h2 class="section-title">Phim đã tham gia</h2>
+        
+        <div class="movies-grid" id="moviesGrid">
+        
+            <div th:each="movie : ${movies}" class="movie-card" th:attr="data-movie-id=${movie.id}">
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
+                </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating" style="display:flex; justify-content:space-between;">
+                        <span>⭐ <span th:text="${movie.rating}"></span></span>
+                        <span style="font-size:0.8rem; color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100px;" 
+                            th:text="${movie.role_info}">Vai diễn</span>
+                    </p>
+                </div>
+                
+                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+            </div>
+            
+        </div>
+    </section>
+    
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    <div th:replace="~{fragments/ai-chat :: ai-chat}"></div>
+    <div th:replace="~{fragments/share-modal :: shareModal}"></div>
+    
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script th:src="@{/js/movie/ai-agent.js}" defer></script>
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
+
+    
+</body>
+</html>

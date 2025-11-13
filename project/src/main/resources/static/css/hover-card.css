@@ -1,0 +1,280 @@
+/* ========================================= */
+/* Quy tắc CSS cho HOVER CARD (G37) */
+/* ========================================= */
+
+.movie-hover-card {
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    width: 300px;
+    background: #1e1e1e;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    
+    z-index: 99999; 
+    
+    opacity: 0;
+    visibility: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events: none;
+}
+
+
+.movie-card:hover .movie-hover-card,
+.movie-hover-card:hover {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) scale(1);
+    pointer-events: auto; 
+    z-index: 10000;
+}
+
+.movie-hover-card.adjust-left {
+    transform: translateX(0) scale(1);
+    left: 0;
+}
+.movie-hover-card.adjust-right {
+    transform: translateX(-100%) scale(1);
+    left: 100%;
+}
+
+
+/* PHẦN MEDIA */
+.hover-card-media {
+    position: relative;
+    padding-top: 56.25%; 
+    overflow: hidden;
+}
+
+.hover-card-image,
+.hover-player-container,
+.hover-player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.hover-card-media.video-active-scale {
+    transform: scale(1.03); 
+}
+
+.hover-player-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; 
+    border-radius: 8px 8px 0 0; 
+    transition: opacity 1s ease;
+    z-index: 1001;
+}
+
+.hover-player-container iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 150% !important;  
+    height: 150% !important; 
+    transform: translate(-50%, -50%); 
+    pointer-events: none; 
+}
+
+.hover-card-image {
+    object-fit: cover;
+}
+
+.hover-volume-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 35px;
+    height: 35px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    z-index: 1001;
+    transition: background 0.2s;
+    pointer-events: auto;
+}
+.hover-volume-btn:hover {
+    background: rgba(229, 9, 20, 0.9);
+}
+
+
+/* PHẦN CONTENT */
+.hover-card-content {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hover-card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hover-card-meta,
+.hover-card-meta-extra {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+.meta-rating {
+    color: gold;
+}
+.meta-extra-rating {
+    background: rgba(220, 53, 69, 0.85) !important;
+    color: #fff !important;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+.meta-quality {
+    border: 1px solid #aaa;
+    padding: 0 4px;
+    border-radius: 2px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.hover-card-description {
+    font-size: 0.9rem;
+    color: #ccc;
+    display: -webkit-box;
+    -webkit-line-clamp: 3; 
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Genres (Giữ nguyên) */
+.hover-card-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+}
+.genre-tag {
+    font-size: 0.8rem;
+    color: #aaa;
+    background: #333;
+    padding: 2px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+
+/* PHẦN ACTIONS (Giữ nguyên) */
+.hover-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hover-play-btn {
+    background: #E50914;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+.hover-play-btn:hover {
+    background: #b80d15;
+}
+
+.hover-action-icon {
+    width: 35px;
+    height: 35px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hover-action-icon:hover {
+    border-color: #E50914;
+    background: rgba(229, 9, 20, 0.7);
+    transform: scale(1.1);
+}
+
+.hover-like-btn.liked i.fas {
+    color: #E50914; 
+}
+
+.loading-meta,
+.loading-genre {
+    opacity: 0.6;
+}
+
+/* Tooltip cho genre +N (Giữ nguyên) */
+.genre-tag-more {
+    position: relative;
+    cursor: help;
+}
+
+/* [G37] XÓA ::after VÌ ĐÃ DÙNG TOOLTIP THẬT */
+/*
+.genre-tag-more::after { ... }
+.genre-tag-more:hover::after { ... }
+*/
+
+/* [G37] SỬA: Tooltip dọc, đi lên, tương thích JS */
+.custom-genre-tooltip {
+    position: absolute;
+    bottom: 100%; /* Đặt ngay phía trên nút +N */
+    left: 0; /* Căn lề trái với nút +N */
+    transform: none; /* Bỏ căn giữa */
+    
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px;
+    
+    display: none; /* [QUAN TRỌNG] Để JS (showGenreTooltip) hoạt động */
+    
+    flex-direction: column; /* [SỬA] Hiển thị dọc */
+    gap: 6px;
+    
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 100001; 
+    pointer-events: none;
+    margin-bottom: 5px; /* Khoảng cách 5px bên trên nút +N */
+}
+
+/* [G37] SỬA: Bubble margin */
+.custom-genre-tooltip .genre-bubble {
+    background-color: #333; 
+    color: #ccc; 
+    padding: 4px 8px; 
+    white-space: nowrap;
+    margin: 2px 0; /* [SỬA] Căn lề dọc */
+    border-radius: 4px;
+    font-size: 0.8rem;
+}

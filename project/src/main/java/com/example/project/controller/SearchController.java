@@ -1,23 +1,36 @@
 package com.example.project.controller;
 
+import com.example.project.model.Movie;
+import com.example.project.model.Person; // [G42] Thêm import
+import com.example.project.service.MovieService;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
-import java.util.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Controller
 public class SearchController {
 
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
-    private final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
+    
+    @Autowired private MovieService movieService;
+    @Autowired private RestTemplate restTemplate;
+
+    // [Dán toàn bộ code này vào file SearchController.java]
 
     @GetMapping("/search")
     public String search(
@@ -30,83 +43,105 @@ public class SearchController {
             @RequestParam(required = false) String quickFilter,
             Model model) {
         
-        // ========== CASE 1: Không có query -> Trang search trống với trending ==========
         if (query == null || query.trim().isEmpty()) {
-            model.addAttribute("hasResults", false);
-            model.addAttribute("searchResults", new ArrayList<>());
-            model.addAttribute("relatedMovies", new ArrayList<>());
-            model.addAttribute("aiSuggestions", new ArrayList<>());
-            setDefaultAttributes(model);
+            setEmptyResults(model, null);
             return "search";
         }
         
-        // ========== CASE 2: Có query -> Thực hiện tìm kiếm ==========
         try {
-            RestTemplate restTemplate = new RestTemplate();
             String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
-            
-            // Build search URL
-            String searchUrl = buildSearchUrl(encodedQuery, page, genres, yearFrom, yearTo, minRating, quickFilter);
+
+            // [SỬA] BƯỚC 1: LẤY KẾT QUẢ CỦA PAGE HIỆN TẠI (ĐỂ HIỂN THỊ GRID)
+            String searchUrl = BASE_URL + "/search/multi?api_key=" + API_KEY + 
+                               "&language=vi-VN&query=" + encodedQuery + 
+                               "&page=" + page + "&include_adult=false";
+                               
             String response = restTemplate.getForObject(searchUrl, String.class);
-            
-            if (response == null || response.isEmpty()) {
-                setEmptyResults(model, query);
-                return "search";
-            }
-            
             JSONObject json = new JSONObject(response);
             JSONArray results = json.optJSONArray("results");
-            int totalResults = json.optInt("total_results", 0);
-            int totalPages = json.optInt("total_pages", 1);
-            
-            List<Map<String, Object>> movies = new ArrayList<>();
-            
-            if (results != null && results.length() > 0) {
+
+            List<Map<String, Object>> searchResults = new ArrayList<>(); 
+            List<Integer> currentPageResultIds = new ArrayList<>(); // ID của trang này
+            Integer topResultIdPage1 = null; // ID top 1 của trang 1
+
+            if (results != null) {
                 for (int i = 0; i < results.length(); i++) {
-                    try {
-                        JSONObject item = results.getJSONObject(i);
-                        String posterPath = item.optString("poster_path", "");
+                    JSONObject item = results.getJSONObject(i);
+                    String mediaType = item.optString("media_type", "movie");
+                    
+                    if (mediaType.equals("movie") || mediaType.equals("tv")) {
                         
-                        Map<String, Object> movie = new HashMap<>();
-                        movie.put("id", item.optInt("id"));
-                        movie.put("title", item.optString("title", item.optString("name", "Unknown")));
-                        movie.put("poster", IMAGE_BASE_URL + "/w500" + posterPath);
-                        movie.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
-                        movie.put("year", extractYear(item));
-                        movie.put("overview", item.optString("overview", ""));
+                        Movie movie = movieService.syncMovieFromList(item); 
                         
-                        JSONArray genreIds = item.optJSONArray("genre_ids");
-                        List<Integer> genresList = new ArrayList<>();
-                        if (genreIds != null) {
-                            for (int j = 0; j < genreIds.length(); j++) {
-                                genresList.add(genreIds.getInt(j));
-                            }
+                        if (movie != null) {
+                            searchResults.add(movieService.convertToMap(movie));
+                            currentPageResultIds.add(movie.getTmdbId()); 
                         }
-                        movie.put("genreIds", genresList);
+                    } 
+                    else if (mediaType.equals("person")) {
                         
-                        movies.add(movie);
-                    } catch (Exception e) {
-                        System.err.println("Error parsing movie: " + e.getMessage());
+                        Person person = movieService.getPersonPartialOrSync(item);
+
+                        if (person != null) {
+                            Map<String, Object> personAsMovie = new HashMap<>();
+                            personAsMovie.put("id", person.getTmdbId()); 
+                            personAsMovie.put("tmdbId", person.getTmdbId());
+                            personAsMovie.put("title", person.getFullName());
+                            personAsMovie.put("rating", String.format("%.1f", person.getPopularity() != null ? person.getPopularity() / 10 : 0.0));
+                            personAsMovie.put("poster", person.getProfilePath() != null 
+                                ? "https://image.tmdb.org/t/p/w500" + person.getProfilePath() 
+                                : "/images/placeholder-person.jpg");
+                            personAsMovie.put("year", "Diễn viên"); 
+                            personAsMovie.put("isPerson", true); 
+                            searchResults.add(personAsMovie);
+                        }
                     }
                 }
             }
+
+            // [SỬA] BƯỚC 2: LẤY DỮ LIỆU GỐC CHO CÁC CAROUSEL (LUÔN TỪ PAGE 1)
+            // Chỉ gọi API page 1 nếu ta chưa có (ví dụ khi đang ở page 2+)
+            if (page > 1 && !searchResults.isEmpty()) {
+                try {
+                    String page1SearchUrl = BASE_URL + "/search/multi?api_key=" + API_KEY + 
+                                          "&language=vi-VN&query=" + encodedQuery + 
+                                          "&page=1&include_adult=false";
+                    String page1Response = restTemplate.getForObject(page1SearchUrl, String.class);
+                    JSONArray page1Results = new JSONObject(page1Response).optJSONArray("results");
+                    if (page1Results != null && page1Results.length() > 0) {
+                        // Cẩn thận tìm phim đầu tiên, vì multi có thể có person
+                        for (int i = 0; i < page1Results.length(); i++) {
+                            JSONObject item = page1Results.getJSONObject(i);
+                            if (item.optString("media_type", "movie").equals("movie") || item.optString("media_type", "movie").equals("tv")) {
+                                topResultIdPage1 = item.optInt("id");
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Lỗi lấy topResultId (page 1): " + e.getMessage());
+                }
+            } else if (!currentPageResultIds.isEmpty()) {
+                // Tiết kiệm API: Nếu đang ở page 1, lấy luôn ID top
+                topResultIdPage1 = currentPageResultIds.get(0);
+            }
+
+            // [SỬA] BƯỚC 3: GỌI HÀM MỚI ĐỂ FILL ĐẦY CAROUSEL
+            // Các hàm này sẽ tự lọc ID trùng với 'currentPageResultIds'
+            List<Map<String, Object>> aiSuggestions = loadAiSuggestions(topResultIdPage1, currentPageResultIds);
+            List<Map<String, Object>> relatedMovies = loadRelatedMovies(encodedQuery, topResultIdPage1, currentPageResultIds);
             
-            // Get AI suggestions (related movies based on query)
-            List<Map<String, Object>> aiSuggestions = getAISuggestions(restTemplate, query, movies);
+            model.addAttribute("aiSuggestions", aiSuggestions); 
+            model.addAttribute("relatedMovies", relatedMovies); // [THÊM]
             
-            boolean hasResults = !movies.isEmpty();
-            
-            // Add to model
-            model.addAttribute("searchResults", movies);
-            model.addAttribute("aiSuggestions", aiSuggestions);
-            model.addAttribute("relatedMovies", new ArrayList<>()); // Không cần nữa
+            model.addAttribute("searchResults", searchResults); 
             model.addAttribute("query", query);
-            model.addAttribute("totalResults", totalResults);
+            model.addAttribute("totalResults", json.optInt("total_results", 0));
             model.addAttribute("currentPage", page);
-            model.addAttribute("totalPages", totalPages);
-            model.addAttribute("hasResults", hasResults);
+            model.addAttribute("totalPages", Math.min(json.optInt("total_pages", 1), 500));
+            model.addAttribute("hasResults", !searchResults.isEmpty());
             
-            // Preserve filters
+            // (Giữ nguyên các model.addAttribute filter)
             model.addAttribute("selectedGenres", genres != null ? genres : "");
             model.addAttribute("yearFrom", yearFrom != null ? yearFrom : "");
             model.addAttribute("yearTo", yearTo != null ? yearTo : "");
@@ -116,183 +151,106 @@ public class SearchController {
             return "search";
             
         } catch (Exception e) {
-            System.err.println("Search error: " + e.getMessage());
             e.printStackTrace();
             setEmptyResults(model, query);
-            model.addAttribute("error", "Có lỗi xảy ra: " + e.getMessage());
             return "search";
         }
     }
     
-    private String buildSearchUrl(String query, int page, String genres, String yearFrom, 
-                               String yearTo, String minRating, String quickFilter) {
-        StringBuilder url = new StringBuilder();
-        
-        // Nếu có filters -> dùng discover + search
-        if (hasFilters(genres, yearFrom, yearTo, minRating, quickFilter)) {
-            // Bước 1: Search để lấy IDs
-            // Bước 2: Discover với filters
-            // => Phức tạp, NÊN đơn giản hóa: chỉ dùng search, filter ở client
-            
-            url.append(BASE_URL).append("/search/multi");
-            url.append("?api_key=").append(API_KEY);
-            url.append("&language=vi-VN");
-            url.append("&query=").append(query);
-            url.append("&page=").append(page);
-            url.append("&include_adult=false");
-        } else {
-            // Simple search
-            url.append(BASE_URL).append("/search/multi");
-            url.append("?api_key=").append(API_KEY);
-            url.append("&language=vi-VN");
-            url.append("&query=").append(query);
-            url.append("&page=").append(page);
-            url.append("&include_adult=false");
-        }
-        
-        return url.toString();
-    }
-    
-    private boolean hasFilters(String genres, String yearFrom, String yearTo, 
-                               String minRating, String quickFilter) {
-        return (genres != null && !genres.isEmpty()) ||
-               (yearFrom != null && !yearFrom.isEmpty()) ||
-               (yearTo != null && !yearTo.isEmpty()) ||
-               (minRating != null && !minRating.equals("0")) ||
-               (quickFilter != null && !quickFilter.isEmpty());
-    }
-    
-    private String extractYear(JSONObject item) {
-        String releaseDate = item.optString("release_date", 
-                            item.optString("first_air_date", ""));
-        if (releaseDate != null && releaseDate.length() >= 4) {
-            return releaseDate.substring(0, 4);
-        }
-        return "";
-    }
-    
-    private List<Map<String, Object>> getRelatedMovies(RestTemplate restTemplate, 
-                                                        Map<String, Object> firstMovie) {
-        List<Map<String, Object>> related = new ArrayList<>();
-        
+    // [THÊM] HÀM MỚI: LOAD PHIM LIÊN QUAN (3 BẬC ƯU TIÊN)
+    private List<Map<String, Object>> loadRelatedMovies(String encodedQuery, Integer topResultId, List<Integer> excludeIds) {
+        // java.util.Set và java.util.HashSet
+        Set<Integer> addedIds = new HashSet<>(excludeIds);
+        List<Map<String, Object>> movies = new ArrayList<>();
+        int limit = 20;
+
         try {
-            @SuppressWarnings("unchecked")
-            List<Integer> genreIds = (List<Integer>) firstMovie.get("genreIds");
-            
-            if (genreIds == null || genreIds.isEmpty()) {
-                return related;
+            // Bậc 1: Dùng API Search
+            String searchUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
+            addMoviesToList(searchUrl, movies, addedIds, limit);
+            if (movies.size() >= limit) return movies;
+
+            // Bậc 2: Dùng API Similar (Nếu có topResultId)
+            if (topResultId != null) {
+                String similarUrl = BASE_URL + "/movie/" + topResultId + "/similar?api_key=" + API_KEY + "&language=vi-VN&page=1";
+                addMoviesToList(similarUrl, movies, addedIds, limit);
+                if (movies.size() >= limit) return movies;
             }
+
+            // Bậc 3: Dùng API Popular (Để fill đầy)
+            String popularUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
+            addMoviesToList(popularUrl, movies, addedIds, limit);
             
-            String genreId = String.valueOf(genreIds.get(0));
-            String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
-                        "&language=vi-VN&with_genres=" + genreId + 
-                        "&sort_by=popularity.desc&page=1";
-            
-            String response = restTemplate.getForObject(url, String.class);
-            if (response == null) return related;
-            
-            JSONObject json = new JSONObject(response);
-            JSONArray results = json.optJSONArray("results");
-            
-            if (results != null) {
-                for (int i = 0; i < Math.min(8, results.length()); i++) {
-                    JSONObject item = results.getJSONObject(i);
-                    String posterPath = item.optString("poster_path", "");
-                    
-                    if (!posterPath.isEmpty()) {
-                        Map<String, Object> movie = new HashMap<>();
-                        movie.put("id", item.optInt("id"));
-                        movie.put("title", item.optString("title", "Unknown"));
-                        movie.put("poster", IMAGE_BASE_URL + "/w500" + posterPath);
-                        movie.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
-                        related.add(movie);
-                    }
-                }
-            }
         } catch (Exception e) {
-            System.err.println("Error fetching related movies: " + e.getMessage());
+            System.err.println("Lỗi loadRelatedMovies: " + e.getMessage());
         }
-        
-        return related;
+        return movies;
     }
 
-    private List<Map<String, Object>> getAISuggestions(RestTemplate restTemplate, String query, List<Map<String, Object>> searchResults) {
-        List<Map<String, Object>> suggestions = new ArrayList<>();
-        
+    // [THÊM] HÀM MỚI: LOAD GỢI Ý AI (3 BẬC ƯU TIÊN)
+    private List<Map<String, Object>> loadAiSuggestions(Integer topResultId, List<Integer> excludeIds) {
+        Set<Integer> addedIds = new HashSet<>(excludeIds);
+        List<Map<String, Object>> movies = new ArrayList<>();
+        int limit = 20;
+
         try {
-            // Lấy genre từ kết quả đầu tiên (nếu có)
-            String genreId = "";
-            if (!searchResults.isEmpty()) {
-                @SuppressWarnings("unchecked")
-                List<Integer> genreIds = (List<Integer>) searchResults.get(0).get("genreIds");
-                if (genreIds != null && !genreIds.isEmpty()) {
-                    genreId = String.valueOf(genreIds.get(0));
-                }
+            // Bậc 1: Dùng API Recommendations (Nếu có topResultId)
+            if (topResultId != null) {
+                String recommendUrl = BASE_URL + "/movie/" + topResultId + "/recommendations?api_key=" + API_KEY + "&language=vi-VN&page=1";
+                addMoviesToList(recommendUrl, movies, addedIds, limit);
+                if (movies.size() >= limit) return movies;
+            }
+
+            // Bậc 2: Dùng API Similar (Fallback nếu Bậc 1 không đủ)
+            if (topResultId != null) {
+                String similarUrl = BASE_URL + "/movie/" + topResultId + "/similar?api_key=" + API_KEY + "&language=vi-VN&page=1";
+                addMoviesToList(similarUrl, movies, addedIds, limit);
+                if (movies.size() >= limit) return movies;
             }
             
-            // Fetch similar movies
-            String url = BASE_URL + "/discover/movie?api_key=" + API_KEY + 
-                        "&language=vi-VN" +
-                        (genreId.isEmpty() ? "" : "&with_genres=" + genreId) +
-                        "&sort_by=popularity.desc&vote_count.gte=50&page=1";
+            // Bậc 3: Dùng API Trending (Để fill đầy)
+            String trendingUrl = BASE_URL + "/trending/movie/week?api_key=" + API_KEY + "&language=vi-VN&page=1";
+            addMoviesToList(trendingUrl, movies, addedIds, limit);
+
+        } catch (Exception e) {
+            System.err.println("Lỗi loadAiSuggestions: " + e.getMessage());
+        }
+        return movies;
+    }
+
+    // [THÊM] HÀM HELPER: Gọi API và thêm phim vào danh sách
+    private void addMoviesToList(String apiUrl, List<Map<String, Object>> movies, Set<Integer> addedIds, int limit) {
+        try {
+            Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(apiUrl, limit);
+            List<Map<String, Object>> fetchedMovies = (List<Map<String, Object>>) data.get("movies");
             
-            String response = restTemplate.getForObject(url, String.class);
-            if (response == null) return suggestions;
-            
-            JSONObject json = new JSONObject(response);
-            JSONArray results = json.optJSONArray("results");
-            
-            if (results != null) {
-                // Lấy 20 phim đầu tiên
-                for (int i = 0; i < Math.min(20, results.length()); i++) {
-                    JSONObject item = results.getJSONObject(i);
-                    String posterPath = item.optString("poster_path", "");
-                    
-                    if (!posterPath.isEmpty()) {
-                        Map<String, Object> movie = new HashMap<>();
-                        movie.put("id", item.optInt("id"));
-                        movie.put("title", item.optString("title", "Unknown"));
-                        movie.put("poster", IMAGE_BASE_URL + "/w500" + posterPath);
-                        movie.put("rating", String.format("%.1f", item.optDouble("vote_average", 0.0)));
-                        movie.put("year", extractYear(item));
-                        suggestions.add(movie);
-                    }
+            for (Map<String, Object> movie : fetchedMovies) {
+                if (movies.size() >= limit) break;
+                int tmdbId = (int) movie.get("id");
+                if (!addedIds.contains(tmdbId)) {
+                    movies.add(movie);
+                    addedIds.add(tmdbId);
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error fetching AI suggestions: " + e.getMessage());
+             System.err.println("Lỗi addMoviesToList: " + e.getMessage());
         }
-        
-        return suggestions;
     }
     
+    // [SỬA] HÀM CŨ: Thêm 'relatedMovies' vào
     private void setEmptyResults(Model model, String query) {
         model.addAttribute("searchResults", new ArrayList<>());
-        model.addAttribute("relatedMovies", new ArrayList<>());
         model.addAttribute("aiSuggestions", new ArrayList<>());
+        model.addAttribute("relatedMovies", new ArrayList<>()); // [THÊM]
         model.addAttribute("query", query);
         model.addAttribute("totalResults", 0);
         model.addAttribute("currentPage", 1);
         model.addAttribute("totalPages", 1);
         model.addAttribute("hasResults", false);
-        setDefaultAttributes(model);
-    }
-    
-    private void setDefaultAttributes(Model model) {
-        if (!model.containsAttribute("selectedGenres")) {
-            model.addAttribute("selectedGenres", "");
-        }
-        if (!model.containsAttribute("yearFrom")) {
-            model.addAttribute("yearFrom", "");
-        }
-        if (!model.containsAttribute("yearTo")) {
-            model.addAttribute("yearTo", "");
-        }
-        if (!model.containsAttribute("minRating")) {
-            model.addAttribute("minRating", "0");
-        }
-        if (!model.containsAttribute("quickFilter")) {
-            model.addAttribute("quickFilter", "");
-        }
+        model.addAttribute("selectedGenres", "");
+        model.addAttribute("yearFrom", "");
+        model.addAttribute("yearTo", "");
+        model.addAttribute("minRating", "0");
+        model.addAttribute("quickFilter", "");
     }
 }
