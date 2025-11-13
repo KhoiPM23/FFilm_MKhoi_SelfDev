@@ -13,4 +13,5 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
     // Thêm hàm này để kiểm tra xem phim từ TMDB đã tồn tại hay chưa
     Optional<Movie> findByTmdbId(Integer tmdbId);
     List<Movie> findTop20ByOrderByReleaseDateDesc();
+    
 }
