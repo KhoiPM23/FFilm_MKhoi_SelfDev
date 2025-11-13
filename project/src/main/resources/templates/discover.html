@@ -2,196 +2,360 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:text="${pageTitle != null ? pageTitle + ' - FFilm' : 'Khám Phá Phim - FFilm'}">Khám Phá Phim</title>
+    <title th:text="${pageTitle} + ' - FFilm'">Khám Phá Phim</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css" />
     <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-            background: #141414; 
-            color: #fff; 
-            min-height: 100vh;
-        }
-        .discover-container {
+        /* Kế thừa style cho lưới kết quả từ search.html */
+        .discover-results-section {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 100px 50px 80px;
+            padding: 40px 50px 80px;
         }
-        .discover-header {
-            text-align: center;
-            margin-bottom: 40px;
+        .results-header {
+            margin-bottom: 30px;
         }
-        .discover-header h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 15px;
+        .results-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
             background: linear-gradient(135deg, #e50914 0%, #ff6b6b 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }
-        .discover-header p {
-            font-size: 1.1rem;
-            color: rgba(255,255,255,0.7);
+            display: inline-block;
         }
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
             margin-bottom: 40px;
         }
-        .movie-card { cursor: pointer; transition: transform 0.3s; }
-        .movie-card:hover { transform: translateY(-8px) scale(1.03); }
-        .movie-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; background: #222; }
-        .movie-card-info { padding: 12px 0; }
-        .movie-card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .movie-card-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: rgba(255,255,255,0.7); }
-        .movie-card-rating { color: #ffd700; }
-        .pagination { display: flex; justify-content: center; gap: 8px; margin: 40px 0; flex-wrap: wrap; }
-        .page-btn { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; cursor: pointer; transition: all 0.2s; text-decoration: none; }
-        .page-btn:hover:not(.active):not(.disabled) { background: rgba(255,255,255,0.1); }
-        .page-btn.active { background: #e50914; border-color: #e50914; }
-        .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-        .page-ellipsis { padding: 0 8px; color: rgba(255,255,255,0.5); align-self: center; }
-        .empty-state { text-align: center; padding: 80px 20px; }
-        .empty-icon { font-size: 4rem; color: rgba(255,255,255,0.15); margin-bottom: 20px; }
-        .btn-back { padding: 12px 24px; background: #e50914; color: white; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+
+        /* BỔ SUNG MEDIA QUERY ĐỂ RESPONSIVE KHÔNG BỊ VỠ TRÊN MOBILE */
+        @media (max-width: 1200px) {
+            .results-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 992px) {
+            .results-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .discover-results-section { padding: 40px 20px; }
+            .results-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        }
+
+        /* Pagination Style giống search.html */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 50px;
+        }
+        .page-btn {
+            min-width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+        .page-btn:hover:not(.active):not(.disabled) {
+            background: rgba(229, 9, 20, 0.2);
+            border-color: #e50914;
+            transform: translateY(-2px);
+        }
+        .page-btn.active {
+            background: #e50914;
+            border-color: #e50914;
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+        }
+        .page-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .discover-results-section { padding: 40px 20px; }
+            .results-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        }
     </style>
 </head>
 <body>
-    <div th:replace="fragments/header :: header"></div>
+    <div th:replace="~{fragments/header :: header}"></div>
 
-    <div class="discover-container">
-        <div class="discover-header">
-            <h1 th:text="${pageTitle}">Khám Phá Phim</h1>
-            <p th:if="${totalResults != null}">
-                Tìm thấy <strong th:text="${totalResults}"></strong> kết quả
+    <section class="hero-banner" 
+             id="heroBanner" 
+             th:if="${banner != null}"
+             th:attr="data-movie-id=${banner.id}, 
+                      data-title=${banner.title},
+                      data-trailer-key=${banner.trailerKey},
+                      data-logo-path=${banner.logoPath}"
+             th:style="'background-image: url(' + ${banner.backdrop} + ')'">
+        
+        <div class="hero-video-container" id="heroVideoContainer">
+            <div id="heroPlayer"></div>
+        </div>
+        <div class="hero-overlay"></div>
+        
+        <div class="hero-content">
+            <div class="hero-title-container">
+                <img class="hero-logo-image" id="heroLogo" src="" alt="Movie Logo" style="display:none;">
+                <h1 class="hero-title" id="heroTitleText" th:text="${banner.title}">Movie Title</h1>
+            </div>
+            
+            <div class="hero-meta">
+                <div class="content-rating" id="contentRating">
+                    <span>T13+</span>
+                </div>
+                <div class="rating">
+                    <i class="fas fa-star"></i>
+                    <span th:text="${banner.rating}">8.5</span>
+                </div>
+                <div class="year" th:text="${banner.year}">2025</div>
+                
+                <div class="duration" id="heroDuration" 
+                    th:text="${banner.runtime == '—' ? '—' : banner.runtime + ' phút'}">
+                    — phút
+                </div>
+                
+                <div class="country" id="heroCountry" 
+                    th:text="${banner.country}">
+                    Quốc gia
+                </div>
+            </div>
+            
+            <button class="description-toggle" id="descToggle">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <p class="hero-description" id="heroDesc" th:text="${banner.overview}">Mô tả phim...</p>
+            
+            <div class="hero-actions">
+                <a th:href="@{'/movie/detail/' + ${banner.id}}" class="btn-play">
+                    <i class="fas fa-play"></i> Xem ngay
+                </a>
+                <div class="action-buttons-group">
+                    <button class="btn-circle hero-action-icon hover-like-btn" type="button" onclick="toggleHoverLike(this)" title="Thêm vào danh sách">
+                        <i class="far fa-heart"></i>
+                    </button>
+                    <button class="btn-circle hero-action-icon hover-share-btn" type="button" 
+                            th:data-movie-id="${banner.id}" th:data-movie-title="${banner.title}"
+                            th:onclick="'event.stopPropagation(); showShareModal(this)'" title="Chia sẻ">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                    <div class="action-divider"></div>
+                    <button class="btn-circle volume-btn" id="volumeBtn" title="Bật/Tắt tiếng">
+                        <i class="fas fa-volume-mute"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mini-carousel" th:if="${topMovies != null && !topMovies.isEmpty()}">
+            <div class="mini-carousel-track" id="miniCarousel">
+                <div th:each="movie, iterStat : ${topMovies}" 
+                    class="mini-card"
+                    th:classappend="${movie.id == banner.id ? 'active' : ''}" 
+                    th:attr="data-movie-id=${movie.id}, 
+                            data-title=${movie.title}, 
+                            data-overview=${movie.overview},
+                            data-backdrop=${movie.backdrop},  
+                            data-rating=${movie.rating},
+                            data-year=${movie.year},
+                            data-runtime=${movie.runtime},
+                            data-country=${movie.country}"
+                    onclick="switchBanner(this)">
+                    
+                    <img th:src="${movie.backdrop != null ? #strings.replace(movie.backdrop, '/original', '/w500') : '/images/placeholder.jpg'}" 
+                        th:alt="${movie.title}" 
+                        onerror="this.src='/images/placeholder.jpg'"> 
+                    <div class="mini-card-overlay"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="movies movie-list-section" th:if="${topMovies != null && !topMovies.isEmpty()}">
+        <div class="section-header">
+            <div class="section-title-wrapper">
+                 <h2 class="section-title" th:text="'🔥 Top ' + ${pageTitle}">🔥 Top Phim</h2>
+            </div>
+            <div class="carousel-nav">
+                <button class="nav-btn prev-btn" id="rankPrevBtn"><i class="fas fa-chevron-left"></i></button>
+                <button class="nav-btn next-btn" id="rankNextBtn"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+        
+        <div class="movie-carousel">
+            <div class="movie-slider" id="rankSlider">
+                <div th:each="movie, iterStat : ${topMovies}" 
+                    class="movie-card ranked" 
+                    th:classappend="'rank-' + (((${iterStat.index}) % 5) + 1)"
+                    th:attr="data-movie-id=${movie.id}">
+                    
+                    <div class="movie-poster">
+                        <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                        <div class="ranking-overlay"></div>
+                        <div class="ranking-number" th:text="${iterStat.index + 1}">1</div>
+                    </div>
+                    
+                    <div class="movie-info">
+                        <h3 th:text="${movie.title}">Movie Title</h3>
+                    </div>
+                    
+                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="discover-results-section" id="resultsSection">
+        <div class="results-header">
+            <h2 th:text="'Tất cả ' + ${pageTitle}">Tất cả kết quả</h2>
+            <p th:if="${totalResults != null}" style="color: #999; margin-top: 5px;">
+                Hiện có <strong th:text="${totalResults}" style="color: #fff;"></strong> phim
             </p>
         </div>
 
-        <div class="results-section" th:if="${hasResults}">
-        <div class="results-grid" id="resultsGrid">
-                <div th:each="movie : ${searchResults}" class="movie-card" 
-                     th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" loading="lazy"
-                         onerror="this.src='/images/placeholder.jpg'">
-                    <div class="movie-card-info">
-                        <div class="movie-card-title" th:text="${movie.title}"></div>
-                        <div class="movie-card-meta">
-                            <span th:text="${movie.year}"></span>
-                            <span class="movie-card-rating">⭐ <span th:text="${movie.rating}"></span></span>
-                        </div>
+        <div th:if="${hasResults}">
+            <div class="results-grid">
+                <div th:each="movie : ${searchResults}" class="movie-card" th:attr="data-movie-id=${movie.id}">
+                    <div class="movie-poster">
+                        <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
                     </div>
+                    <div class="movie-info">
+                        <h3 th:text="${movie.title}">Title</h3>
+                        <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
+                    </div>
+                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
                 </div>
             </div>
 
-            <div class="pagination" 
-                th:if="${totalPages != null && totalPages > 1}" 
-                id="pagination"
-                th:attr="data-current-page=${currentPage}, data-total-pages=${totalPages}, data-genres=${genres}, data-quickFilter=${quickFilter}">
-                </div>
+            <div class="pagination" id="pagination"
+                 th:if="${totalPages > 1}"
+                 th:attr="data-current-page=${currentPage}, 
+                          data-total-pages=${totalPages},
+                          data-genres=${genres},
+                          data-quick-filter=${quickFilter}">
+            </div>
         </div>
 
-        <div class="empty-state" th:if="${!hasResults}">
-            <div class="empty-icon"><i class="fas fa-film"></i></div>
-            <h2>Không tìm thấy phim nào</h2>
-            <p>Không có phim nào phù hợp với tiêu chí của bạn.</p>
-            <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Về trang chủ</a>
+        <div class="empty-state" th:if="${!hasResults}" style="text-align: center; padding: 80px 0;">
+            <i class="fas fa-film" style="font-size: 4rem; color: rgba(255,255,255,0.2); margin-bottom: 20px;"></i>
+            <h3>Không tìm thấy phim nào</h3>
+            <p style="color: #999; margin-bottom: 30px;">Thử chọn thể loại khác xem sao nhé!</p>
+            <a href="/" class="btn-buy" style="padding: 12px 30px;">Về trang chủ</a>
         </div>
     </div>
 
-    <div th:replace="fragments/footer :: footer"></div>
-    <div th:replace="fragments/ai-chat :: ai-chat"></div>
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    <div th:replace="~{fragments/ai-chat :: ai-chat}"></div>
+    <div th:replace="~{fragments/share-modal :: shareModal}"></div>
 
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script th:src="@{/js/movie/ai-agent.js}" defer></script>
-    
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const paginationEl = document.getElementById('pagination');
-        if (paginationEl) {
-            const currentPage = parseInt(paginationEl.dataset.currentPage) || 1;
-            const totalPages = parseInt(paginationEl.dataset.totalPages) || 1;
-            
-            // Lấy filter params từ data-attributes
-            const genres = paginationEl.dataset.genres || '';
-            const quickFilter = paginationEl.dataset.quickfilter || '';
-            
-            if (totalPages > 1) {
-                renderPaginationButtons(currentPage, totalPages, genres, quickFilter);
-            }
-        }
-    });
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
 
-    function renderPaginationButtons(current, total, genres, quickFilter) {
-        const pagination = document.getElementById('pagination');
-        if (!pagination) return;
-        
-        let html = '';
-        
-        // Nút Previous
-        if (current > 1) {
-            html += `<a class="page-btn" href="${buildPageUrl(current - 1, genres, quickFilter)}">
-                <i class="fas fa-chevron-left"></i>
-            </a>`;
-        } else {
-            html += `<span class="page-btn disabled">
-                <i class="fas fa-chevron-left"></i>
-            </span>`;
-        }
-        
-        // Các nút số
-        const start = Math.max(1, current - 2);
-        const end = Math.min(total, current + 2);
-        
-        if (start > 1) {
-            html += `<a class="page-btn" href="${buildPageUrl(1, genres, quickFilter)}">1</a>`;
-            if (start > 2) {
-                html += `<span class="page-ellipsis">...</span>`;
+    <script th:inline="javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hàm này chạy sau, nó sẽ "độ" lại các link phân trang
+            const paginationContainer = document.getElementById('pagination');
+            if (paginationContainer) {
+                // Lấy URL gốc (không bao gồm hash)
+                const baseUrl = window.location.href.split('#')[0];
+                
+                // Tìm tất cả các link <a> bên trong pagination
+                // (Giả sử script.js đã tạo ra chúng)
+                const pageLinks = paginationContainer.querySelectorAll('a');
+                
+                if (pageLinks.length > 0) {
+                    console.log('Đang sửa link pagination để focus...');
+                    pageLinks.forEach(link => {
+                        // Lấy href cũ (ví dụ: /discover?genres=12&page=2)
+                        const oldHref = link.getAttribute('href');
+                        if (oldHref && !oldHref.includes('#')) {
+                            // Thêm hash vào
+                            link.setAttribute('href', oldHref + '#resultsSection');
+                        }
+                    });
+                } else {
+                    // Fallback: Nếu script.js chưa chạy, ta tự render (an toàn)
+                    console.log('Tự render pagination (có focus)...');
+                    renderPaginationWithFocus();
+                }
             }
-        }
-        
-        for (let i = start; i <= end; i++) {
-            const activeClass = i === current ? 'active' : '';
-            html += `<a class="page-btn ${activeClass}" href="${buildPageUrl(i, genres, quickFilter)}">${i}</a>`;
-        }
-        
-        if (end < total) {
-            if (end < total - 1) {
-                html += `<span class="page-ellipsis">...</span>`;
+            
+            // Tự động scroll nếu URL có hash
+            if (window.location.hash === '#resultsSection') {
+                const resultsSection = document.getElementById('resultsSection');
+                if (resultsSection) {
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                }
             }
-            html += `<a class="page-btn" href="${buildPageUrl(total, genres, quickFilter)}">${total}</a>`;
-        }
-        
-        // Nút Next
-        if (current < total) {
-            html += `<a class="page-btn" href="${buildPageUrl(current + 1, genres, quickFilter)}">
-                <i class="fas fa-chevron-right"></i>
-            </a>`;
-        } else {
-            html += `<span class="page-btn disabled">
-                <i class="fas fa-chevron-right"></i>
-            </span>`;
-        }
-        
-        pagination.innerHTML = html;
-    }
+        });
 
-    // Helper build URL phân trang (quan trọng)
-    function buildPageUrl(page, genres, quickFilter) {
-        let url = `/discover?page=${page}`;
-        // Kiểm tra 'null' string vì Thymeleaf có thể truyền 'null'
-        if (genres && genres !== 'null' && genres !== '') { 
-            url += `&genres=${genres}`;
+        // Hàm tự render (phòng hờ script.js không có)
+        function renderPaginationWithFocus() {
+            const container = document.getElementById('pagination');
+            if (!container) return;
+
+            const currentPage = parseInt(container.dataset.currentPage || '1');
+            const totalPages = parseInt(container.dataset.totalPages || '1');
+            const genres = container.dataset.genres || '';
+            const quickFilter = container.dataset.quickFilter || '';
+
+            if (totalPages <= 1) return;
+
+            let params = new URLSearchParams();
+            if (genres) params.set('genres', genres);
+            if (quickFilter) params.set('quickFilter', quickFilter);
+
+            let html = '';
+            const maxPagesToShow = 5;
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+            if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+
+            // Nút 'Trước'
+            params.set('page', (currentPage - 1).toString());
+            html += `<a href="/discover?${params.toString()}#resultsSection" 
+                        class="page-btn ${currentPage === 1 ? 'disabled' : ''}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>`;
+
+            // Các nút số
+            for (let i = startPage; i <= endPage; i++) {
+                params.set('page', i.toString());
+                html += `<a href="/discover?${params.toString()}#resultsSection" 
+                            class="page-btn ${i === currentPage ? 'active' : ''}">
+                            ${i}
+                        </a>`;
+            }
+
+            // Nút 'Sau'
+            params.set('page', (currentPage + 1).toString());
+            html += `<a href="/discover?${params.toString()}#resultsSection" 
+                        class="page-btn ${currentPage === totalPages ? 'disabled' : ''}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>`;
+
+            container.innerHTML = html;
         }
-        if (quickFilter && quickFilter !== 'null' && quickFilter !== '') { 
-            url += `&quickFilter=${quickFilter}`;
-        }
-        return url;
-    }
     </script>
 </body>
 </html>

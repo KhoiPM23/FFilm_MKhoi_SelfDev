@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div class="movie-hover-card" 
+     th:fragment="hoverCard(movie)" 
+     th:attr="data-movie-id=${movie.id}">
+    
+    <div class="hover-card-media">
+        <img class="hover-card-image"
+            th:src="${movie['backdrop'] != null ? #strings.replace(movie['backdrop'], '/original', '/w780') : '/images/placeholder.jpg'}"
+            th:alt="${movie.title}"
+            onerror="this.src='/images/placeholder.jpg'">
+        
+        <div class="hover-player-container">
+            <div class="hover-player" th:id="'hover-player-' + ${movie.id}"></div>
+        </div>
+        
+        <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng">
+            <i class="fas fa-volume-mute"></i>
+        </button>
+    </div>
+    
+    <div class="hover-card-content">
+        
+        <div class="hover-card-actions">
+            <button class="hover-play-btn" 
+                    type="button"
+                    th:data-movie-id="${movie.id}"
+                    th:onclick="'event.stopPropagation(); goToMovieDetail(this)'">
+                <i class="fas fa-play"></i> Xem ngay
+            </button>
+            <button class="hover-action-icon hover-like-btn" 
+                    type="button"
+                    th:onclick="'event.stopPropagation(); toggleHoverLike(this)'"
+                    title="Thêm vào danh sách">
+                <i class="far fa-heart"></i> </button>
+            <button class="hover-action-icon hover-share-btn" 
+                    type="button"
+                    th:data-movie-id="${movie.id}"
+                    th:data-movie-title="${movie.title}"
+                    th:onclick="'event.stopPropagation(); showShareModal(this)'"
+                    title="Chia sẻ">
+                <i class="fas fa-share-alt"></i>
+            </button>
+        </div>
+
+        <h3 class="hover-card-title" th:text="${movie['title']}">Movie Title</h3>
+        
+        <div class="hover-card-meta">
+            <span class="meta-rating">
+                <i class="fas fa-star"></i> 
+                <span th:text="${movie['rating']}">8.5</span>
+            </span>
+            <span class="meta-year" 
+                th:text="${movie['releaseDate'] != null && movie['releaseDate'] != '' ? movie['releaseDate'].substring(0,4) : '—'}">
+                2025
+            </span>
+            <span class="meta-quality">HD</span>
+        </div>
+
+        <div class="hover-card-meta-extra">
+            <span class="meta-extra-rating">T</span>
+            <span class="meta-extra-runtime" style="white-space: nowrap;">— phút</span>
+            <span class="meta-extra-country">Quốc gia</span>
+        </div>
+        
+        <div class="hover-card-genres">
+            <span class="genre-tag loading-genre">Đang tải...</span>
+        </div>
+        
+        <p class="hover-card-description" 
+           th:text="${movie['overview'] != null && movie['overview'] != '' ? movie['overview'] : 'Đang tải mô tả...'}">
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>

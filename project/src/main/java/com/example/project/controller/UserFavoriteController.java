@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.SessionAttribute;
 
 import com.example.project.service.UserFavoriteService;
 import com.example.project.dto.MovieFavorite;
+import com.example.project.dto.UserSessionDto;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,16 +39,16 @@ public class UserFavoriteController {
     @GetMapping("/my-list")
     public String showAllFavorite(
             // 2. Lấy User trực tiếp từ session
-            @SessionAttribute("user") User user,
+            @SessionAttribute("user") UserSessionDto userSession,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Model model) {
 
         // 3. Lấy ID từ đối tượng user đã lấy từ session
-        if (user == null) {
+        if (userSession == null) {
             return "redirect:/login";
         }
-        Integer userId = user.getUserID();
+        Integer userId = userSession.getId();
 
         Page<MovieFavorite> moviePage = favoriteService.showFavoriteList(userId, page, size);
         List<MovieFavorite> movieFavorites = moviePage.getContent();

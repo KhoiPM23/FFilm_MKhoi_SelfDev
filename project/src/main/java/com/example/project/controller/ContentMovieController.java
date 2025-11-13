@@ -53,8 +53,7 @@ public class ContentMovieController {
             Movie importedMovie = movieService.importFromTmdb(tmdbId);
             return ResponseEntity.status(HttpStatus.CREATED).body(importedMovie);
         } catch (Exception e) {
-            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được
-            // GlobalExceptionHandler xử lý
+            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được GlobalExceptionHandler xử lý
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
@@ -92,11 +91,32 @@ public class ContentMovieController {
         }
     }
 
+    /**
+     * Xóa phim
+     * Endpoint: DELETE /api/content/movies/{id}
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteMovie(@PathVariable int id) {
         try {
             movieService.deleteMovie(id);
             return ResponseEntity.noContent().build(); // HTTP 204
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // [THÊM HÀM NÀY VÀO ContentMovieController.java]
+
+    /**
+     * Endpoint cho client-side (Live Suggestion) yêu cầu đồng bộ nhanh 1 danh sách ID.
+     * Endpoint: POST /api/content/movies/sync
+     * Body: [123, 456, 789]
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<?> syncMoviesByIds(@RequestBody List<Integer> tmdbIds) {
+        try {
+            movieService.syncTmdbIds(tmdbIds);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã yêu cầu đồng bộ " + tmdbIds.size() + " phim."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
