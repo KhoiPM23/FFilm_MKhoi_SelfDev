@@ -32,12 +32,45 @@ public class ContentMovieController {
     /**
      * Lấy 1 phim bằng ID
      * Endpoint: GET /api/content/movies/{id}
+     * [ĐÃ CẬP NHẬT] Tự động làm sạch giá trị "N/A" hoặc "CHƯA CẬP NHẬT"
+     * thành chuỗi rỗng ("") để hiển thị trên form Sửa của Admin.
      */
     @GetMapping("/{id}")
     public ResponseEntity<Movie> getMovieById(@PathVariable int id) {
         try {
             Movie movie = movieService.getMovieById(id);
+
+            // [TÍCH HỢP LOGIC MỚI]
+            // Kiểm tra các trường có giá trị mặc định và chuyển thành chuỗi rỗng
+            
+            // 1. Chuyển đổi cờ "N/A" (flags)
+            if ("N/A".equals(movie.getDirector())) {
+                movie.setDirector("");
+            }
+            if ("N/A".equals(movie.getLanguage())) {
+                movie.setLanguage("");
+            }
+            
+            // 2. Chuyển đổi giá trị mặc định của trường URL
+            if ("CHƯA CẬP NHẬT".equals(movie.getUrl())) {
+                movie.setUrl("");
+            }
+            
+            // 3. (Bonus) Chuyển đổi các trường null thành chuỗi rỗng nếu cần
+            // (Các trường này có trong form Sửa phim)
+            if (movie.getPosterPath() == null) {
+                movie.setPosterPath("");
+            }
+            if (movie.getBackdropPath() == null) {
+                movie.setBackdropPath("");
+            }
+            if (movie.getDescription() == null) {
+                movie.setDescription("");
+            }
+
+            // Trả về đối tượng movie đã được "làm sạch"
             return ResponseEntity.ok(movie);
+
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
