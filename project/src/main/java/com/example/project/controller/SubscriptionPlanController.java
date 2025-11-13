@@ -17,6 +17,7 @@ public class SubscriptionPlanController {
 
     @GetMapping("/subscriptionPlan")
     public String showSupbscriptionPlan(Model model) {
+
         List<SubscriptionPlan> subscriptionPlans = planService.showALlPlans();
         model.addAttribute("subscriptionPlans", subscriptionPlans);
         return "service/register-plan";

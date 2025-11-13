@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.example.project.dto.MovieFavorite;
 import com.example.project.model.Movie;
 import com.example.project.model.UserFavorite;
 import com.example.project.model.UserFavoriteId;
@@ -14,10 +15,10 @@ import com.example.project.model.UserFavoriteId;
 @Repository
 public interface FavoriteRepository extends JpaRepository<UserFavorite, UserFavoriteId> {
 
-    boolean existsByUserIdAndMovieId(Integer userId, Integer movieId);
+    boolean existsByUserIDAndMovieID(Integer userID, Integer movieID);
 
-    @Query(value = "SELECT m.* FROM movie m " +
-            "JOIN user_favorite uf ON m.movie_id = uf.movie_id " +
-            "WHERE uf.user_id = :userID", nativeQuery = true)
-    Page<Movie> findMoviesByUserId(@Param("userID") Integer userID, Pageable pageable);
+    @Query(value = "SELECT m.MovieID, m.title, m.posterPath FROM movie m " +
+            "JOIN UserFavorite uf ON m.movieID = uf.movieID " +
+            "WHERE uf.userID = :userID", nativeQuery = true)
+    Page<MovieFavorite> findMoviesByUserID(@Param("userID") Integer userID, Pageable pageable);
 }

@@ -1,26 +1,33 @@
 package com.example.project.service;
 
-import com.example.project.dto.AddUserFavoriteRequest;
-import com.example.project.model.Movie;
-import com.example.project.model.User;
-import com.example.project.model.UserFavorite;
-import com.example.project.repository.FavoriteRepository; // DÙNG 1 TÊN DUY NHẤT
-import com.example.project.repository.MovieRepository;
-import com.example.project.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+import com.example.project.dto.AddUserFavoriteRequest;
+import com.example.project.dto.MovieFavorite;
+import com.example.project.model.Movie;
+import com.example.project.model.User;
+import com.example.project.model.UserFavorite;
+import com.example.project.repository.FavoriteRepository;
+import com.example.project.repository.MovieRepository;
+import com.example.project.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor // TỐT HƠN @Autowired
 public class UserFavoriteService {
 
+    @Autowired
     private FavoriteRepository favoriteRepository;
+    @Autowired
     private UserRepository userRepository;
+    @Autowired
     private MovieRepository movieRepository;
 
     // THÊM FAVORITE
@@ -31,7 +38,7 @@ public class UserFavoriteService {
             return false;
         }
 
-        if (favoriteRepository.existsByUserIdAndMovieId(req.getUserID(), req.getMovieID())) {
+        if (favoriteRepository.existsByUserIDAndMovieID(req.getUserID(), req.getMovieID())) {
             return false;
         }
 
@@ -44,16 +51,15 @@ public class UserFavoriteService {
         return true;
     }
 
-    public Page<Movie> showFavoriteList(Integer userId, int page, int size) {
-        if (userId == null) {
+    public Page<MovieFavorite> showFavoriteList(Integer userID, Integer page, Integer size) {
+        if (userID == null) {
             throw new IllegalArgumentException("userId không được null");
         }
         if (page < 0)
             page = 0;
         if (size <= 0)
             size = 10;
-
         Pageable pageable = PageRequest.of(page, size);
-        return favoriteRepository.findMoviesByUserId(userId, pageable);
+        return favoriteRepository.findMoviesByUserID(userID, pageable);
     }
 }
