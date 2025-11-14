@@ -1,13 +1,12 @@
 package com.example.project.dto;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-/**
- * Đối tượng này an toàn để lưu vào HttpSession.
- * Nó không chứa mật khẩu và không có liên kết JPA (Lazy-loading).
- * Annotation @Data sẽ tự động tạo Getters, Setters, và Constructor.
- */
 @Data
+@Getter
+@Setter
 public class UserSessionDto {
     private int id;
     private String userName;
@@ -21,4 +20,8 @@ public class UserSessionDto {
         this.email = email;
         this.role = role;
     }
+
+    public UserSessionDto() {
+    }
+
 }
