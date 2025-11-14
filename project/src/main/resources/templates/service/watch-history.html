@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Lịch Sử Xem</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="/css/footer.css">
+    <!-- CRITICAL: FontAwesome MUST be loaded -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ===== CRITICAL: Đảm bảo FontAwesome hoạt động ===== */
+        .fas, .fa, .far, .fab, 
+        .fa-solid, .fa-regular, .fa-brands,
+        i[class^="fa-"], i[class*=" fa-"],
+        .fa-facebook, .fa-youtube, .fa-instagram,
+        .fa-apple, .fa-google-play {
+            font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+            font-weight: 900 !important;
+            display: inline-block !important;
+            font-style: normal !important;
+            font-variant: normal !important;
+            text-rendering: auto !important;
+            line-height: 1 !important;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+        }
+
+        /* Brand icons cần font-weight khác */
+        .fab, .fa-brands,
+        .fa-facebook, .fa-youtube, .fa-instagram,
+        .fa-apple, .fa-google-play {
+            font-family: "Font Awesome 6 Brands" !important;
+            font-weight: 400 !important;
+        }
+
+        /* ===== 1. BODY & LAYOUT CƠ BẢN ===== */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #0f0f0f;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ===== 2. CONTAINER CHÍNH ===== */
+        .history-container {
+            flex: 1;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 120px 50px 60px 50px; /* Top padding tăng để tránh header */
+        }
+
+        /* ===== 3. TIÊU ĐỀ & MÔ TẢ ===== */
+        .history-container h2 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .history-container > p {
+            color: #aaa;
+            font-size: 1rem;
+            margin-bottom: 35px;
+            line-height: 1.5;
+        }
+
+        /* ===== 4. GRID LỊCH SỬ PHIM ===== */
+        .history-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        /* ===== 5. THẺ PHIM (MOVIE CARD) ===== */
+        .movie-card {
+            background: #1a1a1a;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+            aspect-ratio: 2 / 3;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .movie-card:hover {
+            transform: scale(1.05) translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6), 
+                        0 0 20px rgba(229, 9, 20, 0.5);
+            z-index: 10;
+        }
+
+        /* ===== 6. HÌNH ẢNH POSTER ===== */
+        .movie-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        
+        .movie-card:hover img {
+            transform: scale(1.08);
+        }
+        
+        /* ===== 7. LỚP PHỦ GRADIENT ===== */
+        .movie-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 75%;
+            background: linear-gradient(
+                to top, 
+                rgba(0, 0, 0, 0.95) 0%, 
+                rgba(0, 0, 0, 0.7) 40%,
+                transparent 100%
+            );
+            z-index: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .movie-card:hover::after {
+            opacity: 0.8;
+        }
+
+        /* ===== 8. THÔNG TIN PHIM ===== */
+        .movie-card-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 14px;
+            z-index: 2;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .movie-card:hover .movie-card-info {
+            transform: translateY(-5px);
+        }
+
+        .movie-card-info h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            margin: 0 0 6px 0;
+            line-height: 1.3;
+            
+            /* Giới hạn 2 dòng */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .movie-card-info p {
+            font-size: 0.88rem;
+            color: #bbb;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .movie-card-info p i {
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+
+        /* ===== 9. NÚT TẢI THÊM ===== */
+        #load-more {
+            display: block;
+            margin: 40px auto 30px auto;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #e50914 0%, #c40812 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.05rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+        }
+
+        #load-more:hover {
+            background: linear-gradient(135deg, #f40612 0%, #d10711 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
+        }
+
+        #load-more:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        #load-more:disabled:hover {
+            transform: none;
+        }
+
+        /* ===== 10. TRẠNG THÁI RỖNG ===== */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #888;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: #555;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+            color: #777;
+        }
+
+        /* ===== 11. LOADING SKELETON ===== */
+        .skeleton-card {
+            background: linear-gradient(
+                90deg,
+                #1a1a1a 25%,
+                #2a2a2a 50%,
+                #1a1a1a 75%
+            );
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 10px;
+            aspect-ratio: 2 / 3;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ===== 12. RESPONSIVE ===== */
+        @media (max-width: 1400px) {
+            .history-list {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 20px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .history-container {
+                padding: 110px 40px 50px 40px;
+            }
+            
+            .history-list {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 18px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .history-container {
+                padding: 100px 30px 40px 30px;
+            }
+
+            .history-container h2 {
+                font-size: 1.8rem;
+            }
+
+            .history-list {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+
+            .movie-card-info h5 {
+                font-size: 0.95rem;
+            }
+
+            .movie-card-info p {
+                font-size: 0.8rem;
+            }
+
+            #load-more {
+                padding: 12px 28px;
+                font-size: 0.95rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .history-container {
+                padding: 90px 20px 30px 20px;
+            }
+
+            .history-container h2 {
+                font-size: 1.5rem;
+            }
+
+            .history-list {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                gap: 12px;
+            }
+
+            .movie-card-info {
+                padding: 12px 10px;
+            }
+
+            .movie-card-info h5 {
+                font-size: 0.85rem;
+            }
+
+            #load-more {
+                padding: 10px 24px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* ===== 13. ACCESSIBILITY ===== */
+        .movie-card:focus {
+            outline: 3px solid #e50914;
+            outline-offset: 2px;
+        }
+
+        #load-more:focus {
+            outline: 3px solid #e50914;
+            outline-offset: 2px;
+        }
+
+        /* ===== 14. SMOOTH SCROLL ===== */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* ===== 15. FADE-IN ANIMATION ===== */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .movie-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+    
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div th:replace="~{fragments/header :: header}"></div>
+
+    <!-- MAIN CONTENT -->
+    <div class="container history-container">
+        <h2>Lịch sử xem của bạn</h2>
+        <p>Các bộ phim được sắp xếp theo thời gian xem gần nhất.</p>
+
+        <div id="history-list" class="history-list">
+            <!-- Nội dung sẽ được load bởi JavaScript -->
+        </div>
+
+        <button id="load-more">Tải thêm</button>
+    </div>
+
+    <!-- FOOTER -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+
+    <!-- JAVASCRIPT -->
+    <script th:src="@{/js/service/watch-history.js}"></script>
+</body>
+</html>
