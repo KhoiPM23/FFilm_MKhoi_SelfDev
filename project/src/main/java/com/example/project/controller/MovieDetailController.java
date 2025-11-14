@@ -1,7 +1,7 @@
 package com.example.project.controller;
 
 import com.example.project.model.Movie;
-import com.example.project.model.Person; 
+import com.example.project.model.Person;
 import com.example.project.service.MovieService;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -11,12 +11,12 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate; 
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet; 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,7 +53,7 @@ public class MovieDetailController {
         LANGUAGE_MAP.put("pa", "Tiếng Punjab");
         LANGUAGE_MAP.put("my", "Tiếng Miến Điện");
         LANGUAGE_MAP.put("km", "Tiếng Khmer");
-        
+
         // === CHÂU ÂU ===
         LANGUAGE_MAP.put("en", "Tiếng Anh");
         LANGUAGE_MAP.put("fr", "Tiếng Pháp");
@@ -101,11 +101,11 @@ public class MovieDetailController {
         // (Đã có en)
         LANGUAGE_MAP.put("mi", "Tiếng Māori"); // New Zealand
         LANGUAGE_MAP.put("sm", "Tiếng Samoa");
-        
+
         // Ngôn ngữ khác
         LANGUAGE_MAP.put("la", "Tiếng Latin");
         LANGUAGE_MAP.put("eo", "Tiếng Esperanto");
-        
+
         // Mã đặc biệt (ISO 639-1)
         LANGUAGE_MAP.put("xx", "Không có ngôn ngữ");
         LANGUAGE_MAP.put("cn", "Tiếng Quảng Đông"); // Lưu ý: 'zh' là Quan thoại
@@ -120,45 +120,45 @@ public class MovieDetailController {
     /**
      * [G46] HÀM EAGER (ĐÚNG)
      */
-    @GetMapping({"/movie/detail/{id}", "/movie/detail"})
+    @GetMapping({ "/movie/detail/{id}", "/movie/detail" })
     public String movieDetail(
             @PathVariable(required = false) String id,
             @RequestParam(required = false) String movieId,
-            Model model
-    ) {
+            Model model) {
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
-        if (finalIdStr == null || finalIdStr.isEmpty()) return "redirect:/";
+        if (finalIdStr == null || finalIdStr.isEmpty())
+            return "redirect:/";
 
         try {
             int tmdbId = Integer.parseInt(finalIdStr);
-            
+
             Movie movie = movieService.getMovieOrSync(tmdbId); // EAGER
 
             if (movie != null) {
                 Map<String, Object> movieMap = movieService.convertToMap(movie);
-                
+
                 // [G46] Chuyển đổi ngôn ngữ
                 String langCode = (String) movieMap.get("language"); // Lấy code (vd: "en" hoặc "—")
                 movieMap.put("language", getLanguageName(langCode)); // Ghi đè (vd: "Tiếng Anh" hoặc "—")
-                
+
                 String trailerKey = movieService.findBestTrailerKey(tmdbId);
                 String logoPath = movieService.findBestLogoPath(tmdbId);
-                
+
                 movieMap.put("trailerKey", trailerKey);
                 movieMap.put("logoPath", logoPath);
 
                 model.addAttribute("movie", movieMap);
                 model.addAttribute("movieId", finalIdStr);
-                model.addAttribute("clientSideLoad", false); 
+                model.addAttribute("clientSideLoad", false);
 
                 // Tải các mục phụ (ĐÃ SỬA LỖI G46)
-                model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3)); 
+                model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3));
                 model.addAttribute("castList", loadCast(finalIdStr)); // (Đã sửa G46)
-                model.addAttribute("trendingMovies", loadTrendingSidebar()); 
+                model.addAttribute("trendingMovies", loadTrendingSidebar());
                 model.addAttribute("similarMovies", loadSimilarMovies(finalIdStr));
-                
+
                 model.addAttribute("recommendTitle", "Có Thể Bạn Thích");
-                model.addAttribute("recommendedMovies", loadRecommendedMovies(finalIdStr, tmdbId, model)); 
+                model.addAttribute("recommendedMovies", loadRecommendedMovies(finalIdStr, tmdbId, model));
 
                 return "movie/movie-detail";
             } else {
@@ -169,7 +169,7 @@ public class MovieDetailController {
             return createClientSideFallback(finalIdStr, model);
         }
     }
-    
+
     // (Hàm createClientSideFallback và moviePlayer giữ nguyên)
     private String createClientSideFallback(String movieId, Model model) {
         // ... (Giữ nguyên)
@@ -182,14 +182,7 @@ public class MovieDetailController {
         model.addAttribute("clientSideLoad", true);
         return "movie/movie-detail";
     }
-    
-    @GetMapping("/movie/player/{id}")
-    public String moviePlayer(@PathVariable String id, Model model) {
-        // ... (Giữ nguyên)
-        if (id == null || id.isEmpty()) return "redirect:/";
-        model.addAttribute("movieId", id);
-        return "player";
-    }
+
 
     /**
      * [G46] SỬA LỖI API STORM:
@@ -205,7 +198,7 @@ public class MovieDetailController {
             if (results != null) {
                 for (int i = 0; i < Math.min(results.length(), 14); i++) {
                     JSONObject pJson = results.getJSONObject(i);
-                    
+
                     // [G46] SỬA LỖI: Gọi hàm LAZY
                     Person person = movieService.getPersonPartialOrSync(pJson);
 
@@ -229,6 +222,7 @@ public class MovieDetailController {
         Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 20);
         return (List<Map<String, Object>>) data.get("movies");
     }
+
     private List<Map<String, Object>> loadSimilarMovies(String movieId) {
         String url = BASE_URL + "/movie/" + movieId + "/similar?api_key=" + API_KEY + "&language=vi-VN";
         Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 20);
@@ -240,10 +234,10 @@ public class MovieDetailController {
      * Bước 1 (Collection): Dùng syncMovieFromList (Lazy)
      */
     private List<Map<String, Object>> loadRecommendedMovies(String movieIdStr, int tmdbId, Model model) {
-        
+
         Set<Integer> addedMovieIds = new HashSet<>();
         List<Map<String, Object>> finalRecommendations = new ArrayList<>();
-        addedMovieIds.add(tmdbId); 
+        addedMovieIds.add(tmdbId);
 
         try {
             // BƯỚC 1 (Ưu tiên): Lấy Collection
@@ -251,31 +245,34 @@ public class MovieDetailController {
             String detailResp = restTemplate.getForObject(detailUrl, String.class);
             JSONObject movieJson = new JSONObject(detailResp);
             JSONObject collection = movieJson.optJSONObject("belongs_to_collection");
-            
+
             if (collection != null) {
                 int collectionId = collection.optInt("id");
                 if (collectionId > 0) {
-                    String collectionUrl = BASE_URL + "/collection/" + collectionId + "?api_key=" + API_KEY + "&language=vi-VN";
+                    String collectionUrl = BASE_URL + "/collection/" + collectionId + "?api_key=" + API_KEY
+                            + "&language=vi-VN";
                     String collectionResp = restTemplate.getForObject(collectionUrl, String.class);
                     JSONObject collectionJson = new JSONObject(collectionResp);
                     JSONArray parts = collectionJson.optJSONArray("parts");
-                    
+
                     if (parts != null && parts.length() > 0) {
                         for (int i = 0; i < parts.length(); i++) {
-                            JSONObject part = parts.getJSONObject(i); 
+                            JSONObject part = parts.getJSONObject(i);
                             int partTmdbId = part.optInt("id");
-                            if (addedMovieIds.contains(partTmdbId)) continue;
-                            
+                            if (addedMovieIds.contains(partTmdbId))
+                                continue;
+
                             // [G46] SỬA LỖI: Gọi hàm LAZY
-                            Movie movie = movieService.syncMovieFromList(part); 
+                            Movie movie = movieService.syncMovieFromList(part);
 
                             if (movie != null) {
                                 finalRecommendations.add(movieService.convertToMap(movie));
-                                addedMovieIds.add(partTmdbId); 
+                                addedMovieIds.add(partTmdbId);
                             }
                         }
                         if (!finalRecommendations.isEmpty()) {
-                            model.addAttribute("recommendTitle", "🎬 Từ Bộ Sưu Tập: " + collectionJson.optString("name"));
+                            model.addAttribute("recommendTitle",
+                                    "🎬 Từ Bộ Sưu Tập: " + collectionJson.optString("name"));
                         }
                     }
                 }
@@ -283,9 +280,10 @@ public class MovieDetailController {
         } catch (Exception e) {
             System.err.println("Lỗi G46 (load collection), tiếp tục: " + e.getMessage());
         }
-        
+
         // BƯỚC 2: FALLBACK / FILL (Giữ nguyên - Đã tối ưu G46)
-        String recommendUrl = BASE_URL + "/movie/" + movieIdStr + "/recommendations?api_key=" + API_KEY + "&language=vi-VN";
+        String recommendUrl = BASE_URL + "/movie/" + movieIdStr + "/recommendations?api_key=" + API_KEY
+                + "&language=vi-VN";
         Map<String, Object> fallbackData = movieService.loadAndSyncPaginatedMovies(recommendUrl, 20);
         // [G46] SỬA LỖI LẶP (G45)
         List<Map<String, Object>> fallbackMovies = (List<Map<String, Object>>) fallbackData.get("movies");
@@ -298,11 +296,11 @@ public class MovieDetailController {
             }
         }
         if (model.getAttribute("recommendTitle").equals("Có Thể Bạn Thích")) {
-             model.addAttribute("recommendTitle", "✨ Có Thể Bạn Thích");
+            model.addAttribute("recommendTitle", "✨ Có Thể Bạn Thích");
         }
         return finalRecommendations;
     }
-    
+
     /**
      * [G46] HÀM HELPER: Chuyển code (en) sang tên (Tiếng Anh)
      */
@@ -313,4 +311,8 @@ public class MovieDetailController {
         // Trả về tên đầy đủ, hoặc trả về code (viết hoa) nếu không tìm thấy
         return LANGUAGE_MAP.getOrDefault(code, code.toUpperCase());
     }
+
+
+
+
 }

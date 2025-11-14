@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "UserReaction", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "userID", "movieID" })
-})
+@Table(name = "UserReaction", uniqueConstraints = @UniqueConstraint(columnNames = { "userID", "tmdbId" }))
 public class UserReaction {
 
     @Id
@@ -18,11 +16,13 @@ public class UserReaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "movieID", nullable = false, foreignKey = @ForeignKey(name = "FK_UserReaction_Movie"))
+    @JoinColumn(name = "tmdbId", // ✔ JOIN bằng tmdbId
+            referencedColumnName = "tmdbId", // ✔ match với bảng Movie
+            nullable = false, foreignKey = @ForeignKey(name = "FK_UserReaction_Movie"))
     private Movie movie;
 
     @Column(nullable = false)
-    private Boolean isLike; // true = Like, false = Dislike
+    private Boolean isLike;
 
     @Column(nullable = false, columnDefinition = "DATETIME DEFAULT GETDATE()")
     private LocalDateTime createdAt = LocalDateTime.now();

@@ -31,7 +31,6 @@ public class UserFavoriteService {
     @Autowired
     private MovieRepository movieRepository;
 
-    // THÊM FAVORITE
     public boolean addFavorite(AddUserFavoriteRequest req) {
         Optional<User> userOpt = userRepository.findById(req.getUserID());
         Optional<Movie> movieOpt = movieRepository.findByTmdbId(req.getTmdbId());

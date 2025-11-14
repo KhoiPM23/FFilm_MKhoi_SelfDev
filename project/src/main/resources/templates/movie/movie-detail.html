@@ -1029,12 +1029,60 @@
           "
         ></div>
 
+<<<<<<< HEAD
         <div class="comments-header">
           <h3 class="comments-title">Bình luận</h3>
           <div class="comments-tabs">
             <span class="comment-tab active">Mới nhất</span>
             <span class="comment-tab">Nhiều like nhất</span>
           </div>
+=======
+    <section class="hero-banner" 
+            id="heroBanner" 
+            th:attr="data-movie-id=${movieId},
+                    data-trailer-key=${movie.trailerKey}, 
+                    data-logo-path=${movie.logoPath}"
+            th:style="'background-image: url(' + ${movie.backdrop} + ')'"> 
+        
+        <div class="hero-video-container" id="heroVideoContainer"><div id="heroPlayer"></div></div>
+        <div class="hero-overlay"></div>
+        
+        <div class="hero-content">
+            <div class="movie-main-info">
+                <div class="hero-title-container">
+                    <img id="heroLogo" src="" alt="Movie Logo" style="display:none; max-height: 160px; margin-bottom: 25px;">
+                    <h1 class="hero-title" id="heroTitleText" th:text="${movie.title}">Tên Phim</h1>
+                </div>
+                
+                <div class="hero-meta">
+                    <div class="content-rating" id="contentRating"><span>T16</span></div>
+                    <div class="rating"><i class="fas fa-star"></i><span th:text="${movie.rating}">0.0</span></div>
+                    <div class="year" th:text="${movie.year}">...</div>
+                    <div class="duration" th:text="${movie.runtime} + ' phút'">0 phút</div>
+                    <div class="quality-badge" style="background:#e50914;padding:2px 7px;border-radius:4px;font-weight:700;font-size:0.85rem">HD</div>
+                    <div class="country" th:text="${movie.country}">—</div>
+                </div>
+
+                <div class="hero-genres">
+                    <a th:each="g : ${movie.genres}" th:text="${g}" href="#" class="hero-genre-tag">Thể loại</a>
+                </div>
+
+                <div class="hero-actions">
+                    <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"><i class="fas fa-play"></i> Xem phim</a>
+                    <div class="action-buttons-group">
+                        <button class="btn-circle hero-action-icon hover-like-btn" onclick="toggleHoverLike(this)" title="Yêu thích"><i class="far fa-heart"></i></button>
+                        <button class="btn-circle hero-action-icon hover-share-btn" 
+                                th:data-movie-id="${movieId}" 
+                                th:data-movie-title="${movie.title}"
+                                onclick="showShareModal(this)" title="Chia sẻ">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                        <div class="action-divider"></div>
+                        <button class="btn-circle volume-btn" id="volumeBtn" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
+                    </div>
+                </div>
+            </div>
+>>>>>>> 37ff03da4ef64262f56e11838622435cab46eb44
         </div>
 
         <div class="comment-input-box">
