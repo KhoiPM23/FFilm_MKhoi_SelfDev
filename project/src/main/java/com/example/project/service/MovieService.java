@@ -68,6 +68,49 @@ public class MovieService {
     // CÁC HÀM ĐỒNG BỘ CỐT LÕI (LOGIC MỚI)
     // ===============================================
 
+    // ===============================================
+    // CÁC HÀM ĐỒNG BỘ CỐT LÕI (LOGIC MỚI)
+    // ===============================================
+
+    /**
+     * [THÊM MỚI THEO KẾ HOẠCH BƯỚC 1]
+     * Lấy movie theo movieID (DB PK), tự động sync nếu cần
+     * * LOGIC:
+     * 1. Tìm theo movieID trong DB
+     * 2. Nếu tmdbId == null → Trả bản ghi (phim tự tạo)
+     * 3. Nếu director == "N/A" → Fetch API → Cập nhật đầy đủ → Trả
+     * 4. Nếu director != "N/A" → Trả bản ghi (đã đầy đủ)
+     */
+    @Transactional
+    public Movie getMovieByIdOrSync(int movieID) {
+        // Bước 1: Tìm theo PK
+        Optional<Movie> existing = movieRepository.findById(movieID);
+        
+        if (existing.isEmpty()) {
+            System.err.println("⚠️ Movie not found with ID: " + movieID);
+            return null;
+        }
+        
+        Movie movie = existing.get();
+        
+        // Bước 2: Kiểm tra tmdbId
+        if (movie.getTmdbId() == null) {
+            // Phim tự tạo → Trả luôn
+            System.out.println("✅ [Custom Movie] ID: " + movieID);
+            return movie;
+        }
+        
+        // Bước 3: Kiểm tra cờ "N/A"
+        if ("N/A".equals(movie.getDirector())) {
+            System.out.println("♻️ [Movie EAGER] Nâng cấp chi tiết cho movie ID: " + movieID);
+            // Gọi hàm fetch API (đã có sẵn)
+            return fetchAndSaveMovieDetail(movie.getTmdbId(), movie);
+        }
+        
+        // Bước 4: Đã đầy đủ → Trả luôn
+        return movie;
+    }
+
     /**
      * [G46] HÀM EAGER (MOVIE): Chỉ dùng cho TRANG CHI TIẾT
      * (Hàm này kích hoạt nâng cấp)
@@ -156,6 +199,37 @@ public class MovieService {
     }
 
     /**
+     * [THÊM MỚI - PHẦN 2]
+     * Lấy Person theo personID (DB PK), tự động sync nếu cần
+     */
+    @Transactional
+    public Person getPersonByIdOrSync(int personID) {
+        Optional<Person> existing = personRepository.findById(personID);
+        
+        if (existing.isEmpty()) {
+            System.err.println("⚠️ Person not found with ID: " + personID);
+            return null;
+        }
+        
+        Person person = existing.get();
+        
+        // Phim tự tạo (không có tmdbId) -> Trả luôn
+        if (person.getTmdbId() == null) {
+            System.out.println("✅ [Custom Person] ID: " + personID);
+            return person;
+        }
+        
+        // Kiểm tra cờ "N/A"
+        if ("N/A".equals(person.getBio())) {
+            System.out.println("♻️ [Person EAGER] Nâng cấp chi tiết cho person ID: " + personID);
+            return fetchAndSavePersonDetail(person.getTmdbId(), person);
+        }
+        
+        // Đã đầy đủ -> Trả luôn
+        return person;
+    }
+
+    /**
      * [G46] HÀM EAGER (PERSON): Chỉ dùng cho TRANG CHI TIẾT
      */
     @Transactional
@@ -215,6 +289,9 @@ public class MovieService {
      * [G46] HÀM LAZY (ĐỌC DB): Dùng cho Banner, Hover Card
      * [SỬA] Nâng cấp "cụt" -> "vừa" (Lấy duration/country) khi hover.
      */
+    /**
+     * [SỬA LỖI V9] Nâng cấp đầy đủ (poster, rating) nếu bản "cụt" bị lỗi
+     */
     @Transactional
     public Movie getMoviePartial(int tmdbId) {
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
@@ -223,20 +300,25 @@ public class MovieService {
             Movie movie = existing.get();
             
             // KIỂM TRA CỜ: Nếu là bản "cụt" (director="N/A")
-            // (Chúng ta dùng duration==0 cũng được, nhưng director="N/A" an toàn hơn)
             if (movie.getDirector() != null && movie.getDirector().equals("N/A")) {
                 
                 // Phim này "cụt", gọi API chi tiết 1 LẦN để lấp đầy
                 try {
-                    System.out.println("♻️ [Movie-Partial] Nâng cấp (cho Hover) ID: " + tmdbId);
+                    System.out.println("♻️ [Movie-Partial] Nâng cấp (cho Hover/Suggestion) ID: " + tmdbId);
                     String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
                     String resp = restTemplate.getForObject(url, String.class);
-                    if (resp == null) return movie; // Trả tạm bản cụt nếu API lỗi
+                    if (resp == null) return movie; 
                     
                     JSONObject detailJson = new JSONObject(resp);
                     
-                    // Lấp đầy các trường còn thiếu (duration, country)
-                    // (Không lấp đầy cờ N/A, để Eager lo)
+                    // NÂNG CẤP ĐẦY ĐỦ CÁC TRƯỜNG BỊ THIẾU
+                    movie.setTitle(detailJson.optString("title", "N/A"));
+                    movie.setPosterPath(detailJson.optString("poster_path", null));
+                    movie.setBackdropPath(detailJson.optString("backdrop_path", null));
+                    movie.setRating((float) detailJson.optDouble("vote_average", 0.0));
+                    movie.setReleaseDate(parseDate(detailJson.optString("release_date")));
+                    
+                    // Lấp đầy các trường còn thiếu (duration, country, genres)
                     movie.setDuration(detailJson.optInt("runtime", 0));
                     JSONArray countries = detailJson.optJSONArray("production_countries");
                     if (countries != null && countries.length() > 0) {
@@ -326,6 +408,35 @@ public class MovieService {
         responseMap.put("totalResults", totalResults);
         responseMap.put("totalPages", totalPages);
         return responseMap;
+    }
+
+    @Transactional
+    public List<Movie> searchMoviesByTitle(String title) {
+        return movieRepository.findByTitleContainingIgnoreCase(title);
+    }
+
+    /**
+     * [THÊM MỚI] 
+     * Lấy một danh sách phim từ DB dựa trên tmdbIds
+     * và trả về một Map<tmdbId, Map> để JS dễ dàng tra cứu.
+     */
+    @Transactional
+    public Map<Integer, Map<String, Object>> getMoviesByTmdbIds(List<Integer> tmdbIds) {
+        if (tmdbIds == null || tmdbIds.isEmpty()) {
+            // Thêm import java.util.Collections
+            return Collections.emptyMap(); 
+        }
+        
+        // Dùng hàm mới trong Repository (Bước 1.1)
+        List<Movie> dbMovies = movieRepository.findByTmdbIdIn(tmdbIds);
+        
+        // Chuyển List<Movie> thành Map<Integer, Map<String, Object>>
+        // Key của Map là tmdbId
+        return dbMovies.stream()
+            .collect(Collectors.toMap(
+                Movie::getTmdbId,           // Key là tmdbId
+                movie -> convertToMap(movie) // Value là map đã được chuyển đổi
+            ));
     }
 
     // ===============================================
@@ -451,12 +562,18 @@ public class MovieService {
     // ===============================================
 
     /**
-     * [G46] Sửa lỗi hiển thị UI cho "0 phút" và "N/A"
+     * [SỬA ĐỔI - PHẦN 3]
+     * Đảm bảo 'id' trả về là movieID (DB PK)
      */
     public Map<String, Object> convertToMap(Movie movie) {
         if (movie == null) return null;
         Map<String, Object> map = new HashMap<>();
-        map.put("id", movie.getTmdbId());
+        
+        // === THAY ĐỔI CỐT LÕI ===
+        map.put("id", movie.getMovieID()); // <-- SỬA: Dùng PK của DB
+        // === HẾT THAY ĐỔI ===
+        
+        map.put("tmdbId", movie.getTmdbId());
         map.put("title", movie.getTitle());
         map.put("overview", movie.getDescription());
         map.put("rating", String.format("%.1f", movie.getRating()));
@@ -468,17 +585,9 @@ public class MovieService {
             map.put("releaseDate", new SimpleDateFormat("yyyy-MM-dd").format(movie.getReleaseDate()));
         } else { map.put("year", "N/A"); map.put("releaseDate", ""); }
         
-        // [SỬA LỖI "phút phút"]
-        // Trả về SỐ (150) hoặc DẤU "—". Giao diện sẽ tự thêm " phút".
-        map.put("runtime", (movie.getDuration() > 0) ? movie.getDuration() : "—"); // <--- ĐÃ SỬA
-        
+        map.put("runtime", (movie.getDuration() > 0) ? movie.getDuration() : "—");
         map.put("director", (movie.getDirector() != null && !movie.getDirector().equals("N/A")) ? movie.getDirector() : "—");
-        
-        // [GIỮ NGUYÊN] Logic "Quốc gia" đã đúng
-        // Nó lấy "United States of America" cho Frankenstein, 
-        // và trả "Quốc gia" cho phim có country=NULL (như ảnh 1).
         map.put("country", (movie.getCountry() != null && !movie.getCountry().isEmpty()) ? movie.getCountry() : "Quốc gia");
-        
         map.put("language", (movie.getLanguage() != null && !movie.getLanguage().equals("N/A")) ? movie.getLanguage() : "—");
         
         NumberFormat fmt = NumberFormat.getCurrencyInstance(Locale.US);
@@ -496,16 +605,21 @@ public class MovieService {
     }
 
     /**
-     * [G46] Sửa lỗi hiển thị UI cho cờ "N/A"
+     * [SỬA ĐỔI - PHẦN 3]
+     * Đảm bảo 'id' trả về là personID (DB PK)
      */
     public Map<String, Object> convertToMap(Person p) {
         if (p == null) return null;
         Map<String, Object> map = new HashMap<>();
-        map.put("id", p.getTmdbId());
+
+        // === THAY ĐỔI CỐT LÕI ===
+        map.put("id", p.getPersonID()); // <-- SỬA: Dùng PK của DB
+        // === HẾT THAY ĐỔI ===
+        
+        map.put("tmdbId", p.getTmdbId()); // Vẫn giữ tmdbId để tham chiếu
         map.put("name", p.getFullName());
         map.put("avatar", p.getProfilePath() != null ? "https://image.tmdb.org/t/p/w500" + p.getProfilePath() : "/images/placeholder-person.jpg");
 
-        // [G46] Sửa logic hiển thị cờ "N/A"
         map.put("biography", (p.getBio() != null && !p.getBio().equals("N/A")) ? p.getBio() : "Đang cập nhật...");
         map.put("birthday", p.getBirthday() != null ? new SimpleDateFormat("dd-MM-yyyy").format(p.getBirthday()) : "—");
         map.put("place_of_birth", (p.getPlaceOfBirth() != null && !p.getPlaceOfBirth().isEmpty()) ? p.getPlaceOfBirth() : "—");

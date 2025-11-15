@@ -250,7 +250,7 @@ async function fetchAndApplyBannerExtras(tmdbId) {
     
     try {
         // Gọi API đã có sẵn
-        const response = await fetch(`/api/movie/banner-detail/${tmdbId}`);
+        const response = await fetch(`/api/movie/banner-detail-by-movieid/${movieId}`);
         if (!response.ok) throw new Error('API banner-detail failed');
         
         const data = await response.json();
@@ -644,7 +644,7 @@ function onHoverPlayerStateChange(event) {
                 }, 300);
             }
             const duration = player.getDuration();
-            const endSeconds = duration - 15; 
+            const endSeconds = duration - 20; 
             if (hoverPlayerData.monitorInterval) {
                 clearInterval(hoverPlayerData.monitorInterval);
             }
@@ -700,9 +700,55 @@ window.goToMovieDetail = function(button) {
     const movieId = button.dataset.movieId;
     if (movieId) location.href = '/movie/detail/' + movieId;
 }
-window.showShareModal = function(button) { /* ... Giữ nguyên ... */ }
-window.closeShareModal = function() { /* ... Giữ nguyên ... */ }
-window.copyShareLink = function() { /* ... Giữ nguyên ... */ }
+// (MỚI) Các hàm cho Share Modal
+window.showShareModal = function(button) {
+    // Đọc dữ liệu từ data-* attributes của nút
+    const movieId = button.dataset.movieId;
+    const movieTitle = button.dataset.movieTitle;
+    
+    const url = `${window.location.origin}/movie/detail/${movieId}`;
+    
+    const overlay = document.getElementById('shareModalOverlay');
+    const input = document.getElementById('shareLinkInput');
+    const copyBtn = document.getElementById('shareCopyBtn');
+    
+    if (input) input.value = url;
+    if (copyBtn) {
+        copyBtn.textContent = 'Sao chép';
+        copyBtn.classList.remove('copied');
+    }
+    
+    // Cập nhật link cho social
+    document.getElementById('shareFacebook').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    document.getElementById('shareX').href = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(movieTitle)}`;
+    document.getElementById('shareEmail').href = `mailto:?subject=${encodeURIComponent(movieTitle)}&body=Xem phim này nhé: ${encodeURIComponent(url)}`;
+
+    if (overlay) overlay.classList.add('active');
+}
+
+window.closeShareModal = function() {
+    const overlay = document.getElementById('shareModalOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+window.copyShareLink = function() {
+    const input = document.getElementById('shareLinkInput');
+    const copyBtn = document.getElementById('shareCopyBtn');
+    
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile
+    
+    try {
+        navigator.clipboard.writeText(input.value).then(() => {
+            if (copyBtn) {
+                copyBtn.textContent = 'Đã chép!';
+                copyBtn.classList.add('copied');
+            }
+        });
+    } catch (err) {
+        console.error('Không thể sao chép:', err);
+    }
+}
 
 // (Các hàm xử lý hover (mouseenter/mouseleave) giữ nguyên)
 let hoverTimeout;

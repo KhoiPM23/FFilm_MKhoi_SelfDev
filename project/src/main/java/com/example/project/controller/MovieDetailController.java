@@ -118,50 +118,71 @@ public class MovieDetailController {
     private RestTemplate restTemplate;
 
     /**
-     * [G46] HÀM EAGER (ĐÚNG)
+     * [ĐÃ SỬA THEO KẾ HOẠCH BƯỚC 1]
+     * Thay đổi logic để nhận {id} là movieID (DB PK) thay vì tmdbId.
      */
     @GetMapping({"/movie/detail/{id}", "/movie/detail"})
     public String movieDetail(
             @PathVariable(required = false) String id,
-            @RequestParam(required = false) String movieId,
+            @RequestParam(required = false) String movieId, // Giữ để tương thích link cũ
             Model model
     ) {
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
         if (finalIdStr == null || finalIdStr.isEmpty()) return "redirect:/";
 
         try {
-            int tmdbId = Integer.parseInt(finalIdStr);
+            // THAY ĐỔI: Parse {id} thành movieID (Database Primary Key)
+            int movieID = Integer.parseInt(finalIdStr);
             
-            Movie movie = movieService.getMovieOrSync(tmdbId); // EAGER
+            // THAY ĐỔI: Gọi hàm service mới
+            Movie movie = movieService.getMovieByIdOrSync(movieID); // EAGER theo movieID
 
             if (movie != null) {
                 Map<String, Object> movieMap = movieService.convertToMap(movie);
                 
-                // [G46] Chuyển đổi ngôn ngữ
-                String langCode = (String) movieMap.get("language"); // Lấy code (vd: "en" hoặc "—")
-                movieMap.put("language", getLanguageName(langCode)); // Ghi đè (vd: "Tiếng Anh" hoặc "—")
+                // [SỬA] Chuyển đổi ngôn ngữ
+                String langCode = (String) movieMap.get("language"); 
+                movieMap.put("language", getLanguageName(langCode)); 
                 
-                String trailerKey = movieService.findBestTrailerKey(tmdbId);
-                String logoPath = movieService.findBestLogoPath(tmdbId);
-                
-                movieMap.put("trailerKey", trailerKey);
-                movieMap.put("logoPath", logoPath);
+                // Lấy tmdbId (có thể null nếu là phim tự tạo)
+                Integer tmdbId = movie.getTmdbId();
+
+                // Các API call bên ngoài (TMDB) VẪN PHẢI dùng tmdbId
+                if (tmdbId != null) {
+                    String trailerKey = movieService.findBestTrailerKey(tmdbId);
+                    String logoPath = movieService.findBestLogoPath(tmdbId);
+                    
+                    movieMap.put("trailerKey", trailerKey);
+                    movieMap.put("logoPath", logoPath);
+
+                    // Tải các mục phụ (Đã sửa lỗi G46)
+                    model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3)); 
+                    model.addAttribute("castList", loadCast(String.valueOf(tmdbId))); // Sửa: Dùng tmdbId
+                    model.addAttribute("trendingMovies", loadTrendingSidebar()); 
+                    model.addAttribute("similarMovies", loadSimilarMovies(String.valueOf(tmdbId))); // Sửa: Dùng tmdbId
+                    
+                    model.addAttribute("recommendTitle", "Có Thể Bạn Thích");
+                    model.addAttribute("recommendedMovies", loadRecommendedMovies(String.valueOf(tmdbId), tmdbId, model)); // Sửa: Dùng tmdbId
+                } else {
+                    // Xử lý cho phim tự tạo (không có tmdbId)
+                    movieMap.put("trailerKey", null);
+                    movieMap.put("logoPath", null);
+                    model.addAttribute("trailers", new ArrayList<>());
+                    model.addAttribute("castList", new ArrayList<>());
+                    model.addAttribute("trendingMovies", loadTrendingSidebar()); // Vẫn tải trending
+                    model.addAttribute("similarMovies", new ArrayList<>());
+                    model.addAttribute("recommendTitle", "Phim Khác");
+                    // TODO: Logic đề xuất phim tự tạo (Bước 6)
+                    model.addAttribute("recommendedMovies", new ArrayList<>()); 
+                }
 
                 model.addAttribute("movie", movieMap);
-                model.addAttribute("movieId", finalIdStr);
+                model.addAttribute("movieId", String.valueOf(movieID)); // Sửa: Truyền movieID
                 model.addAttribute("clientSideLoad", false); 
-
-                // Tải các mục phụ (ĐÃ SỬA LỖI G46)
-                model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3)); 
-                model.addAttribute("castList", loadCast(finalIdStr)); // (Đã sửa G46)
-                model.addAttribute("trendingMovies", loadTrendingSidebar()); 
-                model.addAttribute("similarMovies", loadSimilarMovies(finalIdStr));
-                
-                model.addAttribute("recommendTitle", "Có Thể Bạn Thích");
-                model.addAttribute("recommendedMovies", loadRecommendedMovies(finalIdStr, tmdbId, model)); 
 
                 return "movie/movie-detail";
             } else {
+                // Phim không tồn tại trong DB với movieID này
                 return createClientSideFallback(finalIdStr, model);
             }
         } catch (Exception e) {
@@ -226,12 +247,12 @@ public class MovieDetailController {
     // (Hàm loadTrendingSidebar, loadSimilarMovies giữ nguyên - G46 đã tối ưu)
     public List<Map<String, Object>> loadTrendingSidebar() {
         String url = BASE_URL + "/trending/movie/week?api_key=" + API_KEY + "&language=vi-VN";
-        Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 20);
+        Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 10);
         return (List<Map<String, Object>>) data.get("movies");
     }
     private List<Map<String, Object>> loadSimilarMovies(String movieId) {
         String url = BASE_URL + "/movie/" + movieId + "/similar?api_key=" + API_KEY + "&language=vi-VN";
-        Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 20);
+        Map<String, Object> data = movieService.loadAndSyncPaginatedMovies(url, 10);
         return (List<Map<String, Object>>) data.get("movies");
     }
 
@@ -240,13 +261,12 @@ public class MovieDetailController {
      * Bước 1 (Collection): Dùng syncMovieFromList (Lazy)
      */
     private List<Map<String, Object>> loadRecommendedMovies(String movieIdStr, int tmdbId, Model model) {
-        
         Set<Integer> addedMovieIds = new HashSet<>();
         List<Map<String, Object>> finalRecommendations = new ArrayList<>();
-        addedMovieIds.add(tmdbId); 
+        addedMovieIds.add(tmdbId);
 
         try {
-            // BƯỚC 1 (Ưu tiên): Lấy Collection
+            // BƯỚC 1: Ưu tiên Collection
             String detailUrl = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
             String detailResp = restTemplate.getForObject(detailUrl, String.class);
             JSONObject movieJson = new JSONObject(detailResp);
@@ -262,16 +282,14 @@ public class MovieDetailController {
                     
                     if (parts != null && parts.length() > 0) {
                         for (int i = 0; i < parts.length(); i++) {
-                            JSONObject part = parts.getJSONObject(i); 
+                            JSONObject part = parts.getJSONObject(i);
                             int partTmdbId = part.optInt("id");
                             if (addedMovieIds.contains(partTmdbId)) continue;
                             
-                            // [G46] SỬA LỖI: Gọi hàm LAZY
-                            Movie movie = movieService.syncMovieFromList(part); 
-
+                            Movie movie = movieService.syncMovieFromList(part);
                             if (movie != null) {
                                 finalRecommendations.add(movieService.convertToMap(movie));
-                                addedMovieIds.add(partTmdbId); 
+                                addedMovieIds.add(partTmdbId);
                             }
                         }
                         if (!finalRecommendations.isEmpty()) {
@@ -281,24 +299,80 @@ public class MovieDetailController {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Lỗi G46 (load collection), tiếp tục: " + e.getMessage());
+            System.err.println("Lỗi load collection: " + e.getMessage());
         }
         
-        // BƯỚC 2: FALLBACK / FILL (Giữ nguyên - Đã tối ưu G46)
-        String recommendUrl = BASE_URL + "/movie/" + movieIdStr + "/recommendations?api_key=" + API_KEY + "&language=vi-VN";
-        Map<String, Object> fallbackData = movieService.loadAndSyncPaginatedMovies(recommendUrl, 20);
-        // [G46] SỬA LỖI LẶP (G45)
-        List<Map<String, Object>> fallbackMovies = (List<Map<String, Object>>) fallbackData.get("movies");
+        // BƯỚC 2: Lấy genres của phim hiện tại để filter
+        List<Integer> currentGenres = new ArrayList<>();
+        try {
+            String detailUrl = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
+            String detailResp = restTemplate.getForObject(detailUrl, String.class);
+            JSONObject movieJson = new JSONObject(detailResp);
+            JSONArray genresJson = movieJson.optJSONArray("genres");
+            if (genresJson != null) {
+                for (int i = 0; i < genresJson.length(); i++) {
+                    currentGenres.add(genresJson.getJSONObject(i).optInt("id"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi lấy genres: " + e.getMessage());
+        }
+        
+        // BƯỚC 3: Similar (filter adult + genres)
+        try {
+            String similarUrl = BASE_URL + "/movie/" + movieIdStr + "/similar?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
+            String similarResp = restTemplate.getForObject(similarUrl, String.class);
+            JSONObject similarJson = new JSONObject(similarResp);
+            JSONArray results = similarJson.optJSONArray("results");
+            
+            if (results != null) {
+                for (int i = 0; i < results.length() && finalRecommendations.size() < 20; i++) {
+                    JSONObject item = results.getJSONObject(i);
+                    int itemId = item.optInt("id");
+                    if (addedMovieIds.contains(itemId)) continue;
+                    
+                    // Filter theo genres (ít nhất 1 genre trùng)
+                    JSONArray itemGenres = item.optJSONArray("genre_ids");
+                    boolean hasCommonGenre = false;
+                    if (itemGenres != null && !currentGenres.isEmpty()) {
+                        for (int j = 0; j < itemGenres.length(); j++) {
+                            if (currentGenres.contains(itemGenres.getInt(j))) {
+                                hasCommonGenre = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (hasCommonGenre || currentGenres.isEmpty()) {
+                        Movie movie = movieService.syncMovieFromList(item);
+                        if (movie != null) {
+                            finalRecommendations.add(movieService.convertToMap(movie));
+                            addedMovieIds.add(itemId);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi similar: " + e.getMessage());
+        }
+        
+        // BƯỚC 4: Recommendations (fill nếu chưa đủ)
+        if (finalRecommendations.size() < 20) {
+            String recommendUrl = BASE_URL + "/movie/" + movieIdStr + "/recommendations?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
+            Map<String, Object> fallbackData = movieService.loadAndSyncPaginatedMovies(recommendUrl, 20);
+            List<Map<String, Object>> fallbackMovies = (List<Map<String, Object>>) fallbackData.get("movies");
 
-        for (Map<String, Object> movieMap : fallbackMovies) {
-            int fallbackTmdbId = (int) movieMap.get("id");
-            if (!addedMovieIds.contains(fallbackTmdbId)) {
-                finalRecommendations.add(movieMap);
-                addedMovieIds.add(fallbackTmdbId);
+            for (Map<String, Object> movieMap : fallbackMovies) {
+                int fallbackTmdbId = (int) movieMap.get("tmdbId");
+                if (!addedMovieIds.contains(fallbackTmdbId) && finalRecommendations.size() < 20) {
+                    finalRecommendations.add(movieMap);
+                    addedMovieIds.add(fallbackTmdbId);
+                }
             }
         }
-        if (model.getAttribute("recommendTitle").equals("Có Thể Bạn Thích")) {
-             model.addAttribute("recommendTitle", "✨ Có Thể Bạn Thích");
+        
+        if (model.getAttribute("recommendTitle") == null || model.getAttribute("recommendTitle").equals("Có Thể Bạn Thích")) {
+            model.addAttribute("recommendTitle", "✨ Có Thể Bạn Thích");
         }
         return finalRecommendations;
     }

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate; // [G29] Vẫn cần vì hàm buildDiscoverUrl dùng
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -24,7 +24,7 @@ public class DiscoverController {
     private final String BASE_URL = "https://api.themoviedb.org/3";
 
     @Autowired private MovieService movieService;
-    @Autowired private RestTemplate restTemplate; // [G29] Giữ lại
+    @Autowired private RestTemplate restTemplate;
 
     @GetMapping("/discover")
     public String discover(
@@ -33,22 +33,35 @@ public class DiscoverController {
             @RequestParam(required = false) String quickFilter,
             Model model) {
 
+        int totalResults = 0;
+        int totalPages = 1;
+
         try {
-            // [SỬA] BƯỚC 1: LUÔN LUÔN LẤY BANNER TỪ PAGE 1
-            // Xây dựng URL cho page 1 (để lấy banner + top movies)
             String page1Url = buildDiscoverUrl(1, genres, quickFilter);
             int discoverLimit = 20; 
-            Map<String, Object> page1Data = movieService.loadAndSyncPaginatedMovies(page1Url, discoverLimit);
-            List<Map<String, Object>> topMovies = (List<Map<String, Object>>) page1Data.get("movies");
 
-            // [SỬA] BƯỚC 2: GÁN BANNER VÀ TOP MOVIES (Luôn cố định)
+            // [SỬA LỖI CLAUDE] Lấy thông tin phân trang (totalResults, totalPages) từ page 1
+            String page1Response = restTemplate.getForObject(page1Url, String.class);
+            if (page1Response == null) {
+                setEmptyResults(model, genres, quickFilter);
+                return "discover";
+            }
+            
+            JSONObject page1Json = new JSONObject(page1Response);
+            totalResults = page1Json.optInt("total_results", 0);
+            totalPages = page1Json.optInt("total_pages", 1);
+            
+            // Xử lý lấy danh sách phim cho carousel (dùng hàm lazy)
+            List<Map<String, Object>> topMovies = loadDiscoverMovies(page1Json, discoverLimit);
+
+            // BƯỚC 2: GÁN BANNER VÀ TOP MOVIES
             if (!topMovies.isEmpty()) {
-                // Lấy bannerTmdbId từ topMovies (của page 1)
-                int bannerTmdbId = (int) topMovies.get(0).get("id");
-                // Gọi getMoviePartial để nâng cấp (lấy duration/country)
+                int bannerTmdbId = (int) topMovies.get(0).get("tmdbId");
+                
+                // Banner vẫn dùng getMoviePartial (để lấy duration/country)
                 Movie bannerMovie = movieService.getMoviePartial(bannerTmdbId); 
+                
                 Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
-
                 String trailerKey = movieService.findBestTrailerKey(bannerTmdbId);
                 String logoPath = movieService.findBestLogoPath(bannerTmdbId);
                 
@@ -56,27 +69,20 @@ public class DiscoverController {
                 bannerMap.put("logoPath", logoPath);
                 
                 model.addAttribute("banner", bannerMap);
-                // topMovies carousel luôn là danh sách của page 1
                 model.addAttribute("topMovies", topMovies.subList(0, Math.min(topMovies.size(), 10)));
             } else {
-                // Fallback nếu page 1 cũng không có gì
-                setEmptyResults(model, genres, quickFilter); // setEmptyResults sẽ tự tạo banner rỗng
+                setEmptyResults(model, genres, quickFilter); 
             }
             
-            // [SỬA] BƯỚC 3: LẤY KẾT QUẢ CHO GRID PHÂN TRANG
+            // BƯỚC 3: LẤY KẾT QUẢ CHO GRID PHÂN TRANG
             List<Map<String, Object>> gridMovies;
-            int totalResults = (int) page1Data.get("totalResults");
-            int totalPages = (int) page1Data.get("totalPages");
 
             if (page == 1) {
-                // Tiết kiệm API: Nếu đang ở trang 1, dùng luôn kết quả đã lấy
                 gridMovies = topMovies;
             } else {
-                // Nếu ở trang > 1, gọi API lần nữa CHỈ để lấy grid
+                // Nếu ở trang > 1, gọi API lần nữa (dùng hàm lazy)
                 String currentPageUrl = buildDiscoverUrl(page, genres, quickFilter);
-                Map<String, Object> currentPageData = movieService.loadAndSyncPaginatedMovies(currentPageUrl, discoverLimit);
-                gridMovies = (List<Map<String, Object>>) currentPageData.get("movies");
-                // (totalResults và totalPages đã lấy từ page 1 là đủ)
+                gridMovies = loadDiscoverMovies(currentPageUrl, discoverLimit); // Dùng helper
             }
             
             // Gán model cho grid
@@ -94,6 +100,47 @@ public class DiscoverController {
             setEmptyResults(model, genres, quickFilter);
         }
         return "discover";
+    }
+
+    /**
+     * [THÊM MỚI] Hàm helper (của Claude) để load carousel nhanh
+     * (Chỉ dùng syncMovieFromList - LAZY)
+     */
+    private List<Map<String, Object>> loadDiscoverMovies(String apiUrl, int limit) {
+        List<Map<String, Object>> movies = new ArrayList<>();
+        try {
+            String response = restTemplate.getForObject(apiUrl, String.class);
+            if (response == null) return movies;
+            
+            JSONObject json = new JSONObject(response);
+            return loadDiscoverMovies(json, limit); // Gọi hàm overload
+            
+        } catch (Exception e) {
+            System.err.println("Lỗi loadDiscoverMovies (String apiUrl): " + e.getMessage());
+        }
+        return movies;
+    }
+    
+    /**
+     * [THÊM MỚI] Hàm Overload để xử lý JSON
+     */
+    private List<Map<String, Object>> loadDiscoverMovies(JSONObject json, int limit) {
+        List<Map<String, Object>> movies = new ArrayList<>();
+        try {
+            JSONArray results = json.optJSONArray("results");
+            if (results == null) return movies;
+            
+            for (int i = 0; i < Math.min(results.length(), limit); i++) {
+                JSONObject item = results.getJSONObject(i);
+                Movie movie = movieService.syncMovieFromList(item);
+                if (movie != null) {
+                    movies.add(movieService.convertToMap(movie));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi loadDiscoverMovies (JSONObject): " + e.getMessage());
+        }
+        return movies;
     }
 
     // (Hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
@@ -122,6 +169,7 @@ public class DiscoverController {
             }
         }
         url.append("&sort_by=").append(sortBy);
+        url.append("&include_adult=false");
         return url.toString();
     }
 

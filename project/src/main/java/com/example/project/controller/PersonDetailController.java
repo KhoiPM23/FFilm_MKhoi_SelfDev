@@ -30,79 +30,103 @@ public class PersonDetailController {
     @Autowired
     private RestTemplate restTemplate; 
 
-    @GetMapping({"/person/detail/{pid}", "/person/detail"})
+    /**
+     * [SỬA ĐỔI - PHẦN 2 & 3]
+     * Ưu tiên {id} (PK)
+     * Giữ ?id= (tmdbId) làm fallback cho Live Suggestion
+     */
+    @GetMapping({"/person/detail/{id}", "/person/detail"})
     public String personDetail(
-            @PathVariable(required = false, name = "pid") String pid,
-            @RequestParam(required = false, name = "id") String idQuery,
+            @PathVariable(required = false, name = "id") String id, // Đây là personID (PK)
+            @RequestParam(required = false, name = "id") String idQuery, // Đây là tmdbId
             Model model
     ) {
-        String finalIdStr = (pid != null && !pid.isEmpty()) ? pid : idQuery;
+        // Ưu tiên PathVariable (PK) trước
+        String finalIdStr = (id != null && !id.isEmpty()) ? id : idQuery;
         if (finalIdStr == null || finalIdStr.isEmpty()) {
             return "redirect:/";
         }
 
+        Person person = null;
+        String tmdbIdStr = null; // Dùng để gọi API TMDB
+
         try {
-            int tmdbId = Integer.parseInt(finalIdStr);
+            int numericId = Integer.parseInt(finalIdStr);
             
-            // [G42] HÀM EAGER (ĐÚNG)
-            Person person = movieService.getPersonOrSync(tmdbId);
+            if (id != null && !id.isEmpty()) {
+                // KỊCH BẢN 1: Dùng /person/detail/{personID} (PK)
+                System.out.println("Finding person by DB PK: " + numericId);
+                person = movieService.getPersonByIdOrSync(numericId); // EAGER theo personID
+                if (person != null && person.getTmdbId() != null) {
+                    tmdbIdStr = String.valueOf(person.getTmdbId());
+                }
+            } else {
+                // KỊCH BẢN 2: Dùng /person/detail?id={tmdbId} (từ Live Suggestion)
+                System.out.println("Finding person by TMDB ID: " + numericId);
+                person = movieService.getPersonOrSync(numericId); // EAGER theo tmdbId
+                tmdbIdStr = finalIdStr; // tmdbId chính là idQuery
+            }
             
             if (person == null) {
                 return createClientSidePersonFallback(finalIdStr, model);
             }
 
-            String creditsUrl = BASE_URL + "/person/" + finalIdStr + "/movie_credits?api_key=" + API_KEY + "&language=vi-VN";
-            String creditsResp = restTemplate.getForObject(creditsUrl, String.class);
-            
+            // --- Tải các phim đã tham gia (dùng tmdbIdStr) ---
             List<Map<String, Object>> moviesMapList = new ArrayList<>();
-            Map<Integer, JSONObject> allMoviesJson = new HashMap<>();
+            
+            // Chỉ gọi API credits nếu chúng ta có tmdbId
+            if (tmdbIdStr != null && !tmdbIdStr.isEmpty()) {
+                String creditsUrl = BASE_URL + "/person/" + tmdbIdStr + "/movie_credits?api_key=" + API_KEY + "&language=vi-VN";
+                String creditsResp = restTemplate.getForObject(creditsUrl, String.class);
+                
+                Map<Integer, JSONObject> allMoviesJson = new HashMap<>();
 
-            if (creditsResp != null) {
-                JSONObject creditsJson = new JSONObject(creditsResp);
-                
-                JSONArray castArray = creditsJson.optJSONArray("cast");
-                if (castArray != null) {
-                    for (int i = 0; i < castArray.length(); i++) {
-                        JSONObject item = castArray.getJSONObject(i);
-                        item.put("role", item.optString("character", "")); 
-                        allMoviesJson.put(item.optInt("id"), item);
-                    }
-                }
-                
-                JSONArray crewArray = creditsJson.optJSONArray("crew");
-                if (crewArray != null) {
-                    for (int i = 0; i < crewArray.length(); i++) {
-                        JSONObject item = crewArray.getJSONObject(i);
-                        if (!allMoviesJson.containsKey(item.optInt("id"))) {
-                            item.put("role", item.optString("job", "")); 
+                if (creditsResp != null) {
+                    // ... (Logic parse JSON castArray và crewArray giữ nguyên) ...
+                    JSONObject creditsJson = new JSONObject(creditsResp);
+                    JSONArray castArray = creditsJson.optJSONArray("cast");
+                    if (castArray != null) {
+                        for (int i = 0; i < castArray.length(); i++) {
+                            JSONObject item = castArray.getJSONObject(i);
+                            item.put("role", item.optString("character", "")); 
                             allMoviesJson.put(item.optInt("id"), item);
                         }
                     }
-                }
+                    JSONArray crewArray = creditsJson.optJSONArray("crew");
+                    if (crewArray != null) {
+                        for (int i = 0; i < crewArray.length(); i++) {
+                            JSONObject item = crewArray.getJSONObject(i);
+                            if (!allMoviesJson.containsKey(item.optInt("id"))) {
+                                item.put("role", item.optString("job", "")); 
+                                allMoviesJson.put(item.optInt("id"), item);
+                            }
+                        }
+                    }
 
-                for (JSONObject item : allMoviesJson.values()) {
-                    int movieTmdbId = item.optInt("id"); 
-                    if (movieTmdbId <= 0) continue;
+                    for (JSONObject item : allMoviesJson.values()) {
+                        int movieTmdbId = item.optInt("id"); 
+                        if (movieTmdbId <= 0) continue;
 
-                    // [G42] SỬA LỖI API STORM:
-                    Movie movie = movieService.syncMovieFromList(item); // ĐÚNG (Lazy)
+                        Movie movie = movieService.syncMovieFromList(item); // LAZY
 
-                    if (movie != null) {
-                        Map<String, Object> movieMap = movieService.convertToMap(movie);
-                        movieMap.put("role_info", item.optString("role", "")); 
-                        movieMap.put("popularity", item.optDouble("popularity", 0.0)); 
-                        moviesMapList.add(movieMap);
+                        if (movie != null) {
+                            Map<String, Object> movieMap = movieService.convertToMap(movie);
+                            movieMap.put("role_info", item.optString("role", "")); 
+                            movieMap.put("popularity", item.optDouble("popularity", 0.0)); 
+                            moviesMapList.add(movieMap);
+                        }
                     }
                 }
+                
+                moviesMapList.sort((a, b) -> Double.compare(
+                    (Double)b.getOrDefault("popularity", 0.0), 
+                    (Double)a.getOrDefault("popularity", 0.0)
+                ));
             }
-            
-            moviesMapList.sort((a, b) -> Double.compare(
-                (Double)b.getOrDefault("popularity", 0.0), 
-                (Double)a.getOrDefault("popularity", 0.0)
-            ));
+            // Nếu tmdbIdStr == null (person tự tạo), thì moviesMapList sẽ rỗng
 
             model.addAttribute("person", movieService.convertToMap(person));
-            model.addAttribute("personId", finalIdStr);
+            model.addAttribute("personId", String.valueOf(person.getPersonID())); // Luôn trả PK
             model.addAttribute("movies", moviesMapList); 
             model.addAttribute("clientSideLoad", false);
 

@@ -26,71 +26,84 @@ public class HomeController {
     private RestTemplate restTemplate;
 
     @Autowired
-    private MovieService movieService; // Cổng logic chính
+    private MovieService movieService; 
 
     @GetMapping("/")
     public String home(Model model) {
         try {
-            // Tải Banner (Giữ nguyên logic G5)
+            // Tải Banner (Giữ nguyên logic G43 - dùng getMoviePartial)
             setBanner(model);
             
-            // [G29] TỐI ƯU: Gọi hàm service chung
-            int carouselLimit = 20; // Giới hạn 20 phim mỗi carousel
+            // [SỬA] Tối ưu: Gọi hàm helper mới (loadCarouselMovies)
+            int carouselLimit = 10;
 
-            // Gọi hàm mới và chỉ lấy danh sách "movies"
-            Map<String, Object> hotData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1", carouselLimit
-            );
-            Map<String, Object> newData = movieService.loadAndSyncPaginatedMovies(
+            model.addAttribute("hotMovies", loadCarouselMovies(
+                BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1", 20
+            ));
+            model.addAttribute("newMovies", loadCarouselMovies(
                 BASE_URL + "/movie/now_playing?api_key=" + API_KEY + "&language=vi-VN&page=1", carouselLimit
-            );
-            Map<String, Object> animeData = movieService.loadAndSyncPaginatedMovies(
+            ));
+            model.addAttribute("animeMovies", loadCarouselMovies(
                 BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=16&sort_by=popularity.desc&page=1", carouselLimit
-            );
-            Map<String, Object> kidsData = movieService.loadAndSyncPaginatedMovies(
+            ));
+            model.addAttribute("kidsMovies", loadCarouselMovies(
                 BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=10751&sort_by=popularity.desc&page=1", carouselLimit
-            );
-            Map<String, Object> actionData = movieService.loadAndSyncPaginatedMovies(
+            ));
+            model.addAttribute("actionMovies", loadCarouselMovies(
                 BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=28&sort_by=popularity.desc&page=1", carouselLimit
-            );
-
-            // Gán danh sách phim (List<Map>) vào model
-            model.addAttribute("hotMovies", (List<Map<String, Object>>) hotData.get("movies"));
-            model.addAttribute("newMovies", (List<Map<String, Object>>) newData.get("movies"));
-            model.addAttribute("animeMovies", (List<Map<String, Object>>) animeData.get("movies"));
-            model.addAttribute("kidsMovies", (List<Map<String, Object>>) kidsData.get("movies"));
-            model.addAttribute("actionMovies", (List<Map<String, Object>>) actionData.get("movies"));
+            ));
 
             return "index";
         } catch (Exception e) {
             System.err.println("ERROR in home(): " + e.getMessage());
             e.printStackTrace();
-            ensureDefaultAttributes(model); // Đảm bảo trang không bị crash
+            ensureDefaultAttributes(model);
             return "index";
         }
     }
 
     /**
-     * [G43] Sửa lỗi: Banner phải gọi hàm LAZY
+     * [THÊM MỚI] Hàm helper (của Claude) để load carousel nhanh
+     * (Chỉ dùng syncMovieFromList - LAZY)
      */
+    private List<Map<String, Object>> loadCarouselMovies(String apiUrl, int limit) {
+        List<Map<String, Object>> movies = new ArrayList<>();
+        try {
+            String response = restTemplate.getForObject(apiUrl, String.class);
+            if (response == null) return movies;
+            
+            JSONArray results = new JSONObject(response).optJSONArray("results");
+            if (results == null) return movies;
+            
+            for (int i = 0; i < Math.min(results.length(), limit); i++) {
+                JSONObject item = results.getJSONObject(i);
+                // Chỉ gọi hàm LAZY
+                Movie movie = movieService.syncMovieFromList(item); 
+                if (movie != null) {
+                    movies.add(movieService.convertToMap(movie));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi loadCarouselMovies: " + e.getMessage());
+        }
+        return movies;
+    }
+
+    // (Hàm setBanner, createDefaultBanner, ensureDefaultAttributes giữ nguyên y như cũ)
+    
     private void setBanner(Model model) {
         try {
             String listUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
             String listResp = restTemplate.getForObject(listUrl, String.class);
-
             if (listResp != null && !listResp.isEmpty()) {
                 JSONObject listJson = new JSONObject(listResp);
                 JSONArray results = listJson.optJSONArray("results");
-
                 if (results != null && results.length() > 0) {
                     JSONObject firstMovieJson = results.getJSONObject(0);
                     int tmdbId = firstMovieJson.optInt("id", -1);
-
                     if (tmdbId > 0) {
-                        // [G43] SỬA LỖI:
-                        // Movie bannerMovie = movieService.getMovieOrSync(tmdbId); // LỖI (Eager)
-                        Movie bannerMovie = movieService.getMoviePartial(tmdbId); // ĐÚNG (Lazy)
-                        
+                        // Banner PHẢI DÙNG getMoviePartial để lấy duration/country
+                        Movie bannerMovie = movieService.getMoviePartial(tmdbId); 
                         Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
                         String trailerKey = movieService.findBestTrailerKey(tmdbId);
                         String logoPath = movieService.findBestLogoPath(tmdbId);
@@ -101,21 +114,10 @@ public class HomeController {
                     }
                 }
             }
-        } catch (Exception e) {
-            System.err.println("Error in setBanner (G43): " + e.getMessage());
-        }
+        } catch (Exception e) { System.err.println("Error in setBanner (G43): " + e.getMessage()); }
         model.addAttribute("banner", createDefaultBanner());
     }
     
-    /**
-     * [G29] XÓA BỎ:
-     * Hàm private loadMoviesFromApi(String endpoint) đã bị xóa
-     * vì logic của nó đã được chuyển vào MovieService.loadAndSyncPaginatedMovies()
-     */
-    // private List<Map<String, Object>> loadMoviesFromApi(String endpoint) { ... }
-
-
-    // (Các hàm createDefaultBanner và ensureDefaultAttributes giữ nguyên)
     private Map<String, Object> createDefaultBanner() {
         Map<String, Object> banner = new HashMap<>();
         banner.put("id", 550); banner.put("title", "Welcome to FFilm");
