@@ -47,6 +47,8 @@ public class WatchHistoryService {
         if (existingHistory.isPresent()) {
             // Đã có: Chỉ cần save() để @UpdateTimestamp tự động cập nhật
             WatchHistory history = existingHistory.get();
+            // Thêm dòng này để đánh dấu entity là "dirty"
+            history.setLastWatchedAt(java.time.LocalDateTime.now());
             watchHistoryRepository.save(history);
         } else {
             // Chưa có: Tạo mới
