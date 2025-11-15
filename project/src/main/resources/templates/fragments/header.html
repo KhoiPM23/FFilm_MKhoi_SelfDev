@@ -145,16 +145,19 @@
         </div>
 
         <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
-            <div class="dropdown-header">
-                Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
-            </div>
-            <a th:href="@{/profile}" class="dropdown-item">
-                <i class="fas fa-user-circle"></i> Profile
-            </a>
-            <a th:href="@{/logout}" class="dropdown-item logout-item">
-                <i class="fas fa-sign-out-alt"></i> Đăng xuất
-            </a>
-        </div>
+    <div class="dropdown-header">
+        Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
+    </div>
+    <a th:href="@{/profile}" class="dropdown-item">
+        <i class="fas fa-user-circle"></i> Profile
+    </a>
+    <a th:href="@{/history}" class="dropdown-item">
+        <i class="fas fa-history"></i> Lịch sử xem
+    </a>
+    <a th:href="@{/logout}" class="dropdown-item logout-item">
+        <i class="fas fa-sign-out-alt"></i> Đăng xuất
+    </a>
+</div>
     </div>
         <div id="aiSearchModal" class="ai-search-modal" hidden>
           <div class="ai-modal-overlay"></div>

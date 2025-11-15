@@ -133,4 +133,10 @@ public class HomeController {
         model.addAttribute("kidsMovies", new ArrayList<>());
         model.addAttribute("actionMovies", new ArrayList<>());
     }
+
+    @GetMapping("/history")
+    public String watchHistoryPage() {
+        return "service/watch-history"; 
+                                       
+    }
 }

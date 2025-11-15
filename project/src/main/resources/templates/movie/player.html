@@ -9,8 +9,10 @@
     </title>
 
     <meta th:if="${movie?.tmdbId}" name="tmdb-id" th:content="${movie.tmdbId}">
+    
+    
+    
     <link rel="stylesheet" href="/css/footer.css">
-
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">s
     <style>
@@ -477,7 +479,7 @@
         <div class="content-wrapper">
             <div class="main-content">
 
-                <div class="video-container">
+                <div id="player-wrapper" class="video-container" th:attr="data-movie-id=${movie.movieID}">
                     <iframe th:if="${movie.url}" th:src="${movie.url}" allowfullscreen title="Movie Player"></iframe>
                     <div th:unless="${movie.url}"
                         style="display:flex; align-items:center; justify-content:center; height:100%; position:absolute; width:100%;">
@@ -679,6 +681,9 @@
             }
         });
     </script>
+    
+    <script th:src="@{/js/movie/player.js}"></script>
+    
 </body>
 
 </html>

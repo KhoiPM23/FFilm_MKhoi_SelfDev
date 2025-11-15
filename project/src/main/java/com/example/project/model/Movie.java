@@ -107,6 +107,10 @@ public class Movie {
     @JsonIgnore
     private List<Report> reports;
 
+    @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore 
+    private List<WatchHistory> watchHistories = new ArrayList<>();
+
     public Movie() {}
 
     // --- GETTERS & SETTERS (ĐẦY ĐỦ) ---
@@ -179,4 +183,12 @@ public class Movie {
 
     public List<Report> getReports() { return reports; }
     public void setReports(List<Report> reports) { this.reports = reports; }
+
+    public List<WatchHistory> getWatchHistories() {
+        return watchHistories;
+    }
+
+    public void setWatchHistories(List<WatchHistory> watchHistories) {
+        this.watchHistories = watchHistories;
+    }
 }

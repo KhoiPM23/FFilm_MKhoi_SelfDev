@@ -460,3 +460,57 @@ class VideoPlayer {
 document.addEventListener('DOMContentLoaded', () => {
     new VideoPlayer();
 });
+
+// Thêm code này vào file player.js của bạn
+
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // Tìm thẻ div cha chứa data-movie-id
+    const playerWrapper = document.getElementById('player-wrapper');
+    
+    if (playerWrapper) {
+        // Lấy movieId từ data attribute
+        const movieId = playerWrapper.dataset.movieId;
+        let hasRecorded = false; // Cờ để đảm bảo chỉ gọi 1 lần
+
+        const recordHistory = async () => {
+            // Nếu đã gọi rồi hoặc không có movieId thì không làm gì cả
+            if (hasRecorded || !movieId) return; 
+
+            console.log(`Recording history for movie ID: ${movieId}`);
+            hasRecorded = true; // Đánh dấu là đã gọi
+            
+            try {
+                const response = await fetch(`/api/history/record/${movieId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json'
+                        // Không cần CSRF token vì bạn đã tắt nó trong SecurityConfig
+                    }
+                });
+
+                if (response.ok) {
+                    console.log('Watch history recorded successfully.');
+                } else if (response.status === 401) {
+                    // Lỗi 401 (Unauthorized) nghĩa là user chưa đăng nhập
+                    console.log('User not logged in. Skipping history record.');
+                } 
+                else {
+                    // Các lỗi khác (500, 404...)
+                    console.error('Failed to record watch history.');
+                }
+            } catch (error) {
+                // Lỗi mạng, không thể kết nối
+                console.error('Error calling record history API:', error);
+            }
+        };
+
+        // === LOGIC GỌI HÀM ===
+        // Chúng ta gọi thẳng hàm khi trang player được tải.
+        // Điều này giả định rằng nếu user đã vào trang player, 
+        // họ có ý định xem (cách an toàn nhất cho <iframe>)
+        if(movieId) {
+             recordHistory();
+        }
+    }
+});

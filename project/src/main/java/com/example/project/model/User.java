@@ -1,5 +1,6 @@
     package com.example.project.model;
 
+    import java.util.ArrayList;
     import java.util.List;
 
     import jakarta.persistence.CascadeType;
@@ -14,6 +15,8 @@
     import jakarta.validation.constraints.NotBlank;
 
     import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
     @Entity
     @Table(name = "Users")
@@ -59,9 +62,13 @@
         @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
         private List<Payment> payments;
 
+        
+        @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonIgnore // để tránh lỗi đệ quy khi serialize JSON
+        private List<WatchHistory> watchHistories = new ArrayList<>();
+
         private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-// <<<<<<< HEAD
 @PrePersist
 public void prepareForPersist() {
     if (this.role == null || this.role.trim().isEmpty()) {
@@ -83,18 +90,7 @@ public void prepareForPersist() {
     
     public User() {
     }
-// =======
-//         @PrePersist
-//         @PreUpdate
-//         public void hashPassword() {
-//             if (this.password != null && !this.password.startsWith("$2a$")) {
-//                 this.password = encoder.encode(this.password);
-//             }
-//         }
 
-//         public User() {
-//         }
-// >>>>>>> origin/feature/Authentication/UserAccountManagement/Nguyen
 
         public User(int userID, String userName, String email, String password, String role, boolean status,
                 String phoneNumber, List<Comment> comments, List<Review> reviews, List<Report> reports,
@@ -207,6 +203,14 @@ public void prepareForPersist() {
 
         public void setPayments(List<Payment> payments) {
             this.payments = payments;
+        }
+
+        public List<WatchHistory> getWatchHistories() {
+            return watchHistories;
+        }
+
+        public void setWatchHistories(List<WatchHistory> watchHistories) {
+            this.watchHistories = watchHistories;
         }
 
 }
