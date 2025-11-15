@@ -3,6 +3,7 @@ package com.example.project.dto;
 public class ReactionRequest {
     private Integer userId;
     private Integer tmdbId;
+    private Integer movieID;
 
     public ReactionRequest(Integer userId, Integer tmdbId) {
         this.userId = userId;
