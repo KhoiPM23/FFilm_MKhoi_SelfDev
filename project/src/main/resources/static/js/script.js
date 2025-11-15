@@ -250,7 +250,7 @@ async function fetchAndApplyBannerExtras(tmdbId) {
     
     try {
         // Gọi API đã có sẵn
-        const response = await fetch(`/api/movie/banner-detail-by-movieid/${movieId}`);
+        const response = await fetch(`/api/movie/banner-detail/${tmdbId}`);
         if (!response.ok) throw new Error('API banner-detail failed');
         
         const data = await response.json();

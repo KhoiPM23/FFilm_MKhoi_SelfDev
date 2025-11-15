@@ -461,26 +461,6 @@
             }
         }
 
-        .fire-icon {
-            font-size: 2rem;
-            animation: fireFlicker 1.5s infinite;
-        }
-
-        @keyframes fireFlicker {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-
-        /* [THÊM MỚI] Fix lỗi AI loading spinner không quay */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-spinner {
-            animation: spin 0.8s linear infinite; /* Áp dụng animation */
-        }
-
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -516,6 +496,121 @@
 
             .results-grid {
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        /* ===== UI/UX IMPROVEMENTS CHO SEARCH PAGE ===== */
+
+        /* Fix: Căn lề trái cho results grid giống index */
+        .results-section {
+            padding-left: 50px; /* Đồng bộ với index */
+        }
+
+        @media (max-width: 768px) {
+            .results-section {
+                padding-left: 20px;
+            }
+        }
+
+        /* 2. Better Search Input */
+        .search-main-input {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-main-input:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(229, 9, 20, 0.25);
+        }
+
+        /* 3. Enhanced Pagination */
+        .page-btn {
+            transition: all 0.2s ease;
+        }
+
+        .page-btn:hover:not(.active):not(.disabled) {
+            background: rgba(229, 9, 20, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .page-btn.active {
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+        }
+
+        /* 4. Loading Animation for Movie Cards */
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .movie-card.loading {
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0.05) 0%,
+                rgba(255,255,255,0.1) 50%,
+                rgba(255,255,255,0.05) 100%
+            );
+            background-size: 200px 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* 5. Empty State Enhancement */
+        .empty-state {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        
+
+        /* 7. Better Suggestion Chips */
+        .suggestion-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .suggestion-chip:hover {
+            background: rgba(229, 9, 20, 0.2);
+            border-color: #e50914;
+            transform: translateY(-2px);
+        }
+
+        /* 8. Smooth Scroll Behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 9. Better Focus States */
+        *:focus-visible {
+            outline: 2px solid #e50914;
+            outline-offset: 2px;
+        }
+
+        /* 10. Responsive Improvements */
+        @media (max-width: 768px) {
+            .search-page-container {
+                padding: 70px 15px 40px;
+            }
+            
+            .search-hero h1 {
+                font-size: 1.8rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 16px;
+            }
+            
+            .movie-card:hover {
+                transform: scale(1.02);
             }
         }
 
@@ -566,6 +661,7 @@
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
         }
+
 
         /* ============ AI Search Modal ============ */
         .ai-search-modal {
@@ -871,121 +967,6 @@
             .ai-modal-content { width: 95%; margin: 20px; }
             .ai-modal-header, .ai-modal-body, .ai-modal-footer { padding: 20px; }
         }
-
-        /* ===== UI/UX IMPROVEMENTS CHO SEARCH PAGE ===== */
-
-        /* Fix: Căn lề trái cho results grid giống index */
-        .results-section {
-            padding-left: 50px; /* Đồng bộ với index */
-        }
-
-        @media (max-width: 768px) {
-            .results-section {
-                padding-left: 20px;
-            }
-        }
-
-        /* 2. Better Search Input */
-        .search-main-input {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .search-main-input:focus {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(229, 9, 20, 0.25);
-        }
-
-        /* 3. Enhanced Pagination */
-        .page-btn {
-            transition: all 0.2s ease;
-        }
-
-        .page-btn:hover:not(.active):not(.disabled) {
-            background: rgba(229, 9, 20, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .page-btn.active {
-            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
-        }
-
-        /* 4. Loading Animation for Movie Cards */
-        @keyframes shimmer {
-            0% { background-position: -200px 0; }
-            100% { background-position: 200px 0; }
-        }
-
-        .movie-card.loading {
-            background: linear-gradient(
-                90deg,
-                rgba(255,255,255,0.05) 0%,
-                rgba(255,255,255,0.1) 50%,
-                rgba(255,255,255,0.05) 100%
-            );
-            background-size: 200px 100%;
-            animation: shimmer 1.5s infinite;
-        }
-
-        /* 5. Empty State Enhancement */
-        .empty-state {
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        
-
-        /* 7. Better Suggestion Chips */
-        .suggestion-chip {
-            transition: all 0.2s ease;
-            cursor: pointer;
-            padding: 8px 16px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        .suggestion-chip:hover {
-            background: rgba(229, 9, 20, 0.2);
-            border-color: #e50914;
-            transform: translateY(-2px);
-        }
-
-        /* 8. Smooth Scroll Behavior */
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* 9. Better Focus States */
-        *:focus-visible {
-            outline: 2px solid #e50914;
-            outline-offset: 2px;
-        }
-
-        /* 10. Responsive Improvements */
-        @media (max-width: 768px) {
-            .search-page-container {
-                padding: 70px 15px 40px;
-            }
-            
-            .search-hero h1 {
-                font-size: 1.8rem;
-            }
-            
-            .results-grid {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 16px;
-            }
-            
-            .movie-card:hover {
-                transform: scale(1.02);
-            }
-        }
     </style>
 </head>
 <body>
@@ -1092,48 +1073,8 @@
             <div id="liveSuggestions" class="live-suggestions" style="display:none; position:absolute; left:0; right:0; top:110%; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:8px; z-index:80; max-height: 450px; overflow-y: auto;">
                 <!-- JS sẽ render các suggestion items vào đây -->
             </div>
-        </div>        
-
-        <!-- Results Section (shown when there's a query) -->
-        <div class="results-section" th:if="${query != null}" id="resultsSection">
-            <div class="results-grid" id="resultsGrid">
-                <div th:each="movie : ${searchResults}" 
-                    class="movie-card" 
-                    th:attr="data-movie-id=${movie.id}">
-                    
-                    <div class="movie-poster">
-                        <img th:src="${movie.poster}" 
-                            th:alt="${movie.title}"
-                            onerror="this.src='/images/placeholder.jpg'">
-                    </div>
-                    
-                    <div class="movie-info">
-                        <h3 th:text="${movie.title}">Movie Title</h3>
-                        <p class="movie-rating">
-                            ⭐ <span th:text="${movie.rating}">8.5</span>
-                        </p>
-                    </div>
-                    
-                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
-                </div>
-            </div>
-
-            <div class="pagination" 
-                th:if="${query != null && totalPages != null && totalPages > 1}" 
-                id="pagination"
-                th:attr="data-current-page=${currentPage},data-total-pages=${totalPages}">
-                <!-- JavaScript sẽ render pagination buttons -->
-            </div>
-        </div>
-
-        <!-- Empty State -->
-        <div class="empty-state" th:if="${query != null && searchResults.isEmpty()}" id="emptyState">
-            <div class="empty-icon"><i class="fas fa-search"></i></div>
-            <h2>Không tìm thấy kết quả</h2>
-            <p>Không có kết quả nào cho từ khóa của bạn</p>
-            <a href="/search" class="btn-back"><i class="fas fa-arrow-left"></i> Thử lại</a>
-        </div>
-
+        </div> 
+        
         <!-- AI Search Modal -->
         <div id="aiSearchModal" class="ai-search-modal" hidden>
           <div class="ai-modal-overlay"></div>
@@ -1200,6 +1141,47 @@
               </button>
             </div>
           </div>
+        </div>
+
+
+        <!-- Results Section (shown when there's a query) -->
+        <div class="results-section" th:if="${query != null}" id="resultsSection">
+            <div class="results-grid" id="resultsGrid">
+                <div th:each="movie : ${searchResults}" 
+                    class="movie-card" 
+                    th:attr="data-movie-id=${movie.id}">
+                    
+                    <div class="movie-poster">
+                        <img th:src="${movie.poster}" 
+                            th:alt="${movie.title}"
+                            onerror="this.src='/images/placeholder.jpg'">
+                    </div>
+                    
+                    <div class="movie-info">
+                        <h3 th:text="${movie.title}">Movie Title</h3>
+                        <p class="movie-rating">
+                            ⭐ <span th:text="${movie.rating}">8.5</span>
+                        </p>
+                    </div>
+                    
+                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+                </div>
+            </div>
+
+            <div class="pagination" 
+                th:if="${query != null && totalPages != null && totalPages > 1}" 
+                id="pagination"
+                th:attr="data-current-page=${currentPage},data-total-pages=${totalPages}">
+                <!-- JavaScript sẽ render pagination buttons -->
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" th:if="${query != null && searchResults.isEmpty()}" id="emptyState">
+            <div class="empty-icon"><i class="fas fa-search"></i></div>
+            <h2>Không tìm thấy kết quả</h2>
+            <p>Không có kết quả nào cho từ khóa của bạn</p>
+            <a href="/search" class="btn-back"><i class="fas fa-arrow-left"></i> Thử lại</a>
         </div>
 
         <!-- Related Movies (shown after search, before AI suggestions) -->
@@ -1331,10 +1313,13 @@
 
 
     <script>
-        // ============ SEARCH PAGE - COMPLETE UNIFIED SCRIPT ============
+        // ============ SEARCH PAGE - COMPLETE UNIFIED SCRIPT (V7 - ĐÃ SỬA TẤT CẢ LỖI) ============
     (function() {
         'use strict';
         
+        // =========================================================================
+        // 1. CẤU HÌNH VÀ BIẾN TOÀN CỤC
+        // =========================================================================
         const API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
         const API_BASE = 'https://api.themoviedb.org/3';
         const IMG_BASE = 'https://image.tmdb.org/t/p';
@@ -1353,9 +1338,14 @@
         
         // State Management
         const PAGE_SIZE = 6; // Load 6 items per scroll
-        let cachedResults = [];
-        let displayedCount = 0;
-        let nextApiPage = 2;
+        
+        // [SỬA] Tách cache phim và diễn viên
+        let cachedMovies = [];
+        let cachedPeople = [];
+        let displayedMoviesCount = 0;
+        let displayedPeopleCount = 0;
+        
+        let nextApiPage = 1; 
         let totalApiPages = 1;
         let lastQuery = '';
         let peopleCache = new Map();
@@ -1537,10 +1527,13 @@
             }
         }
         
-        // ============ LIVE SUGGESTIONS WITH PEOPLE SEARCH ============
+        // =========================================================================
+        // 2. LOGIC LIVE SUGGESTIONS (VỚI TẢI KHI CUỘN VÀ DB-FIRST)
+        // =========================================================================
         let searchTimeout;
         
         if (mainInput && liveSuggestions) {
+            // [SỬA LỖI 1] Live suggestions listen khi gõ (ĐÃ GIỮ NGUYÊN)
             mainInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 const query = e.target.value.trim();
@@ -1550,195 +1543,337 @@
                     return;
                 }
                 
-                searchTimeout = setTimeout(() => fetchLiveSuggestions(query), 300);
+                searchTimeout = setTimeout(() => {
+                    // [SỬA] Reset state cho 2 cache riêng biệt
+                    cachedMovies = [];
+                    cachedPeople = [];
+                    displayedMoviesCount = 0;
+                    displayedPeopleCount = 0;
+                    
+                    nextApiPage = 1; 
+                    totalApiPages = 1;
+                    lastQuery = query;
+                    liveSuggestions.innerHTML = ''; 
+                    
+                    fetchNextApiPageAndAppend(query, true); 
+                }, 300);
             });
             
-            // Close on click outside
-            // document.addEventListener('click', (e) => {
-            //     if (!e.target.closest('.search-main-box') && !e.target.closest('.filters-body')) {
-            //         hideLiveSuggestions();
-            //     }
-            // });
-            
-            // Scroll handler for lazy load
+            // Khi người dùng cuộn ô suggestions (ĐÃ SỬA)
             liveSuggestions.addEventListener('scroll', debounce(async function() {
-                if (liveSuggestions.scrollTop + liveSuggestions.clientHeight >= 
-                    liveSuggestions.scrollHeight - 50) {
-                    await loadMoreSuggestions();
+                if (loadingMore) return; 
+                
+                if (liveSuggestions.scrollTop + liveSuggestions.clientHeight >= liveSuggestions.scrollHeight - 100) {
+                    
+                    if (displayedMoviesCount < cachedMovies.length || displayedPeopleCount < cachedPeople.length) {
+                        // Nếu vẫn còn item trong cache chưa render, render nó
+                        loadMoreSuggestions();
+                    } 
+                    else if (nextApiPage <= totalApiPages) {
+                        // Nếu đã render hết cache, tải trang API tiếp theo
+                        await fetchNextApiPageAndAppend(lastQuery, false);
+                    }
                 }
             }, 150));
         }
         
-        async function fetchLiveSuggestions(query) {
+        /**
+         * [SỬA] Hàm này ưu tiên render phim trước, diễn viên sau
+         */
+        function loadMoreSuggestions() {
+            if (loadingMore) return;
+            loadingMore = true;
+
+            const chunkToRender = [];
+            let needed = PAGE_SIZE; // Cần 6 item
+
+            // 1. Lấy từ Movie Cache
+            if (displayedMoviesCount < cachedMovies.length) {
+                const movieStart = displayedMoviesCount;
+                const movieEnd = Math.min(cachedMovies.length, movieStart + needed);
+                const movieChunk = cachedMovies.slice(movieStart, movieEnd);
+                
+                chunkToRender.push(...movieChunk);
+                displayedMoviesCount = movieEnd;
+                needed -= movieChunk.length; // Giảm số lượng item còn cần
+            }
+
+            // 2. Nếu vẫn còn "chỗ", lấy từ People Cache
+            if (needed > 0 && displayedPeopleCount < cachedPeople.length) {
+                const peopleStart = displayedPeopleCount;
+                const peopleEnd = Math.min(cachedPeople.length, peopleStart + needed);
+                const peopleChunk = cachedPeople.slice(peopleStart, peopleEnd);
+                
+                chunkToRender.push(...peopleChunk);
+                displayedPeopleCount = peopleEnd;
+                needed -= peopleChunk.length;
+            }
+
+            // 3. Render
+            // (Kiểm tra "Không tìm thấy" - logic này phải check cả hai cache)
+            if (chunkToRender.length === 0 && displayedMoviesCount === 0 && displayedPeopleCount === 0) {
+                 if (filterState.genres.length > 0 || filterState.yearFrom || filterState.minRating > 0) {
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không có kết quả phù hợp với bộ lọc</div>';
+                 } else {
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không tìm thấy kết quả nào</div>';
+                 }
+                 liveSuggestions.style.display = 'block';
+            } else if (chunkToRender.length > 0) {
+                // Dùng hàm render bạn cung cấp
+                renderSuggestionsChunk(chunkToRender, true); // true = append
+            }
+            
+            loadingMore = false;
+        }
+
+        /**
+         * [SỬA LỖI 2] Hàm này gọi API (chậm), hợp nhất (merge) và thêm vào cache
+         */
+        async function fetchNextApiPageAndAppend(query, isFirstPage = false) {
+            if (loadingMore || nextApiPage > totalApiPages) return;
+            
+            loadingMore = true;
             if (abortController) abortController.abort();
             abortController = new AbortController();
-            
+
             try {
-                // Reset (Giữ nguyên)
-                if (query !== lastQuery) {
-                    cachedResults = [];
-                    displayedCount = 0;
-                    nextApiPage = 2; // Bắt đầu từ trang 2 cho API
-                    totalApiPages = 1;
-                    lastQuery = query;
+                // --- BƯỚC 1: Gọi API TMDB (Trang 1, 2, 3...) ---
+                const apiUrl = `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=${nextApiPage}&include_adult=false`;
+                const apiResponse = await fetch(apiUrl, { signal: abortController.signal });
+                if (!apiResponse.ok) throw new Error('API Error');
+                
+                const apiData = await apiResponse.json();
+                const apiResults = (apiData.results || []);
+                
+                nextApiPage++;
+                totalApiPages = apiData.total_pages || totalApiPages;
+
+                // --- BƯỚC 2: Tách ID Phim/TV và Diễn viên ---
+                const movieTmdbIds = [];
+                const peopleResults = [];
+                const movieResults = [];
+
+                apiResults.forEach(item => {
+                    if (item.media_type === 'movie' || item.media_type === 'tv') {
+                        if(item.id) movieTmdbIds.push(item.id);
+                        movieResults.push(item);
+                    } else if (item.media_type === 'person') {
+                        peopleResults.push(item);
+                    }
+                });
+
+                // --- BƯỚC 3: KIỂM TRA DATABASE CỦA BẠN ---
+                // (Không thay đổi, giữ nguyên)
+                let dbMoviesMap = {};
+                if (movieTmdbIds.length > 0) {
+                    const dbCheckResponse = await fetch('/api/movie/check-db', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(movieTmdbIds)
+                    });
+                    if (dbCheckResponse.ok) {
+                        dbMoviesMap = await dbCheckResponse.json(); 
+                    } else {
+                        console.warn('API /check-db thất bại');
+                    }
                 }
 
-                // [FIX BUG 4] Ưu tiên 1: Tìm trong DB theo Title
-                const dbRes = await fetch(
-                    `/api/movie/search-db?query=${encodeURIComponent(query)}`,
-                    { signal: abortController.signal }
-                );
-                const dbMovies = await dbRes.json();
+                let dbMoviesByName = [];
+                if (isFirstPage) {
+                    const dbNameResponse = await fetch(`/api/movie/search-db?query=${encodeURIComponent(query)}`);
+                    if (dbNameResponse.ok) {
+                        dbMoviesByName = await dbNameResponse.json();
+                    } else {
+                        console.warn('API /search-db thất bại, bỏ qua tìm kiếm theo tên.');
+                    }
+                }
                 
-                // [FIX BUG 4] Ưu tiên 2: Tìm trên API (multi)
-                const apiRes = await fetch(
-                    `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`,
-                    { signal: abortController.signal }
-                );
-                if (!apiRes.ok) throw new Error('API Error');
-                
-                const apiData = await apiRes.json();
-                const apiResults = (apiData.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
-                totalApiPages = apiData.total_pages || 1;
-
-                // [FIX BUG 4] Ưu tiên 3: Tìm phim của Diễn viên (API)
                 let peopleMovies = [];
-                if (query.length >= 3) {
+                if (isFirstPage && query.length >= 3) {
                     const people = await searchPeople(query);
                     if (people.length > 0) {
                         const promises = people.map(p => getMoviesFromPerson(p.id, p.name));
                         const results = await Promise.all(promises);
-                        peopleMovies = results.flat();
+                        peopleMovies = results.flat(); 
                     }
                 }
-                
-                // [FIX BUG 4] Hợp nhất (Merge)
-                const uniqueMap = new Map();
-                const qNorm = normalizeVietnamese(query);
 
-                // Thêm Ưu tiên 1 (DB)
-                dbMovies.forEach(movie => {
-                    const key = movie.tmdbId ? `movie_${movie.tmdbId}` : `movie_db_${movie.id}`;
-                    if (!uniqueMap.has(key)) {
-                        movie._relevance = 1000 + calculateRelevance(movie, query); // Ưu tiên cao nhất
-                        uniqueMap.set(key, movie);
+                // --- BƯỚC 4: Hợp nhất (Merge) [ĐÃ SỬA LỖI LOGIC] ---
+                const movieChunk = []; 
+                const personChunk = [];
+                const addedIds = new Set(); 
+                
+                // Ưu tiên 1: Phim tìm thấy theo TÊN trong DB
+                // (Giữ nguyên, vì dbMoviesByName đã được nâng cấp từ API)
+                dbMoviesByName.forEach(dbMovie => {
+                    const tmdbId = dbMovie.tmdbId || dbMovie.id;
+                    if (tmdbId && !addedIds.has(tmdbId)) {
+                        dbMovie.isPerson = false;
+                        movieChunk.push(dbMovie); 
+                        addedIds.add(tmdbId);
+                    }
+                });
+                
+                // Ưu tiên 2: Phim của Diễn viên/Đạo diễn (API-First, DB-Overwrite)
+                peopleMovies.forEach(apiItem => {
+                    const tmdbId = apiItem.id;
+                    if (!tmdbId || addedIds.has(tmdbId)) return;
+                    
+                    // 1. Tạo bản đồ từ API (làm nền)
+                    const movieMap = {
+                        id: apiItem.id, tmdbId: apiItem.id,
+                        title: apiItem.title || apiItem.name,
+                        poster: apiItem.poster_path ? `${IMG_BASE}/w500${apiItem.poster_path}` : '/images/placeholder.jpg',
+                        rating: (apiItem.vote_average || 0).toFixed(1),
+                        year: (apiItem.release_date || apiItem.first_air_date || '').substring(0, 4) || '—',
+                        isPerson: false,
+                        genre_ids: apiItem.genre_ids || [],
+                        context: `${apiItem._personRole}: ${escapeHtml(apiItem._personName)}`
+                    };
+                    
+                    // 2. Lấy dữ liệu DB
+                    const dbMovie = dbMoviesMap[tmdbId]; 
+                    
+                    if (dbMovie) {
+                        // 3. [SỬA] Hợp nhất: Dữ liệu DB (tốt) GHI ĐÈ lên API (xấu)
+                        const mergedMovie = Object.assign({}, movieMap, dbMovie);
+                        mergedMovie.context = movieMap.context; // Đảm bảo giữ lại context
+                        movieChunk.push(mergedMovie);
+                    } else {
+                        // 4. Không có DB, dùng API
+                        movieChunk.push(movieMap); 
+                        syncIdsToDatabase([tmdbId]);
+                    }
+                    addedIds.add(tmdbId);
+                });
+                
+                // Ưu tiên 3: Phim/TV thông thường (API-First, DB-Overwrite)
+                movieResults.forEach(apiItem => {
+                    const tmdbId = apiItem.id;
+                    if (!tmdbId || addedIds.has(tmdbId)) return; 
+
+                    // 1. Tạo bản đồ từ API (làm nền)
+                    const movieMap = {
+                        id: apiItem.id, tmdbId: apiItem.id,
+                        title: apiItem.title || apiItem.name,
+                        poster: apiItem.poster_path ? `${IMG_BASE}/w500${apiItem.poster_path}` : '/images/placeholder.jpg',
+                        rating: (apiItem.vote_average || 0).toFixed(1),
+                        year: (apiItem.release_date || apiItem.first_air_date || '').substring(0, 4) || '—',
+                        isPerson: false,
+                        genre_ids: apiItem.genre_ids || [] 
+                    };
+                    
+                    // 2. Lấy dữ liệu DB
+                    const dbMovie = dbMoviesMap[tmdbId]; 
+                    
+                    if (dbMovie) {
+                        // 3. [SỬA] Hợp nhất: Dữ liệu DB (tốt) GHI ĐÈ lên API (xấu)
+                        const mergedMovie = Object.assign({}, movieMap, dbMovie);
+                        movieChunk.push(mergedMovie);
+                    } else {
+                        // 4. Không có DB, dùng API
+                        movieChunk.push(movieMap); 
+                        syncIdsToDatabase([tmdbId]);
+                    }
+                    addedIds.add(tmdbId);
+                });
+                
+                // Ưu tiên 4: Diễn viên (Person)
+                peopleResults.forEach(apiItem => {
+                    if (apiItem.id && !addedIds.has(apiItem.id)) { 
+                        const personMap = {
+                            id: apiItem.id, tmdbId: apiItem.id,
+                            title: apiItem.name,
+                            poster: apiItem.profile_path ? `${IMG_BASE}/w500${apiItem.profile_path}` : '/images/placeholder-user.jpg',
+                            rating: (apiItem.popularity || 0).toFixed(1),
+                            year: 'Diễn viên',
+                            isPerson: true
+                        };
+                        personChunk.push(personMap);
+                        addedIds.add(apiItem.id); 
                     }
                 });
 
-                // Thêm Ưu tiên 3 (Phim của Diễn viên)
-                peopleMovies.forEach(item => {
-                    const key = `movie_${item.id}`;
-                    if (!uniqueMap.has(key)) {
-                        item._relevance = 500 + calculateRelevance(item, query); // Ưu tiên cao
-                        uniqueMap.set(key, item);
-                    }
-                });
+                // BƯỚC 5: Thêm chunk mới vào cache (RIÊNG BIỆT)
+                cachedMovies = cachedMovies.concat(movieChunk);
+                cachedPeople = cachedPeople.concat(personChunk);
+                loadMoreSuggestions(); // Kích hoạt render
 
-                // Thêm Ưu tiên 2 (API)
-                apiResults.forEach(item => {
-                    const key = `movie_${item.id}`;
-                    if (!uniqueMap.has(key)) {
-                        item._relevance = calculateRelevance(item, query); // Ưu tiên thường
-                        uniqueMap.set(key, item);
-                    }
-                });
-
-                let results = Array.from(uniqueMap.values());
-                
-                // Sắp xếp theo độ liên quan
-                results.sort((a, b) => (b._relevance || 0) - (a._relevance || 0));
-                
-                cachedResults = results;
-                displayedCount = 0;
-                
-                // Render
-                loadMoreSuggestions();
-                
             } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Live search error:', error);
-                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.5)">Lỗi tải dữ liệu</div>';
-                    liveSuggestions.style.display = 'block';
-                }
-            }
-        }
-        
-        async function loadMoreSuggestions() {
-            if (loadingMore) return;
-            if (!cachedResults || cachedResults.length === 0) return;
-            
-            loadingMore = true;
-            
-            // Fetch next API page if needed
-            if (displayedCount >= cachedResults.length && nextApiPage <= totalApiPages) {
-                await fetchNextApiPageAndAppend(lastQuery);
-            }
-            
-            const start = displayedCount;
-            const end = Math.min(cachedResults.length, displayedCount + PAGE_SIZE);
-            const chunk = cachedResults.slice(start, end);
-            const append = start > 0;
-            
-            if (chunk.length === 0) {
-                if (displayedCount === 0) {
-                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không tìm thấy kết quả</div>';
-                    liveSuggestions.style.display = 'block';
-                }
+                if (error.name !== 'AbortError') console.error('Lỗi fetchNextApiPage:', error);
+            } finally {
                 loadingMore = false;
-                return;
-            }
-            
-            renderSuggestionsChunk(chunk, append);
-            displayedCount = end;
-            loadingMore = false;
-        }
-        
-        async function fetchNextApiPageAndAppend(query) {
-            if (nextApiPage > totalApiPages) return;
-            
-            try {
-                const res = await fetch(
-                    `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=${nextApiPage}&include_adult=false`
-                );
-                
-                if (!res.ok) return;
-                
-                const data = await res.json();
-                const more = (data.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
-                nextApiPage++;
-                totalApiPages = data.total_pages || totalApiPages;
-                
-                // Dedupe
-                const existingKeys = new Set(cachedResults.map(it => `${it.media_type || 'movie'}_${it.id}`));
-                const deduped = more.filter(it => !existingKeys.has(`${it.media_type || 'movie'}_${it.id}`));
-                
-                cachedResults = cachedResults.concat(deduped);
-            } catch (e) {
-                console.warn('Fetch next page failed:', e);
             }
         }
         
+        /**
+         * [SỬA ĐỔI - PHẦN 2 & 3]
+         * Sửa onClickUrl để trỏ đúng ID
+         */
         function renderSuggestionsChunk(chunk, append = false) {
             const html = chunk.map(item => {
-                const poster = item.poster_path ? `${IMG_BASE}/w92${item.poster_path}` : '/images/placeholder.jpg';
-                const title = escapeHtml(item.title || item.name || 'Unknown');
-                const year = (item.release_date || item.first_air_date || '').substring(0, 4);
-                const rating = item.vote_average ? item.vote_average.toFixed(1) : '—';
-                const context = item._personName ? `${item._personRole}: ${escapeHtml(item._personName)}` : '';
+                const isPerson = item.isPerson === true;
                 
-                return `
-                    <div class="suggestion-item" onclick="location.href='/movie/detail/${item.id}'" 
-                        style="display:flex;gap:10px;padding:8px;align-items:center;cursor:pointer;border-radius:8px;transition:background 0.2s;">
-                        <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'" 
-                            style="width:46px;height:64px;object-fit:cover;border-radius:4px;">
-                        <div class="suggestion-info" style="flex:1;min-width:0;">
-                            <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-                            <div class="suggestion-meta" style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-top:4px;">
-                                ${year} ${year ? '•' : ''} ⭐ ${rating} ${context ? '• ' + context : ''}
+                const title = escapeHtml(item.title || 'Unknown');
+                const year = item.year || '—'; 
+                const rating = item.rating || '—';
+                const poster = item.poster 
+                    ? item.poster.replace('/w500/', '/w92/') 
+                    : (isPerson ? '/images/placeholder-user.jpg' : '/images/placeholder.jpg');
+                const context = item.context || '';
+                
+                let meta, onClickUrl, onErrorSrc;
+
+                // 2. XỬ LÝ CHO PHIM (MOVIE)
+                if (!isPerson) {
+                    // THAY ĐỔI: item.id bây giờ là movieID (PK) từ dbMoviesMap/dbMoviesByName
+                    onClickUrl = `/movie/detail/${item.id}`; // <-- Đã đúng (trỏ đến PK)
+                    onErrorSrc = '/images/placeholder.jpg';
+                    
+                    meta = `${year} ${year !== '—' ? '•' : ''} ⭐ ${rating}`;
+                    if (context) {
+                        meta += ` • <span style="color:#ffc107;font-weight:500;">${context}</span>`;
+                    }
+                    
+                    // ... (HTML cho movie giữ nguyên) ...
+                    return `
+                        <div class="suggestion-item" onclick="location.href='${onClickUrl}'" 
+                            style="display:flex;gap:10px;padding:8px;align-items:center;cursor:pointer;border-radius:8px;transition:background 0.2s;">
+                            <img src="${poster}" alt="${title}" onerror="this.src='${onErrorSrc}'" 
+                                style="width:46px;height:64px;object-fit:cover;border-radius:4px;">
+                            <div class="suggestion-info" style="flex:1;min-width:0;">
+                                <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
+                                <div class="suggestion-meta" style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-top:4px;">
+                                    ${meta}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } 
+                
+                // 3. XỬ LÝ CHO DIỄN VIÊN (PERSON)
+                else {
+                    // THAY ĐỔI: item.id ở đây là tmdbId (từ personChunk)
+                    // Chúng ta phải trỏ đến ?id= (Query Param) để PersonDetailController bắt
+                    onClickUrl = `/person/detail?id=${item.id}`; // <-- SỬA: Dùng Query Param
+                    onErrorSrc = '/images/placeholder-user.jpg';
+                    meta = `⭐ ${rating} (Độ nổi tiếng)`;
+
+                    // ... (HTML cho person giữ nguyên) ...
+                    return `
+                        <div class="suggestion-item" onclick="location.href='${onClickUrl}'" 
+                            style="display:flex;gap:10px;padding:8px;align-items:center;cursor:pointer;border-radius:8px;transition:background 0.2s;">
+                            <img src="${poster}" alt="${title}" onerror="this.src='${onErrorSrc}'" 
+                                style="width:46px;height:64px;object-fit:cover;border-radius:4px;">
+                            <div class="suggestion-info" style="flex:1;min-width:0;">
+                                <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
+                                <div class="suggestion-meta" style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-top:4px;">
+                                    ${meta}
+                                f</div>
+                            </div>
+                        </div>
+                    `;
+                }
             }).join('');
             
             if (append) {
@@ -1751,31 +1886,22 @@
             
             // Add hover effect
             liveSuggestions.querySelectorAll('.suggestion-item').forEach(item => {
-                item.addEventListener('mouseenter', function() {
-                    this.style.background = 'rgba(255,255,255,0.05)';
-                });
-                item.addEventListener('mouseleave', function() {
-                    this.style.background = '';
-                });
+                item.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.05)'; });
+                item.addEventListener('mouseleave', function() { this.style.background = ''; });
             });
-            // [LOGIC MỚI] Gửi ID lên server để đồng bộ
-            const idsToSync = chunk.map(item => item.id);
-            syncIdsToDatabase(idsToSync);
+            
+            // Không cần gọi syncIdsToDatabase ở đây
         }
 
         /**
-         * Gửi một danh sách ID phim lên API để yêu cầu đồng bộ về DB.
-         * Không cần chờ kết quả (fire-and-forget).
+         * Hàm sync (để đồng bộ phim mới)
          */
         function syncIdsToDatabase(ids) {
             if (!ids || ids.length === 0) return;
             
-            // Dùng fetch để gửi yêu cầu POST
             fetch('/api/content/movies/sync', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(ids)
             })
             .then(response => response.json())
@@ -1795,21 +1921,20 @@
             }
         }
         
-        // ============ PEOPLE SEARCH ============
+        /**
+         * [GIỮ NGUYÊN] Hàm tìm diễn viên
+         */
         async function searchPeople(query) {
             if (peopleCache.has(query)) {
                 return peopleCache.get(query);
             }
-            
             try {
                 const res = await fetch(
                     `${API_BASE}/search/person?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1`
                 );
-                
                 if (!res.ok) return [];
-                
                 const data = await res.json();
-                const results = (data.results || []).slice(0, 3);
+                const results = (data.results || []).slice(0, 3); 
                 peopleCache.set(query, results);
                 return results;
             } catch (e) {
@@ -1818,83 +1943,140 @@
             }
         }
         
+        /**
+         * [GIỮ NGUYÊN] Hàm lấy phim từ diễn viên
+         */
         async function getMoviesFromPerson(personId, personName) {
             try {
                 const res = await fetch(
                     `${API_BASE}/person/${personId}/movie_credits?api_key=${API_KEY}&language=vi-VN`
                 );
-                
                 if (!res.ok) return [];
-                
                 const data = await res.json();
                 const castMovies = (data.cast || []).slice(0, 3).map(m => ({
-                    ...m,
-                    media_type: 'movie',
-                    _personName: personName,
-                    _personRole: 'Diễn viên'
+                    ...m, media_type: 'movie', _personName: personName, _personRole: 'Diễn viên'
                 }));
-                
                 const crewMovies = (data.crew || [])
-                    .filter(m => m.job === 'Director')
-                    .slice(0, 2)
-                    .map(m => ({
-                        ...m,
-                        media_type: 'movie',
-                        _personName: personName,
-                        _personRole: 'Đạo diễn'
+                    .filter(m => m.job === 'Director').slice(0, 2).map(m => ({
+                        ...m, media_type: 'movie', _personName: personName, _personRole: 'Đạo diễn'
                     }));
-                
-                return [...crewMovies, ...castMovies].slice(0, 3);
+                return [...crewMovies, ...castMovies].slice(0, 3); 
             } catch (e) {
                 console.warn('Person credits failed:', e);
                 return [];
             }
         }
         
-        // ============ FILTERS SYSTEM ============
+        // =========================================================================
+        // 3. LOGIC FILTERS (ĐÃ SỬA LỖI)
+        // =========================================================================
+        /**
+         * [KHÔI PHỤC & SỬA LỖI] Logic xử lý nút Tìm kiếm trong Modal AI
+         */
+        async function submitAiSearch() {
+            // Lấy các element DOM cần thiết (được định nghĩa trong IIFE)
+            const mainInput = document.getElementById('mainSearchInput');
+            const input = document.getElementById('aiSearchInput');
+            const description = input.value.trim();
+            
+            // Kiểm tra input
+            if (!description) {
+                alert('Vui lòng nhập mô tả');
+                return;
+            }
+            
+            const loadingEl = document.getElementById('aiLoading');
+            const errorEl = document.getElementById('aiError');
+            const submitBtn = document.getElementById('aiSearchBtn');
+            
+            // Hiển thị trạng thái Loading
+            if(loadingEl) loadingEl.hidden = false;
+            if(errorEl) errorEl.hidden = true;
+            if(submitBtn) submitBtn.disabled = true;
+
+            try {
+                // Gọi API backend
+                const response = await fetch('/api/ai-search/suggest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: description })
+                });
+                
+                const data = await response.json();
+                
+                // Tắt loading
+                if(loadingEl) loadingEl.hidden = true;
+
+                if (data.success) {
+                    const suggestions = data.suggestions || [];
+                    if (suggestions.length > 0) {
+                        const firstSuggestion = suggestions[0];
+                        window.closeAiSearch(); // Đóng modal
+                        if(mainInput) mainInput.value = firstSuggestion;
+                        window.performSearch(); // Chuyển sang trang kết quả
+                    } else {
+                        showAIError("AI không tìm thấy gợi ý phù hợp.");
+                    }
+                } else {
+                    showAIError(data.message || 'Có lỗi xảy ra');
+                }
+                
+            } catch (err) {
+                if(loadingEl) loadingEl.hidden = true;
+                showAIError('Lỗi kết nối: ' + err.message);
+            } finally {
+                if(submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        // [THÊM] Hàm helper show lỗi (bị thiếu)
+        function showAIError(message) {
+            const aiError = document.getElementById('aiError');
+            const msgEl = document.getElementById('aiErrorMessage');
+            if(aiError) aiError.hidden = false;
+            if(msgEl) msgEl.textContent = message;
+        }
         function initFilters() {
             if (!filtersPanel || !filterBtn) return;
-            
             const filtersClose = document.getElementById('filtersClose');
             const clearFiltersBtn = document.getElementById('clearFilters');
             const applyFiltersBtn = document.getElementById('applyFilters');
             const minRatingSlider = document.getElementById('minRating');
             const ratingValue = document.getElementById('ratingValue');
-            
             renderGenres();
             
-            // Toggle panel
+            // Hàm helper đóng
+            function closeFilters(event) {
+                 if (event) event.stopPropagation();
+                 if (filtersPanel) {
+                    filtersPanel.hidden = true;
+                    filtersPanel.classList.remove('show');
+                 }
+                 if (filterBtn) {
+                    filterBtn.classList.remove('active');
+                 }
+            }
+            
             filterBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 filtersPanel.hidden = !filtersPanel.hidden;
                 filtersPanel.classList.toggle('show');
                 filterBtn.classList.toggle('active');
             });
-            
-            filtersClose?.addEventListener('click', () => {
-                filtersPanel.hidden = true;
-                filtersPanel.classList.remove('show');
-                filterBtn.classList.remove('active');
+            filtersClose?.addEventListener('click', (e) => {
+                closeFilters(e);
             });
-            
-            // Rating slider
             minRatingSlider?.addEventListener('input', (e) => {
-                if (ratingValue) {
-                    ratingValue.textContent = parseFloat(e.target.value).toFixed(1);
-                }
+                if (ratingValue) ratingValue.textContent = parseFloat(e.target.value).toFixed(1);
             });
-            
-            // Clear filters
             clearFiltersBtn?.addEventListener('click', () => {
                 filterState.quickFilter = null;
                 filterState.genres = [];
                 filterState.yearFrom = null;
                 filterState.yearTo = null;
                 filterState.minRating = 0;
-                
                 document.querySelectorAll('.quick-filter-chip').forEach(c => c.classList.remove('active'));
                 document.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
-                
                 const yearFrom = document.getElementById('yearFrom');
                 const yearTo = document.getElementById('yearTo');
                 if (yearFrom) yearFrom.value = '';
@@ -1902,33 +2084,24 @@
                 if (minRatingSlider) minRatingSlider.value = 0;
                 if (ratingValue) ratingValue.textContent = '0.0';
             });
-            
-            // Apply filters
             applyFiltersBtn?.addEventListener('click', () => {
                 applyFilters();
             });
-            
-            // [FIX] Xử lý sự kiện click toàn cục
             document.addEventListener('click', (e) => {
                 const liveSuggestions = document.getElementById('liveSuggestions');
                 const mainInput = document.getElementById('mainSearchInput');
                 const filtersPanel = document.getElementById('filtersPanel');
                 const filterBtn = document.getElementById('filterPageBtn');
-
-                // 1. Xử lý Live Suggestions
-                // Chỉ đóng nếu click ra ngoài ô input VÀ ra ngoài suggestions VÀ ra ngoài filter panel
                 if (liveSuggestions && liveSuggestions.style.display === 'block') {
                     if (!mainInput.contains(e.target) && 
                         !liveSuggestions.contains(e.target) && 
                         (!filtersPanel || !filtersPanel.contains(e.target))) {
-                        liveSuggestions.style.display = 'none';
+                        hideLiveSuggestions();
                     }
                 }
-
-                // 2. Xử lý đóng Filter Panel (khi click ra ngoài nó)
                 if (filtersPanel && filtersPanel.classList.contains('show')) {
                     if (!filtersPanel.contains(e.target) && !filterBtn.contains(e.target)) {
-                        closeFilters();
+                        closeFilters(e);
                     }
                 }
             });
@@ -1937,12 +2110,9 @@
         function renderGenres() {
             const container = document.getElementById('genreFilters');
             if (!container) return;
-            
             container.innerHTML = GENRES.map(g => 
                 `<button class="genre-chip" data-genre="${g.id}">${g.name}</button>`
             ).join('');
-            
-            // Quick filters
             document.querySelectorAll('.quick-filter-chip').forEach(chip => {
                 chip.addEventListener('click', function() {
                     document.querySelectorAll('.quick-filter-chip').forEach(c => c.classList.remove('active'));
@@ -1950,13 +2120,10 @@
                     filterState.quickFilter = this.dataset.filter;
                 });
             });
-            
-            // Genre chips
             container.querySelectorAll('.genre-chip').forEach(chip => {
                 chip.addEventListener('click', function() {
                     const genreId = parseInt(this.dataset.genre);
                     this.classList.toggle('active');
-                    
                     if (filterState.genres.includes(genreId)) {
                         filterState.genres = filterState.genres.filter(id => id !== genreId);
                     } else {
@@ -1966,98 +2133,93 @@
             });
         }
         
-        // ============ FIX: applyFilters - Check mainInput value ============
         async function applyFilters() {
-            // CHECK INPUT VALUE, NOT query variable
             const mainInput = document.getElementById('mainSearchInput');
             const query = mainInput?.value?.trim() || '';
             
-            // Chỉ báo lỗi nếu ô input thực sự trống
+            // [SỬA LỖI 7] Yêu cầu: Chỉ báo lỗi khi input trống
             if (!mainInput.value.trim()) {
                 alert("Vui lòng nhập từ khóa tìm kiếm trước khi lọc.");
                 if (mainInput) mainInput.focus();
                 return;
             }
             
-            // Collect filter values
             const yearFrom = document.getElementById('yearFrom')?.value;
             const yearTo = document.getElementById('yearTo')?.value;
             const minRating = parseFloat(document.getElementById('minRating')?.value || 0);
-            
             filterState.yearFrom = yearFrom || null;
             filterState.yearTo = yearTo || null;
             filterState.minRating = minRating;
             
             try {
-                // Ensure we have data
+                // Tải lại dữ liệu nếu query khác hoặc chưa có cache
                 if (lastQuery !== query || cachedResults.length === 0) {
-                    await fetchLiveSuggestions(query);
+                    await fetchNextApiPageAndAppend(query, true); 
                 }
                 
-                let results = cachedResults.slice();
+                let results = cachedResults.slice(); 
                 
-                // Apply genre filter
+                // Chỉ lọc phim (bỏ diễn viên)
+                results = results.filter(item => item.isPerson === false);
+                
                 if (filterState.genres.length > 0) {
                     results = results.filter(item => {
-                        const genreIds = item.genre_ids || [];
+                        const genreIds = item.genre_ids || []; 
                         return filterState.genres.every(g => genreIds.includes(g));
                     });
                 }
-                
-                // Apply year filter
                 if (filterState.yearFrom) {
                     results = results.filter(item => {
-                        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                        const year = (item.year || '0').substring(0, 4);
                         return year && parseInt(year) >= parseInt(filterState.yearFrom);
                     });
                 }
-                
                 if (filterState.yearTo) {
                     results = results.filter(item => {
-                        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                        const year = (item.year || '9999').substring(0, 4);
                         return year && parseInt(year) <= parseInt(filterState.yearTo);
                     });
                 }
-                
-                // Apply rating filter
                 if (filterState.minRating > 0) {
-                    results = results.filter(item => (item.vote_average || 0) >= filterState.minRating);
+                    results = results.filter(item => (item.rating || 0) >= filterState.minRating);
                 }
                 
-                // Apply quick filter sorting
+                // Sắp xếp
                 if (filterState.quickFilter === 'trending') {
-                    results.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+                    // Sắp xếp theo popularity (vote_average)
+                    results.sort((a, b) => (
+                        parseFloat(b.popularity || b.rating || 0) - parseFloat(a.popularity || a.rating || 0)
+                    ));
                 } else if (filterState.quickFilter === 'new') {
-                    results.sort((a, b) => {
-                        const dateA = new Date(a.release_date || a.first_air_date || 0).getTime();
-                        const dateB = new Date(b.release_date || b.first_air_date || 0).getTime();
-                        return dateB - dateA;
-                    });
+                    // Sắp xếp theo năm (year)
+                    results.sort((a, b) => (
+                        parseInt(b.year || 0) - parseInt(a.year || 0)
+                    ));
                 } else if (filterState.quickFilter === 'top-rated') {
-                    results = results.filter(r => (r.vote_count || 0) >= 20);
-                    results.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+                    // Sắp xếp theo rating (đánh giá)
+                    results.sort((a, b) => (
+                        parseFloat(b.rating || 0) - parseFloat(a.rating || 0)
+                    ));
                 }
                 
-                cachedResults = results;
-                displayedCount = 0;
-                nextApiPage = totalApiPages + 1;
+                // [SỬA] Cập nhật cache riêng biệt
+                cachedMovies = results; // `results` chỉ chứa phim
+                cachedPeople = []; // Xóa hết diễn viên khi lọc
+                displayedMoviesCount = 0;
+                displayedPeopleCount = 0;
+                nextApiPage = totalApiPages + 1; // Ngừng tải thêm
+                liveSuggestions.innerHTML = ''; // Xóa cũ
                 
+                // [SỬA LỖI 8] Hiển thị thông báo nếu lọc không còn gì
                 if (results.length === 0) {
-                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không có kết quả phù hợp</div>';
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.6)">Không có kết quả phù hợp với bộ lọc</div>';
                     liveSuggestions.style.display = 'block';
-                    return;
+                } else {
+                    loadMoreSuggestions(); // Render lại
                 }
                 
-                loadMoreSuggestions();
-                
-                // Close filters panel
-                if (filtersPanel) {
-                    filtersPanel.hidden = true;
-                    filtersPanel.classList.remove('show');
-                }
-                if (filterBtn) {
-                    filterBtn.classList.remove('active');
-                }
+                // [SỬA LỖI 6] Không đóng cửa sổ filter theo yêu cầu
+                // (Đã xóa code đóng)
                 
             } catch (error) {
                 console.error('Apply filters error:', error);
@@ -2066,7 +2228,11 @@
             }
         }
         
-        // ============ SEARCH ON ENTER ============
+        // =========================================================================
+        // 4. CÁC HÀM KHÁC (GIỮ NGUYÊN HOẶC SỬA LỖI)
+        // =========================================================================
+        
+        // SEARCH ON ENTER
         mainInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -2077,13 +2243,19 @@
         function performSearch() {
             const query = mainInput?.value.trim();
             if (query) {
-                window.location.href = `/search?query=${encodeURIComponent(query)}`;
+                const urlParams = new URLSearchParams({ query: query });
+                // Gửi cả filter state đi
+                if (filterState.genres.length > 0) {
+                    urlParams.append('genres', filterState.genres.join(','));
+                }
+                if (filterState.yearFrom) urlParams.append('yearFrom', filterState.yearFrom);
+                if (filterState.yearTo) urlParams.append('yearTo', filterState.yearTo);
+                if (filterState.minRating > 0) urlParams.append('minRating', filterState.minRating);
+                if (filterState.quickFilter) urlParams.append('quickFilter', filterState.quickFilter);
+                
+                window.location.href = `/search?${urlParams.toString()}`;
             }
         }
-        
-        
-        
-        
         
         // Load Trending Carousel
         if (trendingCarousel) {
@@ -2094,31 +2266,27 @@
             try {
                 const response = await fetch(`${API_BASE}/trending/movie/week?api_key=${API_KEY}&language=vi-VN`);
                 const data = await response.json();
-                
-                // SỬA Ở ĐÂY: Dùng hàm helper mới, isRanked = true
                 trendingCarousel.innerHTML = data.results.slice(0, 10).map((movie, index) => {
-                    // Cậu muốn layout ranked, nên ta đặt isRanked = true
                     return createMovieCardHTML(movie, index, true); 
                 }).join('');
-                
-                // [THÊM] KÍCH HOẠT LẠI HOVER CHO CARD MỚI
-                // (Giống hệt hàm loadRelatedMovies)
                 if (typeof initHoverCards === 'function') {
-                    console.log('Re-initializing hover cards for Trending Movies...');
                     initHoverCards();
                 }
-
-                // [THÊM] KÍCH HOẠT NÚT BẤM CAROUSEL
-                if (typeof initCarousel === 'function') {
-                    initCarousel('trendingCarousel', 'trendingCarouselPrev', 'trendingCarouselNext');
+                
+                // [SỬA LỖI 3] Kích hoạt nút bấm carousel
+                // Hàm này đến từ script.js (file chung)
+                const globalInitializeAllCarousels = window.initializeAllCarousels;
+                if (typeof globalInitializeAllCarousels === 'function') {
+                    globalInitializeAllCarousels();
+                } else {
+                    console.warn('initializeAllCarousels() not found in script.js. Carousel buttons may not work.');
                 }
-
             } catch (error) {
                 console.error('Error loading trending:', error);
             }
         }
 
-        // ============ UTILITY FUNCTIONS ============
+        // UTILITY FUNCTIONS
         function debounce(fn, wait = 250) {
             let timeout;
             return function(...args) {
@@ -2130,75 +2298,65 @@
         function escapeHtml(str) {
             if (!str) return '';
             const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             };
             return str.replace(/[&<>"']/g, m => map[m]);
         }
 
         /**
-         * HÀM MỚI: TẠO CHUỖI HTML CHO MOVIE CARD CHUẨN
-         * Hàm này tái tạo 1-1 cấu trúc từ index.html và hover-card.html
-         * @param {object} movie - Object phim từ API TMDB
-         * @param {number} index - Vị trí trong danh sách (cho ranked)
-         * @param {boolean} isRanked - Áp dụng style 'ranked' hay không
+         * Hàm này đảm bảo nó tồn tại và xử lý đúng dữ liệu (cả API và DB map)
          */
         function createMovieCardHTML(movie, index, isRanked = false) {
-            const poster = movie.poster_path ? `${IMG_BASE}/w500${movie.poster_path}` : '/images/placeholder.jpg';
-            const backdrop = movie.backdrop_path ? `${IMG_BASE}/original${movie.backdrop_path}` : '/images/placeholder.jpg';
-            const rating = movie.vote_average ? movie.vote_average.toFixed(1) : '—';
-            const year = (movie.release_date || '').substring(0, 4) || '—';
-            const safeTitle = escapeHtml(movie.title || movie.name || 'Unknown');
+            const movieId = movie.id || movie.tmdbId;
+            const movieTitle = escapeHtml(movie.title || movie.name || 'Unknown');
+            // [SỬA] Đảm bảo poster lấy từ map (nếu có)
+            const poster = movie.poster || (movie.poster_path ? `${IMG_BASE}/w500${movie.poster_path}` : '/images/placeholder.jpg');
+            const backdrop = movie.backdrop || (movie.backdrop_path ? `${IMG_BASE}/original${movie.backdrop_path}` : '/images/placeholder.jpg');
+            const rating = movie.rating || (movie.vote_average ? movie.vote_average.toFixed(1) : '—');
+            const year = movie.year || (movie.release_date || movie.first_air_date || '').substring(0, 4) || '—';
             const safeOverview = escapeHtml(movie.overview || 'Đang tải mô tả...');
-            const playerId = `hover-player-search-${movie.id}-${index}`; // ID duy nhất
-
-            // Logic cho ranked
+            
+            const playerId = `hover-player-search-${movieId}-${index}`; 
             const rankClass = isRanked ? `ranked rank-${((index % 5) + 1)}` : '';
             const rankOverlay = isRanked ? '<div class="ranking-overlay"></div>' : '';
             const rankNumber = isRanked ? `<div class="ranking-number">${index + 1}</div>` : '';
-
+            
+            // Lấy các hàm toàn cục từ script.js (nếu có)
+            const globalGoToMovieDetail = window.goToMovieDetail || function(btn) { location.href = `/movie/detail/${btn.dataset.movieId}`; };
+            const globalToggleHoverLike = window.toggleHoverLike || function(btn) { btn.classList.toggle('active'); };
+            const globalShowShareModal = window.showShareModal || function(btn) { console.warn('showShareModal not defined'); };
+            
             return `
-            <div class="movie-card ${rankClass}" data-movie-id="${movie.id}">
-                
+            <div class="movie-card ${rankClass}" data-movie-id="${movieId}">
                 <div class="movie-poster">
-                    <img src="${poster}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
-                    ${rankOverlay}
-                    ${rankNumber}
+                    <img src="${poster}" alt="${movieTitle}" onerror="this.src='/images/placeholder.jpg'">
+                    ${rankOverlay} ${rankNumber}
                 </div>
-                
                 <div class="movie-info">
-                    <h3>${safeTitle}</h3>
+                    <h3>${movieTitle}</h3>
                     <p class="movie-rating">⭐ <span>${rating}</span></p>
                 </div>
-                
-                <div class="movie-hover-card" data-movie-id="${movie.id}">
+                <div class="movie-hover-card" data-movie-id="${movieId}">
                     <div class="hover-card-media">
-                        <img class="hover-card-image" src="${backdrop}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
-                        <div class="hover-player-container">
-                            <div class="hover-player" id="${playerId}"></div>
-                        </div>
-                        <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng">
-                            <i class="fas fa-volume-mute"></i>
-                        </button>
+                        <img class="hover-card-image" src="${backdrop}" alt="${movieTitle}" onerror="this.src='/images/placeholder.jpg'">
+                        <div class="hover-player-container"><div class="hover-player" id="${playerId}"></div></div>
+                        <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
                     </div>
                     <div class="hover-card-content">
                         <div class="hover-card-actions">
-                            <button class="hover-play-btn" type="button" data-movie-id="${movie.id}" onclick="event.stopPropagation(); goToMovieDetail(this)">
+                            <button class="hover-play-btn" type="button" data-movie-id="${movieId}" onclick="event.stopPropagation(); globalGoToMovieDetail(this)">
                                 <i class="fas fa-play"></i> Xem ngay
                             </button>
-                            <button class="hover-action-icon hover-like-btn" type="button" onclick="event.stopPropagation(); toggleHoverLike(this)" title="Thêm vào danh sách">
+                            <button class="hover-action-icon hover-like-btn" type="button" onclick="event.stopPropagation(); globalToggleHoverLike(this)" title="Thêm vào danh sách">
                                 <i class="far fa-heart"></i>
                             </button>
                             <button class="hover-action-icon hover-share-btn" type="button"
-                                    data-movie-id="${movie.id}" data-movie-title="${safeTitle}"
-                                    onclick="event.stopPropagation(); showShareModal(this)" title="Chia sẻ">
+                                    data-movie-id="${movieId}" data-movie-title="${movieTitle}"
+                                    onclick="event.stopPropagation(); globalShowShareModal(this)" title="Chia sẻ">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                         </div>
-                        <h3 class="hover-card-title">${safeTitle}</h3>
+                        <h3 class="hover-card-title">${movieTitle}</h3>
                         <div class="hover-card-meta">
                             <span class="meta-rating"><i class="fas fa-star"></i> <span>${rating}</span></span>
                             <span class="meta-year">${year}</span>
@@ -2225,28 +2383,20 @@
         }
         
         function calculateRelevance(item, query) {
-            const q = normalizeVietnamese(query);
+             const q = normalizeVietnamese(query);
             const title = normalizeVietnamese(item.title || item.name || '');
             const overview = normalizeVietnamese(item.overview || '');
-            
             let score = 0;
-            
-            // Title matching
             if (title === q) score += 100;
             else if (title.startsWith(q)) score += 80;
             else if (title.includes(q)) score += 50;
-            
-            // Overview matching
-            if (overview.includes(q)) score += 10;
-            
-            // Popularity & rating boost
+            if (overview.includes(q)) score += 20;
             score += (item.popularity || 0) * 0.1;
             score += (item.vote_average || 0) * 2;
-            
             return score;
         }
         
-        // ============ VOICE SEARCH ============
+        // VOICE SEARCH
         if (voiceBtn) {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2257,35 +2407,30 @@
                 voiceBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
                     if (voiceBtn.classList.contains('recording')) {
                         recognition.stop();
                     } else {
-                        try {
-                            recognition.start();
-                        } catch (err) {
-                            console.warn('Voice recognition error:', err);
-                        }
+                        try { recognition.start(); } catch (err) { console.warn('Voice recognition error:', err); }
                     }
                 });
-                
-                recognition.onstart = () => {
-                    voiceBtn.classList.add('recording');
-                };
-                
-                recognition.onend = () => {
-                    voiceBtn.classList.remove('recording');
-                };
-                
+                recognition.onstart = () => { voiceBtn.classList.add('recording'); };
+                recognition.onend = () => { voiceBtn.classList.remove('recording'); };
                 recognition.onresult = (event) => {
                     const transcript = event.results[0][0].transcript;
                     if (mainInput) {
                         mainInput.value = transcript;
                         mainInput.focus();
-                        fetchLiveSuggestions(transcript);
+                        // Kích hoạt tìm kiếm mới
+                        clearTimeout(searchTimeout);
+                        cachedResults = [];
+                        displayedCount = 0;
+                        nextApiPage = 1;
+                        totalApiPages = 1;
+                        lastQuery = transcript;
+                        liveSuggestions.innerHTML = '';
+                        fetchNextApiPageAndAppend(transcript, true);
                     }
                 };
-                
                 recognition.onerror = (event) => {
                     voiceBtn.classList.remove('recording');
                     console.warn('Voice recognition error:', event.error);
@@ -2295,43 +2440,126 @@
             }
         }
         
-        // ============ AI SEARCH BUTTON ============
+        // [SỬA LỖI 2] NÚT AI BUTTON (SỬ DỤNG LOGIC TỪ search_old.docx)
         if (aiBtn) {
             aiBtn.addEventListener('click', () => {
-                // Open AI modal (assuming it exists in header fragment)
-                const aiModal = document.getElementById('aiSearchModal');
-                if (aiModal) {
-                    aiModal.hidden = false;
-                    document.body.style.overflow = 'hidden';
-                }
+                // Mở cửa sổ AI Search (HTML đã được thêm ở Bước 2)
+                openAiSearch();
             });
         }
         
-        // ============ INITIALIZE ============
+        // =========================================================================
+        // 5. [THÊM MỚI] LOGIC CHO AI SEARCH MODAL (TỪ search_old.docx)
+        // =========================================================================
+        
+        /**
+         * Mở Modal AI Search
+         */
+        function openAiSearch() {
+            const modal = document.getElementById('aiSearchModal');
+            if (modal) {
+                modal.style.display = 'flex'; // Hiện modal
+                // Reset form
+                const aiInput = document.getElementById('aiSearchInput');
+                if(aiInput) aiInput.value = '';
+                document.getElementById('aiSearchResults').style.display = 'none';
+                document.getElementById('aiSearchLoading').style.display = 'none';
+                document.getElementById('aiSearchSubmitBtn').disabled = false;
+                if(aiInput) aiInput.focus();
+            }
+        }
+        
+        // Gán hàm này ra window để HTML (onclick) có thể gọi
+        window.closeAiSearch = function() {
+            const modal = document.getElementById('aiSearchModal');
+            if (modal) modal.style.display = 'none'; // Ẩn modal
+        }
+        
+        /**
+         * Xử lý submit form AI (gọi AISearchController)
+         */
+        window.submitAiSearch = async function() {
+            const input = document.getElementById('aiSearchInput');
+            const description = input.value.trim();
+            if (!description) {
+                alert('Vui lòng nhập mô tả');
+                return;
+            }
+            
+            const loadingEl = document.getElementById('aiSearchLoading');
+            const resultsEl = document.getElementById('aiSearchResults');
+            const submitBtn = document.getElementById('aiSearchSubmitBtn');
+            
+            loadingEl.style.display = 'block';
+            resultsEl.style.display = 'none';
+            submitBtn.disabled = true;
+            
+            try {
+                // Gọi AISearchController (file này bạn đã có)
+                const response = await fetch('/api/ai-search/suggest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: description })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('aiAnswer').textContent = data.answer;
+                    const chipsContainer = document.getElementById('aiSuggestionChips');
+                    chipsContainer.innerHTML = ''; // Xóa chip cũ
+                    
+                    (data.suggestions || []).forEach(text => {
+                        const chip = document.createElement('div');
+                        // [SỬA] Dùng class từ search_old.docx
+                        chip.className = 'ai-suggestion-chip'; 
+                        chip.textContent = text;
+                        chip.onclick = () => {
+                            // Khi bấm vào chip, đóng modal và search
+                            closeAiSearch();
+                            mainInput.value = text;
+                            performSearch(); // Chuyển sang trang kết quả
+                        };
+                        chipsContainer.appendChild(chip);
+                    });
+                    
+                    resultsEl.style.display = 'block';
+                } else {
+                    document.getElementById('aiAnswer').textContent = data.message || 'Có lỗi xảy ra';
+                    document.getElementById('aiSuggestionChips').innerHTML = '';
+                    resultsEl.style.display = 'block';
+                }
+                
+            } catch (err) {
+                resultsEl.style.display = 'block';
+                document.getElementById('aiAnswer').textContent = 'Lỗi kết nối: ' + err.message;
+                document.getElementById('aiSuggestionChips').innerHTML = '';
+            } finally {
+                loadingEl.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+        
+        // =========================================================================
+        // 6. KHỞI TẠO (INITIALIZE)
+        // =========================================================================
         initFilters();
         initAISearch();
 
-        // ✅ Khởi tạo hover cards VÀ CAROUSELS sau khi DOM load
         document.addEventListener('DOMContentLoaded', function() {
-            // Import functions từ script.js
-            if (typeof initHoverCards === 'function') {
-                initHoverCards();
+            // Lấy các hàm từ script.js (đã được tải trước)
+            const globalInitHoverCards = window.initHoverCards;
+            const globalInitializeAllCarousels = window.initializeAllCarousels; // Tên hàm đúng từ script.js
+
+            if (typeof globalInitHoverCards === 'function') {
+                globalInitHoverCards();
             }
             
-            // Đảm bảo genre map đã load
-            if (typeof loadGenreMap === 'function') {
-                loadGenreMap();
-            }
-
-            // [THÊM] KÍCH HOẠT CÁC CAROUSEL RENDER BỞI JAVA
-            if (typeof initCarousel === 'function') {
-                // (trendingCarousel đã được init ở hàm loadTrendingCarousel)
-                if (document.getElementById('relatedCarousel')) {
-                    initCarousel('relatedCarousel', 'relatedCarouselPrev', 'relatedCarouselNext');
-                }
-                if (document.getElementById('aiCarousel')) {
-                    initCarousel('aiCarousel', 'aiCarouselPrev', 'aiCarouselNext');
-                }
+            // [SỬA LỖI 3] Gọi tên hàm đúng để kích hoạt các nút carousel
+            if (typeof globalInitializeAllCarousels === 'function') {
+                 globalInitializeAllCarousels();
+            } else {
+                console.warn('initializeAllCarousels() not found in script.js. Carousel buttons may not work.');
             }
         });
         
@@ -2344,7 +2572,7 @@
             applyFilters: applyFilters
         };
         
-        console.log('✅ Search page script initialized successfully');
+        console.log('✅ Search page script V7 (All fixes) initialized');
         
     })();
     </script>

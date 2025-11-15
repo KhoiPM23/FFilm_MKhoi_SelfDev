@@ -13,8 +13,15 @@ import org.springframework.web.client.RestTemplate;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+// <-- Thêm
+// <-- Thêm
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream; // <-- Thêm
+
+import org.springframework.data.domain.Page; // <-- Thêm
+import org.springframework.data.domain.PageRequest; // <-- Thêm
+import org.springframework.data.domain.Sort; // <-- Thêm
 
 @Service
 public class MovieService {
@@ -63,10 +70,6 @@ public class MovieService {
         }
         System.out.println("✅ Đã khởi tạo Genres.");
     }
-
-    // ===============================================
-    // CÁC HÀM ĐỒNG BỘ CỐT LÕI (LOGIC MỚI)
-    // ===============================================
 
     // ===============================================
     // CÁC HÀM ĐỒNG BỘ CỐT LÕI (LOGIC MỚI)
@@ -151,7 +154,10 @@ public class MovieService {
         // 1. Check DB trước
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
         if (existing.isPresent()) {
-            return existing.get(); // Nếu có rồi (dù "cụt" hay "đủ"), trả về ngay.
+            // === FIX BUG 1 ===
+            // Tìm thấy rồi, trả về ngay. KHÔNG ĐƯỢC NÂNG CẤP HAY GHI ĐÈ
+            // Điều này đảm bảo "Minh Khôi" được giữ nguyên
+            return existing.get(); 
         }
 
         // 2. Nếu chưa có, tạo mới bản "cụt" (partial)
@@ -194,6 +200,10 @@ public class MovieService {
             List<Genre> genres = genreRepository.findByTmdbGenreIdIn(genreIds);
             movie.setGenres(genres);
         }
+        
+        // Các trường nội bộ (isFree, url) sẽ dùng giá trị default
+        // movie.setFree(false);
+        // movie.setUrl("CHƯA CẬP NHẬT");
         
         return movieRepository.save(movie);
     }
@@ -292,6 +302,10 @@ public class MovieService {
     /**
      * [SỬA LỖI V9] Nâng cấp đầy đủ (poster, rating) nếu bản "cụt" bị lỗi
      */
+    /**
+     * === FIX BUG 1 ===
+     * Sửa hàm getMoviePartial để không ghi đè dữ liệu thủ công
+     */
     @Transactional
     public Movie getMoviePartial(int tmdbId) {
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
@@ -300,42 +314,63 @@ public class MovieService {
             Movie movie = existing.get();
             
             // KIỂM TRA CỜ: Nếu là bản "cụt" (director="N/A")
-            if (movie.getDirector() != null && movie.getDirector().equals("N/A")) {
+            // Hoặc bản ghi thiếu thông tin (duration=0 VÀ director=null)
+            boolean isPartial = "N/A".equals(movie.getDirector());
+            boolean isMissingData = (movie.getDuration() == 0 && movie.getDirector() == null);
+
+            if (isPartial || isMissingData) {
                 
                 // Phim này "cụt", gọi API chi tiết 1 LẦN để lấp đầy
                 try {
                     System.out.println("♻️ [Movie-Partial] Nâng cấp (cho Hover/Suggestion) ID: " + tmdbId);
-                    String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
+                    String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
                     String resp = restTemplate.getForObject(url, String.class);
                     if (resp == null) return movie; 
                     
                     JSONObject detailJson = new JSONObject(resp);
                     
-                    // NÂNG CẤP ĐẦY ĐỦ CÁC TRƯỜNG BỊ THIẾU
-                    movie.setTitle(detailJson.optString("title", "N/A"));
-                    movie.setPosterPath(detailJson.optString("poster_path", null));
-                    movie.setBackdropPath(detailJson.optString("backdrop_path", null));
-                    movie.setRating((float) detailJson.optDouble("vote_average", 0.0));
-                    movie.setReleaseDate(parseDate(detailJson.optString("release_date")));
+                    // NÂNG CẤP CÓ CHỌN LỌC (KHÔNG GHI ĐÈ)
                     
-                    // Lấp đầy các trường còn thiếu (duration, country, genres)
-                    movie.setDuration(detailJson.optInt("runtime", 0));
-                    JSONArray countries = detailJson.optJSONArray("production_countries");
-                    if (countries != null && countries.length() > 0) {
-                        movie.setCountry(countries.getJSONObject(0).optString("name"));
-                    } else {
-                        movie.setCountry(null); 
+                    // Chỉ cập nhật nếu trường là "N/A" (cờ) hoặc null/0/rỗng (thiếu)
+                    // KHÔNG CHẠM VÀO TITLE, DESCRIPTION, POSTER, BACKDROP, URL, ISFREE
+                    
+                     if (movie.getReleaseDate() == null) {
+                        movie.setReleaseDate(parseDate(detailJson.optString("release_date")));
+                    }
+                    if (movie.getRating() == 0.0f) {
+                        movie.setRating((float) detailJson.optDouble("vote_average", 0.0));
                     }
                     
-                    // Lấy thể loại từ detailJson
-                    JSONArray genresJson = detailJson.optJSONArray("genres");
-                    if (genresJson != null && genresJson.length() > 0) {
-                        List<Integer> genreIds = new ArrayList<>();
-                        for (int i = 0; i < genresJson.length(); i++) {
-                            genreIds.add(genresJson.getJSONObject(i).optInt("id"));
+                    // Luôn lấp đầy các trường này nếu chúng là cờ/trống
+                    if (movie.getDuration() == 0) {
+                        movie.setDuration(detailJson.optInt("runtime", 0));
+                    }
+                    if (movie.getCountry() == null || movie.getCountry().isEmpty()) {
+                        JSONArray countries = detailJson.optJSONArray("production_countries");
+                        if (countries != null && countries.length() > 0) {
+                            movie.setCountry(countries.getJSONObject(0).optString("name"));
+                        } else {
+                            movie.setCountry(null); 
                         }
-                        List<Genre> genres = genreRepository.findByTmdbGenreIdIn(genreIds);
-                        movie.setGenres(genres); 
+                    }
+                    if (movie.getGenres() == null || movie.getGenres().isEmpty()) {
+                        JSONArray genresJson = detailJson.optJSONArray("genres");
+                        if (genresJson != null && genresJson.length() > 0) {
+                            List<Integer> genreIds = new ArrayList<>();
+                            for (int i = 0; i < genresJson.length(); i++) {
+                                genreIds.add(genresJson.getJSONObject(i).optInt("id"));
+                            }
+                            List<Genre> genres = genreRepository.findByTmdbGenreIdIn(genreIds);
+                            movie.setGenres(genres); 
+                        }
+                    }
+                    
+                    // Xóa cờ "N/A"
+                    if ("N/A".equals(movie.getDirector())) {
+                        movie.setDirector(null); // Sẽ được lấp đầy bởi hàm Eager (fetchAndSaveMovieDetail) nếu cần
+                    }
+                     if ("N/A".equals(movie.getLanguage())) {
+                        movie.setLanguage(detailJson.optString("original_language", null));
                     }
                     
                     return movieRepository.save(movie); // Lưu bản nâng cấp "vừa"
@@ -346,13 +381,13 @@ public class MovieService {
                 }
             }
             
-            return movie; // Trả về bản đủ (vì director != "N/A")
+            return movie; // Trả về bản đủ (vì director != "N/A" và duration != 0)
         }
         
         // Nếu không có (lần đầu load), gọi API chi tiết 1 lần để tạo bản "vừa"
         try {
             System.out.println("✳️ [Movie-Partial] Tạo mới bản cụt (có duration) cho ID: " + tmdbId);
-            String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
+            String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
             String resp = restTemplate.getForObject(url, String.class);
             if (resp != null) {
                 // Gọi hàm Lazy (an toàn)
@@ -364,6 +399,8 @@ public class MovieService {
         }
         return null; 
     }
+    // === KẾT THÚC FIX BUG 1 ===
+
 
     /**
      * [G46] HÀM LAZY (LIST): Dùng cho Home, Discover carousels
@@ -393,7 +430,9 @@ public class MovieService {
                         int tmdbId = item.optInt("id");
                         if (tmdbId <= 0) continue; 
 
-                        Movie movie = this.getMoviePartial(tmdbId);
+                        // === SỬA LỖI N+1 ===
+                        // Thay vì gọi getMoviePartial (nặng), gọi syncMovieFromList (nhẹ)
+                        Movie movie = this.syncMovieFromList(item);
                         
                         if (movie != null) {
                             movies.add(this.convertToMap(movie));
@@ -423,15 +462,11 @@ public class MovieService {
     @Transactional
     public Map<Integer, Map<String, Object>> getMoviesByTmdbIds(List<Integer> tmdbIds) {
         if (tmdbIds == null || tmdbIds.isEmpty()) {
-            // Thêm import java.util.Collections
             return Collections.emptyMap(); 
         }
         
-        // Dùng hàm mới trong Repository (Bước 1.1)
         List<Movie> dbMovies = movieRepository.findByTmdbIdIn(tmdbIds);
         
-        // Chuyển List<Movie> thành Map<Integer, Map<String, Object>>
-        // Key của Map là tmdbId
         return dbMovies.stream()
             .collect(Collectors.toMap(
                 Movie::getTmdbId,           // Key là tmdbId
@@ -450,7 +485,7 @@ public class MovieService {
     @Transactional
     private Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
         try {
-            String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&append_to_response=credits";
+            String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&append_to_response=credits&include_adult=false";
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
 
@@ -458,13 +493,27 @@ public class MovieService {
             
             // [G46] LƯU ĐẦY ĐỦ CÁC TRƯỜNG (Ghi đè N/A và NULL)
             movie.setTmdbId(tmdbId);
-            movie.setTitle(json.optString("title", "N/A"));
-            movie.setDescription(json.optString("overview", null));
+            
+            // === FIX BUG 1 (Bảo vệ dữ liệu thủ công) ===
+            // Chỉ ghi đè nếu trường là null, N/A, hoặc rỗng
+            if (movie.getTitle() == null || movie.getTitle().isEmpty() || movie.getTitle().equals("N/A")) {
+                movie.setTitle(json.optString("title", "N/A"));
+            }
+            if (movie.getDescription() == null || movie.getDescription().isEmpty()) {
+                movie.setDescription(json.optString("overview", null));
+            }
+             if (movie.getPosterPath() == null || movie.getPosterPath().isEmpty()) {
+                movie.setPosterPath(json.optString("poster_path", null));
+            }
+            if (movie.getBackdropPath() == null || movie.getBackdropPath().isEmpty()) {
+                movie.setBackdropPath(json.optString("backdrop_path", null));
+            }
+            // (Không bảo vệ isFree, url vì hàm này chỉ EAGER, không phải CREATE)
+            // ==========================================
+
             movie.setReleaseDate(parseDate(json.optString("release_date")));
             movie.setDuration(json.optInt("runtime", 0)); 
             movie.setRating((float) json.optDouble("vote_average", 0.0));
-            movie.setPosterPath(json.optString("poster_path", null));
-            movie.setBackdropPath(json.optString("backdrop_path", null));
             
             // [G46] Lấy đầy đủ (Ghi đè N/A hoặc 0)
             movie.setBudget(json.optLong("budget", 0)); 
@@ -540,8 +589,15 @@ public class MovieService {
             Person p = (personToUpdate != null) ? personToUpdate : new Person();
             
             p.setTmdbId(tmdbId);
-            p.setFullName(json.optString("name"));
-            p.setProfilePath(json.optString("profile_path", null));
+            
+            // === FIX BUG 1 (Bảo vệ dữ liệu thủ công) ===
+            if (p.getFullName() == null || p.getFullName().isEmpty()) {
+                p.setFullName(json.optString("name"));
+            }
+             if (p.getProfilePath() == null || p.getProfilePath().isEmpty()) {
+                p.setProfilePath(json.optString("profile_path", null));
+            }
+            // ==========================================
             
             // [G46] LẤY ĐẦY ĐỦ (Ghi đè N/A và NULL)
             p.setBio(json.optString("biography", null)); 
@@ -556,6 +612,91 @@ public class MovieService {
             return null; 
         }
     }
+
+
+    // ===============================================
+    // [GIẢI PHÁP 3] LOGIC GỘP CHO CAROUSEL
+    // ===============================================
+
+    /**
+     * [GIẢI PHÁP 3] HÀM GỘP MỚI
+     * Lấy phim từ DB và API, gộp lại, ưu tiên DB
+     * @param apiUrl (Link API TMDB)
+     * @param dbMovies (Trang kết quả từ DB, có thể rỗng)
+     * @param limit (Giới hạn số lượng)
+     * @return Danh sách Map đã gộp
+     */
+    @Transactional
+    public List<Map<String, Object>> getMergedCarouselMovies(
+            String apiUrl, 
+            Page<Movie> dbMovies, 
+            int limit) {
+        
+        Set<Integer> addedTmdbIds = new HashSet<>();
+        List<Map<String, Object>> finalMovies = new ArrayList<>();
+
+        // 1. [ƯU TIÊN 1] Thêm phim từ DB (Phim tự tạo + Phim đã sửa)
+        for (Movie movie : dbMovies) {
+            finalMovies.add(convertToMap(movie));
+            if (movie.getTmdbId() != null) {
+                addedTmdbIds.add(movie.getTmdbId());
+            }
+        }
+        
+        // 2. [ƯU TIÊN 2] Lấy phim từ API (nếu chưa đủ limit)
+        if (finalMovies.size() < limit) {
+            try {
+                // [FIX VĐ 6] Thêm &include_adult=false vào mọi URL API
+                String safeApiUrl = apiUrl.contains("?") ? apiUrl + "&include_adult=false" : apiUrl + "?include_adult=false";
+                
+                String response = restTemplate.getForObject(safeApiUrl, String.class);
+                
+                if (response != null) {
+                    JSONArray results = new JSONObject(response).optJSONArray("results");
+                    if (results != null) {
+                        for (int i = 0; i < results.length(); i++) {
+                            if (finalMovies.size() >= limit) break; // Đã đủ
+                            
+                            JSONObject item = results.getJSONObject(i);
+                            int tmdbId = item.optInt("id");
+                            
+                            // Chỉ thêm nếu (ID > 0) VÀ (chưa có trong list)
+                            if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
+                                Movie movie = syncMovieFromList(item); // Dùng Lazy
+                                if (movie != null) {
+                                    finalMovies.add(convertToMap(movie));
+                                    addedTmdbIds.add(tmdbId);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi load API cho carousel ("+ apiUrl +"): " + e.getMessage());
+            }
+        }
+        
+        // 3. Trả về danh sách đã gộp (đã được giới hạn)
+        // (Stream.limit an toàn ngay cả khi list nhỏ hơn limit)
+        return finalMovies.stream().limit(limit).collect(Collectors.toList());
+    }
+
+    /**
+     * [GIẢI PHÁP 3] Các hàm query DB mới (gọi repository)
+     */
+    public Page<Movie> getHotMoviesFromDB(int limit) {
+        // Lấy 20 phim có rating cao nhất từ DB
+        return movieRepository.findAllByOrderByRatingDesc(PageRequest.of(0, limit));
+    }
+    public Page<Movie> getNewMoviesFromDB(int limit) {
+        // Lấy 10 phim có ngày ra mắt mới nhất từ DB
+        return movieRepository.findAllByOrderByReleaseDateDesc(PageRequest.of(0, limit));
+    }
+    public Page<Movie> getMoviesByGenreFromDB(int tmdbGenreId, int limit, int page) {
+        // Lấy 10 phim theo genre từ DB, hỗ trợ phân trang
+        return movieRepository.findAllByGenres_TmdbGenreId(tmdbGenreId, PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "rating")));
+    }
+
 
     // ===============================================
     // CÁC HÀM CONVERT VÀ UTILS (G46)
@@ -577,9 +718,35 @@ public class MovieService {
         map.put("title", movie.getTitle());
         map.put("overview", movie.getDescription());
         map.put("rating", String.format("%.1f", movie.getRating()));
-        map.put("poster", movie.getPosterPath() != null ? "https://image.tmdb.org/t/p/w500" + movie.getPosterPath() : "/images/placeholder.jpg");
-        map.put("backdrop", movie.getBackdropPath() != null ? "https://image.tmdb.org/t/p/original" + movie.getBackdropPath() : "/images/placeholder.jpg");
         
+        // === FIX BUG 1 (Hiển thị poster/backdrop) ===
+        // Ưu tiên PosterPath (thường là link TMDB)
+        String poster = "/images/placeholder.jpg";
+        if (movie.getPosterPath() != null && !movie.getPosterPath().isEmpty()) {
+            if (movie.getPosterPath().startsWith("http")) {
+                poster = movie.getPosterPath(); // Dùng link tuyệt đối (nếu có)
+            } else {
+                poster = "https://image.tmdb.org/t/p/w500" + movie.getPosterPath(); // Ghép link TMDB
+            }
+        }
+        // Fallback: Dùng URL (nếu là link ảnh)
+        else if (movie.getUrl() != null && (movie.getUrl().startsWith("http") && (movie.getUrl().endsWith(".jpg") || movie.getUrl().endsWith(".png")))) {
+             poster = movie.getUrl();
+        }
+        map.put("poster", poster);
+        
+        // Tương tự cho backdrop
+        String backdrop = "/images/placeholder.jpg";
+         if (movie.getBackdropPath() != null && !movie.getBackdropPath().isEmpty()) {
+            if (movie.getBackdropPath().startsWith("http")) {
+                backdrop = movie.getBackdropPath();
+            } else {
+                backdrop = "https://image.tmdb.org/t/p/original" + movie.getBackdropPath();
+            }
+        }
+        map.put("backdrop", backdrop);
+        // ==========================================
+
         if (movie.getReleaseDate() != null) {
             map.put("year", new SimpleDateFormat("yyyy").format(movie.getReleaseDate()));
             map.put("releaseDate", new SimpleDateFormat("yyyy-MM-dd").format(movie.getReleaseDate()));
@@ -657,7 +824,7 @@ public class MovieService {
         for (Integer id : idsToFetch) {
             try {
                 // [G46] Gọi API chi tiết 1 lần để lấy JSON
-                String url = BASE_URL + "/movie/" + id + "?api_key=" + API_KEY + "&language=vi-VN";
+                String url = BASE_URL + "/movie/" + id + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
                 String resp = restTemplate.getForObject(url, String.class);
                 if (resp != null) {
                     syncMovieFromList(new JSONObject(resp)); // Gọi hàm Lazy
@@ -668,10 +835,18 @@ public class MovieService {
         }
     }
     
-    // (Các hàm G23 - findBestTrailerKey, findTrailers, parseAndAddTrailers - giữ nguyên)
-    public String findBestTrailerKey(int tmdbId) {
-        // ... (GiV
-        List<Map<String, Object>> trailers = findTrailers(tmdbId, 1);
+    /**
+     * [SỬA LỖI] Nhận movieID (PK), tìm tmdbId, sau đó gọi findTrailers.
+     */
+    public String findBestTrailerKey(int movieID) {
+        // Lấy phim từ DB
+        Movie movie = movieRepository.findById(movieID).orElse(null);
+        if (movie == null || movie.getTmdbId() == null) {
+            return null; // Phim tự tạo hoặc không có tmdbId sẽ không có trailer
+        }
+        
+        // Gọi hàm findTrailers (đã sửa) với tmdbId
+        List<Map<String, Object>> trailers = findTrailers(movie.getTmdbId(), 1);
         if (trailers.isEmpty()) return null;
         return (String) trailers.get(0).get("key");
     }
@@ -680,7 +855,7 @@ public class MovieService {
         List<Map<String, Object>> trailers = new ArrayList<>();
         Set<String> existingKeys = new HashSet<>();
         try {
-            String urlVi = BASE_URL + "/movie/" + tmdbId + "/videos?api_key=" + API_KEY + "&language=vi-VN";
+            String urlVi = BASE_URL + "/movie/" + tmdbId + "/videos?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
             String respVi = restTemplate.getForObject(urlVi, String.class);
             parseAndAddTrailers(respVi, trailers, existingKeys, limit);
         } catch (Exception e) {
@@ -688,7 +863,7 @@ public class MovieService {
         }
         if (trailers.size() < limit) {
             try {
-                String urlEn = BASE_URL + "/movie/" + tmdbId + "/videos?api_key=" + API_KEY + "&language=en-US";
+                String urlEn = BASE_URL + "/movie/" + tmdbId + "/videos?api_key=" + API_KEY + "&language=en-US&include_adult=false";
                 String respEn = restTemplate.getForObject(urlEn, String.class);
                 parseAndAddTrailers(respEn, trailers, existingKeys, limit);
             } catch (Exception e) {
@@ -723,21 +898,36 @@ public class MovieService {
         }
     }
     
-    // (Hàm findBestLogoPath giữ nguyên)
-    public String findBestLogoPath(int tmdbId) {
-        // ... (Giữ nguyên)
+    /**
+     * [SỬA LỖI] Nhận movieID (PK), tìm tmdbId, sau đó gọi API TMDB.
+     * [SỬA LỖI] Ưu tiên title từ DB cho logic tìm logo (Vấn đề 8)
+     */
+    public String findBestLogoPath(int movieID) {
+        Movie movie = movieRepository.findById(movieID).orElse(null);
+        if (movie == null || movie.getTmdbId() == null) {
+            return null; // Phim tự tạo hoặc không có tmdbId
+        }
+
+        Integer tmdbId = movie.getTmdbId();
+        String dbTitle = movie.getTitle(); // Lấy title từ DB
+
         try {
             String url = BASE_URL + "/movie/" + tmdbId + "/images?api_key=" + API_KEY + "&include_image_language=vi,en,null";
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
             JSONArray logos = json.optJSONArray("logos");
             if (logos == null || logos.length() == 0) return null;
+            
             JSONObject bestLogo = null;
+
+            // [SỬA VĐ 8] Logic ưu tiên logo mới:
+            // 1. Ưu tiên "vi"
             for (int i = 0; i < logos.length(); i++) {
                 if ("vi".equals(logos.getJSONObject(i).optString("iso_639_1"))) {
                     bestLogo = logos.getJSONObject(i); break;
                 }
             }
+            // 2. Nếu không có "vi", ưu tiên "en"
             if (bestLogo == null) {
                 for (int i = 0; i < logos.length(); i++) {
                     if ("en".equals(logos.getJSONObject(i).optString("iso_639_1"))) {
@@ -745,7 +935,13 @@ public class MovieService {
                     }
                 }
             }
+            // 3. Nếu không có "en", lấy logo đầu tiên (bất kể ngôn ngữ)
             if (bestLogo == null) bestLogo = logos.getJSONObject(0);
+
+            // (Logic ưu tiên title DB của bạn rất khó implement
+            // vì TMDB API không cho tìm logo bằng tên, chỉ bằng ID.
+            // Logic ưu tiên "vi" -> "en" -> "bất kỳ" ở trên là giải pháp tốt nhất.)
+
             return bestLogo.optString("file_path");
         } catch (Exception e) {
             System.err.println("Lỗi API findBestLogoPath (ID: " + tmdbId + "): " + e.getMessage());

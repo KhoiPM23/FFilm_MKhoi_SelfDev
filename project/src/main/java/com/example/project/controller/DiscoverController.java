@@ -5,6 +5,7 @@ import com.example.project.service.MovieService;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page; // <-- THÊM
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,7 @@ public class DiscoverController {
 
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
+    private static final int PAGE_SIZE = 10; // Giới hạn 10 phim/trang (cho carousel/grid)
 
     @Autowired private MovieService movieService;
     @Autowired private RestTemplate restTemplate;
@@ -29,68 +31,78 @@ public class DiscoverController {
     @GetMapping("/discover")
     public String discover(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(required = false) String genres,
+            @RequestParam(required = false) String genres, // Đây là tmdbGenreId
             @RequestParam(required = false) String quickFilter,
             Model model) {
 
-        int totalResults = 0;
-        int totalPages = 1;
-
         try {
-            String page1Url = buildDiscoverUrl(1, genres, quickFilter);
-            int discoverLimit = 20; 
+            // Lấy thông tin phân trang (tổng số) từ API
+            // (Chúng ta chấp nhận rằng tổng số này chỉ là của API)
+            String page1ApiUrl = buildDiscoverUrl(1, genres, quickFilter);
+            int totalResults = 0;
+            int totalPages = 1;
+            
+            try {
+                String page1Response = restTemplate.getForObject(page1ApiUrl, String.class);
+                if (page1Response != null) {
+                    JSONObject page1Json = new JSONObject(page1Response);
+                    totalResults = page1Json.optInt("total_results", 0);
+                    totalPages = page1Json.optInt("total_pages", 1);
+                }
+            } catch (Exception e) {
+                 System.err.println("Lỗi lấy totalPages/Results: " + e.getMessage());
+            }
 
-            // [SỬA LỖI CLAUDE] Lấy thông tin phân trang (totalResults, totalPages) từ page 1
-            String page1Response = restTemplate.getForObject(page1Url, String.class);
-            if (page1Response == null) {
-                setEmptyResults(model, genres, quickFilter);
-                return "discover";
+            // [GIẢI PHÁP 3] Lấy danh sách phim đã gộp
+            
+            Page<Movie> dbMovies;
+            int dbPage = page - 1; // Page của DB (bắt đầu từ 0)
+
+            // 1. Lấy phim từ DB (dựa trên filter)
+            if (genres != null && !genres.isEmpty()) {
+                dbMovies = movieService.getMoviesByGenreFromDB(Integer.parseInt(genres), PAGE_SIZE, dbPage);
+            } else if ("new".equals(quickFilter)) {
+                dbMovies = movieService.getNewMoviesFromDB(PAGE_SIZE); // Chỉ lấy 1 trang DB
+            } else {
+                // "trending" hoặc "top-rated"
+                dbMovies = movieService.getHotMoviesFromDB(PAGE_SIZE); // Chỉ lấy 1 trang DB
             }
             
-            JSONObject page1Json = new JSONObject(page1Response);
-            totalResults = page1Json.optInt("total_results", 0);
-            totalPages = page1Json.optInt("total_pages", 1);
+            // 2. Lấy URL API cho trang hiện tại
+            String currentApiUrl = buildDiscoverUrl(page, genres, quickFilter);
             
-            // Xử lý lấy danh sách phim cho carousel (dùng hàm lazy)
-            List<Map<String, Object>> topMovies = loadDiscoverMovies(page1Json, discoverLimit);
+            // 3. Gộp
+            List<Map<String, Object>> mergedMovies = movieService.getMergedCarouselMovies(
+                currentApiUrl, 
+                dbMovies, 
+                PAGE_SIZE
+            );
 
-            // BƯỚC 2: GÁN BANNER VÀ TOP MOVIES
-            if (!topMovies.isEmpty()) {
-                int bannerTmdbId = (int) topMovies.get(0).get("tmdbId");
+            // 4. Set Banner (Lấy phim đầu tiên trong danh sách đã gộp)
+            if (!mergedMovies.isEmpty()) {
+                Map<String, Object> bannerMap = mergedMovies.get(0);
+                int movieID = (int) bannerMap.get("id"); // Lấy PK
                 
-                // Banner vẫn dùng getMoviePartial (để lấy duration/country)
-                Movie bannerMovie = movieService.getMoviePartial(bannerTmdbId); 
-                
-                Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
-                String trailerKey = movieService.findBestTrailerKey(bannerTmdbId);
-                String logoPath = movieService.findBestLogoPath(bannerTmdbId);
+                String trailerKey = movieService.findBestTrailerKey(movieID); // Gọi bằng PK
+                String logoPath = movieService.findBestLogoPath(movieID); // Gọi bằng PK
                 
                 bannerMap.put("trailerKey", trailerKey);
                 bannerMap.put("logoPath", logoPath);
                 
                 model.addAttribute("banner", bannerMap);
-                model.addAttribute("topMovies", topMovies.subList(0, Math.min(topMovies.size(), 10)));
+                
+                // Top movies là 10 phim đầu tiên của danh sách gộp
+                model.addAttribute("topMovies", mergedMovies.subList(0, Math.min(mergedMovies.size(), 10)));
             } else {
-                setEmptyResults(model, genres, quickFilter); 
+                setEmptyResults(model, genres, quickFilter);
             }
             
-            // BƯỚC 3: LẤY KẾT QUẢ CHO GRID PHÂN TRANG
-            List<Map<String, Object>> gridMovies;
-
-            if (page == 1) {
-                gridMovies = topMovies;
-            } else {
-                // Nếu ở trang > 1, gọi API lần nữa (dùng hàm lazy)
-                String currentPageUrl = buildDiscoverUrl(page, genres, quickFilter);
-                gridMovies = loadDiscoverMovies(currentPageUrl, discoverLimit); // Dùng helper
-            }
-            
-            // Gán model cho grid
-            model.addAttribute("searchResults", gridMovies);
+            // Gán model cho grid (searchResults giống hệt topMovies vì logic gộp chung)
+            model.addAttribute("searchResults", mergedMovies);
             model.addAttribute("totalResults", totalResults);
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("currentPage", page);
-            model.addAttribute("hasResults", !gridMovies.isEmpty());
+            model.addAttribute("hasResults", !mergedMovies.isEmpty());
             model.addAttribute("genres", genres);
             model.addAttribute("quickFilter", quickFilter);
             model.addAttribute("pageTitle", getPageTitle(genres, quickFilter));
@@ -101,61 +113,25 @@ public class DiscoverController {
         }
         return "discover";
     }
-
-    /**
-     * [THÊM MỚI] Hàm helper (của Claude) để load carousel nhanh
-     * (Chỉ dùng syncMovieFromList - LAZY)
-     */
-    private List<Map<String, Object>> loadDiscoverMovies(String apiUrl, int limit) {
-        List<Map<String, Object>> movies = new ArrayList<>();
-        try {
-            String response = restTemplate.getForObject(apiUrl, String.class);
-            if (response == null) return movies;
-            
-            JSONObject json = new JSONObject(response);
-            return loadDiscoverMovies(json, limit); // Gọi hàm overload
-            
-        } catch (Exception e) {
-            System.err.println("Lỗi loadDiscoverMovies (String apiUrl): " + e.getMessage());
-        }
-        return movies;
-    }
     
-    /**
-     * [THÊM MỚI] Hàm Overload để xử lý JSON
-     */
-    private List<Map<String, Object>> loadDiscoverMovies(JSONObject json, int limit) {
-        List<Map<String, Object>> movies = new ArrayList<>();
-        try {
-            JSONArray results = json.optJSONArray("results");
-            if (results == null) return movies;
-            
-            for (int i = 0; i < Math.min(results.length(), limit); i++) {
-                JSONObject item = results.getJSONObject(i);
-                Movie movie = movieService.syncMovieFromList(item);
-                if (movie != null) {
-                    movies.add(movieService.convertToMap(movie));
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Lỗi loadDiscoverMovies (JSONObject): " + e.getMessage());
-        }
-        return movies;
-    }
-
-    // (Hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
+    // (Các hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
     
     private String buildDiscoverUrl(int page, String genres, String quickFilter) {
         StringBuilder url = new StringBuilder();
         url.append(BASE_URL).append("/discover/movie?api_key=").append(API_KEY)
-           .append("&language=vi-VN&include_adult=false&page=").append(page);
+           .append("&language=vi-VN&page=").append(page);
+           
         if (genres != null && !genres.isEmpty()) url.append("&with_genres=").append(genres);
+        
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String threeMonthsAgo = LocalDate.now().minusMonths(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String sortBy = "popularity.desc";
+        
         if (quickFilter != null) {
             switch (quickFilter) {
-                case "trending": sortBy = "popularity.desc"; break;
+                case "trending": 
+                    sortBy = "popularity.desc"; 
+                    break;
                 case "new": 
                     sortBy = "primary_release_date.desc";
                     url.append("&primary_release_date.lte=").append(today)
@@ -169,6 +145,8 @@ public class DiscoverController {
             }
         }
         url.append("&sort_by=").append(sortBy);
+        
+        // [FIX VĐ 6] Thêm &include_adult=false
         url.append("&include_adult=false");
         return url.toString();
     }

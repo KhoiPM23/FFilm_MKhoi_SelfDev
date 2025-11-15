@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${movie.title} + ' - FFilm'">Chi tiết phim</title>
     <meta name="movie-id" th:content="${movieId}">
+    <meta name="tmdb-id" th:if="${tmdbId != null}" th:content="${tmdbId}">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
@@ -517,77 +518,37 @@
 
         <div class="content-sidebar">
             <div class="sidebar-header">Top Phim Xu Hướng</div>
-            <div class="trending-list" id="trendingSidebar">
-                 <div th:each="m, iter : ${trendingMovies}" 
-                     class="trending-item" 
-                     th:classappend="'rank-' + ((${iter.index} % 5) + 1)" 
-                     th:onclick="'window.location.href=\'/movie/detail/' + ${m.id} + '\''">
-                    
-                    <div class="trending-thumb">
-                        <img th:src="${m.backdrop}" th:alt="${m.title}" onerror="this.src='/images/placeholder.jpg'">
-                        <div class="ranking-number" th:text="${iter.index + 1}"></div>
-                    </div>
-                    <div class="trending-info">
-                        <div class="trending-title" th:text="${m.title}">Movie Title</div>
-                        <div class="trending-meta" th:text="${m.year} + ' • ⭐ ' + ${m.rating}"></div>
-                    </div>
-                </div>
+                <div class="trending-list" id="trendingSidebar">                 
             </div>
         </div>
 
     </div> 
 
-    <section class="movies movie-list-section full-width-section" style="margin-top: 0;" th:if="${similarMovies != null && !similarMovies.isEmpty()}">
+    <section class="movies movie-list-section full-width-section" style="margin-top: 0; display: none;" id="similarSection">
         <div class="section-header" style="padding: 0; margin-bottom: 20px;">
-             <div class="section-title-wrapper"><h2 class="section-title" style="font-size: 1.6rem;">🔥 Phim tương tự</h2></div>
-             <div class="carousel-nav">
+            <div class="section-title-wrapper"><h2 class="section-title" style="font-size: 1.6rem;">🔥 Phim tương tự</h2></div>
+            <div class="carousel-nav">
                 <button class="nav-btn prev-btn" id="similarPrevBtn"><i class="fas fa-chevron-left"></i></button>
                 <button class="nav-btn next-btn" id="similarNextBtn"><i class="fas fa-chevron-right"></i></button>
             </div>
         </div>
         <div class="movie-carousel">
             <div class="movie-slider" id="similarSlider">
-                <div th:each="movie : ${similarMovies}" 
-                     class="movie-card" 
-                     th:attr="data-movie-id=${movie.id}">
-                    
-                    <div class="movie-poster">
-                        <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
-                    </div>
-                    <div class="movie-info">
-                        <h3 th:text="${movie.title}">Title</h3>
-                        <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                    </div>
-                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
                 </div>
-            </div>
         </div>
     </section>
     
-    <section class="movies movie-list-section full-width-section" style="border: none;" th:if="${recommendedMovies != null && !recommendedMovies.isEmpty()}">
+    <section class="movies movie-list-section full-width-section" style="border: none; display: none;" id="recommendSection">
         <div class="section-header" style="padding: 0; margin-bottom: 20px;">
-             <div class="section-title-wrapper"><h2 class_content="section-title" style="font-size: 1.6rem;" th:text="${recommendTitle ?: '✨ Có thể bạn thích'}">✨ Có thể bạn thích</h2></div>
-             <div class="carousel-nav">
+            <div class="section-title-wrapper"><h2 class="section-title" style="font-size: 1.6rem;" id="recommendTitle" th:text="${recommendTitle ?: '✨ Có thể bạn thích'}">✨ Có thể bạn thích</h2></div>
+            <div class="carousel-nav">
                 <button class="nav-btn prev-btn" id="recommendPrevBtn"><i class="fas fa-chevron-left"></i></button>
                 <button class="nav-btn next-btn" id="recommendNextBtn"><i class="fas fa-chevron-right"></i></button>
             </div>
         </div>
         <div class="movie-carousel">
             <div class="movie-slider" id="recommendSlider">
-                 <div th:each="movie : ${recommendedMovies}" 
-                     class="movie-card" 
-                     th:attr="data-movie-id=${movie.id}">
-                    
-                    <div class="movie-poster">
-                        <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
-                    </div>
-                    <div class="movie-info">
-                        <h3 th:text="${movie.title}">Title</h3>
-                        <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                    </div>
-                    <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
                 </div>
-            </div>
         </div>
     </section>
 
@@ -613,10 +574,11 @@
     <script src="https://www.youtube.com/iframe_api"></script>
     <script th:src="@{/js/movie/ai-agent.js}" defer></script>
     <script src="/js/movie/share-modal.js"></script>
-    <script src="/js/script.js"></script> <script th:inline="javascript">
+    <script src="/js/script.js"></script> 
+    <script th:inline="javascript">
         // [G4] Chỉ giữ lại các hàm JS điều khiển UI (không gọi API)
         
-        const currentMovieId = /*[[${movie.tmdbId}]]*/ null; // ← Đổi sang tmdbId
+        const currentMovieId = /*[[${movieId}]]*/ 'defaultId';
         
         window.openGlobalTrailer = function(videoId) {
             document.getElementById('globalTrailerModal').classList.add('active');
@@ -668,28 +630,51 @@
             }
         });
 
-        // [G24.1] PHIÊN BẢN JAVASCRIPT ĐÃ CẬP NHẬT (HỖ TRỢ FALLBACK)
+
+        // === LOGIC TẢI BẤT ĐỒNG BỘ ===
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // [SỬA VĐ 1] Tải trailer (dùng tmdbId)
+            loadTrailers();
+            
+            // [SỬA VĐ 9] Tải 3 carousel nặng
+            loadAsyncCarousels();
+        });
+
+
+        /**
+         * [SỬA LỖI VĐ 1] Sửa logic loadTrailers để dùng tmdb-id
+         */
         async function loadTrailers() {
-            // Lấy các element DOM
             const sectionEl = document.getElementById('trailerSection');
             const gridEl = document.getElementById('trailerGrid');
             const fallbackEl = document.getElementById('trailerFallback');
-
-            if (!sectionEl || !gridEl || !fallbackEl) return; // Thoát nếu thiếu HTML
+            if (!sectionEl || !gridEl || !fallbackEl) return;
 
             try {
-                // Lấy key và URL (Giữ nguyên)
-                const currentMovieId = document.querySelector('meta[name="movie-id"]').content;
+                // [SỬA] Lấy tmdb-id từ meta tag
+                const tmdbIdMeta = document.querySelector('meta[name="tmdb-id"]');
+                
+                // Nếu không có tmdb-id (phim tự tạo), hiển thị fallback và dừng
+                if (!tmdbIdMeta) {
+                    console.log('Phim tự tạo, không tải trailer TMDB.');
+                    sectionEl.style.display = 'block';
+                    gridEl.style.display = 'none';
+                    fallbackEl.style.display = 'block';
+                    return; 
+                }
+                
+                const currentTmdbId = tmdbIdMeta.content; // Lấy tmdbId
                 const TMDB_API_KEY_DETAIL = 'eac03c4e09a0f5099128e38cb0e67a8f'; 
                 const BASE_URL_DETAIL = 'https://api.themoviedb.org/3';   
 
-                // Logic fetch VI/EN (Giữ nguyên)
-                let res = await fetch(`${BASE_URL_DETAIL}/movie/${currentMovieId}/videos?api_key=${TMDB_API_KEY_DETAIL}&language=vi-VN`);
+                // [SỬA] Gọi API bằng currentTmdbId và thêm &include_adult=false
+                let res = await fetch(`${BASE_URL_DETAIL}/movie/${currentTmdbId}/videos?api_key=${TMDB_API_KEY_DETAIL}&language=vi-VN&include_adult=false`);
                 let data = await res.json();
                 let videos = (data.results || []).filter(v => v.site === 'YouTube' && ['Trailer','Teaser','Featurette'].includes(v.type));
                 
                 if (videos.length < 3) { 
-                    let resEn = await fetch(`${BASE_URL_DETAIL}/movie/${currentMovieId}/videos?api_key=${TMDB_API_KEY_DETAIL}&language=en-US`);
+                    let resEn = await fetch(`${BASE_URL_DETAIL}/movie/${currentTmdbId}/videos?api_key=${TMDB_API_KEY_DETAIL}&language=en-US&include_adult=false`);
                     let dataEn = await resEn.json();
                     let videosEn = (dataEn.results || []).filter(v => v.site === 'YouTube' && ['Trailer','Teaser'].includes(v.type));
                     
@@ -699,11 +684,9 @@
 
                 const top3 = videos.slice(0, 3); 
 
-                // [SỬA ĐỔI] Hiển thị toàn bộ section
                 sectionEl.style.display = 'block';
 
                 if (top3.length > 0) {
-                    // TRƯỜNG HỢP 1: CÓ TRAILER
                     gridEl.innerHTML = top3.map(v => `
                         <div class="trailer-card" onclick="openGlobalTrailer('${v.key}')">
                             <img src="https://img.youtube.com/vi/${v.key}/mqdefault.jpg" alt="${v.name}">
@@ -711,20 +694,177 @@
                             <div class="trailer-title">${v.name}</div>
                         </div>
                     `).join('');
-                    gridEl.style.display = 'grid'; // Hiển thị grid
-                    fallbackEl.style.display = 'none'; // Ẩn fallback
+                    gridEl.style.display = 'grid'; 
+                    fallbackEl.style.display = 'none'; 
                 } else {
-                    // TRƯỜNG HỢP 2: KHÔNG CÓ TRAILER
-                    gridEl.style.display = 'none'; // Ẩn grid
-                    fallbackEl.style.display = 'block'; // Hiển thị fallback (dòng chữ bạn muốn)
+                    gridEl.style.display = 'none'; 
+                    fallbackEl.style.display = 'block'; 
                 }
             } catch (e) { 
                 console.error("Lỗi tải trailer:", e); 
-                // TRƯỜNG HỢP 3: LỖI API
                 if (sectionEl) sectionEl.style.display = 'block';
                 if (gridEl) gridEl.style.display = 'none';
-                if (fallbackEl) fallbackEl.style.display = 'block'; // Hiển thị fallback nếu lỗi
+                if (fallbackEl) fallbackEl.style.display = 'block'; 
             }
+        }
+
+        /**
+         * [MỚI - VĐ 9] Tải 3 carousel nặng bằng JS
+         */
+        async function loadAsyncCarousels() {
+            const movieId = document.querySelector('meta[name="movie-id"]').content;
+            if (!movieId) return;
+
+            // 1. Tải Trending
+            loadAndRenderCarousel(
+                `/api/movie/${movieId}/trending`,
+                'trendingSidebar',
+                'trending', // Kiểu render
+                null, null, null, null
+            );
+            
+            // 2. Tải Similar
+            loadAndRenderCarousel(
+                `/api/movie/${movieId}/similar`,
+                'similarSlider',
+                'card', // Kiểu render
+                'similarPrevBtn', 
+                'similarNextBtn',
+                'similarSection', // ID của section
+                null
+            );
+
+            // 3. Tải Recommended
+            loadAndRenderCarousel(
+                `/api/movie/${movieId}/recommended`,
+                'recommendSlider',
+                'card', // Kiểu render
+                'recommendPrevBtn',
+                'recommendNextBtn',
+                'recommendSection', // ID của section
+                'recommendTitle' // ID của <h2>
+            );
+        }
+
+        /**
+         * [MỚI - VĐ 9] Hàm helper tải và render
+         */
+        async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, nextBtnId, sectionId, titleId) {
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`API ${apiUrl} failed`);
+                
+                const data = await response.json();
+                
+                let movies = [];
+                let title = null;
+                
+                if (Array.isArray(data)) {
+                    movies = data;
+                } else { // Xử lý response Map (cho recommended)
+                    movies = data.movies || [];
+                    title = data.title || null;
+                }
+
+                const container = document.getElementById(targetId);
+                if (!container) return;
+                
+                if (movies.length === 0) {
+                    if(sectionId) document.getElementById(sectionId).style.display = 'none';
+                    return;
+                }
+                
+                // Hiển thị section
+                if(sectionId) document.getElementById(sectionId).style.display = 'block';
+                if(titleId && title) document.getElementById(titleId).textContent = title;
+
+                // Render HTML
+                if (renderType === 'trending') {
+                    container.innerHTML = movies.map((m, i) => renderTrendingCard(m, i)).join('');
+                } else {
+                    container.innerHTML = movies.map(m => renderMovieCard(m)).join('');
+                }
+                
+                // Kích hoạt lại hover cards (từ script.js)
+                if (typeof initHoverCards === 'function') {
+                    initHoverCards();
+                }
+                
+                // Kích hoạt lại nút carousel (từ script.js)
+                if (typeof initializeAllCarousels === 'function') {
+                    // Vì 3 carousel này tải động, ta gọi lại hàm init tổng
+                    initializeAllCarousels();
+                }
+            } catch (e) {
+                console.error(`Lỗi tải carousel ${apiUrl}:`, e);
+                if(sectionId) document.getElementById(sectionId).style.display = 'none';
+            }
+        }
+
+        /**
+         * [MỚI - VĐ 9] Hàm render HTML cho Card (dùng cho Similar/Recommended)
+         */
+        function renderMovieCard(movie) {
+            const poster = movie.poster || '/images/placeholder.jpg';
+            // Phải tạo HTML cho hover-card rỗng để script.js có thể tìm thấy
+            return `
+                <div class="movie-card" data-movie-id="${movie.id}">
+                    <div class="movie-poster">
+                        <img src="${poster}" alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
+                    </div>
+                    <div class="movie-info">
+                        <h3>${movie.title}</h3>
+                        <p class="movie-rating">⭐ <span>${movie.rating}</span></p>
+                    </div>
+                    <div class="movie-hover-card" data-movie-id="${movie.id}">
+                        <div class="hover-card-media">
+                            <img class="hover-card-image" src="${movie.backdrop || '/images/placeholder.jpg'}" alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
+                            <div class="hover-player-container"><div class="hover-player" id="hover-player-async-${movie.id}"></div></div>
+                            <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
+                        </div>
+                        <div class="hover-card-content">
+                            <div class="hover-card-actions">
+                                <button class="hover-play-btn" type="button" data-movie-id="${movie.id}" onclick="event.stopPropagation(); goToMovieDetail(this)"><i class="fas fa-play"></i> Xem ngay</button>
+                                <button class="hover-action-icon hover-like-btn" type="button" onclick="event.stopPropagation(); toggleHoverLike(this)" title="Thêm vào danh sách"><i class="far fa-heart"></i></button>
+                                <button class="hover-action-icon hover-share-btn" type="button" data-movie-id="${movie.id}" data-movie-title="${movie.title}" onclick="event.stopPropagation(); showShareModal(this)" title="Chia sẻ"><i class="fas fa-share-alt"></i></button>
+                            </div>
+                            <h3 class="hover-card-title">${movie.title}</h3>
+                            <div class="hover-card-meta">
+                                <span class="meta-rating"><i class="fas fa-star"></i> <span>${movie.rating}</span></span>
+                                <span class="meta-year">${movie.year}</span>
+                                <span class="meta-quality">HD</span>
+                            </div>
+                            <div class="hover-card-meta-extra">
+                                <span class="meta-extra-rating loading-meta">T</span>
+                                <span class="meta-extra-runtime loading-meta">— phút</span>
+                                <span class="meta-extra-country loading-meta">Quốc gia</span>
+                            </div>
+                            <div class="hover-card-genres"><span class="genre-tag loading-genre">Đang tải...</span></div>
+                            <p class="hover-card-description">${movie.overview || 'Đang tải mô tả...'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * [MỚI - VĐ 9] Hàm render HTML cho Trending Sidebar
+         */
+        function renderTrendingCard(m, i) {
+            const rankClass = 'rank-' + ((i % 5) + 1);
+            const backdrop = m.backdrop || '/images/placeholder.jpg';
+            return `
+                <div class="trending-item ${rankClass}" onclick="window.location.href='/movie/detail/${m.id}'">
+                    <div class="trending-thumb">
+                        <img src="${backdrop}" alt="${m.title}" onerror="this.src='/images/placeholder.jpg'">
+                        <div class="ranking-number">${i + 1}</div>
+                    </div>
+                    <div class="trending-info">
+                        <div class="trending-title">${m.title}</div>
+                        <div class="trending-meta">${m.year} • ⭐ ${m.rating}</div>
+                    </div>
+                </div>
+            `;
         }
     </script>
 </body>
