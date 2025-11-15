@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,20 +13,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.SessionAttribute;
-
 import com.example.project.service.UserFavoriteService;
 import com.example.project.dto.MovieFavorite;
 import com.example.project.dto.UserSessionDto;
-
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-
 import com.example.project.dto.AddUserFavoriteRequest;
-import com.example.project.model.Movie;
-import com.example.project.model.User;
-import com.example.project.model.UserFavorite;
-
-import jakarta.websocket.Session;
 
 @Controller
 @RequestMapping("/favorites")
@@ -49,7 +39,6 @@ public class UserFavoriteController {
             return "redirect:/login";
         }
         Integer userId = userSession.getId();
-
         Page<MovieFavorite> moviePage = favoriteService.showFavoriteList(userId, page, size);
         List<MovieFavorite> movieFavorites = moviePage.getContent();
         model.addAttribute("movieFavorites", movieFavorites);
@@ -62,8 +51,8 @@ public class UserFavoriteController {
     @PostMapping("/{movieId}")
     public String addFavorite(
             @PathVariable Integer movieId,
-            @SessionAttribute("user") User user) {
-        Integer userId = user.getUserID();
+            @SessionAttribute("user") UserSessionDto user) {
+        Integer userId = user.getId();
         AddUserFavoriteRequest req = new AddUserFavoriteRequest(movieId, userId,
                 java.sql.Date.valueOf(LocalDate.now()));
         boolean success = favoriteService.addFavorite(req);

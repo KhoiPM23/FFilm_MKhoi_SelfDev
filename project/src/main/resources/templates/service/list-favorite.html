@@ -158,8 +158,8 @@
           <div
             th:each="movie : ${movieFavorites}"
             class="movie-card"
-            th:attr="data-movie-id=${movie.id}"
-            th:onclick="'location.href=\'/movie/detail/' + ${movie.id} + '\''"
+            th:attr="data-movie-id=${movie.tmdbId}"
+            th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''"
           >
             <div class="movie-poster">
               <img

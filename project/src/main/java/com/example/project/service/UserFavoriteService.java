@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Service;
 
 import com.example.project.dto.AddUserFavoriteRequest;
@@ -30,21 +31,20 @@ public class UserFavoriteService {
     @Autowired
     private MovieRepository movieRepository;
 
-    // THÊM FAVORITE
     public boolean addFavorite(AddUserFavoriteRequest req) {
         Optional<User> userOpt = userRepository.findById(req.getUserID());
-        Optional<Movie> movieOpt = movieRepository.findById(req.getMovieID());
+        Optional<Movie> movieOpt = movieRepository.findByTmdbId(req.getTmdbId());
         if (userOpt.isEmpty() || movieOpt.isEmpty()) {
             return false;
         }
 
-        if (favoriteRepository.existsByUserIDAndMovieID(req.getUserID(), req.getMovieID())) {
+        if (favoriteRepository.existsByUserIDAndMovieID(req.getUserID(), req.getTmdbId())) {
             return false;
         }
 
         UserFavorite uf = new UserFavorite();
         uf.setUserID(req.getUserID());
-        uf.setMovieID(req.getMovieID());
+        uf.setMovieID(req.getTmdbId());
         uf.setCreateAt(req.getCreateAt());
 
         favoriteRepository.save(uf);
@@ -62,4 +62,5 @@ public class UserFavoriteService {
         Pageable pageable = PageRequest.of(page, size);
         return favoriteRepository.findMoviesByUserID(userID, pageable);
     }
+
 }
