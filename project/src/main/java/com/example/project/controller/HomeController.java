@@ -2,10 +2,8 @@ package com.example.project.controller;
 
 import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page; // <-- THÊM
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +18,8 @@ import java.util.Map;
 @Controller
 public class HomeController {
 
+    //---- 1. CẤU HÌNH & REPOSITORY ----
+
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
 
@@ -29,27 +29,27 @@ public class HomeController {
     @Autowired
     private MovieService movieService; 
 
-    // Xóa hàm home() cũ
-// Thay thế bằng hàm home() MỚI này:
+    //---- 2. MAIN HOME LOGIC ----
 
+    // Hiển thị trang chủ
     @GetMapping("/")
     public String home(Model model) {
         try {
             int dbFetchLimit = 40;
             int finalCarouselLimit = 20;
 
-            // 1. [SSR] Tải Phim Hot (Cho Banner và Carousel 1)
+            //----- 1. Tải Phim Hot (SSR - cho Banner và Carousel 1)
             Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
             String hotApiUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
+            
             List<Map<String, Object>> hotMovies = movieService.getMergedCarouselMovies(
                 hotApiUrl, dbHotMovies, finalCarouselLimit, MovieService.SortBy.HOT);
             model.addAttribute("hotMovies", hotMovies);
 
-            // 2. [SSR] Set Banner (dựa trên Phim Hot)
+            //----- 2. Set Banner (dựa trên Phim Hot đã gộp)
             setBanner(model, hotMovies);
             
-            // 3. [CSR] Trả về danh sách RỖNG cho 4 carousel còn lại
-            // JavaScript sẽ tải dữ liệu cho các carousel này
+            //----- 3. Trả về danh sách RỖNG cho 4 carousel còn lại (tải bất đồng bộ bằng JS)
             model.addAttribute("newMovies", new ArrayList<>());
             model.addAttribute("animeMovies", new ArrayList<>());
             model.addAttribute("kidsMovies", new ArrayList<>());
@@ -65,20 +65,16 @@ public class HomeController {
         }
     }
 
-    /**
-     * [SỬA LỖI GIẢI PHÁP 3] Hàm setBanner mới
-     * Lấy banner từ danh sách hotMovies đã gộp (đã ưu tiên DB)
-     */
+    //---- 3. HELPER FUNCTIONS ----
+
+    // Set Banner từ danh sách phim đã gộp
     private void setBanner(Model model, List<Map<String, Object>> hotMovies) {
         try {
             if (hotMovies != null && !hotMovies.isEmpty()) {
-                // Lấy phim đầu tiên trong danh sách (đã ưu tiên DB)
                 Map<String, Object> bannerMap = hotMovies.get(0);
-                
-                // Lấy movieID (PK)
                 int movieID = (int) bannerMap.get("id");
                 
-                // [FIX] Gọi API (đã sửa) bằng movieID (PK)
+                //----- Gọi API Service bằng movieID (PK)
                 String trailerKey = movieService.findBestTrailerKey(movieID);
                 String logoPath = movieService.findBestLogoPath(movieID);
                 
@@ -87,17 +83,16 @@ public class HomeController {
                 model.addAttribute("banner", bannerMap);
                 return;
             }
-        } catch (Exception e) { System.err.println("Error in setBanner (Mới): " + e.getMessage()); }
+        } catch (Exception e) { System.err.println("Error in setBanner: " + e.getMessage()); }
         
         // Fallback nếu có lỗi
         model.addAttribute("banner", createDefaultBanner());
     }
     
-    // (Các hàm createDefaultBanner và ensureDefaultAttributes giữ nguyên)
-    
+    // Tạo Banner mặc định (khi không có dữ liệu)
     private Map<String, Object> createDefaultBanner() {
         Map<String, Object> banner = new HashMap<>();
-        banner.put("id", 550); // Đây là movieID (PK), không phải tmdbId
+        banner.put("id", 550); // Movie ID (PK) mặc định
         banner.put("title", "Welcome to FFilm");
         banner.put("overview", "Khám phá thế giới phim ảnh");
         banner.put("backdrop", "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg");
@@ -106,6 +101,7 @@ public class HomeController {
         return banner;
     }
     
+    // Đảm bảo các thuộc tính có tồn tại khi có lỗi (tránh lỗi Thymeleaf)
     private void ensureDefaultAttributes(Model model) {
         if (!model.containsAttribute("banner")) model.addAttribute("banner", createDefaultBanner());
         model.addAttribute("hotMovies", new ArrayList<>());
