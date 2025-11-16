@@ -123,9 +123,9 @@ public class MovieService {
         if (tmdbId <= 0) return null;
 
         //----- Lọc phim spam/18+
-        if (jsonItem.optBoolean("adult", false)) return null;
-        if (jsonItem.optDouble("vote_average", 0) < 0.1) return null;
-        if (jsonItem.optInt("vote_count", 0) < 5) return null;
+        // if (jsonItem.optBoolean("adult", false)) return null;
+        // if (jsonItem.optDouble("vote_average", 0) < 0.1) return null;
+        // if (jsonItem.optInt("vote_count", 0) < 5) return null;
 
         //----- Kiểm tra DB: Nếu đã có, trả về ngay (KHÔNG GHI ĐÈ)
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);

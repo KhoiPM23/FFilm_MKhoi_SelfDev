@@ -1,41 +1,44 @@
-// =========================================================================
-// CẤU HÌNH VÀ BIẾN TOÀN CỤC (G30)
-// =========================================================================
+//==============================================================
+/*---- 1. CẤU HÌNH VÀ BIẾN TOÀN CỤC ----*/
+//==============================================================
 let heroPlayer = null;
 let videoTimeout = null;
 let movieDetailCache = {}; 
-let isGenreMapLoaded = true; // [G30] Đơn giản hóa, luôn mặc định là true
+let isGenreMapLoaded = true;
 let carouselRotateInterval = null; 
 let hoverPlayerMap = {}; 
 let hoverVideoTimer = null; 
+//----- Delay video hover (1.5s)
 const HOVER_VIDEO_DELAY = 1500; 
 
 const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-// DOM Elements (được truy vấn khi cần)
+//----- DOM Elements
 const heroBanner = document.getElementById('heroBanner');
 const videoContainer = document.getElementById('heroVideoContainer');
 const volumeBtn = document.getElementById('volumeBtn');
 const miniCarouselTrack = document.getElementById('miniCarousel');
 
 
-// =========================================================================
-// LOGIC YOUTUBE PLAYER VÀ TRAILER (G5 - Giữ nguyên)
-// =========================================================================
+//==============================================================
+/*---- 2. LOGIC YOUTUBE PLAYER VÀ TRAILER ----*/
+//==============================================================
 
 function initHeroVideo() {
+    //----- Hủy timeout và player cũ
     if (videoTimeout) clearTimeout(videoTimeout);
     if (heroPlayer) {
         heroPlayer.destroy();
         heroPlayer = null;
     }
-    if (!videoContainer) return; // [G30] Thêm kiểm tra
+    if (!videoContainer) return; 
     
     videoContainer.style.opacity = '0';
     heroBanner.setAttribute('data-video-active', 'false');
 
     const trailerKey = heroBanner.dataset.trailerKey;
+    //----- Kiểm tra khóa trailer
     if (!trailerKey || trailerKey === 'null') {
         return;
     }
@@ -64,7 +67,7 @@ function displayHeroExtras() {
     const heroTitleText = document.getElementById('heroTitleText');
     const contentRatingSpan = document.getElementById('contentRating')?.querySelector('span');
 
-    // 1. Hiển thị Logo
+    //----- 1. Hiển thị Logo (VĐ 1)
     const logoPath = heroBanner.dataset.logoPath;
     if (logoPath && logoPath !== 'null') {
         if (heroLogo) {
@@ -77,7 +80,7 @@ function displayHeroExtras() {
         if (heroTitleText) heroTitleText.style.display = 'block';
     }
 
-    // 2. Hiển thị Content Rating
+    //----- 2. Hiển thị Content Rating (Fetch API)
     if (contentRatingSpan) {
         const movieId = heroBanner.dataset.movieId;
         if (!movieId) return;
@@ -104,6 +107,7 @@ function displayHeroExtras() {
 }
 
 function onPlayerReady(event) {
+    //----- Khi player sẵn sàng
     event.target.playVideo();
     if (videoContainer) videoContainer.style.pointerEvents = 'auto'; 
 
@@ -115,12 +119,14 @@ function onPlayerReady(event) {
 }
 
 function onPlayerStateChange(event) {
+    //----- Lặp video khi hết
     if (event.data === YT.PlayerState.ENDED) {
         heroPlayer.seekTo(5, true);
     }
 }
 
 function setupVolumeControl() {
+    //----- Xử lý nút Volume
     if (volumeBtn && heroPlayer) {
         volumeBtn.onclick = () => {
             if (heroPlayer.isMuted()) {
@@ -135,14 +141,15 @@ function setupVolumeControl() {
 }
 
 window.onYouTubeIframeAPIReady = function() {
+    //----- Hàm khởi tạo chính của YouTube API
     if (document.getElementById('heroBanner')) {
         initHeroVideo(); 
     }
 }
 
-// =========================================================================
-// LOGIC CHUYỂN BANNER & MINI CAROUSEL (G8 - Giữ nguyên)
-// =========================================================================
+//==============================================================
+/*---- 3. LOGIC CHUYỂN BANNER & MINI CAROUSEL ----*/
+//==============================================================
 
 /* [Dán đè hàm này vào script.js] */
 
@@ -150,17 +157,16 @@ window.switchBanner = function(cardElement) {
     const newId = cardElement.dataset.movieId;
     if (!heroBanner || newId === heroBanner.dataset.movieId) return;
     
-    // [SỬA] Lấy data-set cơ bản từ card
     const movieData = cardElement.dataset;
     const heroContentEl = document.querySelector('.hero-content');
     
-    // 1. Fade-out nội dung cũ
+    //----- 1. Fade-out nội dung cũ
     if (heroContentEl) {
         heroContentEl.style.transition = 'opacity 0.25s ease-out';
         heroContentEl.style.opacity = '0';
     }
     
-    // 2. Hủy video cũ
+    //----- 2. Hủy video cũ
     if (heroPlayer) {
         heroPlayer.destroy();
         heroPlayer = null;
@@ -168,15 +174,14 @@ window.switchBanner = function(cardElement) {
     if (videoContainer) videoContainer.style.opacity = '0';
     heroBanner.setAttribute('data-video-active', 'false');
 
-    // 3. Delay 250ms để đợi fade-out
+    //----- 3. Delay 250ms
     setTimeout(() => {
-        // 4. Cập nhật banner data (CƠ BẢN)
+        //----- 4. Cập nhật banner data (CƠ BẢN)
         heroBanner.style.backgroundImage = `url(${movieData.backdrop})`;
         heroBanner.dataset.movieId = newId;
         heroBanner.dataset.title = movieData.title;
-        // (Xóa 2 dòng trailerKey và logoPath ở đây)
 
-        // 5. Cập nhật DOM (Query 1 lần)
+        //----- 5. Cập nhật DOM
         const heroTitleText = document.getElementById('heroTitleText');
         const ratingSpan = document.querySelector('.hero-meta .rating span');
         const yearDiv = document.querySelector('.hero-meta .year');
@@ -187,13 +192,13 @@ window.switchBanner = function(cardElement) {
         const heroDuration = document.getElementById('heroDuration');
         const heroCountry = document.getElementById('heroCountry');
         
-        // 6. Cập nhật Text
+        //----- 6. Cập nhật Text
         if (heroTitleText) heroTitleText.textContent = movieData.title;
         if (ratingSpan) ratingSpan.textContent = movieData.rating;
         if (yearDiv) yearDiv.textContent = movieData.year;
         if (heroOverview) heroOverview.textContent = movieData.overview;
         
-        // [FIX] CẬP NHẬT DURATION VÀ COUNTRY (ĐÃ HOẠT ĐỘNG)
+        //----- CẬP NHẬT DURATION VÀ COUNTRY
         if (heroDuration) {
             heroDuration.textContent = (movieData.runtime === '—' || movieData.runtime == 0) ? '—' : movieData.runtime + ' phút';
         }
@@ -201,7 +206,7 @@ window.switchBanner = function(cardElement) {
             heroCountry.textContent = movieData.country || 'Quốc gia';
         }
 
-        // 7. Cập nhật các nút
+        //----- 7. Cập nhật các nút
         if (heroPlayLink) heroPlayLink.href = `/movie/detail/${newId}`;
         if (heroLikeBtn) heroLikeBtn.setAttribute('data-movie-id', newId);
         if (heroShareBtn) {
@@ -209,15 +214,15 @@ window.switchBanner = function(cardElement) {
             heroShareBtn.setAttribute('data-movie-title', movieData.title);
         }
         
-        // [SỬA] GỌI HÀM HELPER MỚI ĐỂ FETCH TRAILER/LOGO
+        //----- GỌI HÀM HELPER FETCH TRAILER/LOGO
         fetchAndApplyBannerExtras(newId);
 
-        // Reset các trường
+        //----- Reset các trường UI
         const descToggleBtn = document.getElementById('descToggle');
         if (heroOverview) heroOverview.classList.remove('expanded');
         if (descToggleBtn) descToggleBtn.classList.remove('expanded'); 
 
-        // 8. Hiệu ứng Fade-in
+        //----- 8. Hiệu ứng Fade-in
         if (heroContentEl) {
             heroContentEl.style.transition = 'none';
             heroContentEl.style.transform = 'translateX(-60px)';
@@ -232,43 +237,43 @@ window.switchBanner = function(cardElement) {
         }
     }, 250); 
 
-    // 9. Cập nhật mini-carousel
+    //----- 9. Cập nhật mini-carousel
     document.querySelectorAll('.mini-card').forEach(c => c.classList.remove('active'));
     cardElement.classList.add('active');
     centerActiveMiniCard(cardElement);
     
+    //----- Reset auto rotate
     stopAutoRotate();
     startAutoRotate();
 }
 
 /**
  * [HÀM MỚI] Gọi API /banner-detail/ để lấy trailer và logo
- * Dán hàm này vào script.js (bên dưới hàm switchBanner)
  */
 async function fetchAndApplyBannerExtras(tmdbId) {
     if (!heroBanner) return;
     
     try {
-        // Gọi API đã có sẵn
+        //----- Gọi API đã có sẵn
         const response = await fetch(`/api/movie/banner-detail/${tmdbId}`);
         if (!response.ok) throw new Error('API banner-detail failed');
         
         const data = await response.json();
         
-        // Gán data vào banner
+        //----- Gán data vào banner
         heroBanner.dataset.trailerKey = data.trailerKey || '';
         heroBanner.dataset.logoPath = data.logoPath || '';
 
-        // Kích hoạt 2 hàm hiển thị
-        displayHeroExtras(); // Hàm này sẽ lo logo
+        //----- Kích hoạt 2 hàm hiển thị
+        displayHeroExtras(); 
         
         if (typeof YT !== 'undefined' && YT.Player) {
-            initHeroVideo(); // Hàm này sẽ lo trailer
+            initHeroVideo(); 
         }
 
     } catch (error) {
         console.warn('Lỗi fetchAndApplyBannerExtras:', error.message);
-        // Nếu lỗi, vẫn chạy 2 hàm để reset (ẩn logo, không chạy trailer)
+        //----- Fallback: reset data
         heroBanner.dataset.trailerKey = '';
         heroBanner.dataset.logoPath = '';
         displayHeroExtras(); 
@@ -277,6 +282,7 @@ async function fetchAndApplyBannerExtras(tmdbId) {
 }
 
 function centerActiveMiniCard(activeCard) {
+    //----- Căn giữa thẻ mini card đang hoạt động
     if (!activeCard || !miniCarouselTrack) return;
     const trackRect = miniCarouselTrack.getBoundingClientRect();
     const cardRect = activeCard.getBoundingClientRect();
@@ -285,8 +291,9 @@ function centerActiveMiniCard(activeCard) {
 }
 
 function startAutoRotate() {
+    //----- Bắt đầu quay carousel tự động
     if (carouselRotateInterval) clearInterval(carouselRotateInterval);
-    if (!miniCarouselTrack) return; // [G30] Kiểm tra
+    if (!miniCarouselTrack) return; 
     const cards = Array.from(miniCarouselTrack.querySelectorAll('.mini-card'));
     if (cards.length < 2) return;
 
@@ -300,10 +307,11 @@ function startAutoRotate() {
         if (cards[nextCardIndex]) {
             window.switchBanner(cards[nextCardIndex]);
         }
-    }, 11000); // 11 giây
+    }, 11000); 
 }
 
 function stopAutoRotate() {
+    //----- Dừng quay carousel tự động
     if (carouselRotateInterval) {
         clearInterval(carouselRotateInterval);
         carouselRotateInterval = null;
@@ -311,27 +319,29 @@ function stopAutoRotate() {
 }
 
 if (miniCarouselTrack) {
+    //----- Gán sự kiện cho mini carousel
     miniCarouselTrack.addEventListener('mouseenter', stopAutoRotate);
     miniCarouselTrack.addEventListener('mouseleave', startAutoRotate);
 }
 
-// =========================================================================
-// LOGIC UI CHUNG (Header, Description, BackToTop) (Giữ nguyên)
-// =========================================================================
+//==============================================================
+/*---- 4. LOGIC UI CHUNG (Header, Description, BackToTop) ----*/
+//==============================================================
 
 function setupHeaderScroll() {
+    //----- Xử lý header khi cuộn
     const header = document.querySelector('.main-header');
     const hero = document.querySelector('.hero-banner');
     if (header && hero) {
         const heroHeight = hero.offsetHeight; 
         window.addEventListener('scroll', () => {
-            if (window.scrollY > (heroHeight > 100 ? heroHeight - 100 : 100)) { // [G30] Sửa lỗi heroHeight = 0
+            if (window.scrollY > (heroHeight > 100 ? heroHeight - 100 : 100)) { 
                 header.classList.add('scrolled');
             } else {
                 header.classList.remove('scrolled');
             }
         });
-    } else if (header) { // [G30] Fallback cho các trang không có banner
+    } else if (header) { 
          window.addEventListener('scroll', () => {
             if (window.scrollY > 70) {
                 header.classList.add('scrolled');
@@ -343,6 +353,7 @@ function setupHeaderScroll() {
 }
 
 function setupDescriptionToggle() {
+    //----- Xử lý nút xem thêm/thu gọn
     const descToggleBtn = document.getElementById('descToggle');
     const heroOverview = document.getElementById('heroDesc');
     const heroContentEl = document.querySelector('.hero-content');
@@ -361,15 +372,16 @@ function setupDescriptionToggle() {
 }
 
 function setupBackToTopButton() {
+    //----- Xử lý nút cuộn lên đầu trang
     let backToTopBtn = document.getElementById('backToTopBtn');
     if (!backToTopBtn) {
         backToTopBtn = document.createElement('button');
         backToTopBtn.id = 'backToTopBtn';
         backToTopBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
-        backToTopBtn.className = 'back-to-top-btn'; // [G30] Dùng class cho CSS
+        backToTopBtn.className = 'back-to-top-btn'; 
         document.body.appendChild(backToTopBtn);
         
-        // [G30] Thêm CSS vào <head>
+        //----- Thêm CSS
         const style = document.createElement('style');
         style.innerHTML = `
             .back-to-top-btn {
@@ -401,16 +413,15 @@ function setupBackToTopButton() {
     });
 }
 
-// =========================================================================
-// [G30] TỐI ƯU CAROUSEL (TỰ ĐỘNG KHỞI TẠO)
-// =========================================================================
+//==============================================================
+/*---- 5. LOGIC CAROUSEL CHUNG (AUTO-INIT) ----*/
+//==============================================================
 
 /**
- * [G30] HÀM MỚI: Tự động tìm và khởi tạo tất cả carousel trên trang.
- * Thay thế hàm initializeCarousel(sliderId, prevBtnId, nextBtnId) cũ.
+ * [MỚI] Tự động tìm và khởi tạo tất cả carousel trên trang.
  */
 function initializeAllCarousels() {
-    // Tìm tất cả các section carousel
+    //----- Tìm tất cả các section carousel
     const carouselSections = document.querySelectorAll('.movie-list-section, .movies');
     
     carouselSections.forEach((section, index) => {
@@ -418,30 +429,28 @@ function initializeAllCarousels() {
         const prevBtn = section.querySelector('.nav-btn.prev-btn');
         const nextBtn = section.querySelector('.nav-btn.next-btn');
         
-        // Chỉ khởi tạo nếu có đủ 3 thành phần
+        //----- Chỉ khởi tạo nếu có đủ 3 thành phần
         if (!slider || !prevBtn || !nextBtn) {
             return;
         }
 
-        // Gán ID duy nhất nếu chưa có (quan trọng cho logic resize)
+        //----- Gán ID duy nhất
         if (!slider.id) slider.id = `auto-slider-${index}`;
         
         const container = slider.parentElement;
         let currentScroll = 0;
-        let cardWidth = 215; // (200px + 15px gap)
+        let cardWidth = 215; 
 
         function updateSliderState() {
+            //----- Cập nhật trạng thái slider
             if (!container || !slider) return;
             const cards = slider.querySelectorAll('.movie-card');
             
-            // [SỬA VĐ 2] XÓA KHỐI IF (cards.length === 0)
-            // Logic này làm ẩn nút vĩnh viễn nếu data load sau
-            
-            // Luôn hiển thị nút
+            //----- Luôn hiển thị nút (Fix VĐ 2)
             prevBtn.style.display = 'block';
             nextBtn.style.display = 'block';
 
-            cardWidth = cards[0] ? cards[0].offsetWidth + 15 : 215; // +15 là gap, 215 là fallback
+            cardWidth = cards[0] ? cards[0].offsetWidth + 15 : 215; 
             const containerWidth = container.offsetWidth;
             const maxScroll = Math.max(0, (cards.length * cardWidth) - containerWidth + 15);
             
@@ -455,35 +464,37 @@ function initializeAllCarousels() {
         }
 
         prevBtn.addEventListener('click', function() {
+            //----- Cuộn về trước
             const containerWidth = container.offsetWidth;
             currentScroll = Math.max(0, currentScroll - containerWidth * 0.8);
             updateSliderState();
         });
         
         nextBtn.addEventListener('click', function() {
+            //----- Cuộn về sau
             const containerWidth = container.offsetWidth;
             const maxScroll = Math.max(0, (slider.scrollWidth - containerWidth));
             currentScroll = Math.min(maxScroll, currentScroll + containerWidth * 0.8);
             updateSliderState();
         });
 
-        // [G30] Dùng ResizeObserver để theo dõi thay đổi kích thước
-        // Chính xác hơn window.addEventListener('resize')
+        //----- Dùng ResizeObserver để theo dõi thay đổi kích thước
         const resizeObserver = new ResizeObserver(() => {
             updateSliderState();
         });
         resizeObserver.observe(container);
 
-        updateSliderState(); // Gọi lần đầu
+        updateSliderState(); //----- Gọi lần đầu
     });
 }
 
 
-// =========================================================================
-// LOGIC HOVER CARD (G12 - Giữ nguyên)
-// =========================================================================
+//==============================================================
+/*---- 6. LOGIC HOVER CARD VÀ LAZY LOAD ----*/
+//==============================================================
 
 async function enhanceHoverCard(card) {
+    //----- Logic gọi API để lấy metadata cho hover card
     const movieId = card.dataset.movieId;
     const hoverCard = card.querySelector('.movie-hover-card');
     if (!movieId || !hoverCard) return;
@@ -494,6 +505,7 @@ async function enhanceHoverCard(card) {
     }
 
     try {
+        //----- Fetch chi tiết phim
         const resp = await fetch(`/api/movie/hover-detail/${movieId}`);
         if (!resp.ok) throw new Error('Failed to fetch hover details');
         
@@ -501,7 +513,7 @@ async function enhanceHoverCard(card) {
         const detailData = responseData.movie; 
         const trailerKey = responseData.trailerKey; 
 
-        // Lấy Content Rating
+        //----- Fetch Content Rating (US Certification)
         let finalRating = 'T';
         try {
             const ratingResp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/release_dates?api_key=${TMDB_API_KEY}`);
@@ -519,7 +531,7 @@ async function enhanceHoverCard(card) {
             }
         } catch(e) { /* Bỏ qua lỗi rating */ }
 
-        // Lưu cache
+        //----- Lưu cache và cập nhật UI
         const cacheData = {
             runtime: detailData.runtime + ' phút',
             country: detailData.country,
@@ -536,8 +548,8 @@ async function enhanceHoverCard(card) {
     }
 }
 
-// [G38] THAY THẾ TOÀN BỘ HÀM NÀY
 function updateHoverCardUI(hoverCard, data) {
+    //----- Cập nhật các trường dữ liệu
     const ratingEl = hoverCard.querySelector('.meta-extra-rating');
     const runtimeEl = hoverCard.querySelector('.meta-extra-runtime');
     const countryEl = hoverCard.querySelector('.meta-extra-country');
@@ -550,24 +562,22 @@ function updateHoverCardUI(hoverCard, data) {
     }
     if (countryEl) { countryEl.textContent = data.country; countryEl.classList.remove('loading-meta'); }
 
-    // [G38] SỬA LỖI LOGIC RENDER GENRE
+    //----- Xử lý render Genre
     const genresContainer = hoverCard.querySelector('.hover-card-genres');
     if (!genresContainer) return;
     
-    const maxGenresToShow = 2; // [G37] Giữ nguyên = 2 (đúng yêu cầu)
+    const maxGenresToShow = 2; 
     
     if (data.genres && data.genres.length > 0) {
-        // 1. Render 2 thẻ tag đầu tiên
+        //----- 1. Render 2 thẻ tag đầu tiên
         genresContainer.innerHTML = data.genres.slice(0, maxGenresToShow)
             .map(name => `<span class="genre-tag">${name}</span>`).join('');
         
-        // 2. Kiểm tra xem CÓ CÒN THỪA không
+        //----- 2. Kiểm tra xem CÓ CÒN THỪA không
         if (data.genres.length > maxGenresToShow) {
             const remainingGenres = data.genres.slice(maxGenresToShow);
             
-            // 3. [G38] SỬA LỖI TÊN CLASS:
-            // Sửa "genre-tooltip" -> "custom-genre-tooltip"
-            // Sửa "<div>" -> "<div class='genre-bubble'>"
+            //----- Thêm nút +N (với tooltip)
             genresContainer.innerHTML += 
                 `<span class="genre-tag genre-tag-more" onmouseenter="showGenreTooltip(this)" onmouseleave="hideGenreTooltip(this)">
                     +${remainingGenres.length}
@@ -577,8 +587,8 @@ function updateHoverCardUI(hoverCard, data) {
     } else {
         genresContainer.innerHTML = `<span class="genre-tag">Không có</span>`;
     }
-    // [G38] KẾT THÚC SỬA LỖI
 
+    //----- Bắt đầu phát video (nếu có trailer)
     if (data.trailerKey) {
         if (hoverVideoTimer) clearTimeout(hoverVideoTimer);
         hoverVideoTimer = setTimeout(() => {
@@ -587,18 +597,20 @@ function updateHoverCardUI(hoverCard, data) {
     }
 }
 
-// [G17] Hàm mới cho Tooltip
 window.showGenreTooltip = function(element) {
-    const tooltip = element.querySelector('.custom-genre-tooltip'); // <-- ĐÃ SỬA
-    if (tooltip) tooltip.style.display = 'flex'; // [G39] Dùng 'flex' (vì CSS đặt là flex-direction: column)
+    //----- Hiển thị tooltip
+    const tooltip = element.querySelector('.custom-genre-tooltip'); 
+    if (tooltip) tooltip.style.display = 'flex'; 
 }
 window.hideGenreTooltip = function(element) {
-    const tooltip = element.querySelector('.custom-genre-tooltip'); // <-- ĐÃ SỬA
+    //----- Ẩn tooltip
+    const tooltip = element.querySelector('.custom-genre-tooltip'); 
     if (tooltip) tooltip.style.display = 'none';
 }
 
 
 function playHoverVideo(hoverCard, videoId) {
+    //----- Logic khởi tạo YT Player cho hover card
     const playerId = hoverCard.querySelector('.hover-player')?.id;
     if (!playerId) return;
 
@@ -627,6 +639,7 @@ function playHoverVideo(hoverCard, videoId) {
 }
 
 function onHoverPlayerStateChange(event) {
+    //----- Xử lý trạng thái phát của hover player
     const player = event.target;
     const iframe = player.getIframe();
     if (!iframe) return;
@@ -663,6 +676,7 @@ function onHoverPlayerStateChange(event) {
 }
 
 function stopHoverVideo(card) {
+    //----- Dừng video và xóa player
     if (hoverVideoTimer) {
         clearTimeout(hoverVideoTimer);
         hoverVideoTimer = null;
@@ -687,10 +701,8 @@ function stopHoverVideo(card) {
     }
 }
 
-/**
- * [MỚI - FIX VĐ 3] Xử lý nút volume trên hover card
- */
 function toggleHoverVolume(hoverCard, volumeBtn) {
+    //----- Xử lý nút volume trên hover card
     const playerId = hoverCard.querySelector('.hover-player')?.id;
     if (!playerId || !hoverPlayerMap[playerId] || !hoverPlayerMap[playerId].player) return;
 
@@ -706,7 +718,7 @@ function toggleHoverVolume(hoverCard, volumeBtn) {
     }
 }
 
-// (Các hàm UI (Like, Share) giữ nguyên)
+//----- Xử lý các nút Action (Play, Like, Share)
 window.toggleHoverLike = function(button) {
     button.classList.toggle('active');
     const icon = button.querySelector('i');
@@ -720,9 +732,7 @@ window.goToMovieDetail = function(button) {
     const movieId = button.dataset.movieId;
     if (movieId) location.href = '/movie/detail/' + movieId;
 }
-// (MỚI) Các hàm cho Share Modal
 window.showShareModal = function(button) {
-    // Đọc dữ liệu từ data-* attributes của nút
     const movieId = button.dataset.movieId;
     const movieTitle = button.dataset.movieTitle;
     
@@ -730,7 +740,7 @@ window.showShareModal = function(button) {
     
     const overlay = document.getElementById('shareModalOverlay');
     const input = document.getElementById('shareLinkInput');
-    const copyBtn = document.getElementById('shareCopyBtn');
+    const copyBtn = document.getElementById('copyButton');
     
     if (input) input.value = url;
     if (copyBtn) {
@@ -738,7 +748,7 @@ window.showShareModal = function(button) {
         copyBtn.classList.remove('copied');
     }
     
-    // Cập nhật link cho social
+    //----- Cập nhật link cho social
     document.getElementById('shareFacebook').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
     document.getElementById('shareX').href = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(movieTitle)}`;
     document.getElementById('shareEmail').href = `mailto:?subject=${encodeURIComponent(movieTitle)}&body=Xem phim này nhé: ${encodeURIComponent(url)}`;
@@ -748,15 +758,18 @@ window.showShareModal = function(button) {
 
 window.closeShareModal = function() {
     const overlay = document.getElementById('shareModalOverlay');
-    if (overlay) overlay.classList.remove('active');
+    if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 window.copyShareLink = function() {
-    const input = document.getElementById('shareLinkInput');
-    const copyBtn = document.getElementById('shareCopyBtn');
+    const input = document.getElementById('shareUrlInput');
+    const copyBtn = document.getElementById('copyButton');
     
     input.select();
-    input.setSelectionRange(0, 99999); // For mobile
+    input.setSelectionRange(0, 99999); 
     
     try {
         navigator.clipboard.writeText(input.value).then(() => {
@@ -770,25 +783,24 @@ window.copyShareLink = function() {
     }
 }
 
-// (Các hàm xử lý hover (mouseenter/mouseleave) giữ nguyên)
-let hoverTimeout;
 function handleCardHover(event) {
+    //----- Logic xử lý khi di chuột vào card
     const card = event.currentTarget;
     const hoverCard = card.querySelector('.movie-hover-card');
     if (!hoverCard) return;
 
-    // Logic né cạnh (Edge detection)
+    //----- Logic né cạnh (Edge detection)
     const cardRect = card.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const hoverCardWidth = 340; // Từ CSS
+    const hoverCardWidth = 340; 
     const spaceRight = viewportWidth - cardRect.right;
     const spaceLeft = cardRect.left;
     let originX = 'center'; 
     if (spaceRight < (hoverCardWidth / 2) && spaceLeft > (hoverCardWidth / 2)) {
-        originX = 'calc(100% - 30px)'; // Né sang trái
+        originX = 'calc(100% - 30px)'; 
     }
     else if (spaceLeft < (hoverCardWidth / 2) && spaceRight > (hoverCardWidth / 2)) {
-        originX = '30px'; // Né sang phải
+        originX = '30px'; 
     }
     hoverCard.style.transformOrigin = `${originX} center`;
 
@@ -799,6 +811,7 @@ function handleCardHover(event) {
 }
 
 function handleCardMouseLeave(event) {
+    //----- Logic xử lý khi di chuột ra khỏi card
     const card = event.currentTarget;
     const hoverCard = card.querySelector('.movie-hover-card');
     
@@ -818,15 +831,13 @@ function handleCardMouseLeave(event) {
 }
 
 /**
- * [G30] TỐI ƯU: Hàm này giờ sẽ tự động tìm tất cả card trên trang.
- * Sẽ được gọi 1 lần duy nhất trong DOMContentLoaded.
+ * [MỚI] Tự động tìm tất cả card trên trang.
  */
 function initHoverCards() {
-    // Dùng querySelectorAll để tìm tất cả các card CÓ hover-card bên trong
+    //----- Gán sự kiện hover cho tất cả movie cards
     const movieCards = document.querySelectorAll('.movie-card[data-movie-id]');
     
     movieCards.forEach(card => {
-        // Kiểm tra xem đã gán sự kiện chưa
         if (card.dataset.hoverBound === 'true') return;
 
         const hoverCard = card.querySelector('.movie-hover-card');
@@ -838,11 +849,11 @@ function initHoverCards() {
                 stopHoverVideo(card);
             });
             
-            // [FIX VĐ 3] Gán sự kiện cho nút Volume
+            //----- Gán sự kiện cho nút Volume
             const volumeBtn = hoverCard.querySelector('.hover-volume-btn');
             if (volumeBtn) {
                 volumeBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Ngăn card bị click
+                    e.stopPropagation(); 
                     toggleHoverVolume(hoverCard, volumeBtn);
                 });
             }
@@ -853,7 +864,8 @@ function initHoverCards() {
 }
 
 function setupLazyLoading() {
-    const sections = document.querySelectorAll('.movie-list-section, .movies'); // [G30] Thêm class .movies
+    //----- Cài đặt Lazy Loading
+    const sections = document.querySelectorAll('.movie-list-section, .movies'); 
     const observer = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -870,51 +882,57 @@ function setupLazyLoading() {
     });
 }
 
-// =========================================================================
-// [G30] TỐI ƯU PAGINATION (CHUYỂN VÀO SCRIPT.JS)
-// =========================================================================
+//==============================================================
+/*---- 7. LOGIC PAGINATION VÀ URL UTILS ----*/
+//==============================================================
 
 /**
- * [G30] HÀM MỚI: Tự động khởi tạo pagination nếu tìm thấy
+ * [MỚI] Tự động khởi tạo pagination nếu tìm thấy
  */
 function initializePagination() {
+    //----- Khởi tạo pagination
     const paginationEl = document.getElementById('pagination');
-    if (!paginationEl) return; // Không phải trang search/discover
+    if (!paginationEl) return; 
 
     const currentPage = parseInt(paginationEl.dataset.currentPage) || 1;
     const totalPages = parseInt(paginationEl.dataset.totalPages) || 1;
     
-    if (totalPages <= 1) return; // Không cần render nếu chỉ có 1 trang
+    if (totalPages <= 1) return; 
 
     let html = '';
     
-    // Nút Previous
+    //----- Nút Previous
     html += renderPageButton(currentPage - 1, '<i class="fas fa-chevron-left"></i>', currentPage > 1);
     
-    // Các nút số
-    const start = Math.max(1, currentPage - 2);
-    const end = Math.min(totalPages, currentPage + 2);
-    
-    if (start > 1) {
-        html += renderPageButton(1, '1', true);
-        if (start > 2) html += '<span class="page-ellipsis">...</span>';
+    //----- Các nút số
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+        startPage = Math.max(1, endPage - maxPagesToShow + 1);
     }
     
-    for (let i = start; i <= end; i++) {
+    if (startPage > 1) {
+        html += renderPageButton(1, '1', true);
+        if (startPage > 2) html += '<span class="page-ellipsis">...</span>';
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
         html += renderPageButton(i, i.toString(), true, i === currentPage);
     }
     
-    if (end < totalPages) {
-        if (end < totalPages - 1) html += '<span class="page-ellipsis">...</span>';
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += '<span class="page-ellipsis">...</span>';
         html += renderPageButton(totalPages, totalPages.toString(), true);
     }
     
-    // Nút Next
+    //----- Nút Next
     html += renderPageButton(currentPage + 1, '<i class="fas fa-chevron-right"></i>', currentPage < totalPages);
     
     paginationEl.innerHTML = html;
 
-    // [G30] Thêm CSS cho ellipsis (nếu chưa có)
+    //----- Thêm CSS cho ellipsis
     if (!document.getElementById('pagination-style')) {
         const style = document.createElement('style');
         style.id = 'pagination-style';
@@ -924,9 +942,10 @@ function initializePagination() {
 }
 
 /**
- * [G30] HÀM HELPER: Tạo 1 nút pagination
+ * [MỚI] Tạo 1 nút pagination
  */
 function renderPageButton(page, text, enabled, isActive = false) {
+    //----- Tạo nút pagination
     const url = buildPageUrl(page);
     const activeClass = isActive ? 'active' : '';
     const disabledClass = !enabled ? 'disabled' : '';
@@ -935,43 +954,43 @@ function renderPageButton(page, text, enabled, isActive = false) {
         return `<button class="page-btn ${disabledClass}" disabled>${text}</button>`;
     }
     
-    // [G30] Sửa: Dùng thẻ <a> thay vì <button onclick> để tốt cho SEO
     return `<a href="${url}" class="page-btn ${activeClass}">${text}</a>`;
 }
 
 /**
- * [G30] HÀM HELPER: Xây dựng URL cho trang mới (tự động đọc query params)
+ * [MỚI] Xây dựng URL cho trang mới (tự động đọc query params)
  */
 function buildPageUrl(page) {
+    //----- Xây dựng URL mới (giữ lại các query params cũ)
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('page', page.toString());
     return `${window.location.pathname}?${urlParams.toString()}`;
 }
 
 
-// =========================================================================
-// KHỞI TẠO CHUNG (G30 - ĐÃ TỐI ƯU)
-// =========================================================================
+//==============================================================
+/*---- 8. KHỞI TẠO CHUNG ----*/
+//==============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Khởi tạo các thành phần UI chung
+    //----- 1. Khởi tạo các thành phần UI chung
     setupHeaderScroll();
-    setupDescriptionToggle(); // (Chỉ chạy nếu tìm thấy element)
+    setupDescriptionToggle(); 
     setupBackToTopButton();
-    setupLazyLoading(); // (Tự tìm .movie-list-section)
+    setupLazyLoading(); 
     
-    // 2. Khởi tạo Banner (Nếu có)
+    //----- 2. Khởi tạo Banner (Nếu có)
     if (document.getElementById('heroBanner')) {
-        startAutoRotate(); // (Chỉ chạy nếu tìm thấy miniCarouselTrack)
+        startAutoRotate(); 
         displayHeroExtras(); 
         
-        // Gọi initHeroVideo nếu API đã sẵn sàng
+        //----- Gọi initHeroVideo nếu API đã sẵn sàng
         if (typeof YT !== 'undefined' && YT.Player) {
             initHeroVideo();
         }
     }
 
-    // 3. [G30] TỐI ƯU: Gọi 1 lần duy nhất, tự động tìm
+    //----- 3. Tự động tìm và khởi tạo
     initializeAllCarousels();
     initHoverCards(); 
     initializePagination(); 

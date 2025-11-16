@@ -439,10 +439,10 @@
             console.log(`[GO TO DETAIL] Type: ${element.dataset.type}, ID: ${element.dataset.id}, TMDB ID: ${element.dataset.tmdbId}`);
 
             const type = element.dataset.type;
-            const dbPk = element.dataset.id; // Lấy ID (PK) hoặc TMDB ID tùy loại
+            const dbPk = element.dataset.id;
             const tmdbId = element.dataset.tmdbId;
 
-            // BƯỚC 1: Nếu là phim DB (có cờ type="db"), chuyển hướng ngay lập tức bằng PK
+            // BƯỚC 1: Nếu là phim DB (có cờ type="db"), chuyển hướng ngay
             if (type === 'db' && dbPk) {
                 location.href = `/movie/detail/${dbPk}`;
                 return;
@@ -450,19 +450,22 @@
             
             // BƯỚC 2: Xử lý phim từ API (cần Sync)
             if (!tmdbId || type !== 'api') {
-                 alert('Lỗi dữ liệu: Phim không có TMDB ID hợp lệ để đồng bộ.');
-                 return;
+                showErrorToast('Lỗi dữ liệu: Phim không có TMDB ID hợp lệ để đồng bộ.');
+                return;
             }
 
             try {
+                // Hiển thị loading
                 const liveSuggestions = document.getElementById('liveSuggestions');
                 if (liveSuggestions) liveSuggestions.style.opacity = '0.5';
+                element.style.opacity = '0.6';
+                element.style.pointerEvents = 'none';
                 
                 // 1. Gọi API sync-by-tmdbid để đảm bảo phim có trong DB và lấy PK
                 const response = await fetch(`/api/movie/sync-by-tmdbid/${tmdbId}`);
                 
+                // ✅ FIX: Xử lý response không OK
                 if (!response.ok) {
-                    // [FIX LỖI NON-JSON] Đảm bảo đọc lỗi an toàn
                     const contentType = response.headers.get('content-type');
                     let errorMessage = `Lỗi Server: ${response.status}`;
                     
@@ -470,7 +473,7 @@
                         const errorData = await response.json();
                         errorMessage = errorData.message || errorMessage;
                     } else {
-                        errorMessage = `Sync thất bại (Server Status: ${response.status}). Vui lòng kiểm tra console log.`;
+                        errorMessage = `Sync thất bại (Status: ${response.status}). Vui lòng thử lại sau.`;
                     }
                     
                     throw new Error(errorMessage);
@@ -478,17 +481,75 @@
                 
                 const movieMap = await response.json();
                 
-                if (!movieMap.id) throw new Error('Không nhận được Movie ID (PK) sau khi sync');
+                // ✅ FIX: Kiểm tra response có movieID không
+                if (!movieMap.id) {
+                    throw new Error('Không nhận được Movie ID (PK) sau khi sync');
+                }
 
                 // 2. Chuyển hướng bằng MovieID (PK)
                 location.href = `/movie/detail/${movieMap.id}`;
                 
             } catch (error) {
                 console.error('❌ Sync/Redirect error:', error);
+                
+                // Reset UI
+                element.style.opacity = '1';
+                element.style.pointerEvents = 'auto';
                 const liveSuggestions = document.getElementById('liveSuggestions');
                 if (liveSuggestions) liveSuggestions.style.opacity = '1';
-                alert(`Không thể tải phim. Chi tiết: ${error.message}`);
+                
+                // Hiển thị lỗi đẹp
+                showErrorToast(error.message);
             }
+        }
+
+        // ✅ HÀM HELPER: Hiển thị toast error
+        function showErrorToast(message) {
+            // Tạo toast element
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            toast.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <span>${message}</span>
+            `;
+            
+            // Thêm CSS (nếu chưa có)
+            if (!document.getElementById('toast-style')) {
+                const style = document.createElement('style');
+                style.id = 'toast-style';
+                style.innerHTML = `
+                    .error-toast {
+                        position: fixed;
+                        top: 80px;
+                        right: 20px;
+                        background: rgba(229, 9, 20, 0.95);
+                        color: white;
+                        padding: 16px 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                        z-index: 99999;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        font-size: 14px;
+                        max-width: 400px;
+                        animation: slideIn 0.3s ease-out;
+                    }
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(toast);
+            
+            // Tự động ẩn sau 4s
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
         }
         
         /**

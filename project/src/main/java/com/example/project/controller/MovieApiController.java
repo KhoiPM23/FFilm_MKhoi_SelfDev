@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+// Thêm CrossOrigin
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate; 
 
@@ -23,7 +24,6 @@ import java.util.stream.Collectors;
 import java.util.Optional; 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.bind.annotation.CrossOrigin; // Thêm CrossOrigin
 
 
 @RestController
@@ -102,7 +102,7 @@ public class MovieApiController {
     @GetMapping("/sync-by-tmdbid/{tmdbId}")
     public ResponseEntity<?> syncByTmdbId(@PathVariable int tmdbId) {
         try {
-            //----- Tìm và đồng bộ phim (EAGER sync nếu cần)
+            // Kiểm tra DB trước
             Optional<Movie> existing = movieService.getMovieRepository().findByTmdbId(tmdbId);
             Movie movie;
             
@@ -113,23 +113,48 @@ public class MovieApiController {
                 // Tạo mới bản Lazy (nếu chưa có)
                 String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false"; 
                 String resp = restTemplate.getForObject(url, String.class);
-                if (resp == null) throw new RuntimeException("Không tìm thấy phim trên TMDB");
+                
+                // ✅ FIX: Kiểm tra response
+                if (resp == null || resp.isEmpty()) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of(
+                            "success", false,
+                            "message", "Không tìm thấy phim trên TMDB (ID: " + tmdbId + ")"
+                        ));
+                }
                 
                 movie = movieService.syncMovieFromList(new JSONObject(resp));
+                
+                // ✅ FIX: Kiểm tra kết quả sync
+                if (movie == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of(
+                            "success", false,
+                            "message", "Phim bị filter (spam/adult) hoặc dữ liệu không hợp lệ"
+                        ));
+                }
             }
 
+            // ✅ Double-check movie không null
             if (movie == null) {
-                 return ResponseEntity.notFound().build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Lỗi xử lý dữ liệu phim"
+                    ));
             }
             
-            //----- Trả về Map (đã có movieID PK)
+            // Trả về Map (đã có movieID PK)
             return ResponseEntity.ok(movieService.convertToMap(movie));
             
         } catch (Exception e) {
-            System.err.println("Lỗi sync-by-tmdbid: " + e.getMessage());
+            System.err.println("❌ Lỗi sync-by-tmdbid: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                 .body(Map.of("success", false, 
-                                             "message", e.getMessage()));
+                .body(Map.of(
+                    "success", false, 
+                    "message", "Lỗi server: " + e.getMessage()
+                ));
         }
     }
 
