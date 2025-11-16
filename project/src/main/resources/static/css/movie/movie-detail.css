@@ -1,0 +1,311 @@
+body { background: #0c0c0c; }
+        .hero-banner { height: 85vh; max-height: 950px; min-height: 650px; }
+        .movie-main-info { max-width: 850px; padding-top: 140px; position: relative; z-index: 2; }
+        .hero-genres { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .hero-genre-tag {
+            padding: 5px 14px; background: rgba(255,255,255,0.1); backdrop-filter: blur(5px);
+            border-radius: 20px; font-size: 0.9rem; color: #ddd; text-decoration: none; transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .hero-genre-tag:hover { background: #e50914; border-color: #e50914; color: #fff; }
+        .hero-description-container { margin-bottom: 30px; max-width: 750px; position: relative; }
+        .description-toggle {
+            background: none; border: none; color: #e50914; cursor: pointer;
+            font-size: 1.4rem; padding: 5px; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-block; margin-bottom: 5px;
+        }
+        .description-toggle:hover { transform: scale(1.2); }
+        .description-toggle.expanded { transform: rotate(180deg); }
+        .hero-description-text {
+            font-size: 1.1rem; color: rgba(255,255,255,0.9); line-height: 1.6;
+            overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            margin-top: 10px;
+        }
+        .hero-description-text.expanded { -webkit-line-clamp: unset; }
+        .main-content-wrapper {
+            max-width: 1600px; margin: 0 auto; padding: 60px 50px;
+            display: flex; gap: 70px; position: relative; z-index: 5;
+        }
+        .content-primary { flex: 1; min-width: 0; }
+        .content-sidebar { width: 400px; flex-shrink: 0; position: sticky; top: 100px; height: fit-content; }
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 30px;
+            background: rgba(255,255,255,0.02); padding: 30px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 50px; backdrop-filter: blur(10px);
+        }
+        .info-item { display: flex; flex-direction: column; gap: 8px; }
+        .info-label { color: #888; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        .info-value { color: #e5e5e5; font-weight: 500; font-size: 1.1rem; }
+        
+        .description-wrapper {
+            background: #1a1a1a; padding: 25px 30px; border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05); margin-bottom: 50px;
+        }
+        .section-title-small {
+            font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 15px;
+            border-left: 4px solid #e50914; padding-left: 10px;
+        }
+        .description-content { position: relative; overflow: hidden; }
+        .description-text {
+            font-size: 1.05rem; color: #ccc; line-height: 1.7;
+            transition: all 0.5s ease-in-out;
+            max-height: calc(1.05rem * 1.7 * 3); /* 3 dòng */
+            overflow: hidden;
+        }
+        .description-text.expanded { max-height: calc(1.05rem * 1.7 * 6); } /* 6 dòng */
+        .description-content::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 50px; background: linear-gradient(to top, #1a1a1a, transparent);
+            pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .description-content.expanded::after { opacity: 0; }
+        .description-toggle-btn {
+            background: none; border: none; color: #e50914; font-weight: 600;
+            cursor: pointer; font-size: 1rem; padding-top: 10px;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .description-toggle-btn i { transition: transform 0.3s ease; }
+        .description-toggle-btn.expanded i { transform: rotate(180deg); }
+        
+        .trailer-section { margin-bottom: 60px; }
+        .trailer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .trailer-card {
+            position: relative; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; cursor: pointer;
+            transition: all 0.3s; border: 2px solid transparent;
+        }
+        .trailer-card:hover { border-color: #e50914; transform: scale(1.03); z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .trailer-card img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; transition: opacity 0.3s; }
+        .trailer-card:hover img { opacity: 1; }
+        .trailer-play {
+             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+             font-size: 3rem; color: rgba(255,255,255,0.8); transition: all 0.3s;
+        }
+        .trailer-card:hover .trailer-play { color: #e50914; transform: translate(-50%, -50%) scale(1.1); }
+        .trailer-title {
+            position: absolute; bottom: 0; left: 0; right: 0; padding: 30px 15px 15px;
+            background: linear-gradient(to top, #000 10%, transparent); color: #fff; font-size: 0.95rem; font-weight: 500;
+        }
+        
+        .cast-section { margin-bottom: 60px; }
+        .cast-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 30px 20px;
+            max-height: 190px; overflow: hidden; transition: max-height 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .cast-grid.expanded { max-height: 2000px; }
+        .cast-card { text-align: center; }
+        .cast-img-wrapper {
+            width: 110px; height: 110px; margin: 0 auto 12px; border-radius: 50%; overflow: hidden;
+            border: 3px solid rgba(255,255,255,0.1); transition: all 0.3s ease; position: relative;
+        }
+        .cast-card:hover .cast-img-wrapper { border-color: #e50914; transform: scale(1.05); box-shadow: 0 0 20px rgba(229,9,20,0.3); }
+        .cast-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+        .cast-card:hover .cast-img { transform: scale(1.1); }
+        .cast-name { font-weight: 600; font-size: 0.95rem; color: #e5e5e5; margin-bottom: 4px; transition: color 0.3s; }
+        .cast-card:hover .cast-name { color: #e50914; }
+        .cast-role { color: #888; font-size: 0.85rem; }
+        .cast-toggle-btn {
+            display: block; margin: 30px auto 0; padding: 10px 35px;
+            background: rgba(255,255,255,0.05); color: #ccc; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 30px; cursor: pointer; transition: all 0.3s;
+            font-weight: 600; letter-spacing: 0.5px;
+        }
+        .cast-toggle-btn:hover { background: #e50914; border-color: #e50914; color: #fff; }
+        
+        .sidebar-header { font-size: 1.6rem; font-weight: 800; margin-bottom: 25px; border-left: 5px solid #e50914; padding-left: 15px; }
+        .trending-list { display: flex; flex-direction: column; gap: 18px; max-height: 650px; overflow-y: auto; padding-right: 10px; }
+        .trending-list::-webkit-scrollbar { width: 6px; }
+        .trending-list::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .trending-list::-webkit-scrollbar-thumb:hover { background: #e50914; }
+        .trending-item { display: flex; gap: 18px; cursor: pointer; padding: 10px; border-radius: 12px; transition: all 0.3s ease; }
+        .trending-item:hover { background: rgba(255,255,255,0.05); transform: translateX(5px); }
+        .trending-thumb { width: 150px; height: 85px; flex-shrink: 0; border-radius: 8px; overflow: hidden; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .trending-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+        .trending-item:hover .trending-thumb img { transform: scale(1.1); }
+        
+        .trending-thumb::after { content: ''; position: absolute; inset: 0; opacity: 0.75; z-index: 1; transition: opacity 0.3s ease; }
+        .trending-item:hover .trending-thumb::after { opacity: 0.9; }
+        .trending-item.rank-1 .trending-thumb::after { background: linear-gradient(90deg, #E50914 0%, transparent 60%); }
+        .trending-item.rank-2 .trending-thumb::after { background: linear-gradient(90deg, #007BFF 0%, transparent 60%); }
+        .trending-item.rank-3 .trending-thumb::after { background: linear-gradient(90deg, #28A745 0%, transparent 60%); }
+        .trending-item.rank-4 .trending-thumb::after { background: linear-gradient(90deg, #FFC107 0%, transparent 60%); }
+        .trending-item.rank-5 .trending-thumb::after { background: linear-gradient(90deg, #6F42C1 0%, transparent 60%); }
+        
+        .trending-thumb .ranking-number {
+            font-size: 64px !important; bottom: 0px !important; left: 5px !important;
+        }
+        .trending-item:hover .ranking-number {
+            transform: scale(1.05) !important; color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .trending-info { display: flex; flex-direction: column; justify-content: center; }
+        .trending-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; line-height: 1.4; color: #f0f0f0; }
+        .trending-meta { font-size: 0.9rem; color: #aaa; font-weight: 500; }
+        
+        .comments-wrapper { background: #121212; border-radius: 16px; padding: 30px; border: 1px solid #222; margin-top: 50px; }
+        .comments-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .comments-title { font-size: 1.5rem; font-weight: 700; }
+        .comments-tabs { display: flex; gap: 10px; background: #222; padding: 4px; border-radius: 30px; }
+        .comment-tab { padding: 8px 20px; border-radius: 25px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #999; transition: all 0.3s; }
+        .comment-tab.active { background: #e50914; color: #fff; }
+        .comment-input-box { display: flex; gap: 15px; margin-bottom: 40px; position: relative; }
+        .user-avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #ff6b6b, #e50914); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0; }
+        .comment-input-area { flex: 1; background: transparent; border: none; border-bottom: 2px solid #333; padding: 10px 50px 10px 10px; color: #fff; font-size: 1rem; transition: border-color 0.3s; }
+        .comment-input-area:focus { outline: none; border-color: #e50914; }
+        .emoji-btn { position: absolute; right: 10px; top: 10px; color: #999; cursor: pointer; font-size: 1.3rem; transition: color 0.3s; }
+        .emoji-btn:hover { color: #e50914; }
+        .comment-list { display: flex; flex-direction: column; gap: 25px; }
+        .comment-item { display: flex; gap: 15px; }
+        .comment-author-name { font-weight: 700; color: #e5e5e5; margin-right: 10px; }
+        .comment-time { color: #666; font-size: 0.85rem; }
+        .comment-content { color: #ccc; line-height: 1.5; margin: 6px 0 10px; }
+        .comment-actions { display: flex; gap: 20px; color: #888; font-size: 0.9rem; }
+        .comment-action { cursor: pointer; display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
+        .comment-action:hover { color: #e50914; }
+        .like-count { color: #e50914; background: rgba(229,9,20,0.1); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+        
+        .full-width-section { max-width: 100%; padding: 50px 0 30px 50px; border-top: 1px solid #1a1a1a; }
+        
+        @media (max-width: 1280px) {
+            .main-content-wrapper { flex-direction: column; gap: 50px; padding: 40px 30px; }
+            .content-sidebar { width: 100%; position: static; }
+            .trending-list { flex-direction: row; overflow-x: auto; padding-bottom: 15px; scroll-snap-type: x mandatory; }
+            .trending-item { min-width: 320px; scroll-snap-align: start; background: rgba(255,255,255,0.03); }
+            .full-width-section { padding-left: 30px; }
+        }
+        @media (max-width: 768px) {
+            .hero-banner { height: 75vh; min-height: 550px; }
+            .movie-main-info { padding-top: 100px; }
+            .hero-title { font-size: 2.8rem !important; }
+            .full-width-section { padding-left: 15px; }
+        }
+
+        /* [G9] CSS cho phần bình luận */
+        .comments-wrapper {
+            background: #121212;
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #222;
+            margin-top: 50px;
+        }
+        .comments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .comments-title { font-size: 1.5rem; font-weight: 700; }
+        .comments-tabs {
+            display: flex;
+            gap: 10px;
+            background: #222;
+            padding: 4px;
+            border-radius: 30px;
+        }
+        .comment-tab {
+            padding: 8px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #999;
+            transition: all 0.3s;
+        }
+        .comment-tab.active { background: #e50914; color: #fff; }
+        .comment-input-box {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b, #e50914);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .comment-input-area {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #333;
+            padding: 10px 50px 10px 10px;
+            color: #fff;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .comment-input-area:focus {
+            outline: none;
+            border-color: #e50914;
+        }
+        .emoji-btn {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            color: #999;
+            cursor: pointer;
+            font-size: 1.3rem;
+            transition: color 0.3s;
+        }
+        .emoji-btn:hover { color: #e50914; }
+        .comment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        .comment-item { display: flex; gap: 15px; }
+        .comment-author-name {
+            font-weight: 700;
+            color: #e5e5e5;
+            margin-right: 10px;
+        }
+        .comment-time { color: #666; font-size: 0.85rem; }
+        .comment-content { color: #ccc; line-height: 1.5; margin: 6px 0 10px; }
+        .comment-actions {
+            display: flex;
+            gap: 20px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .comment-action {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+        .comment-action:hover { color: #e50914; }
+        .like-count {
+            color: #e50914;
+            background: rgba(229,9,20,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        /* [G9] Mock Emoji Picker */
+        .emoji-picker-mock {
+            position: absolute;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 200px;
+            z-index: 10;
+            right: 0;
+            top: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .emoji-mock {
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .emoji-mock:hover { transform: scale(1.2); }

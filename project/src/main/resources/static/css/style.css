@@ -14,7 +14,10 @@ body {
 
 }
 
-/* ================= 2. HEADER & NAVIGATION ================= */
+/*==================================================*/
+/*---- 1. HEADER & NAVIGATION (CSS CHUNG) ----*/
+/*==================================================*/
+
 .main-header {
     min-height: 70px;
     position: fixed;
@@ -22,321 +25,23 @@ body {
     left: 0;
     right: 0;
     height: 70px;
-    /* Lấy gradient từ index.html */
+    /*----- Lấy gradient từ index.html */
     background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Thêm để căn logo/menu ra hai bên */
-    padding: 0 50px; /* Sửa từ 4% sang 50px */
-    z-index: 1000; /* Đảm bảo nằm trên mọi thứ */
+    justify-content: space-between;
+    padding: 0 50px;
+    z-index: 1000;
     transition: all 0.3s ease;
 }
 
+/*----- Hiệu ứng khi cuộn */
 .main-header.scrolled {
-    /* Lấy màu nền và blur khi cuộn */
     background: rgba(20,20,20,0.95);
     backdrop-filter: blur(10px);
-    /* Bỏ box-shadow của style.css cũ để đồng bộ */
 }
 
-/* ================================================= */
-/* ================= 3. HERO BANNER ================= */
-/* ================================================= */
-/* Hero Banner */
-.hero-banner {
-    padding-top: 70px;
-    position: relative;
-    height: 56.25vw;
-    max-height: 850px;
-    min-height: 450px;
-    overflow: hidden;
-    background-color: #000;
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-    transition: background-image 0.5s ease;
-}
-
-.hero-video-container {
-    opacity: 0; 
-    transition: opacity 1s ease;
-    z-index: 5;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden; 
-    pointer-events: none; 
-}
-
-.hero-banner[data-video-active="true"] .hero-video-container {
-    opacity: 1; 
-}
-
-#heroPlayer {
-    width: 110%; 
-    height: 120%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%); 
-    pointer-events: none; 
-}
-
-.hero-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 30%, transparent 100%),
-                linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
-    pointer-events: none;
-}
-
-.hero-content {
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-    position: absolute;
-    bottom: 25%;
-    left: 50px;
-    max-width: 600px;
-    z-index: 10;
-}
-
-/* Title Container */
-.hero-title-container {
-    min-height: 80px;
-    margin-bottom: 15px;
-}
-
-.hero-logo-image {
-    max-width: 400px;
-    max-height: 120px;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
-}
-
-.hero-title {
-    font-size: 3.5rem;
-    font-weight: 800;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
-    line-height: 1.2;
-}
-
-/* Metadata */
-.hero-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
-    font-size: 1rem;
-    font-weight: 600;
-}
-.hero-meta > div {
-    padding: 6px 14px;
-    border-radius: 6px;
-    background: rgba(42, 42, 42, 0.85); 
-    backdrop-filter: blur(8px);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.3s;
-}
-
-.hero-meta > div:hover {
-    background: rgba(60, 60, 60, 0.9);
-}
-
-.hero-meta .content-rating {
-    background: rgba(220, 53, 69, 0.85);
-    font-weight: 700;
-}
-.hero-meta .rating i {
-    color: #ffd700;
-    font-size: 1rem;
-}
-.hero-meta .year,
-.hero-meta .duration,
-.hero-meta .country {
-    color: rgba(255, 255, 255, 0.95);
-}
-
-/* Description */
-.hero-description {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    margin-bottom: 25px;
-    color: rgba(255,255,255,0.9);
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
-    max-height: 0; 
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    transition: all 0.4s ease;
-}
-.hero-description.expanded {
-    max-height: 5.5em; 
-    -webkit-line-clamp: 3; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-}
-.description-toggle {
-    background: none;
-    border: none;
-    color: #e50914;
-    cursor: pointer;
-    font-size: 1.3rem;
-    margin-bottom: 12px;
-    transition: all 0.3s;
-    padding: 8px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.description-toggle:hover {
-    background: rgba(229, 9, 20, 0.15);
-    transform: scale(1.1);
-}
-.description-toggle.expanded {
-    transform: rotate(180deg);
-}
-
-/* Actions */
-.action-buttons-group {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-/* Định dạng viền kẻ dọc */
-.action-divider {
-    height: 30px;
-    width: 2px;
-    background-color: rgba(255, 255, 255, 0.4);
-    border-radius: 1px;
-}
-.hero-actions {
-    display: flex; 
-    align-items: center;
-    margin-top: 30px;
-    gap: 12px;
-}
-.btn-play {
-    padding: 14px 36px;
-    background: linear-gradient(135deg, #e50914 0%, #c40812 100%);
-    color: white;
-    border: none;
-    border-radius: 10px; 
-    font-size: 1.15rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
-}
-.btn-play:hover {
-    background: linear-gradient(135deg, #f40612 0%, #d10711 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
-}
-.action-buttons-group .btn-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(60, 60, 60, 0.75); 
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    font-size: 17px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-}
-.action-buttons-group .btn-circle:hover {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.4);
-    transform: scale(1.08);
-}
-.action-buttons-group .volume-btn:hover {
-    background: rgba(229, 9, 20, 0.8);
-}
-
-
-
-
-/* Mini Carousel */
-.mini-carousel {
-    position: absolute;
-    bottom: 200px; 
-    right: 50px; 
-    z-index: 20;
-    max-width: 58%; 
-    overflow: hidden;
-}
-.mini-carousel-track {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 8px 8px;
-    scroll-behavior: smooth;
-    scrollbar-width: none; 
-    -ms-overflow-style: none;
-}
-.mini-carousel-track::-webkit-scrollbar { display: none; }
-.mini-card {
-    flex: 0 0 calc(100% / 7 - 10px);
-    width: 120px;
-    height: 67px; 
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 3px solid transparent;
-}
-.mini-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: none;
-    filter: brightness(1.1) contrast(1.05);
-}
-.mini-card.active {
-    transform: scale(1.1);
-    border-color: #e50914;
-    box-shadow: 0 0 20px rgba(229, 9, 20, 0.8);
-}
-.mini-card.active img {
-    filter: brightness(1.2) contrast(1.1); 
-}
-.mini-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3); 
-    transition: opacity 0.3s;
-}
-.mini-card.active::after {
-    opacity: 0; 
-}
-.mini-card:hover {
-    transform: scale(1.05);
-}
-.mini-card.active:hover {
-    transform: scale(1.12);
-}
-
-
-
-/* Logo */
+/*----- Logo */
 .main-header .logo {
     display: flex;
     align-items: center;
@@ -350,7 +55,7 @@ body {
     height: 30px;
 }
 
-/* Navigation */
+/*----- Navigation */
 .main-nav {
     display: flex;
     gap: 10px;
@@ -372,14 +77,14 @@ body {
     color: #fff;
 }
 
-/* Right actions - FIXED */
+/*----- Right actions */
 .header-actions {
     display: flex;
     align-items: center;
     gap: 20px;
 }
 
-/* Search - COMPLETELY FIXED */
+/*----- Search Box */
 .search-box {
     position: relative;
     display: flex;
@@ -434,7 +139,7 @@ body {
     box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
 }
 
-/* Notification - COMPLETELY FIXED */
+/*----- Notification */
 .notification {
     position: relative;
     display: flex;
@@ -518,7 +223,7 @@ body {
     line-height: 1.4;
 }
 
-/* Animation for dropdowns */
+/*----- Animation cho dropdowns */
 @keyframes slideDown {
     from {
         opacity: 0;
@@ -530,7 +235,7 @@ body {
     }
 }
 
-/* Language selector */
+/*----- Language selector */
 .lang-select {
     display: flex;
     align-items: center;
@@ -564,7 +269,7 @@ body {
     box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.2);
 }
 
-/* Buttons */
+/*----- Buttons */
 .btn-buy {
     background: linear-gradient(135deg, #E50914, #f40612);
     color: #fff;
@@ -595,7 +300,7 @@ body {
     background: rgba(229, 9, 20, 0.1);
 }
 
-/* FontAwesome fallback - CRITICAL */
+/*----- FontAwesome fallback - CRITICAL */
 .fas, .fa {
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 900 !important;
@@ -606,7 +311,7 @@ body {
     line-height: 1 !important;
 }
 
-/* Responsive */
+/*----- Responsive */
 @media (max-width: 768px) {
     .main-header {
         padding: 10px 20px;
@@ -634,24 +339,334 @@ body {
     }
 }
 
+/*=======================================*/
+/*---- 2. HERO BANNER & COMPONENTS ----*/
+/*=======================================*/
 
-/* ===== MOVIES ===== */
-/* ===== MOVIES CAROUSEL - THAY THẾ PHẦN MOVIES CŨ ===== */
-
-.movies { /* Đổi tên từ .movies-section */
-    padding: 40px 0; /* Giảm padding top */
+/*----- Hero Banner */
+.hero-banner {
+    padding-top: 70px;
     position: relative;
-    opacity: 0; /* Mặc định ẩn */
+    height: 56.25vw;
+    max-height: 850px;
+    min-height: 450px;
+    overflow: hidden;
+    background-color: #000;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    transition: background-image 0.5s ease;
+}
+
+/*----- Video Player Container */
+.hero-video-container {
+    opacity: 0; 
+    transition: opacity 1s ease;
+    z-index: 5;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; 
+    pointer-events: none; 
+}
+.hero-banner[data-video-active="true"] .hero-video-container {
+    opacity: 1; 
+}
+#heroPlayer {
+    width: 110%; 
+    height: 120%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); 
+    pointer-events: none; 
+}
+
+/*----- Overlay */
+.hero-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 30%, transparent 100%),
+                linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
+    pointer-events: none;
+}
+
+/*----- Content Positioning */
+.hero-content {
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    position: absolute;
+    bottom: 25%;
+    left: 50px;
+    max-width: 600px;
+    z-index: 10;
+}
+
+/*----- Title and Logo */
+.hero-title-container {
+    min-height: 80px;
+    margin-bottom: 15px;
+}
+.hero-logo-image {
+    max-width: 400px;
+    max-height: 120px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+}
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+    line-height: 1.2;
+}
+
+/*----- Metadata */
+.hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.hero-meta > div {
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(42, 42, 42, 0.85); 
+    backdrop-filter: blur(8px);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.3s;
+}
+.hero-meta > div:hover {
+    background: rgba(60, 60, 60, 0.9);
+}
+.hero-meta .content-rating {
+    background: rgba(220, 53, 69, 0.85);
+    font-weight: 700;
+}
+.hero-meta .rating i {
+    color: #ffd700;
+    font-size: 1rem;
+}
+.hero-meta .year,
+.hero-meta .duration,
+.hero-meta .country {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/*----- Description */
+.hero-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+    max-height: 0; 
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    transition: all 0.4s ease;
+}
+.hero-description.expanded {
+    max-height: 5.5em; 
+    -webkit-line-clamp: 3; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+}
+.description-toggle {
+    background: none;
+    border: none;
+    color: #e50914;
+    cursor: pointer;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+    padding: 8px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.description-toggle:hover {
+    background: rgba(229, 9, 20, 0.15);
+    transform: scale(1.1);
+}
+.description-toggle.expanded {
+    transform: rotate(180deg);
+}
+
+/*----- Actions */
+.action-buttons-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.action-divider {
+    height: 30px;
+    width: 2px;
+    background-color: rgba(255, 255, 255, 0.4);
+    border-radius: 1px;
+}
+.hero-actions {
+    display: flex; 
+    align-items: center;
+    margin-top: 30px;
+    gap: 12px;
+}
+.btn-play {
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #e50914 0%, #c40812 100%);
+    color: white;
+    border: none;
+    border-radius: 10px; 
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+.btn-play:hover {
+    background: linear-gradient(135deg, #f40612 0%, #d10711 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
+}
+.action-buttons-group .btn-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(60, 60, 60, 0.75); 
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+.action-buttons-group .btn-circle:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.08);
+}
+.action-buttons-group .volume-btn:hover {
+    background: rgba(229, 9, 20, 0.8);
+}
+
+/*----- Mini Carousel Container */
+.mini-carousel {
+    position: absolute;
+    bottom: 200px; 
+    right: 50px; 
+    z-index: 20;
+    max-width: 58%; 
+    overflow: hidden;
+}
+.mini-carousel-track {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 8px;
+    scroll-behavior: smooth;
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+}
+.mini-carousel-track::-webkit-scrollbar { display: none; }
+
+/*----- Mini Carousel Card */
+.mini-card {
+    flex: 0 0 calc(100% / 7 - 10px);
+    width: 120px;
+    height: 67px; 
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 3px solid transparent;
+}
+.mini-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: none;
+    filter: brightness(1.1) contrast(1.05);
+}
+.mini-card.active {
+    transform: scale(1.1);
+    border-color: #e50914;
+    box-shadow: 0 0 20px rgba(229, 9, 20, 0.8);
+}
+.mini-card.active img {
+    filter: brightness(1.2) contrast(1.1); 
+}
+.mini-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3); 
+    transition: opacity 0.3s;
+}
+.mini-card.active::after {
+    opacity: 0; 
+}
+.mini-card:hover {
+    transform: scale(1.05);
+}
+.mini-card.active:hover {
+    transform: scale(1.12);
+}
+
+
+/*===============================================*/
+/*---- 3. CAROUSELS & MOVIE CARDS (LIST) ----*/
+/*===============================================*/
+
+/*----- Container chung cho tất cả các list phim */
+.movies {
+    padding: 40px 0;
+    position: relative;
+    opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
-
-.movies.loaded { /* Class khi lazy-load */
+.movies.loaded {
     opacity: 1;
     transform: translateY(0);
 }
 
-.view-more-link { /* Thêm từ code của bạn */
+/*----- Header Section */
+.section-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 50px;
+}
+.section-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+.section-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+.view-more-link {
     color: #b3b3b3;
     text-decoration: none;
     font-size: 0.9rem;
@@ -665,38 +680,28 @@ body {
 .view-more-link i { margin-left: 5px; }
 
 
-.section-title-wrapper { /* Thêm từ code của bạn */
-    display: flex;
-    align-items: center;
-    gap: 20px;
+/*----- Viền chạy trên Header */
+.section-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; 
+    left: 3.5%;
+    width: 0; 
+    height: 2px;
+    background: linear-gradient(to right, #E50914 0%, rgba(229, 9, 20, 0.6) 50%, rgba(229, 9, 20, 0) 100%);
+    opacity: 0.9;
+    transition: width 0.4s ease-out;
+}
+.movies.movie-list-section:hover .section-header::after {
+    width: 500px;
 }
 
-.section-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-}
 
-.section-header {
-    position: relative;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 0 50px;
-}
-
-.section-header h2 {
-    font-size: 22px;
-    margin: 0;
-    color: #fff;
-}
-
-/* Carousel Navigation */
+/*----- Carousel Navigation */
 .carousel-nav {
     display: flex;
     gap: 10px;
 }
-
 .carousel-nav .nav-btn {
     width: 45px;
     height: 45px;
@@ -722,71 +727,152 @@ body {
     cursor: not-allowed;
 }
 
-.nav-btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.3);
+/*----- Carousel Slider */
+.movie-carousel {
+    position: relative;
+    padding: 0 50px;
+    width: 100%;
+}
+.movie-slider {
+    display: flex;
+    gap: 15px;
+    transition: transform 0.5s ease;
+    will-change: transform;
+    padding: 10px 0;
+}
+
+/*----- Movie Card Base */
+.movie-card {
+    position: relative;
+    flex: 0 0 200px;
+    background: transparent;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+    height: 300px;
+    z-index: 2; /* Đảm bảo nằm trên các layer background */
+}
+.movie-card:hover {
+    transform: scale(1.05) translateY(-5px);
+    z-index: 10000;
+}
+
+/*----- Movie Poster */
+.movie-poster {
+    position: relative;
+    border-radius: 8px;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #2a2a2a;
+}
+.movie-poster img {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: 8px;
+}
+.movie-card:hover .movie-poster img {
+    transform: scale(1.05);
+}
+
+/*----- Movie Info (Default/Bottom) */
+.movie-card:not(.ranked) .movie-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    padding: 15px;
+    text-align: center;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 100%);
+}
+.movie-card:not(.ranked) .movie-poster::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%);
+    opacity: 0.5;
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+.movie-card:not(.ranked):hover .movie-poster::after {
+    opacity: 0.2;
+}
+
+/*----- Movie Info Text */
+.movie-info h3 {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin: 0 0 5px 0;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+    line-height: 1.3;
+}
+.movie-rating {
+    font-size: 14px;
+    color: #bbb;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/*----- Hover Card Activation (CSS only) */
+.movie-card .movie-hover-card {
+    z-index: 99999 !important;
 }
 
 
+/*======================================*/
+/*---- 4. TOP PHIM HOT (RANKED) ----*/
+/*======================================*/
 
-/* ===================================================== */
-/* NÂNG CẤP: CSS CHO TOP PHIM HOT (GIỐNG FPT PLAY)         */
-/* ===================================================== */
 .movie-card.ranked {
-    /* overflow: hidden; */
-    position: relative; /* Cần cho .movie-info-ranked */
+    position: relative;
 }
 .movie-card.ranked .movie-poster {
     position: relative;
 }
 
-/* 1. Số thứ tự (Giống FPT Play) */
+/*----- Số thứ tự */
 .ranking-number {
     position: absolute;
-    /* Đặt ở góc dưới trái */
     bottom: 20%; 
     left: 10%;
-    
-    /* Kích thước số lớn */
     font-size: 100px; 
     font-weight: 900;
     line-height: 1;
     z-index: 3;
-    
-    /* Màu trắng bán trong suốt (Căng bóng - giống FPT Play) */
     color: rgba(255, 255, 255, 0.45);
-    
-    /* Hiệu ứng 3D/Nổi: Viền trắng mỏng và đổ bóng mạnh */
     -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2); 
-    text-shadow: 
-        0 4px 15px rgba(0, 0, 0, 0.9), /* Bóng nền tối */
-        0 0 10px rgba(255, 255, 255, 0.2); /* Ánh sáng mờ */
-        
-    /* Animation mượt mà */
+    text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9), 0 0 10px rgba(255, 255, 255, 0.2);
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    /* Reset transform center */
     transform: none; 
 }
 .movie-card.ranked:hover .ranking-number {
-    /* Khi hover, số hơi nổi lên và mờ hơn */
     transform: translate(5px, -5px) scale(1.05);
     color: rgba(255, 255, 255, 0.3);
 }
 
-/* 2. Lớp phủ màu (Gradient nền) */
+/*----- Lớp phủ nền */
 .ranking-overlay {
     position: absolute;
-    inset: 0; /* (top: 0, left: 0, bottom: 0, right: 0) */
+    inset: 0;
     background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%);
-    opacity: 0.5; /* Mặc định mờ */
+    opacity: 0.5;
     z-index: 2;
     transition: all 0.3s ease;
 }
 .movie-card.ranked:hover .ranking-overlay {
-    opacity: 0.2; /* Mờ đi khi hover */
+    opacity: 0.2;
 }
 
-/* 3. Lớp phủ màu ĐỘC QUYỀN (Gradient màu theo rank) */
+/*----- Lớp phủ màu ĐỘC QUYỀN */
 .movie-card.ranked .movie-poster::after {
     content: '';
     position: absolute;
@@ -799,16 +885,16 @@ body {
     opacity: 0.8;
 }
 
-/* 4. Định nghĩa 5 màu lặp lại (dùng cho ::after) */
-.movie-card.rank-1 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #E50914 120%); } /* Đỏ FFilm */
-.movie-card.rank-2 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #007BFF 120%); } /* Xanh dương */
-.movie-card.rank-3 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #28A745 120%); } /* Xanh lá */
-.movie-card.rank-4 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #FFC107 120%); } /* Vàng */
-.movie-card.rank-5 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #6F42C1 120%); } /* Tím */
+/*----- Định nghĩa 5 màu lặp lại */
+.movie-card.rank-1 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #E50914 120%); } 
+.movie-card.rank-2 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #007BFF 120%); }
+.movie-card.rank-3 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #28A745 120%); }
+.movie-card.rank-4 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #FFC107 120%); }
+.movie-card.rank-5 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #6F42C1 120%); }
 
-/* 5. HIỂN THỊ LẠI thông tin phim (theo style FPT Play) */
+/*----- Hiển thị thông tin phim */
 .movie-card.ranked .movie-info {
-    display: block; /* Mở lại */
+    display: block;
     position: absolute;
     bottom: 0;
     left: 0;
@@ -821,330 +907,19 @@ body {
     font-size: 1.1rem;
     font-weight: 600;
     color: #fff;
-    white-space: normal; /* Cho phép xuống dòng */
+    white-space: normal;
     line-height: 1.3;
 }
 .movie-card.ranked .movie-info p.movie-rating {
-    display: none; /* Không cần rating ở đây */
-}
-
-.movies.movie-list-section {
-    position: relative; /* Đảm bảo con cháu có thể căn chỉnh tuyệt đối theo nó */
-    padding-bottom: 70px; /* Tăng khoảng cách dưới list để viền không bị sát */
-}
-
-/* Tạo viền chạy bằng Pseudo-element trên section-header */
-.section-header::after {
-    content: '';
-    position: absolute;
-    /* Đặt viền ngay dưới H2 (hoặc góc trái dưới của header) */
-    bottom: 0; 
-    left: 3.5%;
-    
-    /* Thiết lập ban đầu */
-    width: 0; 
-    height: 2px; /* Độ dày của viền */
-    
-    /* Viền đỏ mờ dần */
-    background: linear-gradient(to right, #E50914 0%, rgba(229, 9, 20, 0.6) 50%, rgba(229, 9, 20, 0) 100%);
-    opacity: 0.9;
-    
-    /* Animation */
-    transition: width 0.4s ease-out;
-}
-
-/* Kích hoạt animation khi hover vào TOÀN BỘ khu vực SECTION CHA */
-.movies.movie-list-section:hover .section-header::after {
-    /* Đặt chiều rộng viền chạy theo kích thước phù hợp (ví dụ 400px hoặc 30%) */
-    width: 500px; /* Điều chỉnh giá trị này để viền chạy đến mức mong muốn */
-}
-
-/* Tinh chỉnh nhỏ cho H2 nếu cần thiết (đảm bảo nó không bị 'đè' lên viền) */
-.section-header .section-title {
-    /* Ví dụ: Đặt margin để viền không bị sát quá vào chữ */
-    margin-right: 15px; 
-}
-
-/* 3. Biến .movie-info (của thẻ thường) thành position: absolute */
-.movie-card:not(.ranked) .movie-info {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 4; /* Nằm trên poster */
-    padding: 15px; /* Đồng bộ padding với .ranked */
-    text-align: center; /* Đồng bộ căn chỉnh */
-    
-    /* THÊM MỚI: Thêm gradient để đọc chữ rõ hơn */
-    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 100%);
-}
-
-/* 4. Cho phép tiêu đề (thẻ thường) xuống dòng nếu cần */
-.movie-card:not(.ranked) .movie-info h3 {
-    /* (Giữ nguyên font-size, weight) */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    
-    /* SỬA: Cho phép xuống dòng (giống .ranked) */
-    white-space: normal; 
-    line-height: 1.3;
-}
-
-/* 5. Căn giữa rating (thẻ thường) */
-.movie-card:not(.ranked) .movie-info p.movie-rating {
-    /* THÊM MỚI: Căn giữa rating */
-    justify-content: center;
-    margin-top: 5px; 
-}
-
-/* 6. (Tùy chọn) Thêm lớp phủ mờ cho thẻ thường (giống .ranked) 
-      để layout đồng bộ 100% */
-.movie-card:not(.ranked) .movie-poster::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%);
-    opacity: 0.5;
-    z-index: 2;
-    transition: all 0.3s ease;
-}
-.movie-card:not(.ranked):hover .movie-poster::after {
-    opacity: 0.2; /* Mờ đi khi hover (giống .ranked) */
+    display: none;
 }
 
 
-/* Movie Carousel (Main) */
-.movie-carousel {
-    position: relative;
-    padding: 0 50px;
-    /* overflow: hidden; */
-    width: 100%;
-}
+/*===============================*/
+/*---- 5. SHARE MODAL CSS ----*/
+/*===============================*/
 
-.movie-slider {
-    display: flex;
-    gap: 15px;
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    transition: transform 0.5s ease;
-    will-change: transform;
-    padding: 10px 0;
-}
-
-.movie-card {
-    position: relative;
-    flex: 0 0 200px;
-    background: transparent;
-    border-radius: 8px;
-    /* overflow: hidden; */
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    cursor: pointer;
-    border-radius: 12px;
-    height: 300px;
-    z-index: 1;
-}
-
-.movie-card:hover {
-    transform: scale(1.05) translateY(-5px);
-    z-index: 100;
-}
-
-.movie-poster {
-    position: relative;
-    border-radius: 8px;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border-radius: 8px;
-    background: #2a2a2a;
-}
-
-.movie-poster img {
-    width: 100%;
-    height: 300px;
-    object-fit: cover;
-    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 8px;
-}
-
-.movie-card:hover .movie-poster img {
-    transform: scale(1.05);
-}
-
-.movie-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    border-radius: 8px;
-}
-
-.movie-card:hover .movie-overlay {
-    opacity: 1;
-}
-
-.play-btn {
-    background: rgba(229, 9, 20, 0.9);
-    border: none;
-    color: #fff;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    transform: scale(0.8);
-}
-
-.movie-card:hover .play-btn {
-    transform: scale(1);
-}
-
-.play-btn:hover {
-    background: #E50914;
-    transform: scale(1.1);
-}
-
-.play-btn i {
-    margin-left: 3px; /* Căn giữa icon play */
-}
-
-.movie-info {
-    padding: 10px 0;
-}
-
-.movie-info h3 {
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin: 0 0 5px 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #fff;
-}
-
-.movie-rating {
-    font-size: 14px;
-    color: #bbb;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-
-
-/* ✅ CHO PHÉP HOVER CARD HOẠT ĐỘNG TRÊN TẤT CẢ CÁC PAGE */
-.movie-card .movie-hover-card {
-    z-index: 99999 !important; /* Đảm bảo nằm trên mọi element khác */
-}
-/* ✅ FIX: Hover card không bị che bởi section khác */
-.movies.movie-list-section,
-.results-section,
-.trending-section,
-.ai-suggestions-section {
-    position: relative;
-    z-index: 1; /* Base layer */
-}
-.movie-card {
-    position: relative;
-    z-index: 2; /* Card layer */
-}
-
-.movie-card:hover,
-.movie-hover-card:hover {
-    z-index: 10000 !important; /* Active hover layer */
-}
-
-
-
-/* Responsive cho carousel */
-@media (max-width: 1200px) {
-    .movies {
-        padding: 40px 30px;
-    }
-    
-    .movie-card {
-        flex: 0 0 160px;
-    }
-    
-    .movie-poster {
-        height: 240px;
-    }
-}
-
-@media (max-width: 768px) {
-    .movies {
-        padding: 30px 20px;
-    }
-    
-    .section-header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-    }
-    
-    .carousel-nav {
-        align-self: flex-end;
-    }
-    
-    .movie-card {
-        flex: 0 0 140px;
-    }
-    
-    .movie-poster {
-        height: 210px;
-    }
-    
-    .nav-btn {
-        width: 35px;
-        height: 35px;
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 480px) {
-    .movie-card {
-        flex: 0 0 120px;
-    }
-    
-    .movie-poster {
-        height: 180px;
-    }
-    
-    .movie-info h3 {
-        font-size: 14px;
-    }
-    
-    .movie-rating {
-        font-size: 12px;
-    }
-}
-/* ===== FOOTER ===== */
-footer {
-    text-align: center;
-    padding: 20px;
-    background: #141414;
-    color: #777;
-    margin-top: 40px;
-    font-size: 14px;
-}
-
-
-/* ------------------------------------- */
-/* --- MODAL CHIA SẺ (SHARE MODAL) --- */
-/* ------------------------------------- */
-
-/* Vỏ bọc toàn màn hình và làm mờ nền */
+/*----- Vỏ bọc toàn màn hình và làm mờ nền */
 .share-modal-overlay {
     position: fixed;
     top: 0;
@@ -1152,20 +927,19 @@ footer {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.8);
-    display: none; /* Mặc định ẩn, JS sẽ bật lên */
+    display: none;
     justify-content: center;
     align-items: center;
-    z-index: 1000; /* Đảm bảo nằm trên mọi thứ */
+    z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
-
 .share-modal-overlay.active {
     display: flex;
     opacity: 1;
 }
 
-/* Khung modal chính */
+/*----- Khung modal chính */
 .share-modal {
     background-color: #1a1a1a;
     border-radius: 8px;
@@ -1175,12 +949,11 @@ footer {
     transform: scale(0.95);
     transition: transform 0.3s ease;
 }
-
 .share-modal-overlay.active .share-modal {
     transform: scale(1);
 }
 
-/* Phần tiêu đề */
+/*----- Phần tiêu đề */
 .share-modal-header {
     display: flex;
     justify-content: space-between;
@@ -1188,14 +961,13 @@ footer {
     padding: 15px 20px;
     border-bottom: 1px solid #333;
 }
-
 .share-modal-header h4 {
     margin: 0;
     font-size: 1.2rem;
     font-weight: 600;
 }
 
-/* Nút đóng */
+/*----- Nút đóng */
 .share-modal-close {
     background: none;
     border: none;
@@ -1206,19 +978,17 @@ footer {
     opacity: 0.7;
     transition: opacity 0.2s;
 }
-
 .share-modal-close:hover {
     opacity: 1;
 }
 
-/* Các biểu tượng mạng xã hội */
+/*----- Các biểu tượng mạng xã hội */
 .share-social-icons {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 cột */
+    grid-template-columns: repeat(2, 1fr);
     gap: 15px;
     padding: 20px;
 }
-
 .social-icon-link {
     display: flex;
     align-items: center;
@@ -1231,32 +1001,28 @@ footer {
     font-size: 1rem;
     transition: background-color 0.2s;
 }
-
 .social-icon-link:hover {
     background-color: #333;
 }
-
 .social-icon-link img {
     width: 24px;
     height: 24px;
     object-fit: contain;
-    border-radius: 4px; /* Làm cho icon hình vuông mềm mại hơn */
+    border-radius: 4px;
 }
-
 .social-icon-link i {
     font-size: 1.2rem;
     width: 24px;
     text-align: center;
-    color: #e50914; /* Màu đỏ nổi bật cho icon copy */
+    color: #e50914;
 }
 
-/* Phần sao chép liên kết */
+/*----- Phần sao chép liên kết */
 .share-url-container {
     padding: 0 20px 20px;
     display: flex;
     gap: 10px;
 }
-
 #shareUrlInput {
     flex-grow: 1;
     padding: 10px;
@@ -1267,7 +1033,6 @@ footer {
     font-size: 0.9rem;
     cursor: text;
 }
-
 #copyButton {
     padding: 10px 15px;
     background-color: #e50914;
@@ -1278,12 +1043,16 @@ footer {
     font-weight: 600;
     transition: background-color 0.2s;
 }
-
 #copyButton:hover {
     background-color: #ff0015;
 }
 
-/* [VẤN ĐỀ 6] CHE DỮ LIỆU - NGĂN COPY & DRAG */
+
+/*====================================*/
+/*---- 6. CHE DỮ LIỆU & FOOTER ----*/
+/*====================================*/
+
+/*----- CHE DỮ LIỆU - NGĂN COPY & DRAG */
 .hero-banner, .movie-hover-card, .content-primary, .person-detail,
 .hero-content, .hover-card-content {
     user-select: none;
@@ -1291,7 +1060,6 @@ footer {
     -moz-user-select: none;
     -ms-user-select: none;
 }
-
 .hero-banner img, .movie-hover-card img, 
 .movie-poster img, .person-detail img,
 .hover-card-image, .hero-logo-image {
@@ -1303,7 +1071,29 @@ footer {
     user-drag: none;
 }
 
-/* Optional: Chặn chuột phải */
-.hero-banner, .movie-hover-card {
-    -webkit-touch-callout: none;
+/*----- FOOTER */
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #141414;
+    color: #777;
+    margin-top: 40px;
+    font-size: 14px;
+}
+
+/*----- Responsive (Chung) */
+@media (max-width: 768px) {
+    .main-header { padding: 10px 20px; }
+    .main-nav { gap: 15px; }
+    .main-nav a { font-size: 14px; }
+    .header-actions { gap: 15px; }
+    .search-box .search-input { width: 220px; }
+    .notification .dropdown { right: -30px; min-width: 200px; }
+
+    .movies { padding: 30px 20px; }
+    .section-header { flex-direction: column; gap: 15px; align-items: flex-start; }
+    .carousel-nav { align-self: flex-end; }
+    .movie-card { flex: 0 0 140px; }
+    .movie-poster { height: 210px; }
+    .nav-btn { width: 35px; height: 35px; font-size: 14px; }
 }
