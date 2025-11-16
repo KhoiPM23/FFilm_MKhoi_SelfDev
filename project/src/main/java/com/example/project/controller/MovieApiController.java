@@ -12,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate; 
 
-import java.net.URLEncoder; 
-import java.nio.charset.StandardCharsets; 
 import java.util.ArrayList; 
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,16 +20,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set; 
 import java.util.stream.Collectors;
-import java.util.Optional; // <-- THÊM
-import org.json.JSONObject; // <-- THÊM
+import java.util.Optional; 
 import org.springframework.data.domain.Page;
-import java.util.Comparator;
-
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.CrossOrigin; // Thêm CrossOrigin
 
 
 @RestController
 @RequestMapping("/api/movie")
 public class MovieApiController {
+
+    //---- 1. CẤU HÌNH & REPOSITORY ----
 
     @Autowired
     private MovieService movieService;
@@ -42,23 +41,17 @@ public class MovieApiController {
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
 
-    /**
-     * [SỬA] API này tìm phim theo TÊN trong DB.
-     * Dùng cho Live Suggestion (Trang 1).
-     * Endpoint: GET /api/movie/search-db?query=...
-     */
+    //---- 2. API CORE SYNC (SEARCH & SYNC) ----
+
+    // API tìm phim theo TÊN trong DB (Dùng cho Live Suggestion)
     @GetMapping("/search-db")
     public ResponseEntity<List<Map<String, Object>>> liveSearchDb(@RequestParam("query") String query) {
         if (query == null || query.trim().length() < 2) {
             return ResponseEntity.ok(List.of());
         }
         
-        // 1. Tìm kiếm như cũ
+        //----- Tìm kiếm và convert dữ liệu đã có trong DB
         List<Movie> dbResults = movieService.searchMoviesByTitle(query.trim());
-        
-        // 2. [SỬA LỖI - FIX BUG 4]
-        // Không gọi getMoviePartial (gây ghi đè). 
-        // Chỉ convert dữ liệu đã có trong DB.
         List<Map<String, Object>> mappedResults = dbResults.stream()
             .map(movie -> movieService.convertToMap(movie)) 
             .collect(Collectors.toList());
@@ -66,21 +59,13 @@ public class MovieApiController {
         return ResponseEntity.ok(mappedResults);
     }
     
-    /**
-     * [SỬA] API này kiểm tra phim theo TMDB ID.
-     * Dùng cho Live Suggestion (Tất cả các trang).
-     * Endpoint: POST /api/movie/check-db
-     * Body: [11617, 12345, ...]
-     * * [ĐÃ TỐI ƯU] Sử dụng getMoviesByTmdbIds (1 truy vấn) thay vì N+1
-     */
+    // API kiểm tra phim theo TMDB ID (Sync Lazy nếu thiếu, trả về Map)
     @PostMapping("/check-db")
     public ResponseEntity<Map<Integer, Map<String, Object>>> checkDbForMovies(@RequestBody List<Integer> tmdbIds) {
         try {
-            // Gọi thẳng hàm service đã được tối ưu để lấy Map<tmdbId, Map<String, Object>>
             Map<Integer, Map<String, Object>> dbMoviesMap = movieService.getMoviesByTmdbIds(tmdbIds);
             
-            // [LOGIC BỔ SUNG]
-            // Những ID nào không có trong DB?
+            //----- Lọc ID bị thiếu
             List<Integer> missingIds = new ArrayList<>();
             for (Integer tmdbId : tmdbIds) {
                 if (!dbMoviesMap.containsKey(tmdbId)) {
@@ -88,17 +73,13 @@ public class MovieApiController {
                 }
             }
 
-            // === SỬA LỖI - FIX BUG 4 ===
-            // Đối với những ID bị thiếu, gọi syncMovieFromList (Lazy)
-            // thay vì getMoviePartial (Eager)
+            //----- Tạo bản ghi Lazy (bản "cụt") cho ID bị thiếu
             for (Integer tmdbId : missingIds) {
                 try {
-                    // Gọi API chi tiết 1 lần để lấy JSON
                     String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
                     String resp = restTemplate.getForObject(url, String.class);
                     
                     if (resp != null) {
-                        // Dùng hàm Lazy (an toàn) để TẠO MỚI
                         Movie movie = movieService.syncMovieFromList(new JSONObject(resp));
                         if (movie != null) {
                             dbMoviesMap.put(tmdbId, movieService.convertToMap(movie));
@@ -108,40 +89,32 @@ public class MovieApiController {
                     System.err.println("Lỗi khi tạo lazy-load cho ID (check-db): " + tmdbId + " - " + e.getMessage());
                 }
             }
-            // ===========================
             
             return ResponseEntity.ok(dbMoviesMap);
             
         } catch (Exception e) {
             e.printStackTrace();
-            // Trả về rỗng nếu có lỗi nghiêm trọng
             return ResponseEntity.ok(Collections.emptyMap()); 
         }
     }
 
-    /**
-     * [MỚI - FIX VĐ 4 & 6]
-     * API này nhận tmdbId, đồng bộ (sync) nó vào DB nếu chưa có,
-     * và LUÔN LUÔN trả về Map của phim (đã có movieID PK và POSTER/RATING)
-     * Endpoint: GET /api/movie/sync-by-tmdbid/{tmdbId}
-     */
+    // API đồng bộ nhanh 1 ID (Tạo hoặc nâng cấp bản EAGER, trả về Map)
     @GetMapping("/sync-by-tmdbid/{tmdbId}")
     public ResponseEntity<?> syncByTmdbId(@PathVariable int tmdbId) {
         try {
-            // 1. Tìm trong DB trước
+            //----- Tìm và đồng bộ phim (EAGER sync nếu cần)
             Optional<Movie> existing = movieService.getMovieRepository().findByTmdbId(tmdbId);
-            
             Movie movie;
+            
             if (existing.isPresent()) {
-                // 2a. Nếu có, nâng cấp "vừa" (để lấy poster/rating nếu thiếu)
+                // Nâng cấp "vừa" (để lấy poster/rating nếu thiếu)
                 movie = movieService.getMoviePartial(tmdbId);
             } else {
-                // 2b. Nếu chưa có, gọi API chi tiết 1 LẦN
+                // Tạo mới bản Lazy (nếu chưa có)
                 String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false"; 
                 String resp = restTemplate.getForObject(url, String.class);
                 if (resp == null) throw new RuntimeException("Không tìm thấy phim trên TMDB");
                 
-                // Dùng hàm Lazy (an toàn) để TẠO MỚI
                 movie = movieService.syncMovieFromList(new JSONObject(resp));
             }
 
@@ -149,44 +122,38 @@ public class MovieApiController {
                  return ResponseEntity.notFound().build();
             }
             
-            // 3. Trả về Map (đã có movieID PK)
+            //----- Trả về Map (đã có movieID PK)
             return ResponseEntity.ok(movieService.convertToMap(movie));
             
         } catch (Exception e) {
             System.err.println("Lỗi sync-by-tmdbid: " + e.getMessage());
-            // [FIX LỖI NON-JSON] Luôn trả về ResponseEntity với JSON error body
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                  .body(Map.of("success", false, 
                                              "message", e.getMessage()));
         }
     }
 
-    // ... (Các hàm getHoverDetail và getBannerDetail giữ nguyên y như cũ)
+    //---- 3. API DETAIL / UTILITY ----
     
-    /**
-     * [SỬA LỖI] API này nhận movieID (PK) từ hover card
-     * Endpoint: GET /api/movie/hover-detail/{id}
-     */
+    // Lấy chi tiết Hover Card (Gọi bằng movieID PK)
     @GetMapping("/hover-detail/{id}")
-    public ResponseEntity<?> getHoverDetail(@PathVariable("id") int movieID) { // <-- Sửa tên biến
+    public ResponseEntity<?> getHoverDetail(@PathVariable("id") int movieID) {
         try {
-            // 1. Lấy movie bằng PK (đã bao gồm nâng cấp "vừa")
+            //----- Lấy movie và nâng cấp (EAGER) nếu cần
             Movie movie = movieService.getMovieByIdOrSync(movieID); 
             if (movie == null) {
                 return ResponseEntity.notFound().build();
             }
             
-            // 2. Convert sang Map
             Map<String, Object> movieData = movieService.convertToMap(movie);
             
-            // 3. Lấy trailer key (nếu có)
+            //----- Lấy trailer key (nếu có)
             String trailerKey = null;
             if (movie.getTmdbId() != null) {
-                // Gọi hàm đã sửa, truyền movieID (PK)
-                trailerKey = movieService.findBestTrailerKey(movie.getMovieID());
+                trailerKey = movieService.findBestTrailerKey(movieID);
             }
 
-            // 4. Trả về
+            //----- Trả về data
             Map<String, Object> responseData = new HashMap<>();
             responseData.put("movie", movieData);
             responseData.put("trailerKey", trailerKey);
@@ -198,14 +165,11 @@ public class MovieApiController {
         }
     }
 
-    /**
-     * [SỬA LỖI] API này nhận movieID (PK) từ banner
-     * Endpoint: GET /api/movie/banner-detail/{id}
-     */
+    // Lấy chi tiết Banner (Logo Path, Trailer Key) (Gọi bằng movieID PK)
     @GetMapping("/banner-detail/{id}")
-    public ResponseEntity<?> getBannerDetail(@PathVariable("id") int movieID) { // <-- Sửa tên biến
+    public ResponseEntity<?> getBannerDetail(@PathVariable("id") int movieID) {
         try {
-            // Gọi các hàm đã sửa, truyền movieID (PK)
+            //----- Gọi Service bằng PK
             String trailerKey = movieService.findBestTrailerKey(movieID);
             String logoPath = movieService.findBestLogoPath(movieID);
             
@@ -219,15 +183,9 @@ public class MovieApiController {
         }
     }
 
-    // Dán 4 hàm MỚI này vào bên trong class MovieApiController (ví dụ: ngay trên hàm helper `loadTrendingSidebar`)
+    //---- 4. API HOME CAROUSELS (ASYNC LOAD) ----
 
-    // ===============================================
-    // [MỚI] API TẢI BẤT ĐỒNG BỘ CHO TRANG CHỦ (INDEX)
-    // ===============================================
-
-    /**
-     * API tải Phim Mới (Sort NEW)
-     */
+    // API tải Phim Mới (Sort NEW)
     @GetMapping("/home/new")
     public ResponseEntity<List<Map<String, Object>>> getHomeNewMovies() {
         int dbFetchLimit = 40;
@@ -242,9 +200,7 @@ public class MovieApiController {
         return ResponseEntity.ok(movies);
     }
 
-    /**
-     * API tải Anime (Sort HOT)
-     */
+    // API tải Anime (Sort HOT)
     @GetMapping("/home/anime")
     public ResponseEntity<List<Map<String, Object>>> getHomeAnimeMovies() {
         int dbFetchLimit = 40;
@@ -259,9 +215,7 @@ public class MovieApiController {
         return ResponseEntity.ok(movies);
     }
 
-    /**
-     * API tải Phim Trẻ Em (Sort HOT)
-     */
+    // API tải Phim Trẻ Em (Sort HOT)
     @GetMapping("/home/kids")
     public ResponseEntity<List<Map<String, Object>>> getHomeKidsMovies() {
         int dbFetchLimit = 40;
@@ -276,9 +230,7 @@ public class MovieApiController {
         return ResponseEntity.ok(movies);
     }
 
-    /**
-     * API tải Phim Hành Động (Sort HOT)
-     */
+    // API tải Phim Hành Động (Sort HOT)
     @GetMapping("/home/action")
     public ResponseEntity<List<Map<String, Object>>> getHomeActionMovies() {
         int dbFetchLimit = 40;
@@ -293,116 +245,87 @@ public class MovieApiController {
         return ResponseEntity.ok(movies);
     }
 
-    // --- CÁC HÀM HELPER (loadTrendingSidebar, v.v.) BẮT ĐẦU TỪ ĐÂY ---
+    //---- 5. API DETAIL CAROUSELS (ASYNC LOAD) ----
 
-    // [GIẢI PHÁP 2] API MỚI CHO TẢI BẤT ĐỒNG BỘ TRANG CHI TIẾT
-
-    /**
-     * API tải Trending (dùng cho sidebar)
-     * Endpoint: GET /api/movie/{id}/trending
-     */
+    // API tải Trending (dùng cho sidebar)
     @GetMapping("/{id}/trending")
     public ResponseEntity<List<Map<String, Object>>> getTrendingSidebar(@PathVariable("id") int movieID) {
         // movieID ở đây không thực sự cần, nhưng để API nhất quán
         return ResponseEntity.ok(loadTrendingSidebar());
     }
 
-    /**
-     * API tải Similar (Phim tương tự)
-     * Endpoint: GET /api/movie/{id}/similar
-     */
+    // API tải Similar (Phim tương tự)
     @GetMapping("/{id}/similar")
     public ResponseEntity<List<Map<String, Object>>> getSimilarMovies(@PathVariable("id") int movieID) {
-        Movie movie = movieService.getMovieById(movieID); // [CITE: MovieService.java]
+        Movie movie = movieService.getMovieById(movieID); 
         if (movie == null) {
             return ResponseEntity.ok(new ArrayList<>());
         }
-        // [SỬA] Truyền toàn bộ object 'movie' vào helper
         return ResponseEntity.ok(loadSimilarMovies(movie));
     }
 
-    /**
-     * API tải Recommended (Phim đề xuất / Collection)
-     * Endpoint: GET /api/movie/{id}/recommended
-     */
+    // API tải Recommended (Phim đề xuất / Collection)
     @GetMapping("/{id}/recommended")
     public ResponseEntity<Map<String, Object>> getRecommendedMovies(@PathVariable("id") int movieID) {
-        Movie movie = movieService.getMovieById(movieID); // Lấy movie bằng PK
+        Movie movie = movieService.getMovieById(movieID); 
         if (movie == null) {
-            // Phim tự tạo (hoặc lỗi)
             return ResponseEntity.ok(Map.of("title", "Phim Khác", "movies", new ArrayList<>()));
         }
         
         Map<String, Object> response = new HashMap<>();
-        List<Map<String, Object>> movies = loadRecommendedMovies(movie, response);
+        List<Map<String, Object>> movies = movieService.getRecommendedMoviesWaterfall(movie, response);
         
         response.put("movies", movies);
         if (!response.containsKey("title")) {
-            response.put("title", "✨ Có Thể Bạn Thích"); // Tiêu đề fallback cuối cùng
+            response.put("title", "✨ Có Thể Bạn Thích"); 
         }
         return ResponseEntity.ok(response);
     }
 
-    // (Helper 1)
+    //---- 6. PRIVATE HELPERS (DETAIL CAROUSELS) ----
+
+    // Helper: Tải Trending (dùng chung cho sidebar)
     private List<Map<String, Object>> loadTrendingSidebar() {
-        // [SỬA VĐ 6] Dùng logic Gộp (Sort HOT)
         String url = BASE_URL + "/trending/movie/week?api_key=" + API_KEY + "&language=vi-VN";
         Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(40);
         return movieService.getMergedCarouselMovies(url, dbHotMovies, 10, MovieService.SortBy.HOT);
     }
 
-    /**
-     * [SỬA VĐ 6] Helper cho "Phim tương tự" - Dùng Genre làm nguồn DB
-     */
-    private List<Map<String, Object>> loadSimilarMovies(Movie movie) { // [SỬA] Nhận Movie object
+    // Helper: Tải Similar Movies
+    private List<Map<String, Object>> loadSimilarMovies(Movie movie) {
         String apiUrl;
         Page<Movie> dbMovies;
         int dbFetchLimit = 40;
         int limit = 10;
-        Integer tmdbId = movie.getTmdbId(); // [CITE: Movie.java]
+        Integer tmdbId = movie.getTmdbId();
 
-        // 1. Xác định Nguồn API (TMDB)
+        //----- 1. Xác định Nguồn API
         if (tmdbId != null) {
-            // Nếu có tmdbId, dùng API Similar
             apiUrl = BASE_URL + "/movie/" + tmdbId + "/similar?api_key=" + API_KEY + "&language=vi-VN";
         } else {
-            // Phim custom không có tmdbId, dùng tạm API Popular.
             apiUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
         }
 
-        // 2. [SỬA VĐ 6] Xác định Nguồn DB (Dùng Genre)
-        List<Genre> genres = movie.getGenres(); // [CITE: Movie.java]
+        //----- 2. Xác định Nguồn DB (Dùng Genre đầu tiên)
+        List<Genre> genres = movie.getGenres(); 
         if (genres != null && !genres.isEmpty()) {
-            // Lấy ID thể loại đầu tiên của phim đang xem
-            Integer firstGenreId = genres.get(0).getTmdbGenreId(); // [CITE: Genre.java]
-            
-            // Lấy 40 phim DB CÙNG THỂ LOẠI
-            dbMovies = movieService.getMoviesByGenreFromDB(firstGenreId, dbFetchLimit, 0); // [CITE: MovieService.java]
+            Integer firstGenreId = genres.get(0).getTmdbGenreId();
+            dbMovies = movieService.getMoviesByGenreFromDB(firstGenreId, dbFetchLimit, 0); 
         } else {
-            // Fallback: Nếu phim (custom) không có thể loại, dùng HOT DB
-            dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit); // [CITE: MovieService.java]
+            dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
         }
 
-        // 3. Gộp và Sort (HOT)
+        //----- 3. Gộp và Sort (HOT)
         List<Map<String, Object>> merged = movieService.getMergedCarouselMovies(
             apiUrl, 
             dbMovies, 
             limit, 
-            MovieService.SortBy.HOT // "Phim tương tự" ưu tiên HOT
+            MovieService.SortBy.HOT
         );
 
-        // 4. Lọc bỏ chính nó (phim đang xem) ra khỏi danh sách
+        //----- 4. Lọc bỏ chính phim đang xem
         return merged.stream()
-            .filter(m -> (Integer)m.get("id") != movie.getMovieID()) // Lọc bỏ phim đang xem (dựa trên PK)
+            .filter(m -> (Integer)m.get("id") != movie.getMovieID()) 
             .collect(Collectors.toList());
-    }
-
-    /**
-     * [SỬA LỖI] Helper cho "Có Thể Bạn Thích" - Đã chuyển logic về Service
-     * Hàm này giờ chỉ gọi MovieService
-     */
-    private List<Map<String, Object>> loadRecommendedMovies(Movie movie, Map<String, Object> response) {
-        // [FIX] Gọi hàm Waterfall mới (đã nằm trong MovieService)
-        return movieService.getRecommendedMoviesWaterfall(movie, response);
     }
 }
