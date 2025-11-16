@@ -9,6 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import com.example.project.dto.MovieSearchFilters;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Join;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -167,7 +171,7 @@ public class MovieService {
                 genreIds.add(genreIdsJson.optInt(i));
             }
             List<Genre> genres = genreRepository.findByTmdbGenreIdIn(genreIds);
-            movie.setGenres(genres);
+            movie.setGenres(new HashSet<>(genres));
         }
 
         return movieRepository.save(movie);
@@ -220,7 +224,7 @@ public class MovieService {
                     if (genresJson != null && genresJson.length() > 0) {
                         List<Integer> genreIds = new ArrayList<>();
                         for (int i = 0; i < genresJson.length(); i++) genreIds.add(genresJson.getJSONObject(i).optInt("id"));
-                        movie.setGenres(genreRepository.findByTmdbGenreIdIn(genreIds));
+                        movie.setGenres(new HashSet<>(genreRepository.findByTmdbGenreIdIn(genreIds)));
                     }
                 }
                 if ("N/A".equals(movie.getDirector())) movie.setDirector(null);
@@ -339,13 +343,13 @@ public class MovieService {
             if (genresJson != null && genresJson.length() > 0) {
                 List<Integer> genreIds = new ArrayList<>();
                 for (int i = 0; i < genresJson.length(); i++) genreIds.add(genresJson.getJSONObject(i).optInt("id"));
-                movie.setGenres(genreRepository.findByTmdbGenreIdIn(genreIds));
+                movie.setGenres(new HashSet<>(genreRepository.findByTmdbGenreIdIn(genreIds)));
             }
 
             // Đồng bộ diễn viên và đạo diễn (LAZY)
             JSONObject credits = json.optJSONObject("credits");
             if (credits != null) {
-                List<Person> persons = new ArrayList<>();
+                Set<Person> persons = new HashSet<>();
                 JSONArray crew = credits.optJSONArray("crew");
                 if (crew != null) {
                     for (int i = 0; i < crew.length(); i++) {
@@ -1007,5 +1011,117 @@ public class MovieService {
         movie.setUrl(request.getUrl());
         movie.setPosterPath(request.getPosterPath());
         movie.setBackdropPath(request.getBackdropPath());
+    }
+
+    //---- 12. ADVANCED FILTER LOGIC (MỚI) ----
+
+    /**
+     * Tìm phim dựa trên các bộ lọc động từ AI (Phase 1)
+     */
+    @Transactional(readOnly = true) // readOnly = true để tăng tốc độ query SELECT
+    public List<Movie> findMoviesByFilters(MovieSearchFilters filters) {
+        System.out.println("🔵 MovieService: Finding movies by filters: " + filters.toString());
+        
+        // 1. Tạo Specification (bộ điều kiện WHERE động)
+        Specification<Movie> spec = createMovieSpecification(filters);
+        
+        // 2. Thực thi query
+        // Chúng ta dùng Sort mặc định theo Rating giảm dần
+        List<Movie> results = movieRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "rating"));
+        
+        System.out.println("🔵 MovieService: Found " + results.size() + " movies.");
+        return results;
+    }
+
+    /**
+     * Helper xây dựng Specification (bộ điều kiện WHERE)
+     */
+    private Specification<Movie> createMovieSpecification(MovieSearchFilters filters) {
+        // (root, query, cb) -> cb = CriteriaBuilder
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // QUAN TRỌNG: Tránh N+1 query khi join
+            // Chúng ta báo JPA fetch các bảng liên quan trong 1 lần query
+            if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
+                root.fetch("genres", jakarta.persistence.criteria.JoinType.LEFT);
+            }
+            if (filters.getActor() != null || filters.getDirector() != null) {
+                root.fetch("persons", jakarta.persistence.criteria.JoinType.LEFT);
+            }
+            // Đảm bảo không bị trùng lặp kết quả khi JOIN
+            query.distinct(true);
+
+            // 1. Filter: Keyword (Title/Description)
+            if (filters.getKeyword() != null && !filters.getKeyword().isEmpty()) {
+                String likePattern = "%" + filters.getKeyword() + "%";
+                // Tìm ở Title HOẶC Description
+                predicates.add(cb.or(
+                    cb.like(root.get("title"), likePattern),
+                    cb.like(root.get("description"), likePattern)
+                ));
+            }
+
+            // 2. Filter: Country
+            if (filters.getCountry() != null && !filters.getCountry().isEmpty()) {
+                predicates.add(cb.like(root.get("country"), "%" + filters.getCountry() + "%"));
+            }
+            
+            // 3. Filter: Director
+            if (filters.getDirector() != null && !filters.getDirector().isEmpty()) {
+                predicates.add(cb.like(root.get("director"), "%" + filters.getDirector() + "%"));
+            }
+
+            // 4. Filter: Year From (Năm >=)
+            if (filters.getYearFrom() != null) {
+                try {
+                    Date dateFrom = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearFrom() + "-01-01");
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("releaseDate"), dateFrom));
+                } catch (Exception e) { /* Bỏ qua nếu năm lỗi */ }
+            }
+            
+            // 5. Filter: Year To (Năm <=)
+            if (filters.getYearTo() != null) {
+                try {
+                    Date dateTo = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearTo() + "-12-31");
+                    predicates.add(cb.lessThanOrEqualTo(root.get("releaseDate"), dateTo));
+                } catch (Exception e) { /* Bỏ qua nếu năm lỗi */ }
+            }
+
+            // 6. Filter: Min Rating
+            if (filters.getMinRating() != null && filters.getMinRating() > 0) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("rating"), filters.getMinRating()));
+            }
+
+            // 7. Filter: Duration
+            if (filters.getMinDuration() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("duration"), filters.getMinDuration()));
+            }
+            if (filters.getMaxDuration() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("duration"), filters.getMaxDuration()));
+            }
+
+            // 8. Filter: Genres (JOIN)
+            if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
+                Join<Movie, Genre> genreJoin = root.join("genres");
+                
+                // THAY ĐỔI (VĐ 9): Dùng 'OR' thay vì 'AND'
+                // User muốn phim "tình cảm HOẶC lãng mạn", không phải "tình cảm VÀ lãng mạn"
+                List<Predicate> genrePredicates = new ArrayList<>();
+                for (String genreName : filters.getGenres()) {
+                    genrePredicates.add(cb.like(genreJoin.get("name"), "%" + genreName + "%"));
+                }
+                predicates.add(cb.or(genrePredicates.toArray(new Predicate[0])));
+            }
+            
+            // 9. Filter: Actor (JOIN)
+            if (filters.getActor() != null && !filters.getActor().isEmpty()) {
+                Join<Movie, Person> personJoin = root.join("persons");
+                predicates.add(cb.like(personJoin.get("fullName"), "%" + filters.getActor() + "%"));
+            }
+            
+            // Kết hợp tất cả điều kiện bằng AND
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 }

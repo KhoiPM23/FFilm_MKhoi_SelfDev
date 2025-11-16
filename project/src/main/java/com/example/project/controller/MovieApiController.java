@@ -334,9 +334,9 @@ public class MovieApiController {
         }
 
         //----- 2. Xác định Nguồn DB (Dùng Genre đầu tiên)
-        List<Genre> genres = movie.getGenres(); 
+        Set<Genre> genres = movie.getGenres(); // <-- THAY ĐỔI (1): List -> Set
         if (genres != null && !genres.isEmpty()) {
-            Integer firstGenreId = genres.get(0).getTmdbGenreId();
+            Integer firstGenreId = genres.iterator().next().getTmdbGenreId();
             dbMovies = movieService.getMoviesByGenreFromDB(firstGenreId, dbFetchLimit, 0); 
         } else {
             dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
