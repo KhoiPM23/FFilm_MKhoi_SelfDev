@@ -24,92 +24,10 @@ import java.util.Set;
 @Controller
 public class MovieDetailController {
 
+    //---- 1. CẤU HÌNH & REPOSITORY ----
+
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
-
-    // [G46] Bảng Map Ngôn ngữ
-    private static final Map<String, String> LANGUAGE_MAP = new HashMap<>();
-    static {
-        // === CHÂU Á ===
-        LANGUAGE_MAP.put("vi", "Tiếng Việt");
-        LANGUAGE_MAP.put("zh", "Tiếng Trung (Quan thoại)");
-        LANGUAGE_MAP.put("ja", "Tiếng Nhật");
-        LANGUAGE_MAP.put("ko", "Tiếng Hàn");
-        LANGUAGE_MAP.put("hi", "Tiếng Hindi");
-        LANGUAGE_MAP.put("th", "Tiếng Thái");
-        LANGUAGE_MAP.put("ms", "Tiếng Mã Lai");
-        LANGUAGE_MAP.put("id", "Tiếng Indonesia");
-        LANGUAGE_MAP.put("tl", "Tiếng Tagalog (Philippines)");
-        LANGUAGE_MAP.put("ar", "Tiếng Ả Rập");
-        LANGUAGE_MAP.put("he", "Tiếng Do Thái");
-        LANGUAGE_MAP.put("tr", "Tiếng Thổ Nhĩ Kỳ");
-        LANGUAGE_MAP.put("fa", "Tiếng Ba Tư (Farsi)");
-        LANGUAGE_MAP.put("ur", "Tiếng Urdu");
-        LANGUAGE_MAP.put("bn", "Tiếng Bengali");
-        LANGUAGE_MAP.put("ta", "Tiếng Tamil");
-        LANGUAGE_MAP.put("te", "Tiếng Telugu");
-        LANGUAGE_MAP.put("kn", "Tiếng Kannada");
-        LANGUAGE_MAP.put("ml", "Tiếng Malayalam");
-        LANGUAGE_MAP.put("pa", "Tiếng Punjab");
-        LANGUAGE_MAP.put("my", "Tiếng Miến Điện");
-        LANGUAGE_MAP.put("km", "Tiếng Khmer");
-        
-        // === CHÂU ÂU ===
-        LANGUAGE_MAP.put("en", "Tiếng Anh");
-        LANGUAGE_MAP.put("fr", "Tiếng Pháp");
-        LANGUAGE_MAP.put("es", "Tiếng Tây Ban Nha");
-        LANGUAGE_MAP.put("de", "Tiếng Đức");
-        LANGUAGE_MAP.put("it", "Tiếng Ý");
-        LANGUAGE_MAP.put("pt", "Tiếng Bồ Đào Nha");
-        LANGUAGE_MAP.put("ru", "Tiếng Nga");
-        LANGUAGE_MAP.put("nl", "Tiếng Hà Lan");
-        LANGUAGE_MAP.put("pl", "Tiếng Ba Lan");
-        LANGUAGE_MAP.put("sv", "Tiếng Thụy Điển");
-        LANGUAGE_MAP.put("da", "Tiếng Đan Mạch");
-        LANGUAGE_MAP.put("no", "Tiếng Na Uy");
-        LANGUAGE_MAP.put("fi", "Tiếng Phần Lan");
-        LANGUAGE_MAP.put("el", "Tiếng Hy Lạp");
-        LANGUAGE_MAP.put("cs", "Tiếng Séc");
-        LANGUAGE_MAP.put("hu", "Tiếng Hungary");
-        LANGUAGE_MAP.put("ro", "Tiếng Romania");
-        LANGUAGE_MAP.put("uk", "Tiếng Ukraina");
-        LANGUAGE_MAP.put("bg", "Tiếng Bulgaria");
-        LANGUAGE_MAP.put("sr", "Tiếng Serbia");
-        LANGUAGE_MAP.put("hr", "Tiếng Croatia");
-        LANGUAGE_MAP.put("sk", "Tiếng Slovak");
-        LANGUAGE_MAP.put("sl", "Tiếng Slovenia");
-        LANGUAGE_MAP.put("et", "Tiếng Estonia");
-        LANGUAGE_MAP.put("lv", "Tiếng Latvia");
-        LANGUAGE_MAP.put("lt", "Tiếng Litva");
-        LANGUAGE_MAP.put("is", "Tiếng Iceland");
-
-        // === CHÂU MỸ ===
-        // (Đã có en, es, fr, pt)
-        LANGUAGE_MAP.put("qu", "Tiếng Quechua"); // Ngôn ngữ bản địa Nam Mỹ
-
-        // === CHÂU PHI ===
-        LANGUAGE_MAP.put("af", "Tiếng Afrikaans");
-        LANGUAGE_MAP.put("sw", "Tiếng Swahili");
-        LANGUAGE_MAP.put("zu", "Tiếng Zulu");
-        LANGUAGE_MAP.put("xh", "Tiếng Xhosa");
-        LANGUAGE_MAP.put("am", "Tiếng Amharic");
-        LANGUAGE_MAP.put("yo", "Tiếng Yoruba");
-        LANGUAGE_MAP.put("ha", "Tiếng Hausa");
-        LANGUAGE_MAP.put("ig", "Tiếng Igbo");
-
-        // === CHÂU ÚC / ĐẠI DƯƠNG ===
-        // (Đã có en)
-        LANGUAGE_MAP.put("mi", "Tiếng Māori"); // New Zealand
-        LANGUAGE_MAP.put("sm", "Tiếng Samoa");
-        
-        // Ngôn ngữ khác
-        LANGUAGE_MAP.put("la", "Tiếng Latin");
-        LANGUAGE_MAP.put("eo", "Tiếng Esperanto");
-        
-        // Mã đặc biệt (ISO 639-1)
-        LANGUAGE_MAP.put("xx", "Không có ngôn ngữ");
-        LANGUAGE_MAP.put("cn", "Tiếng Quảng Đông"); // Lưu ý: 'zh' là Quan thoại
-    }
 
     @Autowired
     private MovieService movieService;
@@ -117,79 +35,107 @@ public class MovieDetailController {
     @Autowired
     private RestTemplate restTemplate;
 
-    /**
-     * [ĐÃ SỬA THEO KẾ HOẠCH BƯỚC 1]
-     * Thay đổi logic để nhận {id} là movieID (DB PK) thay vì tmdbId.
-     */
+    // Bảng Map Ngôn ngữ (Dùng cho hiển thị trên UI)
+    private static final Map<String, String> LANGUAGE_MAP = createLanguageMap();
+
+    //----- Helper: Tạo Map Ngôn ngữ tĩnh
+    private static Map<String, String> createLanguageMap() {
+        Map<String, String> map = new HashMap<>();
+        // Châu Á
+        map.put("vi", "Tiếng Việt"); map.put("zh", "Tiếng Trung (Quan thoại)");
+        map.put("ja", "Tiếng Nhật"); map.put("ko", "Tiếng Hàn");
+        map.put("hi", "Tiếng Hindi"); map.put("th", "Tiếng Thái");
+        map.put("ms", "Tiếng Mã Lai"); map.put("id", "Tiếng Indonesia");
+        map.put("tl", "Tiếng Tagalog (Philippines)"); map.put("ar", "Tiếng Ả Rập");
+        map.put("he", "Tiếng Do Thái"); map.put("tr", "Tiếng Thổ Nhĩ Kỳ");
+        map.put("fa", "Tiếng Ba Tư (Farsi)"); map.put("ur", "Tiếng Urdu");
+        map.put("bn", "Tiếng Bengali"); map.put("ta", "Tiếng Tamil");
+        map.put("te", "Tiếng Telugu"); map.put("kn", "Tiếng Kannada");
+        map.put("ml", "Tiếng Malayalam"); map.put("pa", "Tiếng Punjab");
+        map.put("my", "Tiếng Miến Điện"); map.put("km", "Tiếng Khmer");
+        // Châu Âu
+        map.put("en", "Tiếng Anh"); map.put("fr", "Tiếng Pháp");
+        map.put("es", "Tiếng Tây Ban Nha"); map.put("de", "Tiếng Đức");
+        map.put("it", "Tiếng Ý"); map.put("pt", "Tiếng Bồ Đào Nha");
+        map.put("ru", "Tiếng Nga"); map.put("nl", "Tiếng Hà Lan");
+        map.put("pl", "Tiếng Ba Lan"); map.put("sv", "Tiếng Thụy Điển");
+        map.put("da", "Tiếng Đan Mạch"); map.put("no", "Tiếng Na Uy");
+        map.put("fi", "Tiếng Phần Lan"); map.put("el", "Tiếng Hy Lạp");
+        map.put("cs", "Tiếng Séc"); map.put("hu", "Tiếng Hungary");
+        map.put("ro", "Tiếng Romania"); map.put("uk", "Tiếng Ukraina");
+        map.put("bg", "Tiếng Bulgaria"); map.put("sr", "Tiếng Serbia");
+        map.put("hr", "Tiếng Croatia"); map.put("sk", "Tiếng Slovak");
+        map.put("sl", "Tiếng Slovenia"); map.put("et", "Tiếng Estonia");
+        map.put("lv", "Tiếng Latvia"); map.put("lt", "Tiếng Litva");
+        map.put("is", "Tiếng Iceland");
+        // Khác
+        map.put("qu", "Tiếng Quechua"); map.put("af", "Tiếng Afrikaans");
+        map.put("sw", "Tiếng Swahili"); map.put("zu", "Tiếng Zulu");
+        map.put("xh", "Tiếng Xhosa"); map.put("am", "Tiếng Amharic");
+        map.put("yo", "Tiếng Yoruba"); map.put("ha", "Tiếng Hausa");
+        map.put("ig", "Tiếng Igbo"); map.put("mi", "Tiếng Māori");
+        map.put("sm", "Tiếng Samoa"); map.put("la", "Tiếng Latin");
+        map.put("eo", "Tiếng Esperanto");
+        // Mã đặc biệt
+        map.put("xx", "Không có ngôn ngữ"); map.put("cn", "Tiếng Quảng Đông");
+        return map;
+    }
+
+    //---- 2. MAIN DETAIL LOGIC ----
+
+    // Hiển thị trang chi tiết phim (dùng movieID PK)
     @GetMapping({"/movie/detail/{id}", "/movie/detail"})
     public String movieDetail(
             @PathVariable(required = false) String id,
-            @RequestParam(required = false) String movieId, // Giữ để tương thích link cũ
+            @RequestParam(required = false) String movieId,
             Model model
     ) {
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
         if (finalIdStr == null || finalIdStr.isEmpty()) return "redirect:/";
 
         try {
-            // THAY ĐỔI: Parse {id} thành movieID (Database Primary Key)
+            //----- Lấy movieID (Database PK) và đồng bộ EAGER
             int movieID = Integer.parseInt(finalIdStr);
-            
-            // THAY ĐỔI: Gọi hàm service mới
-            Movie movie = movieService.getMovieByIdOrSync(movieID); // EAGER theo movieID
+            Movie movie = movieService.getMovieByIdOrSync(movieID);
 
             if (movie != null) {
                 Map<String, Object> movieMap = movieService.convertToMap(movie);
                 
-                // [SỬA] Chuyển đổi ngôn ngữ
-                String langCode = (String) movieMap.get("language"); 
-                movieMap.put("language", getLanguageName(langCode)); 
-                
-                // Lấy tmdbId (có thể null nếu là phim tự tạo)
+                //----- Xử lý ngôn ngữ hiển thị
+                String langCode = (String) movieMap.get("language");
+                movieMap.put("language", getLanguageName(langCode));
+
                 Integer tmdbId = movie.getTmdbId();
-
-                // Các API call bên ngoài (TMDB) VẪN PHẢI dùng tmdbId
                 if (tmdbId != null) {
-                    String trailerKey = movieService.findBestTrailerKey(movieID);
-                    String logoPath = movieService.findBestLogoPath(movieID);
-                    
-                    movieMap.put("trailerKey", trailerKey);
-                    movieMap.put("logoPath", logoPath);
+                    //----- Lấy Trailer Key và Logo Path (Gọi Service bằng PK)
+                    movieMap.put("trailerKey", movieService.findBestTrailerKey(movieID));
+                    movieMap.put("logoPath", movieService.findBestLogoPath(movieID));
 
-                    // Tải các mục phụ (Đã sửa lỗi G46)
-                    model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3)); 
-                    model.addAttribute("castList", loadCast(String.valueOf(tmdbId))); // Sửa: Dùng tmdbId
+                    //----- Tải Cast (LAZY) và Trailers (chỉ 3 cái đầu)
+                    model.addAttribute("castList", loadCast(String.valueOf(tmdbId)));
+                    model.addAttribute("trailers", movieService.findTrailers(tmdbId, 3));
                     
-                    // [GIẢI PHÁP 2] Xóa 3 carousel nặng, chuyển sang JS tải bất đồng bộ
-                    model.addAttribute("trendingMovies", new ArrayList<>()); // Trả list rỗng
-                    model.addAttribute("similarMovies", new ArrayList<>()); // Trả list rỗng
-                    model.addAttribute("recommendedMovies", new ArrayList<>()); // Trả list rỗng
-                    model.addAttribute("recommendTitle", "Có Thể Bạn Thích"); // Giữ lại title
-                    
+                    //----- Gán tmdbId cho JS (tải bất đồng bộ)
+                    model.addAttribute("tmdbId", String.valueOf(tmdbId));
+
+                    //----- Khởi tạo giá trị gợi ý mặc định
+                    model.addAttribute("recommendTitle", "Có Thể Bạn Thích");
+
                 } else {
-                    // Xử lý cho phim tự tạo (không có tmdbId)
-                    movieMap.put("trailerKey", null);
-                    movieMap.put("logoPath", null);
+                    //----- Xử lý cho phim tự tạo (Custom Movie)
+                    movieMap.put("trailerKey", null); movieMap.put("logoPath", null);
                     model.addAttribute("trailers", new ArrayList<>());
                     model.addAttribute("castList", new ArrayList<>());
-                    model.addAttribute("trendingMovies", new ArrayList<>()); // Trả list rỗng
-                    model.addAttribute("similarMovies", new ArrayList<>()); // Trả list rỗng
-                    model.addAttribute("recommendedMovies", new ArrayList<>()); // Trả list rỗng
                     model.addAttribute("recommendTitle", "Phim Khác");
                 }
-
+                
+                //----- Gán Model cho Thymeleaf (Carousel list rỗng vì đã chuyển sang JS)
                 model.addAttribute("movie", movieMap);
-                model.addAttribute("movieId", String.valueOf(movieID)); // Sửa: Truyền movieID
-                
-                // [GIẢI PHÁP 2] Thêm tmdbId vào model để JS sử dụng
-                if (tmdbId != null) {
-                    model.addAttribute("tmdbId", String.valueOf(tmdbId)); 
-                }
-                
-                model.addAttribute("clientSideLoad", false); // Thêm cờ để JS biết là client-side load
+                model.addAttribute("movieId", String.valueOf(movieID));
+                model.addAttribute("clientSideLoad", false);
 
                 return "movie/movie-detail";
             } else {
-                // Phim không tồn tại trong DB với movieID này
                 return createClientSideFallback(finalIdStr, model);
             }
         } catch (Exception e) {
@@ -197,32 +143,27 @@ public class MovieDetailController {
             return createClientSideFallback(finalIdStr, model);
         }
     }
-    
-    // (Hàm createClientSideFallback và moviePlayer giữ nguyên)
-    private String createClientSideFallback(String movieId, Model model) {
-        // ... (Giữ nguyên)
-        System.out.println("⚠️ Using client-side fallback for movie ID: " + movieId);
-        Map<String, Object> movieData = new HashMap<>();
-        movieData.put("id", movieId);
-        movieData.put("title", "Đang tải...");
-        model.addAttribute("movie", movieData);
-        model.addAttribute("movieId", movieId);
-        model.addAttribute("clientSideLoad", true);
-        return "movie/movie-detail";
-    }
-    
+
+    // Hiển thị trang Video Player
     @GetMapping("/movie/player/{id}")
     public String moviePlayer(@PathVariable String id, Model model) {
-        // ... (Giữ nguyên)
         if (id == null || id.isEmpty()) return "redirect:/";
+        
+        try {
+            Movie movie = movieService.getMovieById(Integer.parseInt(id));
+            model.addAttribute("movie", movie);
+        } catch (Exception e) {
+            System.err.println("Lỗi load Movie cho Player: " + e.getMessage());
+            model.addAttribute("movie", new Movie()); 
+        }
+
         model.addAttribute("movieId", id);
-        return "player";
+        return "movie/player";
     }
 
-    /**
-     * [G46] SỬA LỖI API STORM:
-     * Đã chuyển sang gọi getPersonPartialOrSync (Lazy)
-     */
+    //---- 3. HELPER FUNCTIONS ----
+
+    // Helper: Tải danh sách Diễn viên (Cast) từ TMDB (LAZY Sync)
     private List<Map<String, Object>> loadCast(String movieId) {
         List<Map<String, Object>> castList = new ArrayList<>();
         try {
@@ -231,15 +172,16 @@ public class MovieDetailController {
             JSONArray results = new JSONObject(resp).optJSONArray("cast");
 
             if (results != null) {
+                //----- Giới hạn 14 diễn viên
                 for (int i = 0; i < Math.min(results.length(), 14); i++) {
                     JSONObject pJson = results.getJSONObject(i);
                     
-                    // [G46] SỬA LỖI: Gọi hàm LAZY
+                    // Gọi hàm LAZY sync (tạo bản cụt nếu chưa có)
                     Person person = movieService.getPersonPartialOrSync(pJson);
 
                     if (person != null) {
                         Map<String, Object> personMap = movieService.convertToMap(person);
-                        // [G46] Lấy vai diễn từ JSON (theo yêu cầu của bạn)
+                        // Lấy vai diễn (character) từ JSON credits
                         personMap.put("role", pJson.optString("character"));
                         castList.add(personMap);
                     }
@@ -251,16 +193,32 @@ public class MovieDetailController {
         return castList;
     }
 
-    
-    
-    /**
-     * [G46] HÀM HELPER: Chuyển code (en) sang tên (Tiếng Anh)
-     */
+    // Helper: Chuyển code (en) sang tên (Tiếng Anh, v.v.)
     private String getLanguageName(String code) {
         if (code == null || code.equals("N/A") || code.equals("—")) {
             return "—";
         }
         // Trả về tên đầy đủ, hoặc trả về code (viết hoa) nếu không tìm thấy
         return LANGUAGE_MAP.getOrDefault(code, code.toUpperCase());
+    }
+
+    // Helper: Fallback khi DB không tìm thấy phim (hoặc lỗi nặng)
+    private String createClientSideFallback(String movieId, Model model) {
+        System.out.println("⚠️ Using client-side fallback for movie ID: " + movieId);
+        
+        Map<String, Object> movieData = new HashMap<>();
+        movieData.put("id", movieId);
+        movieData.put("title", "Đang tải...");
+        
+        model.addAttribute("movie", movieData);
+        model.addAttribute("movieId", movieId);
+        model.addAttribute("clientSideLoad", true);
+        
+        // Gán các list rỗng để tránh lỗi Thymeleaf
+        model.addAttribute("trailers", new ArrayList<>());
+        model.addAttribute("castList", new ArrayList<>());
+        model.addAttribute("recommendTitle", "Phim Khác");
+        
+        return "movie/movie-detail";
     }
 }
