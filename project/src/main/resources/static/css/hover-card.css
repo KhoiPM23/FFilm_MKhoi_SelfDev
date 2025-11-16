@@ -1,6 +1,6 @@
-/* ========================================= */
-/* Quy tắc CSS cho HOVER CARD (G37) */
-/* ========================================= */
+/*=================================================*/
+/*---- 1. QUY TẮC CHUNG CHO HOVER CARD (G37) ----*/
+/*=================================================*/
 
 .movie-hover-card {
     position: absolute;
@@ -30,6 +30,7 @@
     z-index: 10000;
 }
 
+/*----- Điều chỉnh vị trí khi tràn lề */
 .movie-hover-card.adjust-left {
     transform: translateX(0) scale(1);
     left: 0;
@@ -40,7 +41,10 @@
 }
 
 
-/* PHẦN MEDIA */
+/*==========================*/
+/*---- 2. PHẦN MEDIA ----*/
+/*==========================*/
+
 .hover-card-media {
     position: relative;
     padding-top: 56.25%; 
@@ -58,10 +62,12 @@
     pointer-events: none;
 }
 
+/*----- Hiệu ứng video active */
 .hover-card-media.video-active-scale {
     transform: scale(1.03); 
 }
 
+/*----- Container video */
 .hover-player-container {
     position: absolute;
     top: 0;
@@ -88,6 +94,7 @@
     object-fit: cover;
 }
 
+/*----- Nút điều khiển âm lượng */
 .hover-volume-btn {
     position: absolute;
     bottom: 10px;
@@ -109,7 +116,10 @@
 }
 
 
-/* PHẦN CONTENT */
+/*===========================*/
+/*---- 3. PHẦN CONTENT ----*/
+/*===========================*/
+
 .hover-card-content {
     padding: 15px;
     display: flex;
@@ -137,6 +147,8 @@
 .meta-rating {
     color: gold;
 }
+
+/*----- Rating đặc biệt */
 .meta-extra-rating {
     background: rgba(220, 53, 69, 0.85) !important;
     color: #fff !important;
@@ -161,7 +173,7 @@
     overflow: hidden;
 }
 
-/* Genres (Giữ nguyên) */
+/*----- Genres */
 .hover-card-genres {
     display: flex;
     flex-wrap: wrap;
@@ -178,7 +190,10 @@
 }
 
 
-/* PHẦN ACTIONS (Giữ nguyên) */
+/*==========================*/
+/*---- 4. PHẦN ACTIONS ----*/
+/*==========================*/
+
 .hover-card-actions {
     display: flex;
     align-items: center;
@@ -204,6 +219,7 @@
     background: #b80d15;
 }
 
+/*----- Nút action nhỏ */
 .hover-action-icon {
     width: 35px;
     height: 35px;
@@ -228,24 +244,30 @@
     color: #E50914; 
 }
 
+/*----- Loading States */
 .loading-meta,
 .loading-genre {
     opacity: 0.6;
 }
 
-/* Tooltip cho genre +N (Giữ nguyên) */
+
+/*======================================*/
+/*---- 5. TOOLTIP GENRE (CUSTOM) ----*/
+/*======================================*/
+
+/*----- Nút mở rộng tooltip */
 .genre-tag-more {
     position: relative;
     cursor: help;
 }
 
-/* [G37] XÓA ::after VÌ ĐÃ DÙNG TOOLTIP THẬT */
+/* [NOTE] XÓA PHẦN BỊ COMMENT: VÌ ĐÃ DÙNG TOOLTIP THẬT */
 /*
 .genre-tag-more::after { ... }
 .genre-tag-more:hover::after { ... }
 */
 
-/* [G37] SỬA: Tooltip dọc, đi lên, tương thích JS */
+/*----- Định dạng tooltip chính */
 .custom-genre-tooltip {
     position: absolute;
     bottom: 100%; /* Đặt ngay phía trên nút +N */
@@ -268,7 +290,7 @@
     margin-bottom: 5px; /* Khoảng cách 5px bên trên nút +N */
 }
 
-/* [G37] SỬA: Bubble margin */
+/*----- Định dạng từng mục trong tooltip */
 .custom-genre-tooltip .genre-bubble {
     background-color: #333; 
     color: #ccc; 
