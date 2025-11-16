@@ -302,6 +302,145 @@
     <div th:replace="fragments/footer :: footer"></div>
 </footer>
 
+<script th:inline="javascript">
+    
+    /**
+     * ==============================================================
+     * TỐI ƯU PERFORMANCE: Tải bất đồng bộ 4 carousel
+     * ==============================================================
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tải 4 carousel song song
+        loadAsyncCarousel('/api/movie/home/new', 'newSlider');
+        loadAsyncCarousel('/api/movie/home/anime', 'animeSlider');
+        loadAsyncCarousel('/api/movie/home/kids', 'kidsSlider');
+        loadAsyncCarousel('/api/movie/home/action', 'actionSlider');
+    });
+
+    /**
+     * Hàm helper: Tải 1 carousel bằng AJAX
+     */
+    async function loadAsyncCarousel(apiUrl, targetSliderId) {
+        const slider = document.getElementById(targetSliderId);
+        if (!slider) return;
+
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error('API failed');
+            
+            const movies = await response.json();
+            
+            if (movies && movies.length > 0) {
+                // Render HTML
+                slider.innerHTML = movies.map(movie => createMovieCardHTML(movie)).join('');
+                
+                // Kích hoạt lại Hover Cards (từ script.js)
+                if (typeof initHoverCards === 'function') {
+                    initHoverCards();
+                }
+
+                // Kích hoạt lại Carousels (từ script.js)
+                // Phải gọi initializeAllCarousels() vì các nút bấm đã có trong DOM
+                if (typeof initializeAllCarousels === 'function') {
+                    initializeAllCarousels();
+                }
+            } else {
+                // Ẩn cả section nếu không có phim
+                if (slider.closest('.movie-list-section')) {
+                    slider.closest('.movie-list-section').style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error(`Lỗi tải ${targetSliderId}:`, error);
+            if (slider.closest('.movie-list-section')) {
+                slider.closest('.movie-list-section').style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Hàm helper: Tạo HTML cho 1 movie card (dùng JSON)
+     * (Tái sử dụng logic từ hover-card.html và script.js)
+     */
+    function createMovieCardHTML(movie) {
+        const movieId = movie.id;
+        const movieTitle = movie.title || 'Unknown';
+        const poster = movie.poster || '/images/placeholder.jpg';
+        const backdrop = movie.backdrop || '/images/placeholder.jpg';
+        const rating = movie.rating || '—';
+        const year = movie.year || '—';
+        const overview = movie.overview || 'Đang tải mô tả...';
+        
+        const playerId = `hover-player-async-${movieId}`;
+
+        // Hàm escape HTML đơn giản
+        const escapeHtml = (str) => {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        };
+        const safeTitle = escapeHtml(movieTitle);
+        const safeOverview = escapeHtml(overview);
+
+        // Lấy các hàm global từ script.js (nếu đã load)
+        const clickDetail = `event.stopPropagation(); (window.goToMovieDetail || function(btn){ location.href = '/movie/detail/' + btn.dataset.movieId; })(this)`;
+        const clickLike = `event.stopPropagation(); (window.toggleHoverLike || function(btn){ btn.classList.toggle('active'); })(this)`;
+        const clickShare = `event.stopPropagation(); (window.showShareModal || function(){ alert('Lỗi chia sẻ'); })(this)`;
+
+        return `
+        <div class="movie-card" data-movie-id="${movieId}">
+            
+            <div class="movie-poster">
+                <img src="${poster}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
+            </div>
+            
+            <div class="movie-info">
+                <h3>${safeTitle}</h3>
+                <p class="movie-rating">⭐ <span>${rating}</span></p>
+            </div>
+            
+            <div class="movie-hover-card" data-movie-id="${movieId}">
+                <div class="hover-card-media">
+                    <img class="hover-card-image" src="${backdrop}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
+                    <div class="hover-player-container"><div class="hover-player" id="${playerId}"></div></div>
+                    <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
+                </div>
+                <div class="hover-card-content">
+                    <div class="hover-card-actions">
+                        <button class="hover-play-btn" type="button" data-movie-id="${movieId}" onclick="${clickDetail}">
+                            <i class="fas fa-play"></i> Xem ngay
+                        </button>
+                        <button class="hover-action-icon hover-like-btn" type="button" onclick="${clickLike}" title="Thêm vào danh sách">
+                            <i class="far fa-heart"></i>
+                        </button>
+                        <button class="hover-action-icon hover-share-btn" type="button"
+                                data-movie-id="${movieId}" data-movie-title="${safeTitle}"
+                                onclick="${clickShare}" title="Chia sẻ">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                    <h3 class="hover-card-title">${safeTitle}</h3>
+                    <div class="hover-card-meta">
+                        <span class="meta-rating"><i class="fas fa-star"></i> <span>${rating}</span></span>
+                        <span class="meta-year">${year}</span>
+                        <span class="meta-quality">HD</span>
+                    </div>
+                    <div class="hover-card-meta-extra">
+                        <span class="meta-extra-rating loading-meta">T</span>
+                        <span class="meta-extra-runtime loading-meta">— phút</span>
+                        <span class="meta-extra-country loading-meta">Quốc gia</span>
+                    </div>
+                    <div class="hover-card-genres">
+                        <span class="genre-tag loading-genre">Đang tải...</span>
+                    </div>
+                    <p class="hover-card-description">${safeOverview}</p>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+</script>
 
 <script src="https://www.youtube.com/iframe_api"></script>
 

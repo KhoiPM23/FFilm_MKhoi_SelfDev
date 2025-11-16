@@ -149,8 +149,8 @@ public class MovieDetailController {
 
                 // Các API call bên ngoài (TMDB) VẪN PHẢI dùng tmdbId
                 if (tmdbId != null) {
-                    String trailerKey = movieService.findBestTrailerKey(tmdbId);
-                    String logoPath = movieService.findBestLogoPath(tmdbId);
+                    String trailerKey = movieService.findBestTrailerKey(movieID);
+                    String logoPath = movieService.findBestLogoPath(movieID);
                     
                     movieMap.put("trailerKey", trailerKey);
                     movieMap.put("logoPath", logoPath);

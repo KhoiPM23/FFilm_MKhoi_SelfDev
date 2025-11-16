@@ -433,14 +433,15 @@ function initializeAllCarousels() {
         function updateSliderState() {
             if (!container || !slider) return;
             const cards = slider.querySelectorAll('.movie-card');
-            if (cards.length === 0) {
-                // [G30] Ẩn nút nếu không có phim
-                prevBtn.style.display = 'none';
-                nextBtn.style.display = 'none';
-                return;
-            }
+            
+            // [SỬA VĐ 2] XÓA KHỐI IF (cards.length === 0)
+            // Logic này làm ẩn nút vĩnh viễn nếu data load sau
+            
+            // Luôn hiển thị nút
+            prevBtn.style.display = 'block';
+            nextBtn.style.display = 'block';
 
-            cardWidth = cards[0].offsetWidth + 15; // +15 là gap
+            cardWidth = cards[0] ? cards[0].offsetWidth + 15 : 215; // +15 là gap, 215 là fallback
             const containerWidth = container.offsetWidth;
             const maxScroll = Math.max(0, (cards.length * cardWidth) - containerWidth + 15);
             
@@ -686,6 +687,25 @@ function stopHoverVideo(card) {
     }
 }
 
+/**
+ * [MỚI - FIX VĐ 3] Xử lý nút volume trên hover card
+ */
+function toggleHoverVolume(hoverCard, volumeBtn) {
+    const playerId = hoverCard.querySelector('.hover-player')?.id;
+    if (!playerId || !hoverPlayerMap[playerId] || !hoverPlayerMap[playerId].player) return;
+
+    const player = hoverPlayerMap[playerId].player;
+    const icon = volumeBtn.querySelector('i');
+
+    if (player.isMuted()) {
+        player.unMute();
+        icon.className = 'fas fa-volume-up';
+    } else {
+        player.mute();
+        icon.className = 'fas fa-volume-mute';
+    }
+}
+
 // (Các hàm UI (Like, Share) giữ nguyên)
 window.toggleHoverLike = function(button) {
     button.classList.toggle('active');
@@ -817,6 +837,15 @@ function initHoverCards() {
             hoverCard.addEventListener('mouseleave', () => {
                 stopHoverVideo(card);
             });
+            
+            // [FIX VĐ 3] Gán sự kiện cho nút Volume
+            const volumeBtn = hoverCard.querySelector('.hover-volume-btn');
+            if (volumeBtn) {
+                volumeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Ngăn card bị click
+                    toggleHoverVolume(hoverCard, volumeBtn);
+                });
+            }
             
             card.dataset.hoverBound = 'true';
         }

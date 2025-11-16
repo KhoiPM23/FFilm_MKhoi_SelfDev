@@ -75,7 +75,8 @@ public class AISearchService {
                 "Mô tả: \"" + userDescription + "\"\n\n" +
                 "Format trả lời:\n" +
                 "TRẢ LỜI: [Câu trả lời ngắn gọn của bạn]\n" +
-                "GỢI Ý: [Tên phim 1], [Tên phim 2], [Diễn viên/Đạo diễn nếu có]\n\n" +
+                "GỢI Ý: [Tên phim 1], [Tên phim 2], [Diễn viên/Đạo diễn nếu có]\n" + 
+                "QUAN TRỌNG: Phần GỢI Ý chỉ chứa tên, KHÔNG chứa ký tự đặc biệt như (), [], :, hoặc năm.\n\n" + 
                 "Bắt đầu trả lời:";
     }
 
@@ -326,13 +327,15 @@ public class AISearchService {
         if (text == null) return Collections.emptyList();
 
         List<String> suggestions = new ArrayList<>();
+        // [FIX VĐ 4] Bổ sung regex để loại bỏ nhiều ký tự đặc biệt hơn
         text = text.replaceAll("(?i)(phim|tên|diễn viên|đạo diễn|gợi ý|suggestion|movie)", "");
         String[] tokens = text.split("[,;\\n]");
 
         for (String token : tokens) {
             String cleaned = token.trim()
-                    .replaceAll("^[\\-\\*•\\d\\.]+\\s*", "")
-                    .replaceAll("[\"'`]", "");
+                    .replaceAll("^[\\-\\*•\\d\\.]+\\s*", "") // Xóa dấu gạch đầu dòng
+                    .replaceAll("[\"'`():\\[\\]]", ""); // [FIX VĐ 4] Xóa () [] : " ' `
+
             if (!cleaned.isEmpty() && cleaned.length() > 2) {
                 suggestions.add(cleaned);
             }

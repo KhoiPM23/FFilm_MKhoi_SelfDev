@@ -28,6 +28,9 @@ public class DiscoverController {
     @Autowired private MovieService movieService;
     @Autowired private RestTemplate restTemplate;
 
+    // Xóa hàm discover() cũ trong DiscoverController.java
+// Thay thế bằng hàm MỚI này:
+
     @GetMapping("/discover")
     public String discover(
             @RequestParam(defaultValue = "1") int page,
@@ -36,8 +39,12 @@ public class DiscoverController {
             Model model) {
 
         try {
+            // [SỬA VĐ 6] Tăng giới hạn fetch để thuật toán Relevance hoạt động
+            int dbFetchLimit = 40;
+            int finalLimit = 20; // Giới hạn hiển thị cuối cùng
+            int dbPage = page - 1; // Page của DB (bắt đầu từ 0)
+
             // Lấy thông tin phân trang (tổng số) từ API
-            // (Chúng ta chấp nhận rằng tổng số này chỉ là của API)
             String page1ApiUrl = buildDiscoverUrl(1, genres, quickFilter);
             int totalResults = 0;
             int totalPages = 1;
@@ -53,29 +60,33 @@ public class DiscoverController {
                  System.err.println("Lỗi lấy totalPages/Results: " + e.getMessage());
             }
 
-            // [GIẢI PHÁP 3] Lấy danh sách phim đã gộp
-            
+            // [SỬA VĐ 6] Lấy danh sách phim từ DB và xác định SortBy
             Page<Movie> dbMovies;
-            int dbPage = page - 1; // Page của DB (bắt đầu từ 0)
+            MovieService.SortBy sortBy;
 
-            // 1. Lấy phim từ DB (dựa trên filter)
             if (genres != null && !genres.isEmpty()) {
-                dbMovies = movieService.getMoviesByGenreFromDB(Integer.parseInt(genres), PAGE_SIZE, dbPage);
+                // Lọc theo Genre -> Sort theo HOT
+                dbMovies = movieService.getMoviesByGenreFromDB(Integer.parseInt(genres), dbFetchLimit, dbPage);
+                sortBy = MovieService.SortBy.HOT;
             } else if ("new".equals(quickFilter)) {
-                dbMovies = movieService.getNewMoviesFromDB(PAGE_SIZE); // Chỉ lấy 1 trang DB
+                // Lọc theo Mới -> Sort theo NEW
+                dbMovies = movieService.getNewMoviesFromDB(dbFetchLimit);
+                sortBy = MovieService.SortBy.NEW;
             } else {
-                // "trending" hoặc "top-rated"
-                dbMovies = movieService.getHotMoviesFromDB(PAGE_SIZE); // Chỉ lấy 1 trang DB
+                // Mặc định (trending/top-rated) -> Sort theo HOT
+                dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
+                sortBy = MovieService.SortBy.HOT;
             }
             
             // 2. Lấy URL API cho trang hiện tại
             String currentApiUrl = buildDiscoverUrl(page, genres, quickFilter);
             
-            // 3. Gộp
+            // 3. Gộp (Dùng thuật toán VĐ 6 mới)
             List<Map<String, Object>> mergedMovies = movieService.getMergedCarouselMovies(
                 currentApiUrl, 
                 dbMovies, 
-                PAGE_SIZE
+                finalLimit, // Giới hạn 20 phim
+                sortBy      // Tiêu chí sort
             );
 
             // 4. Set Banner (Lấy phim đầu tiên trong danh sách đã gộp)

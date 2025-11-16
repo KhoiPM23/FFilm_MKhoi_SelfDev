@@ -1282,3 +1282,28 @@ footer {
 #copyButton:hover {
     background-color: #ff0015;
 }
+
+/* [VẤN ĐỀ 6] CHE DỮ LIỆU - NGĂN COPY & DRAG */
+.hero-banner, .movie-hover-card, .content-primary, .person-detail,
+.hero-content, .hover-card-content {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.hero-banner img, .movie-hover-card img, 
+.movie-poster img, .person-detail img,
+.hover-card-image, .hero-logo-image {
+    pointer-events: none;
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+}
+
+/* Optional: Chặn chuột phải */
+.hero-banner, .movie-hover-card {
+    -webkit-touch-callout: none;
+}

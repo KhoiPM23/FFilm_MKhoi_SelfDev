@@ -13,4 +13,5 @@ public interface GenreRepository extends JpaRepository<Genre, Integer> {
     // [G7] HÀM MỚI QUAN TRỌNG:
     // Tự động tìm tất cả Genre theo danh sách ID
     List<Genre> findByTmdbGenreIdIn(List<Integer> tmdbGenreIds);
+    List<Genre> findByNameContainingIgnoreCase(String name);    // Tìm theo tên
 }

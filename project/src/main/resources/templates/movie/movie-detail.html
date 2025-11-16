@@ -605,7 +605,17 @@
         
         // [G12] Sửa lỗi gọi hàm G4 cũ
         document.addEventListener('DOMContentLoaded', () => {
+            // [VẤN ĐỀ 3] KÍCH HOẠT LOGO & VIDEO
+            if (typeof displayHeroExtras === 'function') {
+                displayHeroExtras();
+            }
             
+            // Khởi tạo video trailer
+            if (typeof YT !== 'undefined' && YT.Player) {
+                if (typeof initHeroVideo === 'function') {
+                    initHeroVideo();
+                }
+            }
             loadTrailers();
         });
 

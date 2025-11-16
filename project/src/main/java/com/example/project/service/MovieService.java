@@ -33,6 +33,11 @@ public class MovieService {
     
     @Autowired
     private RestTemplate restTemplate;
+
+    // [THÊM MỚI] Cho phép Controller truy cập
+    public MovieRepository getMovieRepository() {
+        return movieRepository;
+    }
     
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
@@ -76,13 +81,8 @@ public class MovieService {
     // ===============================================
 
     /**
-     * [THÊM MỚI THEO KẾ HOẠCH BƯỚC 1]
+     * [MỚI - FIX LỖI BIÊN DỊCH]
      * Lấy movie theo movieID (DB PK), tự động sync nếu cần
-     * * LOGIC:
-     * 1. Tìm theo movieID trong DB
-     * 2. Nếu tmdbId == null → Trả bản ghi (phim tự tạo)
-     * 3. Nếu director == "N/A" → Fetch API → Cập nhật đầy đủ → Trả
-     * 4. Nếu director != "N/A" → Trả bản ghi (đã đầy đủ)
      */
     @Transactional
     public Movie getMovieByIdOrSync(int movieID) {
@@ -103,10 +103,10 @@ public class MovieService {
             return movie;
         }
         
-        // Bước 3: Kiểm tra cờ "N/A"
+        // Bước 3: Kiểm tra cờ "N/A" (bản 'cụt')
         if ("N/A".equals(movie.getDirector())) {
             System.out.println("♻️ [Movie EAGER] Nâng cấp chi tiết cho movie ID: " + movieID);
-            // Gọi hàm fetch API (đã có sẵn)
+            // Gọi hàm fetch API (Eager)
             return fetchAndSaveMovieDetail(movie.getTmdbId(), movie);
         }
         
@@ -150,6 +150,11 @@ public class MovieService {
     public Movie syncMovieFromList(JSONObject jsonItem) {
         int tmdbId = jsonItem.optInt("id");
         if (tmdbId <= 0) return null;
+        
+        // [VẤN ĐỀ 8] LỌC PHIM SPAM/18+
+        if (jsonItem.optBoolean("adult", false)) return null; // Lọc 18+
+        if (jsonItem.optDouble("vote_average", 0) < 0.1) return null; // Phim ảo
+        if (jsonItem.optInt("vote_count", 0) < 5) return null; // Spam
         
         // 1. Check DB trước
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
@@ -424,7 +429,13 @@ public class MovieService {
             if (results != null) {
                 for (int i = 0; i < Math.min(results.length(), limit); i++) { 
                     JSONObject item = results.getJSONObject(i);
-                    String mediaType = item.optString("media_type", "movie"); 
+                    
+                    // [VẤN ĐỀ 8] LỌC PHIM SPAM/18+
+                    if (item.optBoolean("adult", false)) continue;
+                    if (item.optDouble("vote_average", 0) < 0.1) continue;
+                    if (item.optInt("vote_count", 0) < 5) continue;
+                    
+                    String mediaType = item.optString("media_type", "movie");
                     if (mediaType.equals("movie") || mediaType.equals("tv")) {
                         
                         int tmdbId = item.optInt("id");
@@ -618,67 +629,415 @@ public class MovieService {
     // [GIẢI PHÁP 3] LOGIC GỘP CHO CAROUSEL
     // ===============================================
 
+    // Dán 3 khối này vào bên trong class MovieService (src/main/java/com/example/project/service/MovieService.java)
+
     /**
-     * [GIẢI PHÁP 3] HÀM GỘP MỚI
-     * Lấy phim từ DB và API, gộp lại, ưu tiên DB
-     * @param apiUrl (Link API TMDB)
-     * @param dbMovies (Trang kết quả từ DB, có thể rỗng)
-     * @param limit (Giới hạn số lượng)
-     * @return Danh sách Map đã gộp
+     * [MỚI - VĐ 6] Enum định nghĩa tiêu chí sort
+     */
+    public enum SortBy {
+        HOT, // Sắp xếp theo độ hot (Popularity + Rating)
+        NEW  // Sắp xếp theo ngày ra mắt (Release Date)
+    }
+
+    /**
+     * [MỚI - VĐ 6] Helper: Lấy danh sách phim từ API (đã sync và convert)
      */
     @Transactional
-    public List<Map<String, Object>> getMergedCarouselMovies(
-            String apiUrl, 
-            Page<Movie> dbMovies, 
-            int limit) {
-        
-        Set<Integer> addedTmdbIds = new HashSet<>();
-        List<Map<String, Object>> finalMovies = new ArrayList<>();
-
-        // 1. [ƯU TIÊN 1] Thêm phim từ DB (Phim tự tạo + Phim đã sửa)
-        for (Movie movie : dbMovies) {
-            finalMovies.add(convertToMap(movie));
-            if (movie.getTmdbId() != null) {
-                addedTmdbIds.add(movie.getTmdbId());
+    private List<Map<String, Object>> fetchApiMovies(String fullApiUrl, int limit) {
+        List<Map<String, Object>> movies = new ArrayList<>();
+        try {
+            String resp = restTemplate.getForObject(fullApiUrl, String.class);
+            if (resp == null || resp.isEmpty()) {
+                throw new RuntimeException("API response is null or empty for: " + fullApiUrl);
             }
-        }
-        
-        // 2. [ƯU TIÊN 2] Lấy phim từ API (nếu chưa đủ limit)
-        if (finalMovies.size() < limit) {
-            try {
-                // [FIX VĐ 6] Thêm &include_adult=false vào mọi URL API
-                String safeApiUrl = apiUrl.contains("?") ? apiUrl + "&include_adult=false" : apiUrl + "?include_adult=false";
-                
-                String response = restTemplate.getForObject(safeApiUrl, String.class);
-                
-                if (response != null) {
-                    JSONArray results = new JSONObject(response).optJSONArray("results");
-                    if (results != null) {
-                        for (int i = 0; i < results.length(); i++) {
-                            if (finalMovies.size() >= limit) break; // Đã đủ
-                            
-                            JSONObject item = results.getJSONObject(i);
-                            int tmdbId = item.optInt("id");
-                            
-                            // Chỉ thêm nếu (ID > 0) VÀ (chưa có trong list)
-                            if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
-                                Movie movie = syncMovieFromList(item); // Dùng Lazy
-                                if (movie != null) {
-                                    finalMovies.add(convertToMap(movie));
-                                    addedTmdbIds.add(tmdbId);
-                                }
-                            }
+            JSONObject json = new JSONObject(resp);
+            JSONArray results = json.optJSONArray("results");
+            
+            if (results != null) {
+                for (int i = 0; i < Math.min(results.length(), limit); i++) {
+                    JSONObject item = results.getJSONObject(i);
+                    // Lọc 18+ và spam
+                    if (item.optBoolean("adult", false) || item.optDouble("vote_average", 0) < 0.1 || item.optInt("vote_count", 0) < 5) {
+                        continue;
+                    }
+                    String mediaType = item.optString("media_type", "movie");
+                    if (mediaType.equals("movie") || mediaType.equals("tv")) {
+                        int tmdbId = item.optInt("id");
+                        if (tmdbId <= 0) continue;
+                        
+                        Movie movie = this.syncMovieFromList(item); // Dùng Lazy
+                        if (movie != null) {
+                            Map<String, Object> map = this.convertToMap(movie);
+                            // [VĐ 6] Thêm trường popularity thô để sort
+                            map.put("popularity_raw", item.optDouble("popularity", 0.0));
+                            movies.add(map);
                         }
                     }
                 }
-            } catch (Exception e) {
-                System.err.println("Lỗi load API cho carousel ("+ apiUrl +"): " + e.getMessage());
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi fetchApiMovies (" + fullApiUrl + "): " + e.getMessage());
+        }
+        return movies;
+    }
+
+    /**
+     * [MỚI - VĐ 6] Helper: Tạo Comparator để sort "công bằng"
+     */
+    private Comparator<Map<String, Object>> getRelevanceComparator(SortBy sortBy) {
+        if (sortBy == SortBy.NEW) {
+            // Sắp xếp theo ngày ra mắt (Mới nhất lên đầu)
+            return (m1, m2) -> {
+                String date1 = (String) m1.getOrDefault("releaseDate", "1900-01-01");
+                String date2 = (String) m2.getOrDefault("releaseDate", "1900-01-01");
+                if (date1 == null || date1.isEmpty()) date1 = "1900-01-01";
+                if (date2 == null || date2.isEmpty()) date2 = "1900-01-01";
+                return date2.compareTo(date1); // So sánh chuỗi (YYYY-MM-DD)
+            };
+        }
+        
+        // Mặc định (SortBy.HOT)
+        return (m1, m2) -> {
+            // Phim custom (không có popularity_raw) sẽ dùng 0
+            double pop1 = (double) m1.getOrDefault("popularity_raw", 0.0);
+            double pop2 = (double) m2.getOrDefault("popularity_raw", 0.0);
+            
+            // Lấy rating (đã được convertToMap thành String)
+            double rating1 = 0.0;
+            double rating2 = 0.0;
+            try { rating1 = Double.parseDouble((String) m1.get("rating")); } catch (Exception e) {}
+            try { rating2 = Double.parseDouble((String) m2.get("rating")); } catch (Exception e) {}
+
+            // [VĐ 6] Thuật toán "chen chân":
+            // 80% trọng số cho Popularity (ưu tiên TMDB), 20% cho Rating (cơ hội cho phim custom)
+            // Dùng Math.log10 để giảm chênh lệch quá lớn của popularity
+            double score1 = (pop1 > 0 ? Math.log10(pop1) : 0) * 0.8 + (rating1 * 0.6);
+            double score2 = (pop2 > 0 ? Math.log10(pop2) : 0) * 0.8 + (rating2 * 0.6);
+
+            return Double.compare(score2, score1);
+        };
+    }
+
+    /**
+     * [MỚI - VĐ 6] Helper cho Lớp 5 (Fallback) - Dùng SortBy.NEW
+     * (Hàm này được chuyển từ Controller về Service)
+     */
+    @Transactional
+    public List<Map<String, Object>> loadRecommendedFallback(Integer tmdbId, Set<Integer> addedMovieIds, int limit) {
+        String apiUrl;
+        if (tmdbId != null) {
+            apiUrl = BASE_URL + "/movie/" + tmdbId + "/recommendations?api_key=" + API_KEY + "&language=vi-VN";
+        } else {
+            // Phim custom không có recommendations, dùng trending
+            apiUrl = BASE_URL + "/trending/movie/week?api_key=" + API_KEY + "&language=vi-VN&page=1";
+        }
+        
+        // Dùng NEW DB làm base (để khác với Similar)
+        Page<Movie> dbMovies = getNewMoviesFromDB(40); // Gọi hàm nội bộ
+        
+        List<Map<String, Object>> merged = getMergedCarouselMovies(
+            apiUrl, dbMovies, limit + 5, MovieService.SortBy.NEW); // +5 để tăng khả năng lọc
+
+        return merged.stream()
+            .filter(m -> {
+                Integer mTmdbId = (Integer) m.get("tmdbId");
+                Integer mPkId = (Integer) m.get("id");
+                // Check cả tmdbId và pkId
+                if (mTmdbId != null && addedMovieIds.contains(mTmdbId)) return false;
+                if (mTmdbId == null && mPkId != null && addedMovieIds.contains(mPkId)) return false; 
+                return true;
+            })
+            .limit(limit)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * [MỚI - VĐ 6] Helper: Tìm Keyword ID quan trọng (cho Lớp 2)
+     */
+    private Integer findKeywords(JSONArray keywords, Map<String, Integer> priorityMap) {
+        if (keywords == null) return null;
+        
+        for (int i = 0; i < keywords.length(); i++) {
+            JSONObject kw = keywords.getJSONObject(i);
+            String name = kw.optString("name").toLowerCase();
+            if (priorityMap.containsKey(name)) {
+                return priorityMap.get(name); // Trả về ID của keyword
+            }
+        }
+        return null; // Không tìm thấy keyword ưu tiên
+    }
+
+    /**
+     * [MỚI - VĐ 6] Logic "Waterfall" 5 lớp (Đã chuyển về Service)
+     * (Lớp 1: Collection, Lớp 2: Keyword, Lớp 3: Studio, Lớp 4: Director, Lớp 5: Fallback)
+     */
+    @Transactional
+    public List<Map<String, Object>> getRecommendedMoviesWaterfall(Movie movie, Map<String, Object> response) {
+        
+        Set<Integer> addedMovieIds = new HashSet<>();
+        List<Map<String, Object>> finalRecommendations = new ArrayList<>();
+        int limit = 20;
+        Integer tmdbId = movie.getTmdbId();
+
+        if (tmdbId != null) {
+            addedMovieIds.add(tmdbId);
+        }
+
+        if (tmdbId == null) {
+            return loadRecommendedFallback(tmdbId, addedMovieIds, limit);
+        }
+
+        // --- Bắt đầu Waterfall ---
+        JSONObject movieDetailJson = null;
+        try {
+            // [SỬA VĐ 6] Thêm "keywords" vào append_to_response
+            String detailUrl = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN&append_to_response=credits,keywords";
+            String detailResp = restTemplate.getForObject(detailUrl, String.class);
+            movieDetailJson = new JSONObject(detailResp);
+        } catch (Exception e) {
+            System.err.println("Lỗi gọi API Detail (Waterfall): " + e.getMessage());
+            return loadRecommendedFallback(tmdbId, addedMovieIds, limit);
+        }
+
+        // === LỚP 1: COLLECTION (Bộ sưu tập) ===
+        try {
+            JSONObject collection = movieDetailJson.optJSONObject("belongs_to_collection");
+            if (collection != null) {
+                int collectionId = collection.optInt("id");
+                String collectionUrl = BASE_URL + "/collection/" + collectionId + "?api_key=" + API_KEY + "&language=vi-VN";
+                String collectionResp = restTemplate.getForObject(collectionUrl, String.class);
+                JSONObject collectionJson = new JSONObject(collectionResp);
+                JSONArray parts = collectionJson.optJSONArray("parts");
+                
+                if (parts != null && parts.length() > 0) {
+                    for (int i = 0; i < parts.length(); i++) {
+                        JSONObject part = parts.getJSONObject(i); 
+                        int partTmdbId = part.optInt("id");
+                        if (partTmdbId <= 0 || addedMovieIds.contains(partTmdbId)) continue;
+                        
+                        Movie syncedMovie = syncMovieFromList(part); // Gọi hàm nội bộ
+                        if (syncedMovie != null) {
+                            finalRecommendations.add(convertToMap(syncedMovie)); // Gọi hàm nội bộ
+                            addedMovieIds.add(partTmdbId); 
+                        }
+                    }
+                    if (finalRecommendations.size() >= 2) { 
+                        response.put("title", "🎬 Từ Bộ Sưu Tập: " + collectionJson.optString("name"));
+                        finalRecommendations.sort(getRelevanceComparator(MovieService.SortBy.NEW)); // Gọi hàm nội bộ
+                        return finalRecommendations.stream().limit(limit).collect(Collectors.toList());
+                    }
+                }
+            }
+        } catch (Exception e) { System.err.println("Lỗi Lớp 1 (Collection): " + e.getMessage()); }
+        
+        finalRecommendations.clear();
+
+        // === LỚP 2 (MỚI): FRANCHISE (Keyword) ===
+        try {
+            // Định nghĩa các Keyword Franchise quan trọng
+            Map<String, Integer> priorityKeywords = new HashMap<>();
+            priorityKeywords.put("demon slayer", 210024);
+            priorityKeywords.put("dragon ball", 114820);
+            priorityKeywords.put("one piece", 13091);
+            priorityKeywords.put("marvel cinematic universe (mcu)", 180547);
+            priorityKeywords.put("fast and furious", 9903);
+            priorityKeywords.put("harry potter", 1241);
+            
+            JSONObject keywordsJson = movieDetailJson.optJSONObject("keywords");
+            JSONArray keywordsArray = (keywordsJson != null) ? keywordsJson.optJSONArray("keywords") : null;
+            Integer keywordId = findKeywords(keywordsArray, priorityKeywords); // Gọi helper nội bộ
+            String keywordName = priorityKeywords.entrySet().stream()
+                                    .filter(entry -> entry.getValue().equals(keywordId))
+                                    .map(Map.Entry::getKey)
+                                    .findFirst().orElse(null);
+
+            if (keywordId != null) {
+                String apiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_keywords=" + keywordId + "&sort_by=popularity.desc";
+                
+                List<Map<String, Object>> apiMovies = fetchApiMovies(apiUrl, limit + 1); // Gọi helper nội bộ
+
+                apiMovies.stream()
+                    .filter(m -> !addedMovieIds.contains(m.get("tmdbId")))
+                    .limit(limit)
+                    .forEach(m -> {
+                        finalRecommendations.add(m);
+                        addedMovieIds.add((Integer) m.get("tmdbId"));
+                    });
+
+                if (finalRecommendations.size() >= 3) {
+                    response.put("title", "📚 Cùng vũ trụ: " + keywordName);
+                    return finalRecommendations;
+                }
+            }
+        } catch (Exception e) { System.err.println("Lỗi Lớp 2 (Keyword): " + e.getMessage()); }
+        
+        finalRecommendations.clear();
+
+        // === LỚP 3: STUDIO (Nhà sản xuất) ===
+        try {
+            JSONArray studios = movieDetailJson.optJSONArray("production_companies");
+            Integer studioId = null;
+            String studioName = null;
+            if (studios != null && studios.length() > 0) {
+                List<Integer> priorityStudios = List.of(10342, 3, 420, 13183); // Ghibli, Pixar, Marvel, Ufotable
+                for (int i = 0; i < studios.length(); i++) {
+                    JSONObject s = studios.getJSONObject(i);
+                    if (priorityStudios.contains(s.optInt("id"))) {
+                        studioId = s.optInt("id");
+                        studioName = s.optString("name");
+                        break;
+                    }
+                }
+                List<String> commonStudios = List.of("Warner Bros.", "Universal Pictures", "Paramount", "Columbia Pictures", "20th Century Fox");
+                if (studioId == null) {
+                    JSONObject firstStudio = studios.getJSONObject(0);
+                    if (!commonStudios.contains(firstStudio.optString("name"))) {
+                        studioId = firstStudio.optInt("id");
+                        studioName = firstStudio.optString("name");
+                    }
+                }
+            }
+            
+            if (studioId != null && studioId > 0) {
+                String apiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_companies=" + studioId + "&sort_by=popularity.desc";
+                
+                List<Map<String, Object>> apiMovies = fetchApiMovies(apiUrl, limit + 1); // Gọi helper nội bộ
+
+                apiMovies.stream()
+                    .filter(m -> !addedMovieIds.contains(m.get("tmdbId")))
+                    .limit(limit)
+                    .forEach(m -> {
+                        finalRecommendations.add(m);
+                        addedMovieIds.add((Integer) m.get("tmdbId"));
+                    });
+                
+                if (finalRecommendations.size() >= 3) {
+                    response.put("title", "🏢 Từ Studio: " + studioName);
+                    return finalRecommendations;
+                }
+            }
+        } catch (Exception e) { System.err.println("Lỗi Lớp 3 (Studio): " + e.getMessage()); }
+
+        finalRecommendations.clear();
+        
+        // === LỚP 4: DIRECTOR (Đạo diễn) ===
+        try {
+            JSONObject credits = movieDetailJson.optJSONObject("credits");
+            JSONArray crew = (credits != null) ? credits.optJSONArray("crew") : null;
+            Integer directorId = null;
+            String directorName = null;
+            if (crew != null) {
+                for (int i = 0; i < crew.length(); i++) {
+                    JSONObject p = crew.getJSONObject(i);
+                    if ("Director".equals(p.optString("job"))) {
+                        directorId = p.optInt("id");
+                        directorName = p.optString("name");
+                        break; 
+                    }
+                }
+            }
+            
+            if (directorId != null && directorId > 0) {
+                String apiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_crew=" + directorId + "&sort_by=popularity.desc";
+                
+                List<Map<String, Object>> apiMovies = fetchApiMovies(apiUrl, limit + 1); // Gọi helper nội bộ
+                
+                apiMovies.stream()
+                    .filter(m -> !addedMovieIds.contains(m.get("tmdbId")))
+                    .limit(limit)
+                    .forEach(m -> {
+                        finalRecommendations.add(m);
+                        addedMovieIds.add((Integer) m.get("tmdbId"));
+                    });
+
+                if (finalRecommendations.size() >= 3) {
+                    response.put("title", "🎥 Phim cùng Đạo diễn: " + directorName);
+                    return finalRecommendations;
+                }
+            }
+        } catch (Exception e) { System.err.println("Lỗi Lớp 4 (Director): " + e.getMessage()); }
+
+        // === LỚP 5: FALLBACK (Phim Mới) ===
+        return loadRecommendedFallback(tmdbId, addedMovieIds, limit);
+    }
+
+    /**
+     * [VIẾT LẠI - VĐ 6] HÀM GỘP MỚI (Thuật toán Relevance)
+     * Lấy phim từ DB và API, gộp, sort relevance, ưu tiên DB
+     * @param apiUrl (Link API TMDB)
+     * @param dbMovies (Trang kết quả từ DB, đã fetch nhiều)
+     * @param limit (Số lượng cuối cùng, vd: 20)
+     * @param sortBy (Tiêu chí sort: HOT hoặc NEW)
+     * @return Danh sách Map đã gộp, sort và giới hạn
+     */
+    @Transactional
+    public List<Map<String, Object>> getMergedCarouselMovies(
+            String apiUrl,
+            Page<Movie> dbMovies,
+            int limit,
+            SortBy sortBy) { // Thêm sortBy
+
+        // 1. Lấy 40 phim API (đã sync và convert, có 'popularity_raw')
+        // [FIX VĐ 6] Thêm &include_adult=false
+        String safeApiUrl = apiUrl.contains("?") ? apiUrl + "&include_adult=false" : apiUrl + "?include_adult=false";
+        List<Map<String, Object>> apiMovies = fetchApiMovies(safeApiUrl, 40);
+
+        // 2. Convert 40 phim DB (thêm 'popularity_raw' = 0 cho phim custom)
+        List<Map<String, Object>> dbMoviesList = dbMovies.getContent().stream()
+            .map(movie -> {
+                Map<String, Object> map = convertToMap(movie);
+                // Phim custom (tmdbId=null) không có pop, set 0
+                map.put("popularity_raw", 0.0); 
+                return map;
+            })
+            .collect(Collectors.toList());
+            
+        // 3. Tạo Map (TMDB ID -> MovieMap) từ DB để check trùng (ưu tiên DB)
+        Map<Integer, Map<String, Object>> dbTmdbIdMap = dbMoviesList.stream()
+            .filter(m -> m.get("tmdbId") != null)
+            .collect(Collectors.toMap(
+                m -> (Integer) m.get("tmdbId"),
+                m -> m,
+                (existing, replacement) -> existing // Giữ cái đầu tiên nếu trùng tmdbId trong DB
+            ));
+
+        List<Map<String, Object>> finalMergedList = new ArrayList<>();
+        Set<Integer> addedTmdbIds = new HashSet<>();
+
+        // 4. [VĐ 6] Lặp API list (Ưu tiên DB win)
+        for (Map<String, Object> apiMovie : apiMovies) {
+            Integer tmdbId = (Integer) apiMovie.get("tmdbId");
+            if (tmdbId == null) continue;
+
+            if (dbTmdbIdMap.containsKey(tmdbId)) {
+                // Nếu DB có -> Lấy bản DB (đã được sửa/custom)
+                finalMergedList.add(dbTmdbIdMap.get(tmdbId));
+            } else {
+                // Nếu DB không có -> Lấy bản API (đã sync)
+                finalMergedList.add(apiMovie);
+            }
+            addedTmdbIds.add(tmdbId);
+        }
+
+        // 5. [VĐ 6] Lặp DB list (Thêm phim custom "chen chân")
+        for (Map<String, Object> dbMovie : dbMoviesList) {
+            Integer tmdbId = (Integer) dbMovie.get("tmdbId");
+
+            if (tmdbId == null) {
+                // Phim custom (tmdbId = null) -> Luôn thêm
+                finalMergedList.add(dbMovie);
+            } else if (!addedTmdbIds.contains(tmdbId)) {
+                // Phim DB có tmdbId nhưng API không có (ví dụ: API trả 40 phim khác) -> Vẫn thêm
+                finalMergedList.add(dbMovie);
             }
         }
         
-        // 3. Trả về danh sách đã gộp (đã được giới hạn)
-        // (Stream.limit an toàn ngay cả khi list nhỏ hơn limit)
-        return finalMovies.stream().limit(limit).collect(Collectors.toList());
+        // 6. [VĐ 6] Sort "công bằng" theo relevance
+        Comparator<Map<String, Object>> comparator = getRelevanceComparator(sortBy);
+        finalMergedList.sort(comparator);
+
+        // 7. Trả về
+        return finalMergedList.stream().limit(limit).collect(Collectors.toList());
     }
 
     /**
@@ -772,6 +1131,24 @@ public class MovieService {
     }
 
     /**
+     * [MỚI - FIX VĐ 5]
+     * Overload hàm convertToMap để nhận thêm role_info (vai diễn/công việc)
+     * (Hàm này bị thiếu ở lượt trước, gây lỗi biên dịch image_5a81e1.png)
+     */
+    public Map<String, Object> convertToMap(Movie movie, String role) {
+        // 1. Gọi hàm convert 1 tham số (đã có) để lấy map cơ bản
+        Map<String, Object> map = this.convertToMap(movie);
+        
+        // 2. Thêm trường role_info (nếu có)
+        if (map != null && role != null && !role.isEmpty()) {
+            map.put("role_info", role);
+        }
+        
+        // 3. Trả về map đã bổ sung
+        return map;
+    }
+
+    /**
      * [SỬA ĐỔI - PHẦN 3]
      * Đảm bảo 'id' trả về là personID (DB PK)
      */
@@ -834,6 +1211,10 @@ public class MovieService {
             }
         }
     }
+
+
+
+    
     
     /**
      * [SỬA LỖI] Nhận movieID (PK), tìm tmdbId, sau đó gọi findTrailers.

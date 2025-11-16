@@ -29,48 +29,38 @@ public class HomeController {
     @Autowired
     private MovieService movieService; 
 
+    // Xóa hàm home() cũ
+// Thay thế bằng hàm home() MỚI này:
+
     @GetMapping("/")
     public String home(Model model) {
         try {
-            int carouselApiLimit = 10; // Số lượng lấy từ API
-            int carouselDbLimit = 10;  // Số lượng lấy từ DB
-            int carouselTotalLimit = 20; // Tổng số lượng hiển thị
+            int dbFetchLimit = 40;
+            int finalCarouselLimit = 20;
 
-            // 1. [HOT MOVIES] (Gộp 10 DB + 10 API, lấy 20)
-            Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(carouselDbLimit);
+            // 1. [SSR] Tải Phim Hot (Cho Banner và Carousel 1)
+            Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
             String hotApiUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
-            List<Map<String, Object>> hotMovies = movieService.getMergedCarouselMovies(hotApiUrl, dbHotMovies, carouselTotalLimit);
+            List<Map<String, Object>> hotMovies = movieService.getMergedCarouselMovies(
+                hotApiUrl, dbHotMovies, finalCarouselLimit, MovieService.SortBy.HOT);
             model.addAttribute("hotMovies", hotMovies);
 
-            // 2. [BANNER] (Lấy phim đầu tiên của Hot Movies làm banner)
+            // 2. [SSR] Set Banner (dựa trên Phim Hot)
             setBanner(model, hotMovies);
             
-            // 3. [NEW MOVIES] (Gộp 10 DB + 10 API, lấy 10)
-            Page<Movie> dbNewMovies = movieService.getNewMoviesFromDB(carouselDbLimit);
-            String newApiUrl = BASE_URL + "/movie/now_playing?api_key=" + API_KEY + "&language=vi-VN&page=1";
-            model.addAttribute("newMovies", movieService.getMergedCarouselMovies(newApiUrl, dbNewMovies, carouselApiLimit));
-
-            // 4. [ANIME] (Gộp 10 DB + 10 API, lấy 10)
-            Page<Movie> dbAnime = movieService.getMoviesByGenreFromDB(16, carouselDbLimit, 0); // 16 = Hoạt hình
-            String animeApiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=16&sort_by=popularity.desc&page=1";
-            model.addAttribute("animeMovies", movieService.getMergedCarouselMovies(animeApiUrl, dbAnime, carouselApiLimit));
-
-            // 5. [KIDS] (Gộp 10 DB + 10 API, lấy 10)
-            Page<Movie> dbKids = movieService.getMoviesByGenreFromDB(10751, carouselDbLimit, 0); // 10751 = Gia đình
-            String kidsApiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=10751&sort_by=popularity.desc&page=1";
-            model.addAttribute("kidsMovies", movieService.getMergedCarouselMovies(kidsApiUrl, dbKids, carouselApiLimit));
-
-            // 6. [ACTION] (Gộp 10 DB + 10 API, lấy 10)
-            Page<Movie> dbAction = movieService.getMoviesByGenreFromDB(28, carouselDbLimit, 0); // 28 = Hành động
-            String actionApiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=28&sort_by=popularity.desc&page=1";
-            model.addAttribute("actionMovies", movieService.getMergedCarouselMovies(actionApiUrl, dbAction, carouselApiLimit));
+            // 3. [CSR] Trả về danh sách RỖNG cho 4 carousel còn lại
+            // JavaScript sẽ tải dữ liệu cho các carousel này
+            model.addAttribute("newMovies", new ArrayList<>());
+            model.addAttribute("animeMovies", new ArrayList<>());
+            model.addAttribute("kidsMovies", new ArrayList<>());
+            model.addAttribute("actionMovies", new ArrayList<>());
 
             return "index";
             
         } catch (Exception e) {
             System.err.println("ERROR in home(): " + e.getMessage());
             e.printStackTrace();
-            ensureDefaultAttributes(model);
+            ensureDefaultAttributes(model); // Hàm fallback
             return "index";
         }
     }
