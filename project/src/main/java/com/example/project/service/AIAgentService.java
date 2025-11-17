@@ -779,7 +779,7 @@ public class AIAgentService {
         return sb.toString();
     }
 
-    private boolean isConfigured() { return geminiApiKey != null && !geminiApiKey.isEmpty(); }
+    public boolean isConfigured() { return geminiApiKey != null && !geminiApiKey.isEmpty(); }
     private void loadWebsiteContext() {} 
     private Map<String, Object> createResponse(String msg) { return Map.of("success", true, "message", msg, "type", "website", "timestamp", System.currentTimeMillis()); }
 }
