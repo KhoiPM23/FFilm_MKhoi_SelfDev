@@ -13,36 +13,46 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Autowired
     private UserRepository userRepository;
 
-    private final String ADMIN_EMAIL = "admin@ffilm.com";
-    private final String ADMIN_PASSWORD = "Admin@Ffilm2025!";
-
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        System.out.println("...[DataSeeder] Bắt đầu khởi tạo tài khoản mẫu...");
+
+        // 1. Tạo Admin (Logic cũ)
+        createAccountIfNotExist("admin@ffilm.com", "Admin@Ffilm2025!", "System Admin", "admin", "0987654321");
+
+        // 2. Tạo Nhân viên (Staff)
+        // Content Manager
+        createAccountIfNotExist("content@ffilm.com", "123456", "Content Manager", "content_manager", "0901000001");
         
-        // 1. Kiểm tra xem admin đã tồn tại chưa
-        if (userRepository.findByEmail(ADMIN_EMAIL).isEmpty()) {
-            
-            System.out.println("!!! CHƯA TỒN TẠI ADMIN, ĐANG TẠO ADMIN MỚI...");
+        // Moderator
+        createAccountIfNotExist("mod@ffilm.com", "123456", "Moderator", "moderator", "0902000002");
 
-            User adminUser = new User();
-            
-            // === ĐẢM BẢO TẤT CẢ CÁC TRƯỜNG @NOTBLANK ĐỀU ĐƯỢC SET ===
-            adminUser.setUserName("Admin FFilm");
-            adminUser.setEmail(ADMIN_EMAIL); // <-- DÒNG QUAN TRỌNG NHẤT
-            adminUser.setPassword(ADMIN_PASSWORD); // (Sẽ được băm bởi @PrePersist)
-            adminUser.setRole("admin");
-            adminUser.setPhoneNumber("0987654321");
-            // adminUser.setStatus(true); // (Trường status sẽ được set tự động bởi @PrePersist)
-            // =======================================================
+        // 3. Tạo 6 Users thường
+        for (int i = 1; i <= 6; i++) {
+            String email = "user" + i + "@gmail.com";
+            String name = "User Mẫu " + i;
+            String phone = "091234567" + i;
+            createAccountIfNotExist(email, "123456", name, "user", phone);
+        }
 
-            userRepository.save(adminUser);
-            
-            System.out.println("✅ TẠO ADMIN THÀNH CÔNG:");
-            System.out.println("   Email: " + ADMIN_EMAIL);
-            System.out.println("   Password: " + ADMIN_PASSWORD);
+        System.out.println("...[DataSeeder] ✅ Hoàn tất khởi tạo dữ liệu.");
+    }
 
+    // Hàm helper: Kiểm tra và tạo tài khoản nếu chưa tồn tại
+    private void createAccountIfNotExist(String email, String password, String name, String role, String phone) {
+        if (userRepository.findByEmail(email).isEmpty()) {
+            User user = new User();
+            user.setUserName(name);
+            user.setEmail(email);
+            user.setPassword(password); // Password sẽ được mã hóa bởi @PrePersist trong User entity
+            user.setRole(role);
+            user.setPhoneNumber(phone);
+            // status mặc định là true do @PrePersist
+
+            userRepository.save(user);
+            System.out.println("   + Đã tạo: " + email + " (" + role + ")");
         } else {
-            System.out.println("... Tài khoản admin đã tồn tại, bỏ qua việc tạo mới.");
+            System.out.println("   - Bỏ qua: " + email + " (Đã tồn tại)");
         }
     }
 }
