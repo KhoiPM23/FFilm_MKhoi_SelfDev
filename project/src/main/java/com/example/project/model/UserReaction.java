@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "UserReaction", uniqueConstraints = @UniqueConstraint(columnNames = { "userID", "tmdbId" }))
+// [FIX] Sửa columnNames từ "tmdbId" thành "movieID" để đúng với tên cột JoinColumn bên dưới
+@Table(name = "UserReaction", uniqueConstraints = @UniqueConstraint(columnNames = { "userID", "movieID" }))
 public class UserReaction {
 
     @Id
@@ -16,23 +17,25 @@ public class UserReaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "movieID", nullable = false) // Nối thẳng vào khóa chính (PK)
+    @JoinColumn(name = "movieID", nullable = false) // Đây là cột thực tế trong DB
     private Movie movie;
 
     @Column(nullable = false)
     private Boolean isLike;
 
     @Column(nullable = false, columnDefinition = "DATETIME DEFAULT GETDATE()")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
     // Constructors
     public UserReaction() {
+        this.createdAt = LocalDateTime.now();
     }
 
     public UserReaction(User user, Movie movie, Boolean isLike) {
         this.user = user;
         this.movie = movie;
         this.isLike = isLike;
+        this.createdAt = LocalDateTime.now();
     }
 
     // Getters & Setters
