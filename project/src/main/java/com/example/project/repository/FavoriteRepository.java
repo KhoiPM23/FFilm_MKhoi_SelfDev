@@ -8,17 +8,19 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.example.project.dto.MovieFavorite;
-import com.example.project.model.Movie;
 import com.example.project.model.UserFavorite;
 import com.example.project.model.UserFavoriteId;
 
 @Repository
 public interface FavoriteRepository extends JpaRepository<UserFavorite, UserFavoriteId> {
 
+    // [GIỮ NGUYÊN] Hàm kiểm tra tồn tại (sẽ dùng Internal ID sau khi Service được sửa)
     boolean existsByUserIDAndMovieID(Integer userID, Integer movieID);
 
-    @Query(value = "SELECT m.MovieID, m.title, m.posterPath FROM movie m " +
-            "JOIN UserFavorite uf ON m.movieID = uf.movieID " +
-            "WHERE uf.userID = :userID", nativeQuery = true)
+    // [SỬA LỖI QUERY] Thay đổi điều kiện JOIN từ m.tmdbId sang m.movieID
+    @Query(value = "SELECT m.movieID, m.title, m.posterPath,  m.tmdbId FROM Movie m " +
+            "JOIN UserFavorite uf ON m.movieID = uf.movieID " + // <--- ĐÃ SỬA: JOIN bằng Internal MovieID
+            "WHERE uf.userID = :userID ORDER BY uf.createAt DESC", // [BỔ SUNG] Sắp xếp theo ngày yêu thích gần nhất
+            nativeQuery = true)
     Page<MovieFavorite> findMoviesByUserID(@Param("userID") Integer userID, Pageable pageable);
 }

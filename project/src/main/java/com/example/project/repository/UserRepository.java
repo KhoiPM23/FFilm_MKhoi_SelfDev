@@ -10,16 +10,21 @@ import org.springframework.stereotype.Repository;
 
 import com.example.project.model.User;
 
-
 @Repository
 public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByEmail(String email);
+
     Optional<User> findById(int id);
+
     List<User> findByStatus(boolean status);
-    List<User> findByRole(String role); 
+
+    List<User> findByRole(String role);
 
     Page<User> findAll(Pageable pageable);
+
     Page<User> findByRole(String role, Pageable pageable);
+
     Page<User> findByEmail(String email, Pageable pageable);
+
     Page<User> findByStatus(boolean status, Pageable pageable);
 }

@@ -14,6 +14,8 @@ import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Join;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;

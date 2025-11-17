@@ -899,18 +899,123 @@
     // 7. LOGIC ACTION BUTTONS (GLOBAL ACTIONS)
     // =========================================================================
 
-    /**
-     * Xử lý nút Like/Yêu thích.
-     * @param {HTMLElement} button - Nút Like.
-     */
+    // =========================================================
+    // [FIX] HÀM XỬ LÝ YÊU THÍCH (LIKE/UNLIKE) CHO TOÀN BỘ APP
+    // =========================================================
     window.toggleHoverLike = function(button) {
-        button.classList.toggle('active');
-        const icon = button.querySelector('i');
-        if (button.classList.contains('active')) {
-            icon.classList.remove('far'); icon.classList.add('fas'); icon.style.color = '#E50914';
-        } else {
-            icon.classList.remove('fas'); icon.classList.add('far'); icon.style.color = '';
+        // Chặn click liên tục khi đang xử lý
+        if (button.classList.contains('loading')) return;
+        
+        const tmdbId = button.getAttribute('data-tmdb-id') || button.getAttribute('data-movie-id');
+        if (!tmdbId) {
+            console.error("Lỗi: Không tìm thấy ID phim");
+            return;
         }
+
+        const icon = button.querySelector('i');
+        const wasActive = button.classList.contains('active'); // Trạng thái hiện tại (trước khi click)
+        
+        // 1. UI "Lạc quan" (Optimistic UI): Đổi màu ngay lập tức cho mượt
+        updateLikeButtonVisual(button, icon, !wasActive);
+        button.classList.add('loading'); // Khóa nút tạm thời
+
+        // 2. Gọi API về Server
+        fetch(`/favorites/${tmdbId}`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json' 
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            button.classList.remove('loading'); // Mở khóa
+
+            if (data.status === 'added') {
+                // Server xác nhận ĐÃ THÊM -> Giữ màu đỏ (active)
+                updateLikeButtonVisual(button, icon, true);
+                showToast('Đã thêm vào danh sách yêu thích ❤️', 'success');
+            } 
+            else if (data.status === 'removed') {
+                // Server xác nhận ĐÃ XÓA -> Về màu trắng (inactive)
+                updateLikeButtonVisual(button, icon, false);
+                showToast('Đã xóa khỏi danh sách yêu thích 💔', 'success');
+            } 
+            else if (data.status === 'unauthorized') {
+                // Chưa đăng nhập -> Hoàn tác UI về trạng thái cũ
+                updateLikeButtonVisual(button, icon, wasActive);
+                if(confirm("Bạn cần đăng nhập để lưu phim. Đăng nhập ngay?")) {
+                    window.location.href = '/login';
+                }
+            } 
+            else {
+                // Lỗi khác -> Hoàn tác UI
+                updateLikeButtonVisual(button, icon, wasActive);
+                showToast('Lỗi hệ thống! Vui lòng thử lại.', 'error');
+            }
+        })
+        .catch(error => {
+            button.classList.remove('loading');
+            console.error("Lỗi Like:", error);
+            // Lỗi mạng -> Hoàn tác UI
+            updateLikeButtonVisual(button, icon, wasActive); 
+            showToast('Lỗi kết nối! Vui lòng kiểm tra mạng.', 'error');
+        });
+    };
+
+    // Hàm phụ trợ đổi màu icon (Dùng chung)
+    function updateLikeButtonVisual(btn, icon, isActive) {
+        if (isActive) {
+            btn.classList.add('active');
+            icon.classList.remove('far'); 
+            icon.classList.add('fas'); 
+            icon.style.color = '#E50914'; // Đỏ
+        } else {
+            btn.classList.remove('active');
+            icon.classList.remove('fas'); 
+            icon.classList.add('far'); 
+            icon.style.color = ''; // Trắng (hoặc mặc định)
+        }
+    }
+
+    // Hàm hiển thị thông báo nhỏ (Toast)
+    function showToast(message, type) {
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            // Tạo toast nếu chưa có (để dùng cho mọi trang)
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'toast';
+            toast.innerHTML = '<i class="toast-icon"></i><span id="toastMessage"></span>';
+            document.body.appendChild(toast);
+            
+            // CSS động cho toast (nếu file css chưa có)
+            toast.style.cssText = 'position: fixed; top: 80px; right: 20px; background: #333; color: #fff; padding: 15px 25px; border-radius: 8px; z-index: 99999; display: none; align-items: center; gap: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: opacity 0.3s ease;';
+        }
+        
+        const msgSpan = document.getElementById('toastMessage');
+        const icon = toast.querySelector('.toast-icon');
+        
+        msgSpan.textContent = message;
+        
+        // Màu sắc theo loại
+        if(type === 'success') {
+            toast.style.borderLeft = '5px solid #28a745';
+            icon.className = 'toast-icon fas fa-check-circle';
+            icon.style.color = '#28a745';
+        } else {
+            toast.style.borderLeft = '5px solid #dc3545';
+            icon.className = 'toast-icon fas fa-exclamation-circle';
+            icon.style.color = '#dc3545';
+        }
+        
+        toast.style.display = 'flex';
+        toast.style.opacity = '1';
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => { toast.style.display = 'none'; }, 300);
+        }, 3000);
     }
 
     /**

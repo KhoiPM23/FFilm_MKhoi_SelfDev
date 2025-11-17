@@ -3,6 +3,9 @@ package com.example.project.controller;
 import com.example.project.model.Movie;
 import com.example.project.model.Person; 
 import com.example.project.service.MovieService;
+import com.example.project.dto.UserSessionDto; // [THÊM] Import UserSessionDto
+import com.example.project.repository.FavoriteRepository; // [THÊM] Import Repo
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate; 
+
+import jakarta.servlet.http.HttpSession;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,6 +39,8 @@ public class MovieDetailController {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    @Autowired private FavoriteRepository favoriteRepository;
 
     // Bảng Map Ngôn ngữ (Dùng cho hiển thị trên UI)
     private static final Map<String, String> LANGUAGE_MAP = createLanguageMap();
@@ -142,23 +149,6 @@ public class MovieDetailController {
             e.printStackTrace();
             return createClientSideFallback(finalIdStr, model);
         }
-    }
-
-    // Hiển thị trang Video Player
-    @GetMapping("/movie/player/{id}")
-    public String moviePlayer(@PathVariable String id, Model model) {
-        if (id == null || id.isEmpty()) return "redirect:/";
-        
-        try {
-            Movie movie = movieService.getMovieById(Integer.parseInt(id));
-            model.addAttribute("movie", movie);
-        } catch (Exception e) {
-            System.err.println("Lỗi load Movie cho Player: " + e.getMessage());
-            model.addAttribute("movie", new Movie()); 
-        }
-
-        model.addAttribute("movieId", id);
-        return "movie/player";
     }
 
     //---- 3. HELPER FUNCTIONS ----

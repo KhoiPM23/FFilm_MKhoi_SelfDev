@@ -32,9 +32,11 @@
             </button>
             <button class="hover-action-icon hover-like-btn" 
                     type="button"
+                    th:data-movie-id="${movie.id}" 
                     th:onclick="'event.stopPropagation(); toggleHoverLike(this)'"
                     title="Thêm vào danh sách">
-                <i class="far fa-heart"></i> </button>
+                <i class="far fa-heart"></i> 
+            </button>
             <button class="hover-action-icon hover-share-btn" 
                     type="button"
                     th:data-movie-id="${movie.id}"

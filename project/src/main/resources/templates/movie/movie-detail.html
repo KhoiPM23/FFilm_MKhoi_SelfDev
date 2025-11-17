@@ -48,9 +48,17 @@
                 </div>
 
                 <div class="hero-actions">
-                    <a th:href="@{'/movie/player/' + ${movieId}}" class="btn-play"><i class="fas fa-play"></i> Xem phim</a>
+                    <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"><i class="fas fa-play"></i> Xem phim</a>
                     <div class="action-buttons-group">
-                        <button class="btn-circle hero-action-icon hover-like-btn" onclick="toggleHoverLike(this)" title="Yêu thích"><i class="far fa-heart"></i></button>
+                        <button
+                            th:attr="data-movie-id=${tmdbId}"
+                            class="btn-circle hero-action-icon hover-like-btn"
+                            th:classappend="${isFavorite} ? 'active' : ''"  onclick="toggleHoverLike(this)"
+                            title="Yêu thích"
+                        >
+                            <i th:class="${isFavorite} ? 'fas fa-heart' : 'far fa-heart'"
+                            th:style="${isFavorite} ? 'color: #E50914' : ''"></i>
+                        </button>
                         <button class="btn-circle hero-action-icon hover-share-btn" 
                                 th:data-movie-id="${movieId}" 
                                 th:data-movie-title="${movie.title}"

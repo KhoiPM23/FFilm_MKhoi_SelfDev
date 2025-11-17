@@ -1,234 +1,1250 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${movie.title} + ' | FFilm Player'">Xem phim - FFilm</title>
-    <meta name="movie-id" th:content="${movie.movieID}">
-    <meta th:if="${movie.tmdbId}" name="tmdb-id" th:content="${movie.tmdbId}">
+    <title
+      th:text="${movie?.title != null ? movie.title + ' | FFilm Player' : 'Không tìm thấy phim'}"
+    >
+      Xem phim - FFilm
+    </title>
 
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/footer.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Hidden input for user ID -->
+    <input type="hidden" id="currentUserId" th:value="${session.user?.id}" />
+
+    <!-- Meta tag for TMDB ID -->
+    <meta
+      th:if="${movie?.tmdbId}"
+      name="tmdb-id"
+      th:content="${movie.tmdbId}"
+    />
+
+    <!-- CSS Links -->
+    <link rel="stylesheet" href="/css/footer.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
 
     <style>
-        /* === GIỮ NGUYÊN CSS CŨ === */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f0f; color: #fff; line-height: 1.6; overflow-x: hidden; }
-        .content-wrapper { padding-top: 80px; max-width: 1800px; margin: 0 auto; display: grid; grid-template-columns: 1fr 400px; gap: 24px; padding-left: 24px; padding-right: 24px; position: relative; z-index: 2; }
-        
-        /* Backdrop Overlay - Nền mờ */
-        .backdrop-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0.15; filter: blur(30px) saturate(120%); background-size: cover; background-position: center; pointer-events: none; transition: all 0.5s ease; }
-        
-        /* Badges & Tags */
-        .badge { padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-left: 12px; vertical-align: middle; display: inline-block; transform: translateY(-2px); }
-        .badge-vip { background: linear-gradient(45deg, #ffc107, #ffdb4d); color: #000; }
-        .badge-free { background: linear-gradient(45deg, #28a745, #34ce57); color: #fff; }
-        .genre-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-        .genre-tag { background: rgba(229, 9, 20, 0.1); border: 1px solid rgba(229, 9, 20, 0.3); color: #ff4d4d; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500; }
-        .person-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-        .person-tag { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 13px; color: #ddd; }
+      /* === CSS CƠ BẢN === */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        /* Player & Info */
-        .main-content { width: 100%; }
-        .video-container { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; position: relative; padding-top: 56.25%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        .video-title { font-size: 26px; font-weight: 700; line-height: 1.3; margin-bottom: 15px; color: #fff; display: flex; align-items: center; }
-        .video-meta { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid #2a2a2a; }
-        .video-stats { display: flex; gap: 15px; align-items: center; font-size: 15px; color: #aaa; }
-        .video-actions { display: flex; gap: 10px; }
-        .action-button { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #272727; border: none; border-radius: 24px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .action-button:hover { background: #3f3f3f; transform: translateY(-2px); }
-        
-        .description-box, .movie-info-card, .season-container { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-top: 20px; border: 1px solid #333; }
-        .description-text { font-size: 15px; line-height: 1.7; color: #ccc; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .description-text.expanded { -webkit-line-clamp: unset; }
-        .show-more-btn { background: none; border: none; color: #E50914; font-weight: 600; cursor: pointer; padding: 10px 0 0; font-size: 14px; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px; border-bottom: 1px solid #2a2a2a; }
-        .season-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; }
-        .season-item { background: #272727; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid transparent; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #0f0f0f;
+        color: #fff;
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
 
-        /* Comments & Sidebar */
-        .comments-section { margin-top: 40px; }
-        .comments-header { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; }
-        .comments-count { font-size: 22px; font-weight: 700; }
-        .comment-list { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
-        .comment-item { display: flex; gap: 16px; }
-        .user-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #E50914, #ff6b6b); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; }
-        .comment-content { flex: 1; background: #1a1a1a; padding: 15px; border-radius: 0 12px 12px 12px; border: 1px solid #333; }
-        .comment-author { font-weight: 600; margin-bottom: 5px; display: flex; justify-content: space-between; }
-        .comment-time { font-size: 13px; color: #888; font-weight: 400; }
+      .content-wrapper {
+        padding-top: 80px;
+        max-width: 1800px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 24px;
+        padding-left: 24px;
+        padding-right: 24px;
+        position: relative;
+        z-index: 2;
+      }
 
-        .sidebar { display: flex; flex-direction: column; gap: 15px; }
-        .section-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; border-left: 4px solid #E50914; padding-left: 12px; }
-        .recommended-video { display: flex; gap: 12px; cursor: pointer; padding: 10px; border-radius: 10px; transition: all 0.2s; background: #1a1a1a; text-decoration: none; color: inherit; border: 1px solid transparent; }
-        .recommended-video:hover { background: #252525; border-color: #333; transform: translateX(5px); }
-        .rec-thumbnail { width: 160px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; position: relative; background: #222; }
-        .rec-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .rec-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .rec-meta { font-size: 13px; color: #aaa; }
+      .backdrop-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.15;
+        filter: blur(30px) saturate(120%);
+        background-size: cover;
+        background-position: center;
+        pointer-events: none;
+      }
 
-        @media (max-width: 1024px) { .content-wrapper { grid-template-columns: 1fr; } .sidebar { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
+      .badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        margin-left: 12px;
+        vertical-align: middle;
+      }
+
+      .badge-vip {
+        background: linear-gradient(45deg, #ffc107, #ffdb4d);
+        color: #000;
+      }
+
+      .badge-free {
+        background: linear-gradient(45deg, #28a745, #34ce57);
+        color: #fff;
+      }
+
+      .video-container {
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        position: relative;
+        padding-top: 56.25%;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .video-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+
+      .video-title {
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1.3;
+        margin-bottom: 15px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+      }
+
+      .video-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #2a2a2a;
+      }
+
+      .video-stats {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        font-size: 15px;
+        color: #aaa;
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 15px;
+        border-left: 4px solid #e50914;
+        padding-left: 12px;
+      }
+
+      .recommended-video {
+        display: flex;
+        gap: 12px;
+        cursor: pointer;
+        padding: 10px;
+        border-radius: 10px;
+        transition: all 0.2s;
+        background: #1a1a1a;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid transparent;
+      }
+
+      .recommended-video:hover {
+        background: #252525;
+        border-color: #333;
+        transform: translateX(5px);
+      }
+
+      .rec-thumbnail {
+        width: 160px;
+        height: 90px;
+        flex-shrink: 0;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+        background: #222;
+      }
+
+      .rec-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .rec-title {
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.4;
+        margin-bottom: 6px;
+      }
+
+      .rec-meta {
+        font-size: 13px;
+        color: #aaa;
+      }
+
+      /* === CSS HỘP GỘP & BÌNH LUẬN === */
+      .movie-details-box,
+      .comments-section {
+        background: #1a1a1a;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid #333;
+      }
+
+      .description-content,
+      .info-content {
+        padding: 0;
+      }
+
+      .description-text {
+        font-size: 15px;
+        line-height: 1.7;
+        color: #ccc;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .description-text.expanded {
+        -webkit-line-clamp: unset;
+      }
+
+      .show-more-btn {
+        background: none;
+        border: none;
+        color: #e50914;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 10px 0 0;
+        font-size: 14px;
+      }
+
+      .details-separator {
+        border: none;
+        height: 1px;
+        background-color: #2a2a2a;
+        margin: 20px 0;
+      }
+
+      /* === CSS BÌNH LUẬN === */
+      .comments-header {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 25px;
+      }
+
+      .comments-count {
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .comment-input-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+      }
+
+      .user-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e50914, #ff6b6b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .comment-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 30px;
+      }
+
+      .comment-item {
+        display: flex;
+        gap: 16px;
+      }
+
+      .comment-content {
+        flex: 1;
+        background: #1a1a1a;
+        padding: 15px;
+        border-radius: 0 12px 12px 12px;
+        border: 1px solid #333;
+      }
+
+      .comment-author {
+        font-weight: 600;
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .comment-time {
+        font-size: 13px;
+        color: #888;
+        font-weight: 400;
+      }
+
+      /* === CSS THÔNG TIN PHIM === */
+      .info-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 0;
+        border-bottom: 1px solid #2a2a2a;
+      }
+
+      .info-row:last-child {
+        border-bottom: none;
+      }
+
+      .info-label {
+        color: #aaa;
+        flex-shrink: 0;
+        margin-right: 0;
+        padding-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .info-label i {
+        width: 16px;
+        text-align: center;
+        color: #777;
+      }
+
+      .info-value {
+        color: #fff;
+        text-align: right;
+        font-weight: 500;
+        font-size: 15px;
+      }
+
+      /* === CSS DIỄN VIÊN === */
+      .info-row.actor-row {
+        align-items: start;
+      }
+
+      .info-row.actor-row .info-label {
+        padding-top: 12px;
+      }
+
+      .actor-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: flex-start;
+      }
+
+      .actor-card {
+        width: 100px;
+        text-align: center;
+      }
+
+      .actor-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-bottom: 8px;
+        background: #333;
+        border: 2px solid #444;
+      }
+
+      .actor-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .actor-name {
+        font-size: 13px;
+        color: #ccc;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* === CSS BÌNH LUẬN INPUT === */
+      .comment-input-field {
+        width: 100%;
+        padding: 12px 0;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid #333;
+        color: #fff;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .comment-input-field:focus {
+        border-bottom-color: #e50914;
+      }
+
+      .comment-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+        display: none;
+      }
+
+      .comment-input-field:focus + .comment-actions {
+        display: flex;
+      }
+
+      .action-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 24px;
+        background: #555;
+        border: none;
+        border-radius: 24px;
+        color: #999;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .action-button:not(:disabled) {
+        background: #e50914;
+        color: #fff;
+      }
+
+      .action-button:not(:disabled):hover {
+        background: #ff1a2a;
+        transform: translateY(-2px);
+      }
+
+      /* === CSS LIKE/DISLIKE BUTTONS === */
+      .engagement-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .like-dislike-container {
+        display: flex;
+        background: #272727;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #3f3f3f;
+      }
+
+      .engagement-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+      }
+
+      .engagement-btn:hover {
+        background: #3f3f3f;
+      }
+
+      .engagement-btn i {
+        font-size: 18px;
+        transition: transform 0.3s ease;
+      }
+
+      .like-btn {
+        border-right: 1px solid #3f3f3f;
+        padding-right: 16px;
+      }
+
+      .like-btn.active {
+        color: #3ea6ff;
+      }
+
+      .like-btn.active i {
+        animation: likeAnimation 0.5s ease;
+      }
+
+      .dislike-btn {
+        padding-left: 16px;
+      }
+
+      .dislike-btn.active {
+        color: #ff4444;
+      }
+
+      .dislike-btn.active i {
+        animation: dislikeAnimation 0.5s ease;
+      }
+
+      @keyframes likeAnimation {
+        0% {
+          transform: scale(1);
+        }
+        25% {
+          transform: scale(1.3) rotate(-10deg);
+        }
+        50% {
+          transform: scale(1.3) rotate(10deg);
+        }
+        75% {
+          transform: scale(1.3) rotate(-5deg);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      @keyframes dislikeAnimation {
+        0% {
+          transform: scale(1) rotate(0deg);
+        }
+        25% {
+          transform: scale(1.3) rotate(10deg);
+        }
+        50% {
+          transform: scale(1.3) rotate(-10deg);
+        }
+        75% {
+          transform: scale(1.3) rotate(5deg);
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+        }
+      }
+
+      .count {
+        font-size: 13px;
+        font-weight: 600;
+        min-width: 20px;
+      }
+
+      /* === CSS RESPONSIVE === */
+      @media (max-width: 1024px) {
+        .content-wrapper {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+
+        .info-row {
+          grid-template-columns: 100px 1fr;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .engagement-btn {
+          padding: 8px 12px;
+          font-size: 13px;
+        }
+
+        .engagement-btn i {
+          font-size: 16px;
+        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
-    <div th:if="${movie.backdropPath}" class="backdrop-overlay"
-         th:with="bgPath=${movie.backdropPath.startsWith('http') ? movie.backdropPath : 'https://image.tmdb.org/t/p/original' + movie.backdropPath}"
-         th:style="'background-image: url(' + ${bgPath} + ')'">
-    </div>
-
+  <body>
     <div th:replace="~{fragments/header :: header}"></div>
 
-    <div class="content-wrapper">
+    <div th:if="${movie}">
+      <div
+        th:if="${movie.backdropPath}"
+        class="backdrop-overlay"
+        th:with="bgPath=${movie.backdropPath.startsWith('http') ? movie.backdropPath : 'https://image.tmdb.org/t/p/original' + movie.backdropPath}"
+        th:style="'background-image: url(' + ${bgPath} + ')'"
+      ></div>
+
+      <div class="content-wrapper">
         <div class="main-content">
-            <div class="video-container">
-                <iframe th:src="${movie.url}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" title="Movie Player"></iframe>
+          <!-- Video Player -->
+          <div
+            id="player-wrapper"
+            class="video-container"
+            th:attr="data-movie-id=${movie.movieID}"
+          >
+            <iframe
+              th:if="${movie.url}"
+              th:src="${movie.url}"
+              allowfullscreen
+              title="Movie Player"
+            ></iframe>
+            <div
+              th:unless="${movie.url}"
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                position: absolute;
+                width: 100%;
+              "
+            >
+              Chưa có link video
+            </div>
+          </div>
+
+          <!-- Video Info -->
+          <div class="video-info">
+            <h1 class="video-title">
+              <span
+                th:text="${movie.title != null ? movie.title : 'Phim chưa có tên'}"
+                >Tên Phim</span
+              >
+              <span th:if="${movie.isFree}" class="badge badge-free">
+                <i class="fas fa-gift"></i> MIỄN PHÍ
+              </span>
+              <span th:unless="${movie.isFree}" class="badge badge-vip">
+                <i class="fas fa-crown"></i> VIP
+              </span>
+            </h1>
+
+            <div class="video-meta">
+              <div class="video-stats">
+                <span>
+                  <i class="far fa-calendar-alt"></i>
+                  <span
+                    th:text="${movie.releaseDate != null ? #dates.format(movie.releaseDate, 'yyyy') : 'N/A'}"
+                    >2025</span
+                  >
+                </span>
+                <span>•</span>
+                <span>
+                  <i class="far fa-clock"></i>
+                  <span th:text="${movie.duration}">0</span>p
+                </span>
+                <span>•</span>
+                <span>
+                  <i class="fas fa-star" style="color: #ffc107"></i>
+                  <span th:text="${movie.rating}">0.0</span>
+                </span>
+                <span>•</span>
+                <span>
+                  <i class="far fa-comment"></i>
+                  <span
+                    th:text="${movie.comments != null ? movie.comments.size() : 0}"
+                    >0</span
+                  >
+                </span>
+              </div>
+
+              <!-- Like/Dislike Buttons -->
+              <div class="engagement-buttons">
+                <div class="like-dislike-container">
+                  <button
+                    class="engagement-btn like-btn"
+                    id="likeBtn"
+                    onclick="handleLike()"
+                  >
+                    <i class="far fa-thumbs-up"></i>
+                    <span class="count" id="likeCount">0</span>
+                  </button>
+                  <button
+                    class="engagement-btn dislike-btn"
+                    id="dislikeBtn"
+                    onclick="handleDislike()"
+                  >
+                    <i class="far fa-thumbs-down"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Movie Details Box -->
+          <div class="movie-details-box">
+            <div class="description-content" th:if="${movie.description}">
+              <div
+                style="font-weight: 600; margin-bottom: 10px; color: #e5e5e5"
+              >
+                Nội dung chính
+              </div>
+              <div
+                class="description-text"
+                id="descText"
+                th:text="${movie.description}"
+              >
+                Đang tải mô tả...
+              </div>
+              <button
+                class="show-more-btn"
+                id="toggleDescBtn"
+                onclick="toggleDescription()"
+              >
+                Hiển thị thêm <i class="fas fa-chevron-down"></i>
+              </button>
             </div>
 
-            <div class="video-info">
-                <h1 class="video-title">
-                    <span th:text="${movie.title}">Tên Phim</span>
-                    <span th:if="${movie.isFree}" class="badge badge-free"><i class="fas fa-gift"></i> MIỄN PHÍ</span>
-                    <span th:unless="${movie.isFree}" class="badge badge-vip"><i class="fas fa-crown"></i> VIP</span>
-                </h1>
-                <div class="video-meta">
-                    <div class="video-stats">
-                        <span><i class="far fa-calendar-alt"></i> <span th:text="${#dates.format(movie.releaseDate, 'yyyy')}">2025</span></span>
-                        <span>•</span>
-                        <span><i class="far fa-clock"></i> <span th:text="${movie.duration}">120</span>p</span>
-                        <span>•</span>
-                        <span><i class="fas fa-star" style="color: #ffc107;"></i> <span th:text="${movie.rating}">9.0</span></span>
-                        <span>•</span>
-                        <span><i class="far fa-comment"></i> <span th:text="${movie.comments != null ? movie.comments.size() : 0}">0</span></span>
+            <hr
+              class="details-separator"
+              th:if="${movie.description != null AND (
+                        (movie.revenue != null and movie.revenue > 0) OR
+                        (movie.budget != null and movie.budget > 0) OR
+                        (movie.country != null) OR
+                        (movie.language != null) OR
+                        (not #lists.isEmpty(movie.persons))
+                    )}"
+            />
+
+            <div class="info-content">
+              <div
+                class="info-row"
+                th:if="${movie.revenue != null and movie.revenue > 0}"
+              >
+                <span class="info-label"
+                  ><i class="fas fa-dollar-sign"></i> Doanh thu:</span
+                >
+                <span
+                  class="info-value"
+                  th:text="'$' + ${#numbers.formatDecimal(movie.revenue, 0, 'COMMA', 0, 'POINT')}"
+                ></span>
+              </div>
+              <div
+                class="info-row"
+                th:if="${movie.budget != null and movie.budget > 0}"
+              >
+                <span class="info-label"
+                  ><i class="fas fa-wallet"></i> Ngân sách:</span
+                >
+                <span
+                  class="info-value"
+                  th:text="'$' + ${#numbers.formatDecimal(movie.budget, 0, 'COMMA', 0, 'POINT')}"
+                ></span>
+              </div>
+              <div class="info-row" th:if="${movie.country}">
+                <span class="info-label"
+                  ><i class="fas fa-flag"></i> Quốc gia:</span
+                >
+                <span class="info-value" th:text="${movie.country}"></span>
+              </div>
+              <div class="info-row" th:if="${movie.language}">
+                <span class="info-label"
+                  ><i class="fas fa-globe"></i> Ngôn ngữ:</span
+                >
+                <span class="info-value" th:text="${movie.language}"></span>
+              </div>
+
+              <div
+                class="info-row actor-row"
+                th:if="${not #lists.isEmpty(movie.persons)}"
+              >
+                <span class="info-label"
+                  ><i class="fas fa-users"></i> Diễn viên & NSX:</span
+                >
+                <div class="info-value">
+                  <div class="actor-list">
+                    <div class="actor-card" th:each="person : ${movie.persons}">
+                      <div class="actor-avatar">
+                        <img
+                          th:src="${person.profilePath != null ? 'https://image.tmdb.org/t/p/w185' + person.profilePath : 'https://placehold.co/100x150?text=N/A'}"
+                          th:alt="${person.fullName}"
+                          onerror="this.onerror=null; this.src='https://placehold.co/100x150?text=N/A';"
+                        />
+                      </div>
+                      <span class="actor-name" th:text="${person.fullName}"
+                        >Diễn viên A</span
+                      >
                     </div>
-                    <div class="video-actions">
-                        <button class="action-button"><i class="fas fa-thumbs-up"></i> <span>Thích</span></button>
-                        <button class="action-button"><i class="fas fa-share-alt"></i> <span>Chia sẻ</span></button>
-                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comments Section -->
+          <div class="comments-section">
+            <div class="comments-header">
+              <h2 class="comments-count">
+                <span
+                  th:text="${movie.comments != null ? movie.comments.size() : 0}"
+                  >0</span
+                >
+                Bình luận
+              </h2>
             </div>
 
-            <div class="description-box">
-                <div style="font-weight: 600; margin-bottom: 10px; color: #e5e5e5;">Nội dung chính</div>
-                <div class="description-text" id="descText" th:text="${movie.description}">Đang tải mô tả...</div>
-                <button class="show-more-btn" id="toggleDescBtn" onclick="toggleDescription()">Hiển thị thêm <i class="fas fa-chevron-down"></i></button>
+            <div class="comment-input-box">
+              <div class="user-avatar"><i class="fas fa-user"></i></div>
+              <div style="flex: 1">
+                <input
+                  type="text"
+                  placeholder="Viết bình luận..."
+                  class="comment-input-field"
+                />
+                <div class="comment-actions">
+                  <button
+                    class="action-button"
+                    id="btn-submit-comment"
+                    disabled
+                  >
+                    Gửi
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div class="season-container" th:if="${not #lists.isEmpty(movie.seasons)}">
-                <div style="font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-layer-group" style="color: #E50914;"></i> Các mùa phim
-                </div>
-                <div class="season-list">
-                    <div class="season-item" th:each="season : ${movie.seasons}">
-                        <span th:text="${season.seasonName}">Mùa 1</span>
+            <div class="comment-list">
+              <th:block th:if="${not #lists.isEmpty(movie.comments)}">
+                <div class="comment-item" th:each="cmt : ${movie.comments}">
+                  <div
+                    class="user-avatar"
+                    th:text="${cmt.user != null ? #strings.substring(cmt.user.username,0,1).toUpperCase() : 'U'}"
+                  >
+                    U
+                  </div>
+                  <div class="comment-content">
+                    <div class="comment-author">
+                      <span
+                        th:text="${cmt.user != null ? cmt.user.username : 'Ẩn danh'}"
+                        >Username</span
+                      >
+                      <span
+                        class="comment-time"
+                        th:text="${cmt.createAt != null ? #dates.format(cmt.createAt, 'dd/MM/yyyy HH:mm') : 'Vừa xong'}"
+                      >
+                        Vừa xong
+                      </span>
                     </div>
-                </div>
-            </div>
-
-            <div class="movie-info-card">
-                <div class="info-row">
-                    <span class="info-label">Ngày phát hành:</span>
-                    <span class="info-value" th:text="${#dates.format(movie.releaseDate, 'dd/MM/yyyy')}">01/01/2025</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Thể loại:</span>
-                    <div class="info-value genre-tags">
-                        <span class="genre-tag" th:each="cat : ${movie.categories}" th:text="${cat.categoryName}">Hành động</span>
-                    </div>
-                </div>
-                <div class="info-row" th:if="${not #lists.isEmpty(movie.persons)}">
-                    <span class="info-label">Diễn viên & NSX:</span>
-                    <div class="info-value person-list">
-                        <span class="person-tag" th:each="p : ${movie.persons}" th:text="${p.personName}">Tên diễn viên</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="comments-section">
-                <div class="comments-header">
-                    <h2 class="comments-count"><span th:text="${movie.comments != null ? movie.comments.size() : 0}">0</span> Bình luận</h2>
-                </div>
-                <div style="display: flex; gap: 15px; margin-bottom: 30px;">
-                    <div class="user-avatar"><i class="fas fa-user"></i></div>
-                    <div style="flex: 1;">
-                        <input type="text" placeholder="Viết bình luận..." style="width: 100%; padding: 12px 0; background: transparent; border: none; border-bottom: 2px solid #333; color: #fff; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderBottomColor='#E50914'" onblur="this.style.borderBottomColor='#333'">
-                         <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                            <button class="action-button" style="background: #065fd4; padding: 8px 20px;" disabled>Gửi</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="comment-list">
-                    <div class="comment-item" th:each="cmt : ${movie.comments}">
-                        <div class="user-avatar" th:text="${cmt.user != null ? #strings.substring(cmt.user.username,0,1).toUpperCase() : 'U'}">U</div>
-                        <div class="comment-content">
-                            <div class="comment-author">
-                                <span th:text="${cmt.user != null ? cmt.user.username : 'Ẩn danh'}">Username</span>
-                                <span class="comment-time" th:text="${#dates.format(cmt.createdAt, 'dd/MM/yyyy HH:mm')}">Vừa xong</span>
-                            </div>
-                            <p style="color: #ddd;" th:text="${cmt.content}">Nội dung bình luận</p>
-                        </div>
-                    </div>
-                    <div th:if="${#lists.isEmpty(movie.comments)}" style="text-align: center; color: #777; padding: 20px;">Chưa có bình luận nào.</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar">
-            <h3 class="section-title">Top phim</h3>
-            <a th:each="rec : ${recommendedMovies}" 
-               th:href="@{/movie/player/{id}(id=${rec.movieID})}" 
-               class="recommended-video">
-                
-                <div class="rec-thumbnail">
-                    <img th:with="thumbPath=${rec.backdropPath != null && !rec.backdropPath.isEmpty() ? rec.backdropPath : rec.posterPath}"
-                         th:src="${thumbPath != null && thumbPath.startsWith('http') ? thumbPath : 'https://image.tmdb.org/t/p/w500' + thumbPath}"
-                         alt="Thumbnail"
-                         style="width: 100%; height: 100%; object-fit: cover;"
-                         onerror="this.onerror=null; this.src='https://placehold.co/320x180?text=No+Image'">
-                         
-                    <span class="badge badge-vip" style="position: absolute; top: 5px; left: 5px; font-size: 10px; padding: 2px 6px;" th:if="${!rec.isFree}">VIP</span>
-                    <span style="position: absolute; bottom: 5px; right: 5px; background: rgba(0,0,0,0.8); padding: 1px 5px; border-radius: 4px; font-size: 11px;" th:text="${rec.duration} + 'p'">120p</span>
-                </div>
-                
-                <div class="rec-info">
-                    <h4 class="rec-title" th:text="${rec.title}">Tên phim đề xuất</h4>
-                    <p class="rec-meta">
-                        <span th:text="${#dates.format(rec.releaseDate, 'yyyy')}">2025</span> • 
-                        <i class="fas fa-star" style="color: #ffc107; font-size: 11px;"></i> <span th:text="${rec.rating}">9.0</span>
+                    <p style="color: #ddd" th:text="${cmt.content}">
+                      Nội dung bình luận
                     </p>
+                  </div>
                 </div>
-            </a>
+              </th:block>
+
+              <div
+                th:if="${#lists.isEmpty(movie.comments)}"
+                style="text-align: center; color: #777; padding: 20px"
+              >
+                Chưa có bình luận nào. Hãy là người đầu tiên!
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <h3 class="section-title">Có thể bạn thích</h3>
+          <div
+            th:if="${recommendedMovies != null and not #lists.isEmpty(recommendedMovies)}"
+          >
+            <a
+              th:each="rec : ${recommendedMovies}"
+              th:href="@{/movie/player/{tmdbid}(tmdbid=${rec.tmdbId})}"
+              class="recommended-video"
+            >
+              <div class="rec-thumbnail">
+                <img
+                  th:with="thumbPath=${rec.backdropPath != null ? rec.backdropPath : rec.posterPath}"
+                  th:src="${thumbPath != null ? (thumbPath.startsWith('http') ? thumbPath : 'https://image.tmdb.org/t/p/w500' + thumbPath) : '/images/no-poster.png'}"
+                  alt="Thumbnail"
+                  style="width: 100%; height: 100%; object-fit: cover"
+                  onerror="this.onerror=null; this.src='/images/no-poster.png';"
+                />
+              </div>
+              <div class="rec-info">
+                <h4 class="rec-title" th:text="${rec.title}">Tên phim</h4>
+                <p class="rec-meta">
+                  <span
+                    th:text="${rec.releaseDate != null ? #dates.format(rec.releaseDate, 'yyyy') : 'N/A'}"
+                    >2025</span
+                  >
+                  •
+                  <i
+                    class="fas fa-star"
+                    style="color: #ffc107; font-size: 11px"
+                  ></i>
+                  <span th:text="${rec.rating}">0.0</span>
+                </p>
+              </div>
+            </a>
+          </div>
+          <div
+            th:unless="${recommendedMovies != null and not #lists.isEmpty(recommendedMovies)}"
+          >
+            <p style="color: #666">Không có phim đề xuất.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- 404 Page -->
+    <div
+      th:unless="${movie}"
+      style="text-align: center; padding-top: 150px; color: #888"
+    >
+      <h2>404 - Không tìm thấy phim</h2>
+      <p>Phim bạn đang tìm kiếm có thể đã bị xóa hoặc không tồn tại.</p>
+      <a
+        href="/"
+        style="
+          color: #e50914;
+          text-decoration: none;
+          margin-top: 20px;
+          display: inline-block;
+        "
+      >
+        Quay về trang chủ
+      </a>
+    </div>
+
+    <footer>
+      <div th:replace="fragments/footer :: footer"></div>
+    </footer>
+
     <script>
-        function toggleDescription() {
-            const desc = document.getElementById('descText');
-            const btn = document.getElementById('toggleDescBtn');
-            if (desc.classList.contains('expanded')) {
-                desc.classList.remove('expanded');
-                btn.innerHTML = 'Hiển thị thêm <i class="fas fa-chevron-down"></i>';
-            } else {
-                desc.classList.add('expanded');
-                btn.innerHTML = 'Ẩn bớt <i class="fas fa-chevron-up"></i>';
-            }
+      // ===== TOGGLE DESCRIPTION =====
+      function toggleDescription() {
+        const desc = document.getElementById("descText");
+        const btn = document.getElementById("toggleDescBtn");
+        if (desc && btn) {
+          if (desc.classList.contains("expanded")) {
+            desc.classList.remove("expanded");
+            btn.innerHTML = 'Hiển thị thêm <i class="fas fa-chevron-down"></i>';
+          } else {
+            desc.classList.add("expanded");
+            btn.innerHTML = 'Ẩn bớt <i class="fas fa-chevron-up"></i>';
+          }
         }
-        document.addEventListener("DOMContentLoaded", function() {
-            const desc = document.getElementById('descText');
-            if (desc && desc.scrollHeight <= desc.clientHeight + 5) {
-                const btn = document.getElementById('toggleDescBtn');
-                if (btn) btn.style.display = 'none';
+      }
+
+      // ===== LIKE/DISLIKE FUNCTIONALITY =====
+      let likeCount = 0;
+      let userAction = null; // null, 'like', hoặc 'dislike'
+      let userId = null;
+      let tmdbId = null;
+      let isSubmitting = false; // Cờ chống click nhanh
+
+      // Init user data
+      function initUserData() {
+        const metaTag = document.querySelector('meta[name="tmdb-id"]');
+        if (metaTag) {
+          tmdbId = metaTag.getAttribute("content");
+        } else {
+          // Sửa lỗi chính tả: tmDbid -> tmdbId
+          tmdbId = window.location.pathname.split("/").pop();
+        }
+
+        const userIdInput = document.getElementById("currentUserId");
+        if (userIdInput && userIdInput.value) {
+          userId = parseInt(userIdInput.value);
+          console.log("User ID đã được tải:", userId); // Thêm log để kiểm tra
+        } else {
+          console.log("Không tìm thấy User ID input hoặc value rỗng."); // Thêm log
+        }
+      }
+
+      // Load like state from localStorage
+      function loadLikeStateFromStorage() {
+        const saved = localStorage.getItem(`movie_${tmdbId}_engagement`);
+        if (saved) {
+          const data = JSON.parse(saved);
+          likeCount = data.likeCount || 0;
+          userAction = data.userAction || null;
+          updateUI();
+        }
+      }
+
+      // Update UI
+      function updateUI() {
+        const likeBtn = document.getElementById("likeBtn");
+        const dislikeBtn = document.getElementById("dislikeBtn");
+        if (!likeBtn || !dislikeBtn) return;
+
+        const likeIcon = likeBtn.querySelector("i");
+        const dislikeIcon = dislikeBtn.querySelector("i");
+
+        document.getElementById("likeCount").textContent = likeCount;
+
+        // Reset all
+        likeBtn.classList.remove("active");
+        dislikeBtn.classList.remove("active");
+        likeIcon.classList.remove("fas");
+        likeIcon.classList.add("far");
+        dislikeIcon.classList.remove("fas");
+        dislikeIcon.classList.add("far");
+
+        // Active theo trạng thái
+        if (userAction === "like") {
+          likeBtn.classList.add("active");
+          likeIcon.classList.remove("far");
+          likeIcon.classList.add("fas");
+        } else if (userAction === "dislike") {
+          dislikeBtn.classList.add("active");
+          dislikeIcon.classList.remove("far");
+          dislikeIcon.classList.add("fas");
+        }
+      }
+
+      // Save like state
+      function saveLikeState() {
+        if (likeCount < 0) {
+          likeCount = 0;
+        }
+        localStorage.setItem(
+          `movie_${tmdbId}_engagement`,
+          JSON.stringify({
+            likeCount: likeCount,
+            userAction: userAction,
+          })
+        );
+      }
+
+      // Tách hàm disable/enable buttons
+      function setButtonsDisabled(disabled) {
+        const likeBtn = document.getElementById("likeBtn");
+        const dislikeBtn = document.getElementById("dislikeBtn");
+        if (likeBtn) likeBtn.disabled = disabled;
+        if (dislikeBtn) dislikeBtn.disabled = disabled;
+      }
+
+      // Call Like API
+      async function callLikeAPI() {
+        try {
+          const formData = new FormData();
+          formData.append("userId", userId);
+          formData.append("tmdbId", tmdbId);
+
+          const response = await fetch("/user-reaction/like", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            console.log("Like recorded");
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Error calling like API:", error);
+          return false;
+        }
+      }
+
+      // Call Dislike API
+      async function callDislikeAPI() {
+        try {
+          const formData = new FormData();
+          formData.append("userId", userId);
+          formData.append("tmdbId", tmdbId);
+
+          const response = await fetch("/user-reaction/dislike", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            console.log("Dislike recorded");
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Error calling dislike API:", error);
+          return false;
+        }
+      }
+
+      // Call Remove API
+      async function callRemoveAPI() {
+        try {
+          const formData = new FormData();
+          formData.append("userId", userId);
+          formData.append("tmdbId", tmdbId);
+
+          const response = await fetch("/user-reaction/remove", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            console.log("Reaction removed");
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Error calling remove API:", error);
+          return false;
+        }
+      }
+
+      // Handle Like (ĐÃ SỬA LỖI LOGIC -1)
+      async function handleLike() {
+        if (!userId) {
+          alert("Vui lòng đăng nhập!");
+          return;
+        }
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        setButtonsDisabled(true);
+
+        const previousAction = userAction;
+        const previousLikeCount = likeCount;
+        let success = true;
+
+        try {
+          if (userAction === "like") {
+            // 1. Bỏ like (từ "like" về "null")
+            likeCount--;
+            userAction = null;
+            success = await callRemoveAPI();
+          } else {
+            // 2. Thêm like (từ "null" hoặc "dislike" sang "like")
+
+            // Sửa lỗi logic -1: Bất kể đang là 'dislike' hay 'null',
+            // khi nhấn 'like' thì count đều phải tăng.
+            if (userAction === "dislike") {
+              // Chuyển từ dislike sang like
+            } else {
+              // Chuyển từ null sang like
             }
-        });
-        window.addEventListener('scroll', function() {
-            const header = document.querySelector('.main-header');
-            if (header) {
-                header.style.background = window.scrollY > 50 ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.95)';
-                header.style.boxShadow = window.scrollY > 50 ? '0 4px 20px rgba(0,0,0,0.4)' : 'none';
+            likeCount++; // Gộp chung logic
+
+            userAction = "like";
+            success = await callLikeAPI();
+          }
+
+          if (!success) {
+            userAction = previousAction;
+            likeCount = previousLikeCount;
+            alert("Có lỗi xảy ra, vui lòng thử lại!");
+          }
+        } catch (error) {
+          console.error("Lỗi mạng trong handleLike:", error);
+          userAction = previousAction;
+          likeCount = previousLikeCount;
+        } finally {
+          updateUI();
+          saveLikeState();
+          isSubmitting = false;
+          setButtonsDisabled(false);
+        }
+      }
+
+      // Handle Dislike (ĐÃ SỬA LOGIC)
+      async function handleDislike() {
+        if (!userId) {
+          alert("Vui lòng đăng nhập!");
+          return;
+        }
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        setButtonsDisabled(true);
+
+        const previousAction = userAction;
+        const previousLikeCount = likeCount;
+        let success = true;
+
+        try {
+          if (userAction === "dislike") {
+            // 1. Bỏ dislike (từ "dislike" về "null")
+            userAction = null;
+            success = await callRemoveAPI();
+          } else {
+            // 2. Thêm dislike (từ "null" hoặc "like" sang "dislike")
+            if (userAction === "like") {
+              // Đang like, chuyển sang dislike
+              likeCount--;
             }
-        });
+            // Nếu từ 'null' sang 'dislike', count không đổi
+
+            userAction = "dislike";
+            success = await callDislikeAPI();
+          }
+
+          if (!success) {
+            userAction = previousAction;
+            likeCount = previousLikeCount;
+            alert("Có lỗi xảy ra, vui lòng thử lại!");
+          }
+        } catch (error) {
+          console.error("Lỗi mạng trong handleDislike:", error);
+          userAction = previousAction;
+          likeCount = previousLikeCount;
+        } finally {
+          updateUI();
+          saveLikeState();
+          isSubmitting = false;
+          setButtonsDisabled(false);
+        }
+      }
+
+      // --- ⭐⭐⭐ SỬA LỖI GỌI HÀM ⭐⭐⭐ ---
+      // 1. CHẠY HÀM NÀY NGAY LẬP TỨC
+      // Chúng ta đưa nó ra ngoài DOMContentLoaded
+      // để đảm bảo 'userId' và 'tmdbId' CÓ GIÁ TRỊ
+      // TRƯỚC KHI người dùng kịp click.
+      initUserData();
+      // --- HẾT SỬA LỖI ---
+
+      // ===== DOCUMENT READY =====
+      document.addEventListener("DOMContentLoaded", function () {
+        // 2. Tải trạng thái 'like' và kiểm tra mô tả
+        // thì có thể chờ DOM ready
+        loadLikeStateFromStorage();
+
+        // Hide "show more" button if description is short
+        const desc = document.getElementById("descText");
+        if (desc) {
+          setTimeout(() => {
+            if (desc.scrollHeight <= desc.clientHeight) {
+              const btn = document.getElementById("toggleDescBtn");
+              if (btn) btn.style.display = "none";
+            }
+          }, 100);
+        }
+      });
+
+      // ===== SCROLL EFFECT =====
+      window.addEventListener("scroll", function () {
+        const header = document.querySelector(".main-header");
+        if (header) {
+          header.style.background =
+            window.scrollY > 50 ? "rgba(20,20,20,0.98)" : "rgba(0,0,0,0.95)";
+          header.style.boxShadow =
+            window.scrollY > 50 ? "0 4px 20px rgba(0,0,0,0.4)" : "none";
+        }
+      });
     </script>
-</body>
+
+    <script th:src="@{/js/movie/player.js}"></script>
+  </body>
 </html>

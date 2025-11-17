@@ -71,6 +71,7 @@
                         id="heroLikeBtn" 
                         type="button"
                         th:data-movie-id="${banner.id}"
+                        th:attr="data-movie-id=${tmdbId}"
                         th:onclick="'event.stopPropagation(); toggleHoverLike(this)'" 
                         title="Thêm vào danh sách">
                     <i class="far fa-heart"></i> 

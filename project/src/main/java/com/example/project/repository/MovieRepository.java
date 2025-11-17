@@ -17,6 +17,8 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
     
     Optional<Movie> findByTmdbId(Integer tmdbId);
 
+    List<Movie> findTop20ByOrderByReleaseDateDesc();
+
     @Query("SELECT m.tmdbId FROM Movie m WHERE m.tmdbId IN :tmdbIds")
     List<Integer> findTmdbIdsIn(@Param("tmdbIds") List<Integer> tmdbIds);
 

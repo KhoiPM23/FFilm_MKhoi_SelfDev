@@ -22,7 +22,7 @@ public class Movie {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int movieID;
 
-    @Column(unique = true, nullable = true)
+    @Column(unique = true, nullable = false)
     private Integer tmdbId; // ID để đồng bộ với TMDB
 
     @NotBlank(message = "title is required")
@@ -111,6 +111,10 @@ public class Movie {
     @JsonIgnore
     private List<Report> reports; // 1-N dùng List
 
+    @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore 
+    private List<WatchHistory> watchHistories = new ArrayList<>();
+
     public Movie() {}
 
     // --- GETTERS & SETTERS (ĐÃ CẬP NHẬT) ---
@@ -186,4 +190,12 @@ public class Movie {
 
     public List<Report> getReports() { return reports; }
     public void setReports(List<Report> reports) { this.reports = reports; }
+
+    public List<WatchHistory> getWatchHistories() {
+        return watchHistories;
+    }
+
+    public void setWatchHistories(List<WatchHistory> watchHistories) {
+        this.watchHistories = watchHistories;
+    }
 }
