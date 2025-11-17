@@ -22,4 +22,10 @@ public class TestController {
         // Trỏ tới thư mục mới của Content Manager
         return "ContentManagerScreen/ManageMovie";
     }
+
+    @GetMapping("/admin/manage-plans")
+    public String manageSubscriptionPlans() {
+        // Trỏ tới file mới: AdminScreen/ManagePlans.html
+        return "AdminScreen/ManagePlans";
+    }
 }

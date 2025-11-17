@@ -4,7 +4,8 @@
     import java.util.List;
 
     import jakarta.persistence.CascadeType;
-    import jakarta.persistence.Entity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
     import jakarta.persistence.GeneratedValue;
     import jakarta.persistence.GenerationType;
     import jakarta.persistence.Id;
@@ -30,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
         private String userName;
 
         @NotBlank(message = "email is not null")
+        @Column(unique = true)
         private String email;
 
         @NotBlank(message = "password is not null")

@@ -18,7 +18,7 @@ public class Movie {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int movieID;
 
-    @Column(unique = true, nullable = true)
+    @Column(unique = true, nullable = false)
     private Integer tmdbId; // ID để đồng bộ với TMDB
 
     @NotBlank(message = "title is required")

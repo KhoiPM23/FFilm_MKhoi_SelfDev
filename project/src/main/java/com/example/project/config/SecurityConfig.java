@@ -1,6 +1,6 @@
 package com.example.project.config;
 
-import org.springframework.beans.factory.annotation.Autowired; // <-- THÊM IMPORT NÀY
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,14 +8,12 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // <-- THÊM IMPORT NÀY
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // === THÊM DÒNG NÀY ===
-    // Tiêm (Inject) cái filter chúng ta vừa tạo
     @Autowired
     private CustomSessionAuthFilter customSessionAuthFilter;
 
@@ -25,13 +23,17 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             
             .authorizeHttpRequests(authorize -> authorize
-                // Các rule bảo vệ của chúng ta vẫn giữ nguyên
-                .requestMatchers("/history").authenticated()
-                .requestMatchers("/api/history/**").authenticated()
+                // === BỔ SUNG CÁC RULE BẢO VỆ ADMIN ===
+                .requestMatchers("/api/admin/**", "/admin/**", "/manage-account").hasRole("ADMIN")
+                .requestMatchers("/api/content/**", "/manage-movies", "/ContentManagerScreen/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")
+                .requestMatchers("/ModeratorScreen/**").hasAnyRole("ADMIN", "MODERATOR")
+                // ======================================
+                
+                // Các rule cũ của bạn
+                .requestMatchers("/history", "/api/history/**", "/favorites/**").authenticated()
                 .requestMatchers("/**").permitAll()
             )
             
-            // Cấu hình chuyển hướng về /login vẫn giữ nguyên
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
             )
@@ -42,9 +44,6 @@ public class SecurityConfig {
                 .deleteCookies("JSESSIONID")
             );
             
-        // === THÊM DÒNG QUAN TRỌNG NÀY ===
-        // Bảo Spring Security chạy Filter của chúng ta TRƯỚC khi
-        // nó chạy filter kiểm tra Username/Password chuẩn
         http.addFilterBefore(customSessionAuthFilter, UsernamePasswordAuthenticationFilter.class);
             
         return http.build();

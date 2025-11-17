@@ -1,5 +1,6 @@
 package com.example.project.model;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -26,7 +27,8 @@ public class SubscriptionPlan {
     private String planName;
 
     @NotNull(message = "price is required")
-    private float price;
+    @Column(precision = 19, scale = 2)
+    private BigDecimal price;
 
     @Column(columnDefinition = "NVARCHAR(255)")
     @NotBlank(message = "description  is not null")
@@ -41,7 +43,7 @@ public class SubscriptionPlan {
     public SubscriptionPlan() {
     }
 
-    public SubscriptionPlan(int planID, String planName, float price, String description, boolean isFeatured,
+    public SubscriptionPlan(int planID, String planName, BigDecimal price, String description, boolean isFeatured,
             boolean status, List<Subscription> subscriptions) {
         this.planID = planID;
         this.planName = planName;
@@ -68,11 +70,11 @@ public class SubscriptionPlan {
         this.planName = planName;
     }
 
-    public float getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(float price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 
