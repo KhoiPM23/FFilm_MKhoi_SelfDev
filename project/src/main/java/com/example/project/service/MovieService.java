@@ -1000,19 +1000,6 @@ public class MovieService {
         return movieRepository.save(movie);
     }
 
-    //----- Helper: Map DTO sang Entity (cho CRUD)
-    private void mapRequestToMovie(MovieRequest request, Movie movie) {
-        movie.setTitle(request.getTitle());
-        movie.setDescription(request.getDescription());
-        movie.setReleaseDate(request.getReleaseDate());
-        movie.setDuration(request.getDuration());
-        movie.setRating(request.getRating());
-        movie.setFree(request.isFree());
-        movie.setUrl(request.getUrl());
-        movie.setPosterPath(request.getPosterPath());
-        movie.setBackdropPath(request.getBackdropPath());
-    }
-
     //---- 12. ADVANCED FILTER LOGIC (MỚI) ----
 
     /**
@@ -1123,5 +1110,97 @@ public class MovieService {
             // Kết hợp tất cả điều kiện bằng AND
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    //---- 13. AI AGENT HELPERS (PHASE 3) ----
+
+    /**
+     * [PHASE 3] Lấy 5 phim hot nhất từ DB cho AI (Persona "Lười biếng")
+     */
+    @Transactional(readOnly = true)
+    public List<Movie> getHotMoviesForAI(int limit) {
+        // Hàm getHotMoviesFromDB đã có sẵn, chỉ cần lấy content
+        return movieRepository.findAllByOrderByRatingDesc(PageRequest.of(0, limit)).getContent();
+    }
+
+    /**
+     * [PHASE 3] Lấy Diễn viên từ Tên phim (Persona "Tò mò")
+     */
+    @Transactional(readOnly = true)
+    public Set<Person> findPersonsByMovieTitle(String title) {
+        // Dùng hàm searchMoviesByTitle (Native Query) đã có sẵn
+        List<Movie> movies = searchMoviesByTitle(title);
+        if (movies.isEmpty()) {
+            return Collections.emptySet();
+        }
+        // Lấy phim đầu tiên (chính xác nhất) và EAGER load Persons
+        Movie movie = getMovieByIdOrSync(movies.get(0).getMovieID());
+        return movie.getPersons();
+    }
+
+    /**
+     * [PHASE 3] Lấy Đạo diễn từ Tên phim (Persona "Tò mò")
+     */
+    @Transactional(readOnly = true)
+    public String findDirectorByMovieTitle(String title) {
+        List<Movie> movies = searchMoviesByTitle(title);
+        if (movies.isEmpty()) {
+            return null;
+        }
+        // Lấy phim đầu tiên (chính xác nhất) và EAGER load Director
+        Movie movie = getMovieByIdOrSync(movies.get(0).getMovieID());
+        return movie.getDirector();
+    }
+
+    /**
+     * [PHASE 6.1] Tìm phim theo Tên VÀ Ngữ cảnh (Đạo diễn/Diễn viên)
+     * Giúp phân biệt "Phim Mai" (Trấn Thành) vs "Phim Mai" (Bob Carruthers)
+     */
+    @Transactional(readOnly = true)
+    public Movie findMovieByTitleAndContext(String title, String contextName) {
+        // 1. Tìm tất cả phim có tên khớp (gần đúng)
+        List<Movie> candidates = searchMoviesByTitle(title);
+        if (candidates.isEmpty()) return null;
+        
+        if (contextName == null || contextName.isEmpty()) {
+            return getMovieByIdOrSync(candidates.get(0).getMovieID()); // Fallback: Lấy phim đầu tiên
+        }
+        
+        String contextLower = contextName.toLowerCase();
+
+        // 2. Lọc trong danh sách candidates
+        for (Movie m : candidates) {
+            Movie fullMovie = getMovieByIdOrSync(m.getMovieID()); // Eager load để lấy Director/Persons
+            
+            // Check Đạo diễn
+            if (fullMovie.getDirector() != null && fullMovie.getDirector().toLowerCase().contains(contextLower)) {
+                return fullMovie;
+            }
+            
+            // Check Diễn viên (Duyệt qua Set<Person>)
+            if (fullMovie.getPersons() != null) {
+                for (Person p : fullMovie.getPersons()) {
+                    if (p.getFullName().toLowerCase().contains(contextLower)) {
+                        return fullMovie;
+                    }
+                }
+            }
+        }
+        
+        // 3. Nếu không khớp ngữ cảnh nào, trả về phim đầu tiên (hoặc null tùy strategy)
+        return getMovieByIdOrSync(candidates.get(0).getMovieID());
+    }
+
+    //----- Helper: Map DTO sang Entity (cho CRUD)
+    private void mapRequestToMovie(MovieRequest request, Movie movie) {
+        movie.setTitle(request.getTitle());
+        movie.setDescription(request.getDescription());
+        movie.setReleaseDate(request.getReleaseDate());
+        movie.setDuration(request.getDuration());
+        movie.setRating(request.getRating());
+        movie.setFree(request.isFree());
+        movie.setUrl(request.getUrl());
+        movie.setPosterPath(request.getPosterPath());
+        movie.setBackdropPath(request.getBackdropPath());
     }
 }
