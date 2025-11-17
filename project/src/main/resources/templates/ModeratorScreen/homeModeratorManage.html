@@ -194,14 +194,14 @@
     <main id="dashboard-content">
 
         <!-- Quản lý Bình luận -->
-        <a href="manage-comments.html" class="dashboard-card comment-card" title="Quản lý Bình luận">
+        <a th:href="@{/manage-comments}" class="dashboard-card comment-card" title="Quản lý Bình luận">
             <i class="fas fa-comments"></i>
             <h2>Manage Comments</h2>
             <p>Kiểm duyệt, ẩn, xóa hoặc phản hồi các bình luận không phù hợp của người dùng.</p>
         </a>
         
         <!-- Quản lý Hỗ trợ Khách hàng (Chat) -->
-        <a href="manage-chat.html" class="dashboard-card chat-card" title="Quản lý Chat Khách hàng">
+        <a th:href="@{/manage-chat}" class="dashboard-card chat-card" title="Quản lý Chat Khách hàng">
             <i class="fas fa-headset"></i>
             <h2>Manage Customer Chat</h2>
             <p>Tiếp nhận và giải quyết các yêu cầu hỗ trợ trực tiếp từ khách hàng.</p>

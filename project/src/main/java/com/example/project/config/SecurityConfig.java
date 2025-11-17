@@ -23,13 +23,17 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             
             .authorizeHttpRequests(authorize -> authorize
-                // === BỔ SUNG CÁC RULE BẢO VỆ ADMIN ===
+                // === CẬP NHẬT RULE BẢO VỆ ===
+                // Admin
                 .requestMatchers("/api/admin/**", "/admin/**", "/manage-account").hasRole("ADMIN")
-                .requestMatchers("/api/content/**", "/manage-movies", "/ContentManagerScreen/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")
-                .requestMatchers("/ModeratorScreen/**").hasAnyRole("ADMIN", "MODERATOR")
+                
+                // Content Manager (bao gồm cả /manage-movies và dashboard)
+                .requestMatchers("/api/content/**", "/manage-movies", "/manage-banners", "/content/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")
+                
+                // Moderator (bao gồm dashboard và các trang quản lý)
+                .requestMatchers("/moderator/**", "/manage-comments", "/manage-chat").hasAnyRole("ADMIN", "MODERATOR")
                 // ======================================
                 
-                // Các rule cũ của bạn
                 .requestMatchers("/history", "/api/history/**", "/favorites/**").authenticated()
                 .requestMatchers("/**").permitAll()
             )
