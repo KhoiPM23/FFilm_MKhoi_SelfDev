@@ -13,36 +13,48 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Autowired
     private UserRepository userRepository;
 
-    private final String ADMIN_EMAIL = "admin@ffilm.com";
-    private final String ADMIN_PASSWORD = "Admin@Ffilm2025!";
-
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        
-        // 1. Kiểm tra xem admin đã tồn tại chưa
-        if (userRepository.findByEmail(ADMIN_EMAIL).isEmpty()) {
-            
-            System.out.println("!!! CHƯA TỒN TẠI ADMIN, ĐANG TẠO ADMIN MỚI...");
+        System.out.println("---------------------------------------------");
+        System.out.println("🚀 ĐANG KHỞI TẠO DỮ LIỆU MẪU (DATA SEEDING)...");
 
-            User adminUser = new User();
-            
-            // === ĐẢM BẢO TẤT CẢ CÁC TRƯỜNG @NOTBLANK ĐỀU ĐƯỢC SET ===
-            adminUser.setUserName("Admin FFilm");
-            adminUser.setEmail(ADMIN_EMAIL); // <-- DÒNG QUAN TRỌNG NHẤT
-            adminUser.setPassword(ADMIN_PASSWORD); // (Sẽ được băm bởi @PrePersist)
-            adminUser.setRole("admin");
-            adminUser.setPhoneNumber("0987654321");
-            // adminUser.setStatus(true); // (Trường status sẽ được set tự động bởi @PrePersist)
-            // =======================================================
+        // 1. Tạo Admin
+        createAccountIfNotFound("admin@ffilm.com", "Admin@Ffilm2025!", "Admin FFilm", "ADMIN", "0900000001");
 
-            userRepository.save(adminUser);
-            
-            System.out.println("✅ TẠO ADMIN THÀNH CÔNG:");
-            System.out.println("   Email: " + ADMIN_EMAIL);
-            System.out.println("   Password: " + ADMIN_PASSWORD);
+        // 2. Tạo Moderator (Kiểm duyệt viên)
+        createAccountIfNotFound("mod@ffilm.com", "Mod@Ffilm2025!", "Moderator User", "MODERATOR", "0900000002");
 
+        // 3. Tạo Content Manager (Quản lý nội dung phim)
+        createAccountIfNotFound("content@ffilm.com", "Content@Ffilm2025!", "Content Manager", "CONTENT_MANAGER", "0900000003");
+
+        // 4. Tạo User thường
+        createAccountIfNotFound("user@ffilm.com", "User@Ffilm2025!", "Normal User", "USER", "0900000004");
+
+        System.out.println("✅ HOÀN TẤT KHỞI TẠO DỮ LIỆU.");
+        System.out.println("---------------------------------------------");
+    }
+
+    /**
+     * Hàm hỗ trợ kiểm tra và tạo tài khoản nếu chưa tồn tại
+     */
+    private void createAccountIfNotFound(String email, String password, String name, String role, String phone) {
+        if (userRepository.findByEmail(email).isEmpty()) {
+            User user = new User();
+            
+            // Set các thông tin cơ bản
+            user.setUserName(name);
+            user.setEmail(email);
+            user.setPassword(password); // Password sẽ được mã hóa tự động bởi @PrePersist trong User.java
+            user.setRole(role);         // Lưu role IN HOA để khớp với SecurityConfig
+            user.setPhoneNumber(phone);
+            
+            // Status mặc định là true nhờ @PrePersist trong User.java
+            
+            userRepository.save(user);
+            
+            System.out.println("   + Đã tạo tài khoản [" + role + "]: " + email);
         } else {
-            System.out.println("... Tài khoản admin đã tồn tại, bỏ qua việc tạo mới.");
+            System.out.println("   - Tài khoản [" + role + "] (" + email + ") đã tồn tại. Bỏ qua.");
         }
     }
 }

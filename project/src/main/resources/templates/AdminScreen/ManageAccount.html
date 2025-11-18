@@ -11,34 +11,7 @@
 
 <body>
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="logo">
-            <i class="fas fa-film"></i>
-            Film Admin
-        </div>
-        <nav>
-            <a href="#" class="nav-item">
-                <i class="fas fa-chart-line"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="#" class="nav-item active">
-                <i class="fas fa-users-cog"></i>
-                <span>Quản lý tài khoản cho nhân viên</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-film"></i>
-                <span>Quản lý gói dịch vụ</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-comments"></i>
-                <span>Báo cáo doanh thu</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-flag"></i>
-                <span>Xem báo cáo hệ thống</span>
-            </a>
-        </nav>
-    </div>
+    <div th:replace="~{fragments/admin-sidebar :: sidebar}"></div>
 
     <!-- Main Content -->
     <div class="main-content">

@@ -46,7 +46,7 @@ public class UserManageController {
     public Page<UserManageDTO> getAllUsersPaged(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return userService.getAllUsers(pageable);
+        return userService.getStaffUsers(pageable);
     }
 
     @GetMapping("/role/{role}/paged")

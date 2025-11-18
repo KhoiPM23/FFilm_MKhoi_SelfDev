@@ -3,6 +3,7 @@ package com.example.project.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -26,6 +27,11 @@ public class UserManageService {
    public Page<UserManageDTO> getAllUsers(Pageable pageable) {
       return userRepository.findAll(pageable).map(UserManageDTO::new);
    }
+
+    public Page<UserManageDTO> getStaffUsers(Pageable pageable) {
+        List<String> roles = Arrays.asList("moderator", "content_manager");
+        return userRepository.findByRoleIn(roles, pageable).map(UserManageDTO::new);
+    }
 
    public List<UserManageDTO> getUserByRole(String role) {
       return userRepository.findByRole(role).stream().map(UserManageDTO::new).collect(Collectors.toList());
