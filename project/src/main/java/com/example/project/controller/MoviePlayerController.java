@@ -18,22 +18,18 @@ public class MoviePlayerController {
     private MoviePlayerService moviePlayerService;
 
     // lấy dữ liệu cho lớp player of Nguyên
-    @GetMapping("/movie/player/{id}")
-    public String watchMovie(@PathVariable("id") int id, Model model) {
+    @GetMapping("/movie/player/{tmdbid}")
+    public String watchMovie(@PathVariable("tmdbid") int tmdbid, Model model) {
         try {
-            // [FIX] Gọi hàm tìm theo PK (ID nội bộ) thay vì TMDB ID
-            Movie movie = moviePlayerService.getMovieById(id);
+            Movie movie = moviePlayerService.getMovieByTmdbId(tmdbid);
             model.addAttribute("movie", movie);
 
-            // Lấy list đề xuất (trừ phim đang xem)
             List<Movie> recommendedMovies = moviePlayerService.getRecommendedMovies();
-            // So sánh theo movieID để loại bỏ chính xác
-            recommendedMovies.removeIf(m -> m.getMovieID() == id);
-            
+            recommendedMovies.removeIf(m -> m.getTmdbId() != null && m.getTmdbId().equals(tmdbid));
             model.addAttribute("recommendedMovies", recommendedMovies);
             return "movie/player";
         } catch (RuntimeException e) {
-            System.err.println("Lỗi Player: " + e.getMessage());
+            System.err.println("Lỗi: " + e.getMessage());
             return "redirect:/";
         }
     }

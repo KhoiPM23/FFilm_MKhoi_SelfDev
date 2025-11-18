@@ -63,7 +63,7 @@ public class UserManageService {
          throw new IllegalArgumentException("Phone Number must be 10 numbers");
       }
       if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-         throw new IllegalArgumentException("Password is required");
+         throw new IllegalArgumentException( "Password is required");
       }
       if (user.getPassword().length() < 6) {
          throw new IllegalArgumentException("Password must be have length >= 6");

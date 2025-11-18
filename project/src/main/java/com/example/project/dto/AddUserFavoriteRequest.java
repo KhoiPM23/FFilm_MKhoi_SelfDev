@@ -3,35 +3,34 @@ package com.example.project.dto;
 import java.sql.Date;
 
 public class AddUserFavoriteRequest {
-    // [SỬA] Đổi tên thành tmdbId để tránh nhầm lẫn với ID tự tăng trong DB
-    private Integer tmdbId; 
-    private Integer userID;
+    private Integer getTmdbId;
+    private Integer UserID;
     private Date createAt;
 
     public AddUserFavoriteRequest() {
+
     }
 
-    public AddUserFavoriteRequest(Integer tmdbId, Integer userID, Date createAt) {
-        this.tmdbId = tmdbId;
-        this.userID = userID;
+    public AddUserFavoriteRequest(Integer getTmdbId, Integer userID, Date createAt) {
+        this.getTmdbId = getTmdbId;
+        UserID = userID;
         this.createAt = createAt;
     }
 
-    // [SỬA] Getter này bây giờ khớp với Service
     public Integer getTmdbId() {
-        return tmdbId;
+        return getTmdbId;
     }
 
-    public void setTmdbId(Integer tmdbId) {
-        this.tmdbId = tmdbId;
+    public void setMovieID(Integer getTmdbId) {
+        this.getTmdbId = getTmdbId;
     }
 
     public Integer getUserID() {
-        return userID;
+        return UserID;
     }
 
     public void setUserID(Integer userID) {
-        this.userID = userID;
+        UserID = userID;
     }
 
     public Date getCreateAt() {
@@ -41,4 +40,5 @@ public class AddUserFavoriteRequest {
     public void setCreateAt(Date createAt) {
         this.createAt = createAt;
     }
+
 }
