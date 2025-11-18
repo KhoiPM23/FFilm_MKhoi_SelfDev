@@ -27,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.math.BigDecimal; // Import quan trọng để fix lỗi formatPrice
+import com.example.project.service.AISearchService; // Import service tìm kiếm
 
 @Service
 public class AIAgentService {
@@ -45,6 +47,7 @@ public class AIAgentService {
     private final PersonRepository personRepository;
     private final MovieService movieService;
     private final Cache conversationCache;
+    private final AISearchService aiSearchService;
 
     private Map<String, Object> websiteContext;
 
@@ -57,7 +60,8 @@ public class AIAgentService {
             GenreRepository genreRepository,
             PersonRepository personRepository,
             MovieService movieService,
-            CacheManager cacheManager
+            CacheManager cacheManager,
+            AISearchService aiSearchService
     ) {
         this.geminiApiKey = geminiApiKey;
         this.restTemplate = restTemplate;
@@ -65,6 +69,7 @@ public class AIAgentService {
         this.movieRepository = movieRepository;
         this.genreRepository = genreRepository;
         this.personRepository = personRepository;
+        this.aiSearchService = aiSearchService;
         this.movieService = movieService;
         this.conversationCache = cacheManager.getCache("conversationCache");
         
@@ -142,12 +147,20 @@ public class AIAgentService {
         "NEED_ADRENALINE", List.of("Hành động", "Gây cấn", "Kinh dị")
     );
 
+    // Trong AIAgentService.java
     private boolean isUnsafe(String message) {
-        String lowerCaseMessage = message.toLowerCase();
+        if (message == null) return false;
+        String lower = message.toLowerCase();
+        
+        // 1. Check danh sách từ khóa cứng
         for (String keyword : BLACKLISTED_KEYWORDS) {
-            if (lowerCaseMessage.contains(keyword)) {
-                return true;
-            }
+            if (lower.contains(keyword)) return true;
+        }
+
+        // 2. Check biến thể bằng Regex (Nâng cấp)
+        // Bắt: s.e.x, c.h.i.c.h, d.u., p.o.r.n (bất kể dấu chấm, phẩy, cách)
+        if (lower.matches(".*(s[\\W_]*e[\\W_]*x|c[\\W_]*h[\\W_]*i[\\W_]*c[\\W_]*h|d[\\W_]*u[\\W_]|p[\\W_]*o[\\W_]*r[\\W_]*n).*")) {
+            return true;
         }
         return false;
     }
@@ -159,21 +172,51 @@ public class AIAgentService {
     private static final String FLAT_PROMPT =
         "Bạn là trợ lý phân tích câu hỏi về phim. Trả về JSON thuần túy.\n\n" +
         
-        "# QUY TẮC:\n" +
+        "# QUY TẮC ƯU TIÊN (THEO THỨ TỰ GIẢM DẦN):\n" +
         "1. Output CHÍNH XÁC 1 JSON object\n" +
         "2. KHÔNG thêm ```json hoặc text ngoài\n" +
-        "3. Ưu tiên LOOKUP nếu chỉ có tên riêng KHÔNG kèm 'phim'\n" +
-        "4. Ưu tiên FILTER nếu có 'phim' + tên người\n" +
-        "5. BẮT BUỘC phải có f_actor hoặc f_director nếu câu chứa 'phim của'\n\n" +
+        "3. LOOKUP: Ưu tiên CAO NHẤT nếu có TÊN RIÊNG (viết hoa, trong ngoặc) của phim/người.\n" +
+        "4. SUBSCRIPTION_INFO: Nếu có 'gói', 'giá', 'tiền', 'đăng ký', 'thanh toán', 'hủy'.\n" +
+        "5. ƯU TIÊN 1: Nếu có TÊN PHIM cụ thể → intent=LOOKUP, q_subject=<tên phim>\n" +
+        "6. DESCRIPTION_SEARCH: Nếu mô tả nội dung, cốt truyện, bối cảnh (dài > 5 từ) mà KHÔNG có tên phim cụ thể.\n" +
+        "7. ƯU TIÊN 2: Nếu có 'gói'/'đăng ký'/'giá'/'cước' → intent=SUBSCRIPTION_INFO\n" +
+        "8. FILTER: Nếu có 'phim' + tên người → intent=FILTER với f_actor/f_director\n" +
+        "9. BẮT BUỘC: Multi-filter phải đồng bộ (ví dụ: 'phim mỹ 2024' -> country=US, year=2024).\n\n" +
+        "10. TRENDING: Phim hot, mới nhất.\n\n" +    
         
-        "# CÁC TRƯỜNG:\n" +
-        "- intent: FILTER|LOOKUP|TRENDING|QA|CHITCHAT|UNKNOWN\n" +
-        "- f_country: Vietnam|South Korea|China|Japan|United States\n" +
+         "# CÁC TRƯỜNG:\n" +
+        "- intent: FILTER|LOOKUP|TRENDING|SUBSCRIPTION_INFO|QA|CHITCHAT|UNKNOWN\n" +
+        "- f_country: Vietnam|South Korea|China|Japan|United States|Thailand\n" +
         "- f_genres: [Hành động|Hài|Chính kịch|Lãng mạn|Kinh dị...]\n" +
-        "- f_year_from, f_year_to: năm\n" +
+        "- f_year_from, f_year_to: năm (BẮT BUỘC nếu có 'năm/trước/sau')\n" +
         "- f_director, f_actor: tên người (BẮT BUỘC nếu có 'phim của')\n" +
-        "- q_subject: tên phim/người (LOOKUP)\n" +
-        "- q_type: actor|director|cast\n\n" +
+        "- q_subject: tên phim/người (LOOKUP - ƯU TIÊN CAO)\n" +
+        "- q_type: movie|actor|director|cast\n" +
+        "- subscription_query: price|plans|features|cancel|payment\n\n" +
+
+        "# VÍ DỤ (30 CASES - CRITICAL):\n" +
+        "// === MOVIE TITLE SEARCH (Ưu tiên cao nhất) ===\n" +
+        "Q: 'Mai' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Mai\",\"q_type\":\"movie\"}\n" +
+        "Q: 'phim Mai' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Mai\",\"q_type\":\"movie\"}\n" +
+        "Q: 'Bố Già' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Bố Già\",\"q_type\":\"movie\"}\n" +
+        "Q: 'phim Bố Già' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Bố Già\",\"q_type\":\"movie\"}\n" +
+        "Q: 'Interstellar' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Interstellar\",\"q_type\":\"movie\"}\n" +
+        "Q: 'Thanh Gươm Diệt Quỷ' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Thanh Gươm Diệt Quỷ\",\"q_type\":\"movie\"}\n\n" +
+        
+        "// === SUBSCRIPTION QUERIES (Mới thêm) ===\n" +
+        "Q: 'các gói đăng ký' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"plans\"}\n" +
+        "Q: 'gói cước' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"plans\"}\n" +
+        "Q: 'bao nhiêu tiền' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"price\"}\n" +
+        "Q: 'hủy đăng ký' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"cancel\"}\n" +
+        "Q: 'thanh toán thế nào' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"payment\"}\n" +
+        "Q: 'gói premium' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"plans\"}\n\n" +
+        
+        "// === MULTI-FILTER (Kết hợp đồng bộ) ===\n" +
+        "Q: 'phim hành động mỹ năm 2024' → {\"intent\":\"FILTER\",\"f_country\":\"United States\",\"f_genres\":[\"Hành động\"],\"f_year_from\":2024,\"f_year_to\":2024}\n" +
+        "Q: 'phim hài hàn quốc' → {\"intent\":\"FILTER\",\"f_country\":\"South Korea\",\"f_genres\":[\"Hài\"]}\n" +
+        "Q: 'phim kinh dị nhật sau 2020' → {\"intent\":\"FILTER\",\"f_country\":\"Japan\",\"f_genres\":[\"Kinh dị\"],\"f_year_from\":2020}\n" +
+        "Q: 'phim việt nam tình cảm trước 2018' → {\"intent\":\"FILTER\",\"f_country\":\"Vietnam\",\"f_genres\":[\"Lãng mạn\"],\"f_year_to\":2017}\n" +
+        "Q: 'phim hành động mỹ' → {\"intent\":\"FILTER\",\"f_country\":\"United States\",\"f_genres\":[\"Hành động\"]}\n\n" +
         
         "# VÍ DỤ (20 CASES - QUAN TRỌNG):\n" +
         "Q: 'phim hàn quốc' → {\"intent\":\"FILTER\",\"f_country\":\"South Korea\"}\n" +
@@ -196,6 +239,38 @@ public class AIAgentService {
         "Q: 'diễn viên phim Bố Già' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Bố Già\",\"q_type\":\"cast\"}\n" +
         "Q: 'diễn viên phim Mai của Trấn Thành' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Mai\",\"q_context\":\"Trấn Thành\",\"q_type\":\"actor\"}\n" +
         "Q: 'phim gì hot nhất' → {\"intent\":\"TRENDING\"}\n\n" +
+
+        "// === 2. DESCRIPTION SEARCH (Mô tả nội dung - MỚI) ===\n" +
+        "Q: 'phim về anh chàng hacker thiên tài hack vào FBI' → {\"intent\":\"DESCRIPTION_SEARCH\"}\n" +
+        "Q: 'phim có ông già bay lên trời bằng chùm bóng bay' → {\"intent\":\"DESCRIPTION_SEARCH\"}\n" +
+        "Q: 'phim zombie hàn quốc trên tàu hỏa' → {\"intent\":\"DESCRIPTION_SEARCH\"}\n" +
+        "Q: 'tôi muốn tìm phim nói về du hành thời gian cứu thế giới' → {\"intent\":\"DESCRIPTION_SEARCH\"}\n" +
+        "Q: 'phim gì mà nhân vật chính bị kẹt trên đảo hoang' → {\"intent\":\"DESCRIPTION_SEARCH\"}\n\n" +
+
+        "// === 3. MOOD & CONTEXT (Cảm xúc/Hoàn cảnh - MỞ RỘNG) ===\n" +
+        "Q: 'tôi đang buồn' → {\"intent\":\"FILTER\",\"f_genres\":[\"Chính kịch\",\"Lãng mạn\"]}\n" +
+        "Q: 'muốn cười bể bụng' → {\"intent\":\"FILTER\",\"f_genres\":[\"Hài\"]}\n" +
+        "Q: 'cần giải tỏa stress' → {\"intent\":\"FILTER\",\"f_genres\":[\"Hành động\",\"Hài\"]}\n" +
+        "Q: 'xem với bạn gái' → {\"intent\":\"FILTER\",\"f_genres\":[\"Lãng mạn\",\"Hài\"]}\n" +
+        "Q: 'phim cho cả gia đình xem cuối tuần' → {\"intent\":\"FILTER\",\"f_genres\":[\"Gia đình\",\"Hoạt hình\"]}\n" +
+        "Q: 'muốn xem gì đó sâu sắc, hack não' → {\"intent\":\"FILTER\",\"f_genres\":[\"Bí ẩn\",\"Khoa học viễn tưởng\"]}\n" +
+        "Q: 'tìm cảm giác mạnh' → {\"intent\":\"FILTER\",\"f_genres\":[\"Kinh dị\",\"Hành động\"]}\n\n" +
+        
+        "// === PERSON SEARCH ===\n" +
+        "Q: 'Trấn Thành' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Trấn Thành\",\"q_type\":\"actor\"}\n" +
+        "Q: 'phim của Trấn Thành' → {\"intent\":\"FILTER\",\"f_actor\":\"Trấn Thành\"}\n" +
+        "Q: 'Trấn Thành đóng phim gì' → {\"intent\":\"FILTER\",\"f_actor\":\"Trấn Thành\"}\n" +
+        "Q: 'đạo diễn phim Bố Già' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Bố Già\",\"q_type\":\"director\"}\n" +
+        "Q: 'diễn viên phim Mai' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Mai\",\"q_type\":\"cast\"}\n\n" +
+
+        "// === 5. LOOKUP (Tra cứu cụ thể) ===\n" +
+        "Q: 'Bố Già' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Bố Già\",\"q_type\":\"movie\"}\n" +
+        "Q: 'đạo diễn phim Mai' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Mai\",\"q_type\":\"director\"}\n" +
+        "Q: 'diễn viên phim Avenger' → {\"intent\":\"LOOKUP\",\"q_subject\":\"Avenger\",\"q_type\":\"cast\"}\n\n" +
+        
+        "// === TRENDING ===\n" +
+        "Q: 'phim gì hot nhất' → {\"intent\":\"TRENDING\"}\n" +
+        "Q: 'phim nổi bật' → {\"intent\":\"TRENDING\"}\n\n" +
         
         "Câu hỏi: \"%s\"\nJSON:";
 
@@ -226,13 +301,18 @@ public class AIAgentService {
 
         // 2. CONTEXT CHECK - IMPROVED
         boolean isFollowUp = context.getLastQuestionAsked() != null && 
-            (cleanMsg.equals("có") || cleanMsg.equals("co") ||
+        
+            (cleanMsg.matches("^(có|co|ok|oke|ờ|u|uh|uhm|được|dc)$") ||
+            cleanMsg.equals("có") || cleanMsg.equals("co") ||
             cleanMsg.equals("ok") || cleanMsg.equals("oke") ||
             cleanMsg.equals("ừ") || cleanMsg.equals("u") ||
+            cleanMsg.matches("^(xem thêm|thêm|tiếp|nữa|còn|next)$") ||
+            cleanMsg.matches("^(có nữa không|còn nữa không|có gì khác)$") ||
             cleanMsg.equals("xem thêm") || cleanMsg.equals("xem them") ||
             cleanMsg.equals("còn nữa không") || cleanMsg.equals("con nua khong") ||
             cleanMsg.equals("có nữa không") || cleanMsg.equals("co nua khong") ||
-            cleanMsg.equals("tiếp") || cleanMsg.equals("tiep"));
+            cleanMsg.equals("tiếp") || cleanMsg.equals("tiep") ||
+            cleanMsg.matches(".*(của ổng|của bả|của anh ấy|của cô ấy|của người này).*"));
 
         if (isFollowUp) {
             aiResponseText = handleFollowUp(context, cleanMsg);
@@ -257,6 +337,10 @@ public class AIAgentService {
                 System.out.println("🔵 Intent: " + intent + " | Brain: " + brain.toString());
 
                 switch (intent) {
+                    case "DESCRIPTION_SEARCH": // <--- CASE MỚI QUAN TRỌNG
+                        aiResponseText = handleDescriptionSearch(message);
+                        context = new ConversationContext(); // Reset context vì đây là tìm kiếm mới
+                        break;
                     case "FILTER":
                     case "SEMANTIC": // Gộp chung logic Filter
                         MovieSearchFilters filters = parseFlatFilters(brain);
@@ -339,6 +423,11 @@ public class AIAgentService {
                         aiResponseText = formatMoviesResponse(movieService.getHotMoviesForAI(5), "phim hot nhất hiện tại", context);
                         break;
 
+                    case "SUBSCRIPTION_INFO":
+                        context = new ConversationContext();
+                        String subQuery = brain.optString("subscription_query", "plans");
+                        aiResponseText = handleSubscriptionQuery(subQuery);
+                        break;
                     case "QA":
                     case "CHITCHAT":
                         aiResponseText = brain.optString("reply", "Xin chào! Tôi có thể giúp gì cho bạn?");
@@ -364,6 +453,7 @@ public class AIAgentService {
     private String handleFollowUp(ConversationContext context, String message) {
         String q = context.getLastQuestionAsked();
         Object id = context.getLastSubjectId();
+        String msg = message.toLowerCase();
         
         // Xem thêm Filter
         if ("ask_more_filter".equals(q) && id instanceof MovieSearchFilters) {
@@ -376,32 +466,189 @@ public class AIAgentService {
              List<Movie> m = movieService.getHotMoviesForAI(20); 
              return formatMoviesResponse(m, "các phim hot khác", context);
         }
-        // Gợi ý Đạo diễn
+        // Context cũ là: Gợi ý Đạo diễn -> User hỏi "Phim của ổng" / "Có"
         if ("ask_director_movies".equals(q) && id instanceof String) {
-            MovieSearchFilters f = new MovieSearchFilters(); f.setDirector((String) id);
-            List<Movie> m = movieService.findMoviesByFilters(f);
-            context.setLastSubjectType("Filter"); context.setLastSubjectId(f); context.setLastQuestionAsked("ask_more_filter");
-            return formatMoviesResponse(m, "phim của đạo diễn " + id, context);
-        }
-        // Gợi ý Diễn viên
-        if ("ask_person_movies".equals(q)) {
-            MovieSearchFilters f = new MovieSearchFilters();
-            String name = "";
-            if (id instanceof Integer) {
-                Person p = personRepository.findById((Integer) id).orElse(null);
-                if (p != null) { f.setActor(p.getFullName()); name = p.getFullName(); }
-            } else if (id instanceof String) {
-                f.setActor((String) id); name = (String) id;
-            }
-            
-            if (f.getActor() != null) {
+            // Nếu user đồng ý hoặc hỏi "của ổng/của ai"
+            if (msg.matches(".*(có|ok|xem|của).*")) {
+                MovieSearchFilters f = new MovieSearchFilters(); 
+                f.setDirector((String) id);
+                
+                // Reset context sang Filter để hỗ trợ "xem thêm" về sau
+                context.setLastSubjectType("Filter"); 
+                context.setLastSubjectId(f); 
+                context.setLastQuestionAsked("ask_more_filter");
+                
                 List<Movie> m = movieService.findMoviesByFilters(f);
-                context.setLastSubjectType("Filter"); context.setLastSubjectId(f); context.setLastQuestionAsked("ask_more_filter");
-                return formatMoviesResponse(m, "diễn viên " + name, context);
+                return formatMoviesResponse(m, "các phim do " + id + " đạo diễn", context);
             }
+        }
+        // Context cũ là: Gợi ý Diễn viên -> User hỏi "Phim của ổng" / "Có"
+        if ("ask_person_movies".equals(q)) {
+             if (msg.matches(".*(có|ok|xem|của).*")) {
+                MovieSearchFilters f = new MovieSearchFilters();
+                String name = "";
+                if (id instanceof Integer) {
+                    Person p = personRepository.findById((Integer) id).orElse(null);
+                    if (p != null) { f.setActor(p.getFullName()); name = p.getFullName(); }
+                } else if (id instanceof String) {
+                    f.setActor((String) id); name = (String) id;
+                }
+                
+                if (f.getActor() != null) {
+                    context.setLastSubjectType("Filter"); 
+                    context.setLastSubjectId(f); 
+                    context.setLastQuestionAsked("ask_more_filter");
+                    
+                    List<Movie> m = movieService.findMoviesByFilters(f);
+                    return formatMoviesResponse(m, "các phim có sự tham gia của " + name, context);
+                }
+             }
         }
         
         return runKeywordFallback(message, context);
+    }
+
+    //---- DESCRIPTION SEARCH HANDLER (NEW INTEGRATION) ----
+    private String handleDescriptionSearch(String userDescription) {
+        try {
+            // 1. Gọi AISearchService để phân tích mô tả và lấy gợi ý
+            Map<String, Object> searchResult = aiSearchService.getMovieRecommendation(userDescription);
+            
+            if (!Boolean.TRUE.equals(searchResult.get("success"))) {
+                return "Xin lỗi, tôi chưa hiểu rõ mô tả phim của bạn. Bạn có thể nói rõ hơn về nội dung hoặc nhân vật không?";
+            }
+
+            String aiAnalysis = (String) searchResult.get("answer");
+            List<String> suggestions = (List<String>) searchResult.get("suggestions");
+            
+            StringBuilder response = new StringBuilder();
+            
+            // 2. Đưa ra phân tích ngắn gọn của AI
+            response.append("🤖 **Theo mô tả của bạn:**\n").append(aiAnalysis).append("\n\n");
+            
+            // 3. Kiểm tra các phim gợi ý có trong Database không
+            if (suggestions != null && !suggestions.isEmpty()) {
+                response.append("🎬 **Kết quả tìm kiếm trong kho phim FFilm:**\n");
+                boolean foundAny = false;
+                
+                for (String title : suggestions) {
+                    // Tìm trong DB (Case-insensitive match)
+                    List<Movie> dbMovies = movieRepository.findByTitleContainingIgnoreCase(title.trim());
+                    
+                    if (!dbMovies.isEmpty()) {
+                        foundAny = true;
+                        // Lấy phim đầu tiên khớp nhất
+                        Movie m = dbMovies.get(0);
+                        response.append("✅ **").append(m.getTitle()).append("**");
+                        if (m.getReleaseDate() != null) {
+                            response.append(" (").append(new java.text.SimpleDateFormat("yyyy").format(m.getReleaseDate())).append(")");
+                        }
+                        response.append(" - [Xem ngay](/movie/detail/").append(m.getMovieID()).append(")\n");
+                    } else {
+                        response.append("❌ ").append(title).append(" (Chưa có trên FFilm)\n");
+                    }
+                }
+                
+                if (!foundAny) {
+                    response.append("\nRất tiếc, các phim khớp với mô tả này hiện chưa có trên hệ thống. Chúng tôi sẽ cập nhật sớm!");
+                }
+            } else {
+                response.append("Tôi không tìm thấy tên phim cụ thể nào khớp với mô tả. Bạn nhớ thêm chi tiết nào không?");
+            }
+            
+            return response.toString();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Đã có lỗi xảy ra khi tìm kiếm theo mô tả. Vui lòng thử lại sau.";
+        }
+    }
+
+    //---- SUBSCRIPTION QUERY HANDLER (NEW) ----
+    private String handleSubscriptionQuery(String queryType) {
+        try {
+            List<SubscriptionPlan> plans = planRepository.findAll();
+            
+            if (plans.isEmpty()) {
+                return "Hiện tại, thông tin về các gói cước của FFilm đang trong quá trình cập nhật. " +
+                    "Bạn vui lòng theo dõi trang chủ để biết thêm chi tiết nhé!";
+            }
+            
+            StringBuilder response = new StringBuilder();
+            
+            switch (queryType) {
+                case "price":
+                case "plans":
+                    response.append("📋 **CÁC GÓI ĐĂNG KÝ FFILM**\n\n");
+                    
+                    for (SubscriptionPlan plan : plans) {
+                        response.append("✨ **").append(plan.getPlanName()).append("**\n");
+                        response.append("💰 Giá: ").append(formatPrice(plan.getPrice())).append("/tháng\n");
+                        
+                        if (plan.getDescription() != null && !plan.getDescription().isEmpty()) {
+                            response.append("📝 ").append(plan.getDescription()).append("\n");
+                        }
+                        
+                        response.append("\n");
+                    }
+                    
+                    response.append("💡 **Lưu ý**: \n");
+                    response.append("• Hoàn tiền 100% trong 14 ngày đầu\n");
+                    response.append("• Hủy đăng ký bất cứ lúc nào\n");
+                    response.append("• Hỗ trợ 24/7 qua chat hoặc hotline 1900-xxxx\n\n");
+                    response.append("Bạn muốn biết thêm chi tiết về gói nào không? 😊");
+                    break;
+                    
+                case "cancel":
+                    response.append("🔄 **CHÍNH SÁCH HỦY ĐĂNG KÝ**\n\n");
+                    response.append("Bạn có thể hủy đăng ký bất cứ lúc nào mà không mất phí. ");
+                    response.append("Tài khoản sẽ còn hoạt động đến hết chu kỳ thanh toán hiện tại.\n\n");
+                    response.append("✅ Cách hủy:\n");
+                    response.append("1. Vào Tài khoản > Cài đặt\n");
+                    response.append("2. Chọn 'Quản lý đăng ký'\n");
+                    response.append("3. Nhấn 'Hủy đăng ký'\n\n");
+                    response.append("💰 Hoàn tiền 100% nếu hủy trong 14 ngày đầu!");
+                    break;
+                    
+                case "payment":
+                    response.append("💳 **PHƯƠNG THỨC THANH TOÁN**\n\n");
+                    response.append("Chúng tôi hỗ trợ:\n");
+                    response.append("• 🏦 Thẻ ngân hàng (Visa, Mastercard, JCB)\n");
+                    response.append("• 📱 Ví điện tử (MoMo, ZaloPay, VNPay)\n");
+                    response.append("• 💵 Chuyển khoản ngân hàng\n");
+                    response.append("• 🎴 Thẻ cào điện thoại\n\n");
+                    response.append("🔒 Bảo mật: Mã hóa SSL 256-bit, tuân thủ chuẩn PCI DSS");
+                    break;
+                    
+                case "features":
+                    response.append("🎬 **TÍNH NĂNG FFILM**\n\n");
+                    response.append("• 📚 Thư viện 15,000+ phim & series\n");
+                    response.append("• 🎥 Chất lượng HD, Full HD, 4K\n");
+                    response.append("• 📱 Xem trên mọi thiết bị\n");
+                    response.append("• ⬇️ Tải phim offline\n");
+                    response.append("• 🌐 Phụ đề đa ngôn ngữ\n");
+                    response.append("• 👨‍👩‍👧‍👦 Tối đa 5 profile/tài khoản\n");
+                    response.append("• 🚫 Không quảng cáo (gói trả phí)\n\n");
+                    response.append("Bạn muốn xem các gói đăng ký không?");
+                    break;
+                    
+                default:
+                    return handleSubscriptionQuery("plans"); // Fallback
+            }
+            
+            return response.toString();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Xin lỗi, hiện tại tôi không thể lấy thông tin gói đăng ký. " +
+                "Vui lòng liên hệ support@ffilm.vn hoặc hotline 1900-xxxx.";
+        }
+    }
+
+    // Helper: Format giá tiền
+    private String formatPrice(Double price) {
+        if (price == null || price == 0) return "Miễn phí";
+        return String.format("%,.0fđ", price);
     }
 
     private String formatMoviesResponse(List<Movie> movies, String reason, ConversationContext ctx) {
@@ -514,28 +761,46 @@ public class AIAgentService {
     }
     
     private String runKeywordFallback(String msg, ConversationContext ctx) {
-        String lower = msg.toLowerCase();
+        String lower = msg.toLowerCase().trim();
         
-        // PRIORITY 1: Tìm phim theo tên (exact/fuzzy)
-        List<Movie> moviesByTitle = movieService.searchMoviesByTitle(msg);
-        if (!moviesByTitle.isEmpty()) {
-            MovieSearchFilters f = new MovieSearchFilters(); 
-            f.setKeyword(msg);
-            ctx = new ConversationContext();
-            ctx.setLastSubjectType("Filter"); 
-            ctx.setLastSubjectId(f); 
-            ctx.setLastQuestionAsked("ask_more_filter");
-            return formatMoviesResponse(moviesByTitle, msg, ctx);
+        // PRIORITY 0: Subscription Keywords (Cao nhất)
+        if (lower.matches(".*(gói|đăng ký|cước|giá|bao nhiêu tiền|thanh toán|hủy|miễn phí|premium|cho xem|list).*") 
+        && lower.matches(".*(gói|cước|giá|tiền).*")) {
+            if (lower.contains("hủy")) return handleSubscriptionQuery("cancel");
+            if (lower.contains("thanh toán")) return handleSubscriptionQuery("payment");
+            return handleSubscriptionQuery("plans");
         }
         
-        // PRIORITY 2: Tìm người (actor/director)
-        List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(msg);
-        if (!persons.isEmpty()) {
-            ctx = new ConversationContext();
-            return formatPersonsResponse(persons, msg, ctx);
+        // PRIORITY 1: Movie Title Search (Ưu tiên cao)
+        // Loại bỏ noise words để tìm tên phim
+        String cleanTitle = lower
+            .replaceAll("^(phim|xem phim|tìm phim|có phim|film)\\s+", "")
+            .replaceAll("\\s+(có|không|nào|gì|đâu)$", "")
+            .trim();
+        
+        if (cleanTitle.length() >= 2) { // Tên phim tối thiểu 2 ký tự
+            List<Movie> moviesByTitle = movieService.searchMoviesByTitle(cleanTitle);
+            if (!moviesByTitle.isEmpty()) {
+                MovieSearchFilters f = new MovieSearchFilters(); 
+                f.setKeyword(cleanTitle);
+                ctx = new ConversationContext();
+                ctx.setLastSubjectType("Filter"); 
+                ctx.setLastSubjectId(f); 
+                ctx.setLastQuestionAsked("ask_more_filter");
+                return formatMoviesResponse(moviesByTitle, "'" + cleanTitle + "'", ctx);
+            }
         }
         
-        // PRIORITY 3: Detect Mood (cao hơn Genre vì specific hơn)
+        // PRIORITY 2: Person Search (Tên người riêng lẻ)
+        if (!lower.contains("phim") && msg.split("\\s+").length <= 4) {
+            List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(msg);
+            if (!persons.isEmpty()) {
+                ctx = new ConversationContext();
+                return formatPersonsResponse(persons, msg, ctx);
+            }
+        }
+        
+        // PRIORITY 3: Mood Detection (Cảm xúc)
         List<String> moodGenres = detectMood(lower);
         if (!moodGenres.isEmpty()) {
             MovieSearchFilters f = new MovieSearchFilters();
@@ -543,7 +808,7 @@ public class AIAgentService {
             return executeFilter(f, ctx, "phim phù hợp với tâm trạng của bạn");
         }
         
-        // PRIORITY 4: Detect Genre
+        // PRIORITY 4: Genre Detection
         List<String> genres = detectGenres(lower);
         if (!genres.isEmpty()) {
             MovieSearchFilters f = new MovieSearchFilters();
@@ -551,7 +816,7 @@ public class AIAgentService {
             return executeFilter(f, ctx, "phim thể loại " + String.join(", ", genres));
         }
         
-        // PRIORITY 5: Detect Country
+        // PRIORITY 5: Country Detection
         String country = detectCountry(lower);
         if (country != null) {
             MovieSearchFilters f = new MovieSearchFilters();
@@ -559,15 +824,15 @@ public class AIAgentService {
             return executeFilter(f, ctx, "phim " + country);
         }
         
-        // PRIORITY 6: Detect Trending
-        if (lower.contains("hot") || lower.contains("xu hướng") || lower.contains("phổ biến") || lower.contains("nổi bật")) {
+        // PRIORITY 6: Trending
+        if (lower.matches(".*(hot|xu hướng|phổ biến|nổi bật|đang xem|mới nhất).*")) {
             ctx = new ConversationContext();
             ctx.setLastSubjectType("Trending");
             ctx.setLastQuestionAsked("ask_more_trending");
             return formatMoviesResponse(movieService.getHotMoviesForAI(5), "phim hot nhất", ctx);
         }
         
-        // FINAL FALLBACK
+        // FINAL FALLBACK: No match
         ctx.setShownMovieIds(new ArrayList<>());
         ctx.setShownPersonIds(new ArrayList<>());
         ctx.setLastQuestionAsked(null);
@@ -577,7 +842,8 @@ public class AIAgentService {
             "• Tìm theo thể loại: 'phim hài', 'phim kinh dị', 'phim hành động'\n" +
             "• Tìm theo quốc gia: 'phim hàn quốc', 'phim việt nam', 'phim mỹ'\n" +
             "• Tìm theo tâm trạng: 'tôi đang buồn', 'tôi cần động lực', 'muốn cười'\n" +
-            "• Tìm theo tên: 'Thanh Gươm Diệt Quỷ', 'Trấn Thành'";
+            "• Tìm theo tên: 'Mai', 'Bố Già', 'Interstellar'\n" +
+            "• Gói đăng ký: 'các gói cước', 'bao nhiêu tiền'";
     }
 
     // Helper method - THÊM MỚI sau runKeywordFallback()
@@ -603,6 +869,12 @@ public class AIAgentService {
         }
         
         return formatMoviesResponse(movies, reason, ctx) + suggestion;
+    }
+
+    // Helper: Format giá tiền (Fix lỗi compilation)
+    private String formatPrice(BigDecimal price) {
+        if (price == null || price.compareTo(BigDecimal.ZERO) == 0) return "Miễn phí";
+        return String.format("%,.0fđ", price);
     }
     
     //---- UTILS ----
