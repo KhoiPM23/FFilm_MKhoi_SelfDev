@@ -36,22 +36,16 @@ public class RecommendationService {
         @Transactional(readOnly = true)
         public List<Movie> getRecommendations(Integer userID) {
 
-                // THAY ĐỔI 3: Tạo một yêu cầu trang, ví dụ: trang 0, 20 phần tử
-                // Đây chính là cách bạn "chỉ lấy danh sách" một cách an toàn
                 Pageable top20 = PageRequest.of(0, 20);
 
-                // 1. Lấy danh sách phim đã xem (để loại trừ)
                 Set<Integer> watchedMovieIDs = watchHistoryRepository.findWatchedMovieIDsByUserID(userID);
 
-                // 2. Lấy danh sách phim đã "Like"
                 Set<Integer> likedMovieIDs = userReactionRepository.findLikedMovieIDsByUserID(userID);
 
-                // 4. Xây dựng "Hồ sơ sở thích"
                 Set<Integer> profileGenreIDs = movieRepository.findGenreIDsByMovieIDs(likedMovieIDs);
 
-                // 6. Lấy gợi ý chính
-                // THAY ĐỔI 6: Truyền `top20` và dùng `.getContent()`
                 Page<Movie> moviePage = movieRepository.findRecommendations(profileGenreIDs, watchedMovieIDs, top20);
-                return moviePage.getContent(); // Trả về List<Movie>
+                return moviePage.getContent();
+
         }
 }

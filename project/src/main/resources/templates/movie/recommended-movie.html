@@ -72,10 +72,6 @@
         text-decoration: none;
       }
 
-      /* 6. CSS Phân trang được giữ lại (phòng trường hợp bạn nâng cấp controller)
-        Tuy nhiên, controller hiện tại trả về List, không phải Page,
-        nên phần HTML phân trang sẽ bị ẩn đi.
-      */
       .pagination-container {
         display: flex;
         justify-content: center;
@@ -158,8 +154,8 @@
           <div
             th:each="movie : ${recommendations}"
             class="movie-card"
-            th:attr="data-movie-id=${movie.tmdbId}"
-            th:onclick="'location.href=\'/movie/detail/' + ${movie.tmdbId} + '\''"
+            th:attr="data-movie-id=${movie.movieID}"
+            th:onclick="'location.href=\'/movie/detail/' + ${movie.movieID} + '\''"
           >
             <div class="movie-poster">
               <img

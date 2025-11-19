@@ -19,24 +19,24 @@ public class UserReactionController {
 
     @PostMapping("/like")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction(Integer userId, Integer tmdbId) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, tmdbId);
+    public ResponseEntity<String> handleUserReaction(Integer userId, Integer movieID) {
+        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
         userReactionService.likeMovie(reactionRequest);
         return ResponseEntity.ok("reaction recorded");
     }
 
     @PostMapping("/dislike")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction2(Integer userId, Integer tmdbId) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, tmdbId);
+    public ResponseEntity<String> handleUserReaction2(Integer userId, Integer movieID) {
+        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
         userReactionService.dislikeMovie(reactionRequest);
         return ResponseEntity.ok("reaction recorded");
     }
 
     @PostMapping("/remove")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction3(Integer userId, Integer tmdbId) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, tmdbId);
+    public ResponseEntity<String> handleUserReaction3(Integer userId, Integer movieID) {
+        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
         userReactionService.removeReaction(reactionRequest);
         return ResponseEntity.ok("reaction removed");
     }

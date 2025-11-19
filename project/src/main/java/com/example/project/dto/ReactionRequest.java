@@ -2,12 +2,11 @@ package com.example.project.dto;
 
 public class ReactionRequest {
     private Integer userId;
-    private Integer tmdbId;
     private Integer movieID;
 
-    public ReactionRequest(Integer userId, Integer tmdbId) {
+    public ReactionRequest(Integer userId, Integer movieID) {
         this.userId = userId;
-        this.tmdbId = tmdbId;
+        this.movieID = movieID;
     }
 
     public Integer getUserId() {
@@ -18,12 +17,12 @@ public class ReactionRequest {
         this.userId = userId;
     }
 
-    public Integer gettmdbId() {
-        return tmdbId;
+    public Integer getMovieID() {
+        return movieID;
     }
 
-    public void settmdbId(Integer tmdbId) {
-        this.tmdbId = tmdbId;
+    public void setMovieID(Integer movieID) {
+        this.movieID = movieID;
     }
 
 }
