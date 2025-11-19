@@ -2,8 +2,10 @@ package com.example.project.dto;
 
 import java.sql.Date;
 
+//Linh
+
 public class AddUserFavoriteRequest {
-    private Integer getTmdbId;
+    private Integer movieID;
     private Integer UserID;
     private Date createAt;
 
@@ -11,18 +13,18 @@ public class AddUserFavoriteRequest {
 
     }
 
-    public AddUserFavoriteRequest(Integer getTmdbId, Integer userID, Date createAt) {
-        this.getTmdbId = getTmdbId;
+    public AddUserFavoriteRequest(Integer movieID, Integer userID, Date createAt) {
+        this.movieID = movieID;
         UserID = userID;
         this.createAt = createAt;
     }
 
-    public Integer getTmdbId() {
-        return getTmdbId;
+    public Integer getMovieID() {
+        return movieID;
     }
 
-    public void setMovieID(Integer getTmdbId) {
-        this.getTmdbId = getTmdbId;
+    public void setMovieID(Integer movieID) {
+        this.movieID = movieID;
     }
 
     public Integer getUserID() {

@@ -66,9 +66,9 @@ public class UserAuthenticationController {
     public String login(
             @ModelAttribute("user") UserLoginDto dto,
             Model model,
-            HttpSession session) {
+            HttpSession session) { // Spring tự inject session hiện tại vào
         try {
-            // 1. Lấy Entity 'user' từ DB
+            // 1. Logic kiểm tra đăng nhập (giữ nguyên)
             User user = userService.findByEmail(dto.getEmail())
                     .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại"));
 
@@ -76,13 +76,11 @@ public class UserAuthenticationController {
                 throw new IllegalArgumentException("Mật khẩu không đúng");
             }
             
-            String userRole = user.getRole() != null ? user.getRole().toLowerCase() : "";
-
             if (!user.isStatus()) {
                 throw new IllegalArgumentException("Tài khoản chưa được kích hoạt.");
             }
 
-            // 2. TẠO DTO "SẠCH" TỪ ENTITY
+            // 2. TẠO DTO
             UserSessionDto userSession = new UserSessionDto(
                 user.getUserID(), 
                 user.getUserName(),
@@ -90,21 +88,32 @@ public class UserAuthenticationController {
                 user.getRole()
             );
 
-            // 3. LƯU DTO VÀO SESSION (KHÔNG LƯU ENTITY 'user')
+            String userRole = user.getRole() != null ? user.getRole().toLowerCase() : "";
+
+            // --- BỔ SUNG QUAN TRỌNG: DỌN DẸP SESSION CŨ ---
+            // Trước khi set attribute mới, hãy xóa hết các attribute định danh cũ
+            session.removeAttribute("user");
+            session.removeAttribute("admin");
+            session.removeAttribute("contentManager");
+            session.removeAttribute("moderator");
+            // Hoặc kỹ hơn: session.invalidate(); sau đó request.getSession(true); 
+            // nhưng cách removeAttribute đơn giản hơn với code hiện tại của bạn.
+
+            // 3. LƯU DTO VÀO SESSION
             if ("user".equals(userRole)) { 
-                session.setAttribute("user", userSession); // <-- LƯU DTO
+                session.setAttribute("user", userSession); 
                 return "redirect:/";
             } else if ("admin".equals(userRole)) { 
-                session.setAttribute("admin", userSession); // <-- LƯU DTO
+                session.setAttribute("admin", userSession); 
                 return "redirect:/AdminScreen/homeAdminManager";
             } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) { 
-                session.setAttribute("contentManager", userSession); // <-- LƯU DTO
+                session.setAttribute("contentManager", userSession); 
                 return "redirect:/ContentManagerScreen/homeContentManager";
             } else if ("moderator".equals(userRole)) { 
-                session.setAttribute("moderator", userSession); // <-- LƯU DTO
+                session.setAttribute("moderator", userSession); 
                 return "redirect:/ModeratorScreen/homeModeratorManage"; 
             } else {
-                throw new IllegalArgumentException("Tài khoản không có quyền truy cập hoặc vai trò không hợp lệ.");
+                throw new IllegalArgumentException("Vai trò không hợp lệ: " + userRole);
             }
 
         } catch (IllegalArgumentException e) {

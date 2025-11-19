@@ -20,6 +20,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     List<User> findByRole(String role);
 
+    List<User> findByRoleIn(List<String> roles);
+
     Page<User> findAll(Pageable pageable);
 
     Page<User> findByRole(String role, Pageable pageable);
@@ -27,4 +29,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Page<User> findByEmail(String email, Pageable pageable);
 
     Page<User> findByStatus(boolean status, Pageable pageable);
+
+    Page<User> findByRoleIn(List<String> roles, Pageable pageable);
 }

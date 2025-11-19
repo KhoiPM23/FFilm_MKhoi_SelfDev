@@ -25,53 +25,46 @@ import java.util.List;
  * và chuyển đổi nó thành đối tượng Authentication của Spring Security.
  * Điều này cho phép .authenticated() hoạt động chính xác.
  */
-@Component // Rất quan trọng: Đánh dấu đây là một Spring Bean
+@Component
 public class CustomSessionAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false); // false = không tạo session mới nếu chưa có
+        HttpSession session = request.getSession(false); 
         UserSessionDto userSession = null;
 
         if (session != null) {
-            // Kiểm tra tất cả các key session có thể có mà bạn đã định nghĩa
-            if (session.getAttribute("user") != null) {
-                userSession = (UserSessionDto) session.getAttribute("user");
-            } else if (session.getAttribute("admin") != null) {
+            // --- SỬA ĐỔI: THAY ĐỔI THỨ TỰ ƯU TIÊN ---
+            // Kiểm tra quyền cao nhất trước để tránh bị nhận diện nhầm là user thường
+            if (session.getAttribute("admin") != null) {
                 userSession = (UserSessionDto) session.getAttribute("admin");
             } else if (session.getAttribute("contentManager") != null) {
                 userSession = (UserSessionDto) session.getAttribute("contentManager");
             } else if (session.getAttribute("moderator") != null) {
                 userSession = (UserSessionDto) session.getAttribute("moderator");
+            } else if (session.getAttribute("user") != null) {
+                // Kiểm tra user cuối cùng
+                userSession = (UserSessionDto) session.getAttribute("user");
             }
         }
 
-        // Nếu có user trong session VÀ Spring Security chưa biết (Context đang trống)
+        // ... phần logic set Authentication giữ nguyên
         if (userSession != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // 1. Tạo quyền (Authority) từ role trong DTO
-            // Chúng ta thêm tiền tố "ROLE_" vì Spring Security thường yêu cầu
             String role = userSession.getRole() != null ? userSession.getRole().toUpperCase() : "USER";
+            // Lưu ý: Đảm bảo role trong DB khớp với hasRole trong SecurityConfig
+            // Ví dụ: DB lưu "ADMIN" -> Authority thành "ROLE_ADMIN"
             List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
-            // 2. Tạo UserDetails (đối tượng user của Spring Security)
-            // Mật khẩu có thể để trống vì ta không check pass ở đây
             UserDetails userDetails = new User(userSession.getEmail(), "", authorities);
-
-            // 3. Tạo đối tượng Authentication
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-            // 4. Đặt đối tượng Authentication vào SecurityContext
-            // Đây là bước "báo" cho Spring Security biết user đã đăng nhập
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 
-        // Chuyển request cho filter tiếp theo trong chuỗi
         filterChain.doFilter(request, response);
     }
 }

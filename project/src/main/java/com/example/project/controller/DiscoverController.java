@@ -5,11 +5,12 @@ import com.example.project.service.MovieService;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page; // <-- THÊM
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate; // [G29] Vẫn cần vì hàm buildDiscoverUrl dùng
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -22,69 +23,97 @@ public class DiscoverController {
 
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
+    private static final int PAGE_SIZE = 10; // Giới hạn 10 phim/trang (cho carousel/grid)
 
     @Autowired private MovieService movieService;
-    @Autowired private RestTemplate restTemplate; // [G29] Giữ lại
+    @Autowired private RestTemplate restTemplate;
+
+    // Xóa hàm discover() cũ trong DiscoverController.java
+// Thay thế bằng hàm MỚI này:
 
     @GetMapping("/discover")
     public String discover(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(required = false) String genres,
+            @RequestParam(required = false) String genres, // Đây là tmdbGenreId
             @RequestParam(required = false) String quickFilter,
             Model model) {
 
         try {
-            // [SỬA] BƯỚC 1: LUÔN LUÔN LẤY BANNER TỪ PAGE 1
-            // Xây dựng URL cho page 1 (để lấy banner + top movies)
-            String page1Url = buildDiscoverUrl(1, genres, quickFilter);
-            int discoverLimit = 20; 
-            Map<String, Object> page1Data = movieService.loadAndSyncPaginatedMovies(page1Url, discoverLimit);
-            List<Map<String, Object>> topMovies = (List<Map<String, Object>>) page1Data.get("movies");
+            // [SỬA VĐ 6] Tăng giới hạn fetch để thuật toán Relevance hoạt động
+            int dbFetchLimit = 40;
+            int finalLimit = 20; // Giới hạn hiển thị cuối cùng
+            int dbPage = page - 1; // Page của DB (bắt đầu từ 0)
 
-            // [SỬA] BƯỚC 2: GÁN BANNER VÀ TOP MOVIES (Luôn cố định)
-            if (!topMovies.isEmpty()) {
-                // Lấy bannerTmdbId từ topMovies (của page 1)
-                int bannerTmdbId = (int) topMovies.get(0).get("id");
-                // Gọi getMoviePartial để nâng cấp (lấy duration/country)
-                Movie bannerMovie = movieService.getMoviePartial(bannerTmdbId); 
-                Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
+            // Lấy thông tin phân trang (tổng số) từ API
+            String page1ApiUrl = buildDiscoverUrl(1, genres, quickFilter);
+            int totalResults = 0;
+            int totalPages = 1;
+            
+            try {
+                String page1Response = restTemplate.getForObject(page1ApiUrl, String.class);
+                if (page1Response != null) {
+                    JSONObject page1Json = new JSONObject(page1Response);
+                    totalResults = page1Json.optInt("total_results", 0);
+                    totalPages = page1Json.optInt("total_pages", 1);
+                }
+            } catch (Exception e) {
+                 System.err.println("Lỗi lấy totalPages/Results: " + e.getMessage());
+            }
 
-                String trailerKey = movieService.findBestTrailerKey(bannerTmdbId);
-                String logoPath = movieService.findBestLogoPath(bannerTmdbId);
+            // [SỬA VĐ 6] Lấy danh sách phim từ DB và xác định SortBy
+            Page<Movie> dbMovies;
+            MovieService.SortBy sortBy;
+
+            if (genres != null && !genres.isEmpty()) {
+                // Lọc theo Genre -> Sort theo HOT
+                dbMovies = movieService.getMoviesByGenreFromDB(Integer.parseInt(genres), dbFetchLimit, dbPage);
+                sortBy = MovieService.SortBy.HOT;
+            } else if ("new".equals(quickFilter)) {
+                // Lọc theo Mới -> Sort theo NEW
+                dbMovies = movieService.getNewMoviesFromDB(dbFetchLimit);
+                sortBy = MovieService.SortBy.NEW;
+            } else {
+                // Mặc định (trending/top-rated) -> Sort theo HOT
+                dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
+                sortBy = MovieService.SortBy.HOT;
+            }
+            
+            // 2. Lấy URL API cho trang hiện tại
+            String currentApiUrl = buildDiscoverUrl(page, genres, quickFilter);
+            
+            // 3. Gộp (Dùng thuật toán VĐ 6 mới)
+            List<Map<String, Object>> mergedMovies = movieService.getMergedCarouselMovies(
+                currentApiUrl, 
+                dbMovies, 
+                finalLimit, // Giới hạn 20 phim
+                sortBy      // Tiêu chí sort
+            );
+
+            // 4. Set Banner (Lấy phim đầu tiên trong danh sách đã gộp)
+            if (!mergedMovies.isEmpty()) {
+                Map<String, Object> bannerMap = mergedMovies.get(0);
+                int movieID = (int) bannerMap.get("id"); // Lấy PK
+                
+                String trailerKey = movieService.findBestTrailerKey(movieID); // Gọi bằng PK
+                String logoPath = movieService.findBestLogoPath(movieID); // Gọi bằng PK
                 
                 bannerMap.put("trailerKey", trailerKey);
                 bannerMap.put("logoPath", logoPath);
                 
                 model.addAttribute("banner", bannerMap);
-                // topMovies carousel luôn là danh sách của page 1
-                model.addAttribute("topMovies", topMovies.subList(0, Math.min(topMovies.size(), 10)));
+                
+                // Top movies là 10 phim đầu tiên của danh sách gộp
+                model.addAttribute("topMovies", mergedMovies.subList(0, Math.min(mergedMovies.size(), 10)));
             } else {
-                // Fallback nếu page 1 cũng không có gì
-                setEmptyResults(model, genres, quickFilter); // setEmptyResults sẽ tự tạo banner rỗng
+                setEmptyResults(model, genres, quickFilter);
             }
             
-            // [SỬA] BƯỚC 3: LẤY KẾT QUẢ CHO GRID PHÂN TRANG
-            List<Map<String, Object>> gridMovies;
-            int totalResults = (int) page1Data.get("totalResults");
-            int totalPages = (int) page1Data.get("totalPages");
-
-            if (page == 1) {
-                // Tiết kiệm API: Nếu đang ở trang 1, dùng luôn kết quả đã lấy
-                gridMovies = topMovies;
-            } else {
-                // Nếu ở trang > 1, gọi API lần nữa CHỈ để lấy grid
-                String currentPageUrl = buildDiscoverUrl(page, genres, quickFilter);
-                Map<String, Object> currentPageData = movieService.loadAndSyncPaginatedMovies(currentPageUrl, discoverLimit);
-                gridMovies = (List<Map<String, Object>>) currentPageData.get("movies");
-                // (totalResults và totalPages đã lấy từ page 1 là đủ)
-            }
-            
-            // Gán model cho grid
-            model.addAttribute("searchResults", gridMovies);
+            // Gán model cho grid (searchResults giống hệt topMovies vì logic gộp chung)
+            model.addAttribute("searchResults", mergedMovies);
             model.addAttribute("totalResults", totalResults);
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("currentPage", page);
-            model.addAttribute("hasResults", !gridMovies.isEmpty());
+            model.addAttribute("hasResults", !mergedMovies.isEmpty());
             model.addAttribute("genres", genres);
             model.addAttribute("quickFilter", quickFilter);
             model.addAttribute("pageTitle", getPageTitle(genres, quickFilter));
@@ -95,20 +124,25 @@ public class DiscoverController {
         }
         return "discover";
     }
-
-    // (Hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
+    
+    // (Các hàm buildDiscoverUrl, getPageTitle, setEmptyResults giữ nguyên)
     
     private String buildDiscoverUrl(int page, String genres, String quickFilter) {
         StringBuilder url = new StringBuilder();
         url.append(BASE_URL).append("/discover/movie?api_key=").append(API_KEY)
-           .append("&language=vi-VN&include_adult=false&page=").append(page);
+           .append("&language=vi-VN&page=").append(page);
+           
         if (genres != null && !genres.isEmpty()) url.append("&with_genres=").append(genres);
+        
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String threeMonthsAgo = LocalDate.now().minusMonths(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String sortBy = "popularity.desc";
+        
         if (quickFilter != null) {
             switch (quickFilter) {
-                case "trending": sortBy = "popularity.desc"; break;
+                case "trending": 
+                    sortBy = "popularity.desc"; 
+                    break;
                 case "new": 
                     sortBy = "primary_release_date.desc";
                     url.append("&primary_release_date.lte=").append(today)
@@ -122,6 +156,9 @@ public class DiscoverController {
             }
         }
         url.append("&sort_by=").append(sortBy);
+        
+        // [FIX VĐ 6] Thêm &include_adult=false
+        url.append("&include_adult=false");
         return url.toString();
     }
 

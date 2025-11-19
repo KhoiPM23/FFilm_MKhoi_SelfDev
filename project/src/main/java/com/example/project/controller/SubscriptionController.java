@@ -4,9 +4,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.SessionAttribute;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.project.dto.SubscriptionPlanRegisterRequest;
+import com.example.project.dto.UserSessionDto;
+import com.example.project.model.User;
 import com.example.project.service.SubscriptionService;
 
 @Controller
@@ -22,10 +25,13 @@ public class SubscriptionController {
     // POST đăng ký gói
     @PostMapping("/register")
     public String registerSubscription(
-            @RequestParam Integer userId,
+            @SessionAttribute("user") UserSessionDto userDto,
             @RequestParam Integer planId,
             RedirectAttributes redirectAttributes) {
-
+        if (userDto == null) {
+            return "login";
+        }
+        Integer userId = userDto.getId();
         System.out.println("User ID: " + userId);
         System.out.println("Plan ID: " + planId);
         SubscriptionPlanRegisterRequest planRegisterRequest = new SubscriptionPlanRegisterRequest(userId, planId);

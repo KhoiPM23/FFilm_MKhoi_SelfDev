@@ -18,14 +18,14 @@ public class MoviePlayerController {
     private MoviePlayerService moviePlayerService;
 
     // lấy dữ liệu cho lớp player of Nguyên
-    @GetMapping("/movie/player/{tmdbid}")
-    public String watchMovie(@PathVariable("tmdbid") int tmdbid, Model model) {
+    @GetMapping("/movie/player/{id}")
+    public String watchMovie(@PathVariable("id") int id, Model model) {
         try {
-            Movie movie = moviePlayerService.getMovieByTmdbId(tmdbid);
+            Movie movie = moviePlayerService.getMovieById(id);
             model.addAttribute("movie", movie);
 
             List<Movie> recommendedMovies = moviePlayerService.getRecommendedMovies();
-            recommendedMovies.removeIf(m -> m.getTmdbId() != null && m.getTmdbId().equals(tmdbid));
+            recommendedMovies.removeIf(m -> m.getMovieID() == id);
             model.addAttribute("recommendedMovies", recommendedMovies);
             return "movie/player";
         } catch (RuntimeException e) {

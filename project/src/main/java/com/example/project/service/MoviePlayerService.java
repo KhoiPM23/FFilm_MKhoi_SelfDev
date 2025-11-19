@@ -19,15 +19,15 @@ public class MoviePlayerService {
         return movieRepository.findTop20ByOrderByReleaseDateDesc();
     }
 
-    public Movie getMovieByTmdbId(int tmdbId) {
+    public Movie getMovieById(int id) {
 
   
-        Optional<Movie> movieOtp = movieRepository.findByTmdbId(tmdbId); 
+        Optional<Movie> movieOtp = movieRepository.findById(id); 
 
         if (movieOtp.isPresent()) {
             return movieOtp.get();
         } else {
-            throw new RuntimeException("Không tìm thấy phim có TMDB ID: " + tmdbId);
+            throw new RuntimeException("Không tìm thấy phim có Movie ID: " + id);
         }
     }
 }

@@ -20,88 +20,65 @@
         <a href="/discover?genres=35" class="genre-item-flat" data-genre="35">
             <i class="fas fa-laugh"></i> Hài
         </a>
-        
         <a href="/discover?genres=27" class="genre-item-flat" data-genre="27">
             <i class="fas fa-ghost"></i> Kinh dị
         </a>
         <a href="/discover?genres=10749" class="genre-item-flat" data-genre="10749">
             <i class="fas fa-heart"></i> Lãng mạn
         </a>
-        
+        <div class="genre-nav-wrapper">
+            <a href="#" class="genre-toggle">
+                Xem thêm <i class="fas fa-caret-down"></i>
+            </a>
+            <div class="genre-dropdown" id="genreDropdown">
+                <div class="genre-grid">
+                    <a href="/discover?genres=36" class="genre-item" data-genre="36">
+                        <i class="fas fa-fist-raised"></i> Lịch sử
+                    </a>
+                    <a href="/discover?genres=12" class="genre-item" data-genre="12">
+                        <i class="fas fa-compass"></i> Phiêu lưu
+                    </a>
+                    <a href="/discover?genres=16" class="genre-item" data-genre="16">
+                        <i class="fas fa-palette"></i> Hoạt hình
+                    </a>
+                    <a href="/discover?genres=10402" class="genre-item" data-genre="10402">
+                        <i class="fas fa-laugh"></i> Nhạc
+                    </a>
+                    <a href="/discover?genres=80" class="genre-item" data-genre="80">
+                        <i class="fas fa-user-secret"></i> Hình sự
+                    </a>
+                    <a href="/discover?genres=18" class="genre-item" data-genre="18">
+                        <i class="fas fa-theater-masks"></i> Chính kịch
+                    </a>
+                    <a href="/discover?genres=10751" class="genre-item" data-genre="10751">
+                        <i class="fas fa-home"></i> Gia đình
+                    </a>
+                    <a href="/discover?genres=14" class="genre-item" data-genre="14">
+                        <i class="fas fa-dragon"></i> Giả tưởng
+                    </a>
+                    <a href="/discover?genres=10770" class="genre-item" data-genre="10770">
+                        <i class="fas fa-ghost"></i> Chương trình truyền hình
+                    </a>
+                    <a href="/discover?genres=10752" class="genre-item" data-genre="10752">
+                        <i class="fas fa-heart"></i> Chiến tranh
+                    </a>
+                    <a href="/discover?genres=878" class="genre-item" data-genre="878">
+                        <i class="fas fa-rocket"></i> Khoa học viễn tưởng
+                    </a>
+                    <a href="/discover?genres=53" class="genre-item" data-genre="53">
+                        <i class="fas fa-exclamation-triangle"></i> Gây cấn
+                    </a>
+                </div>
+            </div>
+        </div>
     </nav>
+
     <div class="header-actions">
-        <div class="search-box" style="position:relative;">
-          <i class="fas fa-search search-toggle" aria-hidden="true" style="cursor:pointer;"></i>
-          
-          <input type="text" id="searchInput" aria-label="Tìm kiếm phim" placeholder="Tìm kiếm phim, diễn viên..." class="search-input" autocomplete="off">
-          
-          <button class="voice-search-btn" id="voiceSearchBtn" type="button" aria-label="Tìm kiếm bằng giọng nói" title="Tìm kiếm bằng giọng nói">
-              <i class="fas fa-microphone"></i>
-          </button>
-
-          <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="Kết quả tìm kiếm" hidden></div>
-
-          <div id="filtersPanel" class="filters-panel" hidden>
-            <div class="filters-header">
-              <h3>Lọc kết quả</h3>
-              <button class="filters-close" id="filtersClose">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-            
-            <div class="filters-body">
-              <div class="filter-group">
-                <label class="filter-label">Nhanh</label>
-                <div class="quick-filters">
-                  <button class="quick-filter-chip" data-filter="trending">
-                    <i class="fas fa-fire"></i> Thịnh hành
-                  </button>
-                  <button class="quick-filter-chip" data-filter="new">
-                    <i class="fas fa-star"></i> Mới nhất
-                  </button>
-                  <button class="quick-filter-chip" data-filter="top-rated">
-                    <i class="fas fa-trophy"></i> Đánh giá cao
-                  </button>
-                </div>
-              </div>
-              
-              <div class="filter-group">
-                <label class="filter-label">Thể loại</label>
-                <div class="genre-filters" id="genreFilters">
-                  </div>
-              </div>
-              
-              <div class="filter-group">
-                <label class="filter-label">Năm phát hành</label>
-                <div class="year-filter">
-                  <input type="number" id="yearFrom" placeholder="Từ năm" min="1900" max="2025">
-                  <span>-</span>
-                  <input type="number" id="yearTo" placeholder="Đến năm" min="1900" max="2025">
-                </div>
-              </div>
-              
-              <div class="filter-group">
-                <label class="filter-label">Đánh giá tối thiểu</label>
-                <div class="rating-filter">
-                  <input type="range" id="minRating" min="0" max="10" step="0.5" value="0">
-                  <span class="rating-value" id="ratingValue">0.0</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="filters-footer">
-              <button class="btn-clear-filters" id="clearFilters">Xóa bộ lọc</button>
-              <button class="btn-apply-filters" id="applyFilters">Áp dụng</button>
-            </div>
-          </div>
-
-          <button class="filters-toggle" id="filtersToggle" type="button" title="Bộ lọc tìm kiếm">
-            <i class="fas fa-filter"></i>
-          </button>
-
-          <button class="ai-search-toggle" id="aiSearchToggle" type="button" title="Tìm kiếm bằng AI">
-            <i class="fas fa-wand-magic-sparkles"></i>
-          </button>
+        
+        <div class="search-box">
+          <a href="/search" class="search-toggle" aria-label="Tìm kiếm" title="Tìm kiếm">
+            <i class="fas fa-search"></i>
+          </a>
         </div>
 
         <div class="notification">
@@ -113,8 +90,6 @@
                 <p>🔔 Không có thông báo mới</p>
             </div>
         </div>
-
-        
 
          <a
           th:if="${session.user}"
@@ -137,999 +112,155 @@
         >
         
         <div th:unless="${session.user}" class="auth-buttons">
-        <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
-        <a th:href="@{/register}" class="btn-register">Đăng ký</a> </div>
-    <div th:if="${session.user}" class="user-dropdown-wrapper">
-        <div class="user-avatar-btn" id="userAvatarBtn" role="button" tabindex="0">
-            <span class="avatar-initials" th:text="${@userService.getInitials(session.user.userName)}"></span>
+            <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
+            <a th:href="@{/register}" class="btn-register">Đăng ký</a> 
         </div>
+        <div th:if="${session.user}" class="user-dropdown-wrapper">
+            <div class="user-avatar-btn" id="userAvatarBtn" role="button" tabindex="0">
+                <span class="avatar-initials" th:text="${@userService.getInitials(session.user.userName)}"></span>
+            </div>
 
-        <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
-    <div class="dropdown-header">
-        Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
-    </div>
-    <a th:href="@{/profile}" class="dropdown-item">
-        <i class="fas fa-user-circle"></i> Profile
-    </a>
-    <a th:href="@{/history}" class="dropdown-item">
-        <i class="fas fa-history"></i> Lịch sử xem
-    </a>
-    <a th:href="@{/logout}" class="dropdown-item logout-item">
-        <i class="fas fa-sign-out-alt"></i> Đăng xuất
-    </a>
-</div>
-    </div>
-        <div id="aiSearchModal" class="ai-search-modal" hidden>
-          <div class="ai-modal-overlay"></div>
-          <div class="ai-modal-content">
-            <div class="ai-modal-header">
-              <div class="ai-header-title">
-                <i class="fas fa-wand-magic-sparkles"></i>
-                <h3>Tìm kiếm bằng AI</h3>
-              </div>
-              <button class="ai-modal-close" id="aiModalClose">
-                <i class="fas fa-times"></i>
-              </button>
+            <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
+                <div class="dropdown-header">
+                    Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
+                </div>
+                <a th:href="@{/profile}" class="dropdown-item">
+                    <i class="fas fa-user-circle"></i> Profile
+                </a>
+                <a th:href="@{/history}" class="dropdown-item">
+                    <i class="fas fa-history"></i> Lịch sử xem
+                </a>
+
+                <a th:href="@{/logout}" class="dropdown-item logout-item">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </a>
             </div>
-            
-            <div class="ai-modal-body">
-              <p class="ai-description">
-                Mô tả bộ phim bạn muốn xem, AI sẽ giúp bạn tìm kiếm!
-              </p>
-              
-              <textarea 
-                id="aiSearchInput" 
-                placeholder="Ví dụ: Tôi muốn xem phim về người sắt, có robot chiến đấu, đạo diễn nổi tiếng, hành động mãn nhãn..."
-                rows="5"
-              ></textarea>
-              
-              <div class="ai-examples">
-                <p class="examples-label">Gợi ý:</p>
-                <button class="example-chip" data-example="Phim về siêu anh hùng Marvel, có Chris Evans">
-                  Phim Marvel với Chris Evans
-                </button>
-                <button class="example-chip" data-example="Phim kinh dị tâm lý, đạo diễn Christopher Nolan">
-                  Kinh dị tâm lý Nolan
-                </button>
-                <button class="example-chip" data-example="Phim hoạt hình Disney về gia đình">
-                  Hoạt hình Disney gia đình
-                </button>
-              </div>
-              
-              <div class="ai-loading" id="aiLoading" hidden>
-                <div class="loading-spinner"></div>
-                <p>AI đang phân tích mô tả của bạn...</p>
-              </div>
-              
-              <div class="ai-movie-results" id="aiMovieResults" hidden>
-                <p class="results-label">
-                  <i class="fas fa-film"></i>
-                  Phim gợi ý cho bạn:
-                </p>
-                <div class="ai-movie-grid" id="aiMovieGrid"></div>
-              </div>
-              
-              <div class="ai-error" id="aiError" hidden>
-                <i class="fas fa-exclamation-circle"></i>
-                <span id="aiErrorMessage"></span>
-              </div>
-            </div>
-            
-            <div class="ai-modal-footer">
-              <button class="btn-cancel" id="aiCancelBtn">Hủy</button>
-              <button class="btn-search-ai" id="aiSearchBtn">
-                <i class="fas fa-search"></i>
-                Tìm kiếm
-              </button>
-            </div>
-          </div>
         </div>
-        </div> <style>
-    /* Ensure parent doesn't clip dropdown */
-    .main-header, .header-actions, .search-box { overflow: visible; }
-    .search-box { position: relative; /* đảm bảo chứa các absolute */ }
+        
+        </div> 
 
-    /* Input */
-    .search-input{
-      width:0; opacity:0; padding:8px 10px; border-radius:8px;
-      border:1px solid rgba(255,255,255,0.06);
-      background:rgba(255,255,255,0.03); color:#fff;
-      transition: all .20s ease; font-size:0.95rem;
-      max-width: 85vw;
-    }
-    .search-input.active{ width:300px; opacity:1; }
-    .search-input::placeholder{ color:rgba(255,255,255,0.5); }
-
-    /* Suggestions panel: fixed positioning so it's never clipped by parents */
-    .search-suggestions{
-      position: fixed;              /* fixed so it sits above everything */
-      top: 0; left: 0;
-      transform: translateY(8px);    /* slight offset from input */
-      min-width: 260px;
-      max-width: 560px;              /* wider on desktop */
-      width: auto;
-      max-height: 56vh;
-      overflow: auto;
-      background: rgba(10,10,10,0.98);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      padding: 6px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-      z-index: 9999;                 /* high so it stays on top */
-      display: none;                 /* controlled by JS */
-    }
-
-    /* style for mobile smaller width */
-    @media (max-width: 760px) {
-      .search-input.active { width: 220px; }
-      .search-suggestions { max-width: 92vw; left: 4vw; right: 4vw; }
-    }
-
-    /* suggestion entries */
-    .search-suggestion{
-      display:flex; gap:12px; align-items:center;
-      padding:10px; border-radius:8px; cursor:pointer;
-      transition: background .12s;
-    }
-    .search-suggestion:hover, .search-suggestion.active{ background: rgba(255,255,255,0.03); }
-    .search-suggestion img{ width:56px; height:84px; object-fit:cover; border-radius:6px; flex-shrink:0; }
-    .suggestion-meta{ display:flex; flex-direction:column; min-width:0; }
-    .suggestion-title{ font-weight:600; font-size:0.96rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .suggestion-sub{ font-size:0.82rem; color:rgba(255,255,255,0.65); margin-top:4px; }
-
-    /* "no results" placeholder */
-    .no-results{ padding:14px; color:rgba(255,255,255,0.66); text-align:center; }
-
-    /* small visual nudge so suggestions appear right below input */
-    .search-suggestions.arrow::before{
-      content: "";
-      position: absolute;
-      top: -8px;
-      left: 18px;
-      width: 12px;
-      height: 12px;
-      background: rgba(10,10,10,0.98);
-      transform: rotate(45deg);
-      border-left:1px solid rgba(255,255,255,0.03);
-      z-index: -1;
-    }
-</style>
 <style>
-  /* Voice Search Button */
-  .voice-search-btn {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 1.1rem;
+/* CSS CHO DROPDOWN THỂ LOẠI (GIỐNG CODE CŨ) */
+.genre-nav-wrapper {
+    position: relative;
+}
+
+.genre-toggle {
+    padding: 8px 12px;
     cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    z-index: 10;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s, color 0.2s, background 0.2s;
-  }
-
-  /* Hiện khi input active */
-  .search-input.active ~ .voice-search-btn {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .voice-search-btn:hover {
-    color: #e50914;
-    background: rgba(255,255,255,0.1);
-  }
-
-  .voice-search-btn.recording {
-    color: #e50914;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
-    50% { transform: translateY(-50%) scale(1.1); opacity: 0.8; }
-  }
-
-  .voice-search-btn.error {
-    color: #ff6b6b;
-  }
-
-  /* Adjust search input padding */
-  .search-input.active {
-    padding-right: 45px;
-  }
-
-  /* Voice search status tooltip - THÊM VÀO */
-  .voice-status {
-    position: absolute;
-    top: -25px;
-    right: 0;
-    background: rgba(0,0,0,0.9);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.85rem;
+    transition: color 0.3s;
+    /* Match other nav links */
+    color: #ddd;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
     white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transform: translateY(5px);
-    transition: all 0.2s;
-  }
-
-  .voice-status.show {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* Context tag highlight */
-  .suggestion-sub {
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.65);
-    margin-top: 4px;
-    line-height: 1.3;
-  }
-
-  .header-actions {
-    position: relative; /* override if needed */
-    z-index: 11000;      /* baseline so contained controls are above page content */
-  }
-
-  /* ============ Filters Panel ============ */
-  .filters-toggle {
-    position: absolute;
-    top: 50%;
-    right: -30px;      
-    transform: translateY(-50%);
-    opacity: 0;
-    pointer-events: none;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.85);
-    font-size: 1.05rem;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all .18s ease;
-    z-index: 13000 !important;       /* nằm trên suggestions */
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    justify-content: center;
-  }
-
-  .search-box:focus-within .filters-toggle,
-  .filters-toggle.visible,
-  .search-input.active ~ .filters-toggle {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .filters-toggle {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 8px;
-  }
-
-  .filters-toggle:hover {
+    gap: 5px;
+}
+.genre-toggle:hover,
+.main-nav a.active { /* Thêm .active cho trang chủ */
     color: #e50914;
-    background: rgba(255,255,255,0.1);
-  }
+}
 
-  .filters-toggle.active {
-    color: #e50914;
-  }
-
-  @media (max-width: 760px) {
-    .filters-toggle {
-      right: -36px;
-      font-size: 1rem;
-    }
-    .search-input.active { padding-right: 96px; }
-  }
-
-  .filters-panel {
-    position: fixed;
-    top: 70px;
-    right: 0;
-    width: 320px;
-    max-height: calc(100vh - 90px);
+.genre-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     background: rgba(20,20,20,0.98);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px 0 0 12px;
-    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
-    z-index: 9998;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .filters-panel.show {
-    transform: translateX(0);
-  }
-
-  .filters-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-
-  .filters-header h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .filters-close {
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-
-  .filters-close:hover {
-    color: #e50914;
-    background: rgba(255,255,255,0.1);
-  }
-
-  .filters-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 20px;
-  }
-
-  .filter-group {
-    margin-bottom: 24px;
-  }
-
-  .filter-label {
-    display: block;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: rgba(255,255,255,0.9);
-    margin-bottom: 10px;
-  }
-
-  /* Quick Filters */
-  .quick-filters {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .quick-filter-chip {
-    padding: 6px 12px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px;
-    color: rgba(255,255,255,0.8);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .quick-filter-chip:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
-  }
-
-  .quick-filter-chip.active {
-    background: #e50914;
-    border-color: #e50914;
-    color: white;
-  }
-
-  /* Genre Filters */
-  .genre-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    
-  }
-
-  
-
-  .genre-chip {
-    padding: 6px 12px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px;
-    color: rgba(255,255,255,0.8);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .genre-chip:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
-  }
-
-  .genre-chip.active {
-    background: #e50914;
-    border-color: #e50914;
-    color: white;
-  }
-
-  /* Year Filter */
-  .year-filter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .year-filter input {
-    flex: 1;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    color: white;
-    font-size: 0.9rem;
-  }
-
-  .year-filter input::placeholder {
-    color: rgba(255,255,255,0.4);
-  }
-
-  .year-filter span {
-    color: rgba(255,255,255,0.5);
-  }
-
-  /* Rating Filter */
-  .rating-filter {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .rating-filter input[type="range"] {
-    flex: 1;
-    height: 4px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 2px;
-    outline: none;
-    -webkit-appearance: none;
-  }
-
-  .rating-filter input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #e50914;
-    border-radius: 50%;
-    cursor: pointer;
-  }
-
-  .rating-filter input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    background: #e50914;
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-  }
-
-  .rating-value {
-    min-width: 32px;
-    font-weight: 600;
-    color: #e50914;
-  }
-
-  /* Footer */
-  .filters-footer {
-    padding: 16px 20px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    display: flex;
-    gap: 10px;
-  }
-
-  .btn-clear-filters {
-    flex: 1;
-    padding: 10px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 6px;
-    color: rgba(255,255,255,0.8);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-clear-filters:hover {
-    background: rgba(255,255,255,0.1);
-  }
-
-  .btn-apply-filters {
-    flex: 1;
-    padding: 10px;
-    background: #e50914;
-    border: none;
-    border-radius: 6px;
-    color: white;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-apply-filters:hover {
-    background: #f40612;
-  }
-
-  /* Mobile responsive */
-  @media (max-width: 760px) {
-    .filters-panel {
-      width: 100%;
-      max-width: 100%;
-      border-radius: 0;
-    }
-  }
-
-
-  /* ============ AI Search Button ============ */
-  .ai-search-toggle {
-    position: absolute;
-    top: 50%;
-    right: -70px;
-    transform: translateY(-50%);
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 400px;
+    max-width: 700px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    backdrop-filter: blur(20px);
     opacity: 0;
-    pointer-events: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    color: white;
-    font-size: 1.05rem;
-    cursor: pointer;
-    padding: 10px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    z-index: 13000;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    min-width: 40px;
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
+    visibility: hidden;
+    transition: all 0.3s;
+    z-index: 1000;
+    margin-top: 10px;
+}
 
-  .search-input.active ~ .ai-search-toggle {
+.genre-nav-wrapper:hover .genre-dropdown {
     opacity: 1;
-    pointer-events: auto;
-  }
+    visibility: visible;
+}
 
-  .ai-search-toggle:hover {
-    transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-  }
-
-  @media (max-width: 760px) {
-    .ai-search-toggle {
-      right: -76px;
-      font-size: 0.95rem;
-    }
-  }
-
-  /* ============ AI Search Modal ============ */
-  .ai-search-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s;
-  }
-
-  .ai-modal-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(4px);
-  }
-
-  .ai-modal-content {
-    position: relative;
-    width: 90%;
-    max-width: 600px;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-    animation: slideUp 0.3s ease-out;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-
-  .ai-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 24px 28px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .ai-header-title {
-    display: flex;
-    align-items: center;
+.genre-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
-  }
+}
 
-  .ai-header-title i {
-    font-size: 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .ai-header-title h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .ai-modal-close {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1.3rem;
-    cursor: pointer;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .ai-modal-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-  }
-
-  .ai-modal-body {
-    padding: 28px;
-  }
-
-  .ai-description {
-    color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 16px;
-    font-size: 0.95rem;
-  }
-
-  #aiSearchInput {
-    width: 100%;
-    padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(102, 126, 234, 0.3);
-    border-radius: 10px;
-    color: white;
-    font-size: 0.95rem;
-    font-family: inherit;
-    resize: vertical;
-    transition: all 0.2s;
-  }
-
-  #aiSearchInput:focus {
-    outline: none;
-    border-color: #667eea;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  #aiSearchInput::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  .ai-examples {
-    margin-top: 16px;
-  }
-
-  .examples-label {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 10px;
-  }
-
-  .example-chip {
-    padding: 8px 14px;
-    background: rgba(102, 126, 234, 0.15);
-    border: 1px solid rgba(102, 126, 234, 0.3);
-    border-radius: 20px;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-right: 8px;
-    margin-bottom: 8px;
-  }
-
-  .example-chip:hover {
-    background: rgba(102, 126, 234, 0.25);
-    border-color: rgba(102, 126, 234, 0.5);
-    transform: translateY(-2px);
-  }
-
-  .ai-loading {
-    text-align: center;
-    padding: 24px;
-    margin-top: 16px;
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    margin: 0 auto 12px;
-    border: 3px solid rgba(102, 126, 234, 0.2);
-    border-top-color: #667eea;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .ai-loading p {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
-  }
-
-  .ai-results {
-    margin-top: 20px;
-    padding: 16px;
-    background: rgba(70, 211, 105, 0.1);
-    border: 1px solid rgba(70, 211, 105, 0.3);
-    border-radius: 10px;
-  }
-
-  .results-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #46d369;
-    font-weight: 600;
-    margin-bottom: 12px;
-    font-size: 0.9rem;
-  }
-
-  .keywords-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .keyword-chip {
-    padding: 6px 12px;
-    background: rgba(70, 211, 105, 0.2);
-    border: 1px solid rgba(70, 211, 105, 0.4);
-    border-radius: 16px;
-    color: #46d369;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .ai-error {
-    margin-top: 16px;
-    padding: 14px 16px;
-    background: rgba(229, 9, 20, 0.1);
-    border: 1px solid rgba(229, 9, 20, 0.3);
-    border-radius: 8px;
-    color: #ff6b6b;
+.genre-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 0.9rem;
-  }
-
-  .ai-modal-footer {
-    padding: 20px 28px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-  }
-
-  .btn-cancel {
-    padding: 10px 24px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-cancel:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .btn-search-ai {
-    padding: 10px 28px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    border-radius: 8px;
-    color: white;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  }
-
-  .btn-search-ai:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-  }
-
-  .btn-search-ai:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 600px) {
-    .ai-modal-content {
-      width: 95%;
-      margin: 20px;
-    }
-    
-    .ai-modal-header, .ai-modal-body, .ai-modal-footer {
-      padding: 20px;
-    }
-  }
-
-  /* Ensure hidden attribute actually hides the modal (override any display set above) */
-  .ai-search-modal[hidden] {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-
-  /* AI Movie Results */
-  /* AI Answer Box */
-  .ai-movie-results {
-    margin-top: 20px;
-    max-height: 450px;
-    overflow-y: auto;
-  }
-
-  .ai-answer-box {
-    padding: 18px;
-    background: rgba(102, 126, 234, 0.1);
-    border: 1px solid rgba(102, 126, 234, 0.3);
-    border-radius: 10px;
-    margin-bottom: 16px;
-  }
-
-  .ai-answer-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #667eea;
-    font-weight: 600;
-    margin-bottom: 10px;
-    font-size: 0.95rem;
-  }
-
-  .ai-answer-text {
+    transition: all 0.3s;
     color: rgba(255,255,255,0.9);
-    line-height: 1.6;
-    font-size: 0.95rem;
-    margin: 0;
-  }
-
-  .ai-suggestions-box {
-    padding: 16px;
-    background: rgba(70, 211, 105, 0.08);
-    border: 1px solid rgba(70, 211, 105, 0.25);
-    border-radius: 10px;
-  }
-
-  .suggestions-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #46d369;
-    font-weight: 600;
-    margin-bottom: 12px;
-    font-size: 0.9rem;
-  }
-
-  .ai-suggestions-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .ai-suggestion-chip {
-    padding: 10px 16px;
-    background: rgba(70, 211, 105, 0.15);
-    border: 1.5px solid rgba(70, 211, 105, 0.4);
-    border-radius: 20px;
-    color: #46d369;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .ai-suggestion-chip:hover {
-    background: rgba(70, 211, 105, 0.25);
-    border-color: #46d369;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(70, 211, 105, 0.3);
-  }
-
-  .ai-suggestion-chip i {
-    font-size: 0.85rem;
-  }
-
-</style>
-
-<style>
-
-
-
-/* ĐÃ THÊM CSS CHO CÁC MỤC MENU MỚI
-  Chúng ta cần làm cho chúng giống với mục "Trang chủ"
-*/
-.main-nav a.genre-item-flat {
-    /* Đây là style copy từ .main-nav a của bạn */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(255, 255, 255, 0.85);
     text-decoration: none;
-    padding: 8px 12px; /* Tùy chỉnh padding nếu muốn */
-    font-weight: 500;
-    font-size: 0.95rem;
-    transition: color 0.3s;
+    font-size: 0.9rem;
 }
 
-.main-nav a.genre-item-flat:hover,
-.main-nav a.genre-item-flat.active {
-    color: #e50914; /* var(--accent) */
+.genre-item:hover {
+    background: #e50914;
+    border-color: #e50914;
+    color: white;
+    transform: translateY(-2px);
 }
 
-.main-nav a.genre-item-flat i {
-    font-size: 1rem; /* Kích thước icon */
-    width: 18px;     /* Đảm bảo icon thẳng hàng */
+.genre-item i {
+    font-size: 1.1rem;
+    width: 20px;
     text-align: center;
 }
 
+@media (max-width: 768px) {
+    .genre-dropdown {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        transform: translateX(0);
+        width: auto;
+        min-width: auto;
+    }
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 </style>
 
 <style>
+/* CSS CHO ICON SEARCH ĐÃ ĐIỀU CHỈNH */
+.search-box a.search-toggle {
+    cursor: pointer;
+    font-size: 18px !important;
+    color: #fff !important;
+    padding: 8px;
+    border-radius: 4px;
+    transition: all 0.3s;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 34px;
+    text-decoration: none;
+}
+.search-box a.search-toggle:hover {
+    color: #E50914 !important;
+    background: rgba(229, 9, 20, 0.1);
+}
+</style>
+
+<style>
+/* CSS CHO USER AVATAR VÀ AUTH (GIỮ NGUYÊN) */
 .user-avatar-btn {
  width: 40px;
 height: 40px;
@@ -1207,831 +338,36 @@ margin-top: 5px;
     color: #e50914; 
 }
 
+/* CSS CHO CÁC LINK THỂ LOẠI PHẲNG (ĐÃ BỔ SUNG) */
+.main-nav a.genre-item-flat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ddd; /* Màu giống .genre-toggle */
+    text-decoration: none;
+    padding: 8px 12px;
+    font-weight: 500;
+    font-size: 15px; /* Kích thước giống .genre-toggle */
+    transition: color 0.3s;
+    white-space: nowrap;
+}
 
+.main-nav a.genre-item-flat:hover,
+.main-nav a.genre-item-flat.active {
+    color: #e50914; /* var(--accent) */
+}
+
+.main-nav a.genre-item-flat i {
+    font-size: 1rem; 
+    width: 18px;     
+    text-align: center;
+}
 </style>
 
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const aiModal = document.getElementById("aiSearchModal");
-    const aiCloseBtn = document.getElementById("aiModalClose");
-    const aiCancelBtn = document.getElementById("aiCancelBtn");
-    const aiOverlay = aiModal?.querySelector(".ai-modal-overlay");
-
-    function closeAIModal() {
-      if (!aiModal) return;
-      aiModal.hidden = true;
-      document.body.style.overflow = ""; // khôi phục cuộn
-    }
-
-    // Bắt sự kiện 4 cách đóng
-    aiCloseBtn?.addEventListener("click", closeAIModal);
-    aiCancelBtn?.addEventListener("click", closeAIModal);
-    aiOverlay?.addEventListener("click", closeAIModal);
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !aiModal.hidden) closeAIModal();
-    });
-
-    console.log("AI modal close events attached.");
-  });
-</script>
-
 
 <script>
-  // Enhanced Search với Voice Search, Filters + lazy-load suggestions
-  (function(){
-    if (window.headerSearchInit) return;
-    window.headerSearchInit = true;
-
-    const TMDB_API_KEY = window.TMDB_API_KEY || 'eac03c4e09a0f5099128e38cb0e67a8f';
-    const TMDB_BASE = 'https://api.themoviedb.org/3';
-    const IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
-
-    const searchToggle = document.querySelector('.search-toggle');
-    const searchInput = document.getElementById('searchInput');
-    const suggestions = document.getElementById('searchSuggestions');
-    const voiceBtn = document.getElementById('voiceSearchBtn');
-
-    let focusedIndex = -1;
-    let recognition = null;
-
-    // ========== Pagination / caching for suggestions ==========
-    const PAGE_SIZE = 8;        // how many results to show per "page" in suggestions
-    let cachedResults = [];        // all results fetched so far (merged from pages and people)
-    let displayedCount = 0;   // how many results are currently rendered in suggestions
-    let nextApiPage = 2;       // next TMDB API page to fetch (we fetch page 1 first)
-    let totalApiPages = 1;     // total pages available from TMDB for the current query
-    let lastQuery = '';        // current search query (to avoid mixing queries)
-    let peopleCache = new Map();  // THÊM - Cache people search
-    let abortController = null;   // THÊM - Cancel old requests
-
-    // ============ AI Search System ============
-    function initAISearch() {
-      const aiToggle = document.getElementById('aiSearchToggle');
-      const aiModal = document.getElementById('aiSearchModal');
-      const aiClose = document.getElementById('aiModalClose');
-      const aiCancel = document.getElementById('aiCancelBtn');
-      const aiSearchBtn = document.getElementById('aiSearchBtn');
-      const aiInput = document.getElementById('aiSearchInput');
-      const aiLoading = document.getElementById('aiLoading');
-      const aiResults = document.getElementById('aiResults');
-      const aiError = document.getElementById('aiError');
-      const keywordsList = document.getElementById('keywordsList');
-      
-      let extractedKeywords = [];
-      
-      // Open modal
-      aiToggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        aiModal.hidden = false;
-        document.body.style.overflow = 'hidden';
-        setTimeout(() => aiInput.focus(), 100);
-      });
-      
-      // Close modal
-      const closeModal = () => {
-        aiModal.hidden = true;
-        document.body.style.overflow = '';
-        aiInput.value = '';
-        aiLoading.hidden = true;
-        aiResults.hidden = true;
-        aiError.hidden = true;
-        extractedKeywords = [];
-      };
-      
-      aiClose?.addEventListener('click', closeModal);
-      aiCancel?.addEventListener('click', closeModal);
-      
-      // Close on overlay click
-      aiModal?.querySelector('.ai-modal-overlay')?.addEventListener('click', closeModal);
-      
-      // Close on ESC
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !aiModal.hidden) {
-          closeModal();
-        }
-      });
-      
-      // Example chips
-      document.querySelectorAll('.example-chip').forEach(chip => {
-        chip.addEventListener('click', function() {
-          aiInput.value = this.dataset.example;
-          aiInput.focus();
-        });
-      });
-      
-      // AI Search button
-      aiSearchBtn?.addEventListener('click', async () => {
-        const description = aiInput.value.trim();
-        
-        if (!description) {
-          showAIError('Vui lòng nhập mô tả về bộ phim bạn muốn tìm');
-          return;
-        }
-        
-        // Show loading
-        aiLoading.hidden = false;
-        aiError.hidden = true;
-        const aiMovieResults = document.getElementById('aiMovieResults');
-        if (aiMovieResults) aiMovieResults.hidden = true;
-        aiSearchBtn.disabled = true;
-        
-        try {
-          // Call AI API (chỉ 1 call, nhanh hơn)
-          const response = await fetch('/api/ai-search/suggest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description })
-          });
-          
-          const data = await response.json();
-          
-          if (!data.success) {
-            throw new Error(data.message || 'AI failed');
-          }
-          
-          // Hide loading
-          aiLoading.hidden = true;
-          
-          // Show AI answer + suggestions
-          if (aiMovieResults) {
-            aiMovieResults.hidden = false;
-            renderAIRecommendation(data.answer, data.suggestions || []);
-          }
-          
-        } catch (error) {
-          aiLoading.hidden = true;
-          showAIError(error.message);
-        } finally {
-          aiSearchBtn.disabled = false;
-        }
-      });
-
-      // THAY function renderAIMovieResults bằng renderAIRecommendation
-      function renderAIRecommendation(answer, suggestions) {
-        const resultsDiv = document.getElementById('aiMovieResults');
-        if (!resultsDiv) return;
-        
-        // Render AI answer
-        let html = `
-          <div class="ai-answer-box">
-            <div class="ai-answer-header">
-              <i class="fas fa-robot"></i>
-              <strong>Gợi ý từ AI:</strong>
-            </div>
-            <p class="ai-answer-text">${escapeHtml(answer)}</p>
-          </div>
-        `;
-        
-        // Render suggestions as clickable chips
-        if (suggestions && suggestions.length > 0) {
-          html += `
-            <div class="ai-suggestions-box">
-              <p class="suggestions-label">
-                <i class="fas fa-lightbulb"></i>
-                Tìm kiếm các từ khóa này:
-              </p>
-              <div class="ai-suggestions-chips">
-                ${suggestions.map(s => `
-                  <button class="ai-suggestion-chip" data-query="${escapeHtml(s)}">
-                    <i class="fas fa-search"></i>
-                    ${escapeHtml(s)}
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        }
-        
-        resultsDiv.innerHTML = html;
-        
-        // Attach click handlers to suggestion chips
-        resultsDiv.querySelectorAll('.ai-suggestion-chip').forEach(chip => {
-          chip.addEventListener('click', function() {
-            const query = this.dataset.query;
-            // Close modal & navigate to search page
-            const aiModal = document.getElementById('aiSearchModal');
-            if (aiModal) aiModal.hidden = true;
-            document.body.style.overflow = '';
-            window.location.href = `/search?query=${encodeURIComponent(query)}`;
-          });
-        });
-      }
-
-      function showAIError(message) {
-        aiError.hidden = false;
-        document.getElementById('aiErrorMessage').textContent = message;
-      }
-    }
-    
-    
-    // ============ Keyboard Shortcuts ============
-    document.addEventListener('keydown', (e) => {
-      // "/" key to focus search (like GitHub, Reddit)
-      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-        e.preventDefault();
-        searchToggle.click();
-        setTimeout(() => searchInput.focus(), 100);
-      }
-    });
-    // ============ Voice Search Setup ============
-    function initVoiceSearch() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        if (voiceBtn) voiceBtn.style.display = 'none';
-        return;
-      }
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.lang = 'vi-VI';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => { voiceBtn.classList.add('recording'); showVoiceStatus('Đang nghe...'); };
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        searchInput.value = transcript;
-        searchInput.focus();
-        voiceBtn.classList.remove('recording');
-        hideVoiceStatus();
-        debouncedSearch(transcript);
-      };
-      recognition.onerror = (event) => {
-        voiceBtn.classList.remove('recording'); voiceBtn.classList.add('error');
-        showVoiceStatus('Lỗi: ' + event.error, true);
-        setTimeout(()=>{ voiceBtn.classList.remove('error'); hideVoiceStatus(); }, 2000);
-      };
-      recognition.onend = () => { voiceBtn.classList.remove('recording'); hideVoiceStatus(); };
-
-      voiceBtn?.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (voiceBtn.classList.contains('recording')) {
-          recognition.stop();
-        } else {
-          try { recognition.start(); } catch (err) { console.warn('Voice recognition error:', err); }
-        }
-      });
-    }
-
-    // ============ Filters System ============
-    const filterState = { quickFilter: null, genres: [], yearFrom: null, yearTo: null, minRating: 0 };
-    const GENRES = [ /* ... same as before ... */ 
-      {id: 28, name: 'Hành động'},{id: 12, name: 'Phiêu lưu'},{id: 16, name: 'Hoạt hình'},
-      {id: 35, name: 'Hài'},{id: 80, name: 'Hình sự'},{id: 18, name: 'Chính kịch'},
-      {id: 10751, name: 'Gia đình'},{id: 14, name: 'Giả tưởng'},{id: 27, name: 'Kinh dị'},
-      {id: 10749, name: 'Lãng mạn'},{id: 878, name: 'Khoa học viễn tưởng'},{id: 53, name: 'Gây cấn'},
-      {id: 10752, name: 'Chiến tranh'}
-    ];
-
-    function initFilters() {
-      const filtersToggle = document.getElementById('filtersToggle');
-      const filtersPanel = document.getElementById('filtersPanel');
-      const filtersClose = document.getElementById('filtersClose');
-      const clearFiltersBtn = document.getElementById('clearFilters');
-      const applyFiltersBtn = document.getElementById('applyFilters');
-      const minRatingSlider = document.getElementById('minRating');
-      const ratingValue = document.getElementById('ratingValue');
-
-      renderGenres();
-
-      filtersToggle?.addEventListener('click', (e) => { e.stopPropagation(); filtersPanel.classList.toggle('show'); filtersToggle.classList.toggle('active'); });
-      filtersClose?.addEventListener('click', () => { filtersPanel.classList.remove('show'); filtersToggle.classList.remove('active'); });
-      minRatingSlider?.addEventListener('input', (e) => { ratingValue.textContent = parseFloat(e.target.value).toFixed(1); });
-
-      clearFiltersBtn?.addEventListener('click', () => {
-        filterState.quickFilter = null; filterState.genres = []; filterState.yearFrom = null; filterState.yearTo = null; filterState.minRating = 0;
-        document.querySelectorAll('.quick-filter-chip').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
-        document.getElementById('yearFrom').value = ''; document.getElementById('yearTo').value = '';
-        minRatingSlider.value = 0; ratingValue.textContent = '0.0';
-      });
-
-      applyFiltersBtn?.addEventListener('click', () => {
-        // Apply filters always based on the current cachedResults / keyword
-        applyFilters();
-      });
-
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.filters-panel') && !e.target.closest('.filters-toggle')) {
-          filtersPanel.classList.remove('show'); filtersToggle.classList.remove('active');
-        }
-      });
-    }
-
-    function renderGenres(){
-      const container = document.getElementById('genreFilters');
-      if (!container) return;
-      container.innerHTML = GENRES.map(g => `<button class="genre-chip" data-genre="${g.id}">${g.name}</button>`).join('');
-      document.querySelectorAll('.quick-filter-chip').forEach(chip => {
-        chip.addEventListener('click', function(){ document.querySelectorAll('.quick-filter-chip').forEach(c=>c.classList.remove('active')); this.classList.add('active'); filterState.quickFilter = this.dataset.filter; });
-      });
-      container.querySelectorAll('.genre-chip').forEach(chip => {
-        chip.addEventListener('click', function(){
-          const genreId = parseInt(this.dataset.genre);
-          this.classList.toggle('active');
-          if (filterState.genres.includes(genreId)) filterState.genres = filterState.genres.filter(id=>id!==genreId);
-          else filterState.genres.push(genreId);
-        });
-      });
-    }
-
-    // ============ Voice status helpers ============
-    function showVoiceStatus(text, isError=false){
-      let status = document.querySelector('.voice-status');
-      if (!status) { status = document.createElement('div'); status.className = 'voice-status'; voiceBtn.parentElement.appendChild(status); }
-      status.textContent = text;
-      status.style.background = isError ? 'rgba(229,9,20,0.9)' : 'rgba(0,0,0,0.9)';
-      status.classList.add('show');
-    }
-    function hideVoiceStatus(){ const s = document.querySelector('.voice-status'); if (s) s.classList.remove('show'); }
-
-    // ============ Utility ============
-    function debounce(fn, wait=260){ let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); }; }
-    function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
-    function normalizeVietnamese(str){ if (!str) return ''; return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
-
-    // ============ Suggestion rendering with append support ============
-    function renderSuggestionsChunk(resultsChunk, append=false){
-      if (!resultsChunk || resultsChunk.length === 0) {
-        if (!append) {
-          suggestions.innerHTML = '<div class="no-results">Không tìm thấy kết quả</div>';
-          showSuggestionsPanel();
-        }
-        return;
-      }
-
-      const html = resultsChunk.map(r=>{
-        const title = escapeHtml(r.title || r.name || '');
-        const year = (r.release_date || r.first_air_date || '').substring(0,4) || '';
-        const type = r.media_type === 'movie' ? 'Phim' : (r.media_type === 'tv' ? 'TV' : '');
-        const poster = r.poster_path ? `${IMAGE_BASE}${r.poster_path}` : '/images/placeholder.jpg';
-        const rating = r.vote_average ? `⭐ ${r.vote_average.toFixed(1)}` : '';
-        const context = r._personName ? `${r._personRole}: ${escapeHtml(r._personName)}` : '';
-        const subInfo = [year, type, rating, context].filter(Boolean).join(' • ');
-        return `<div class="search-suggestion" role="option" tabindex="0" data-id="${r.id}" data-type="${r.media_type}">
-                    <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'"/>
-                    <div class="suggestion-meta">
-                      <div class="suggestion-title">${title}</div>
-                      <div class="suggestion-sub">${subInfo}</div>
-                    </div>
-                </div>`;
-      }).join('');
-
-      if (append) {
-        suggestions.insertAdjacentHTML('beforeend', html);
-      } else {
-        suggestions.innerHTML = html;
-      }
-
-      showSuggestionsPanel();
-    }
-
-    // show/hide panel & position
-    function showSuggestionsPanel(){ positionSuggestions(); suggestions.style.display='block'; suggestions.hidden=false; suggestions.classList.add('arrow'); }
-    function hideSuggestionsPanel(){ suggestions.style.display='none'; suggestions.hidden=true; focusedIndex=-1; suggestions.querySelectorAll('.search-suggestion').forEach(it=>it.classList.remove('active')); }
-
-    function positionSuggestions(){
-      if (!searchInput) return;
-      const inputRect = searchInput.getBoundingClientRect();
-      const viewportW = Math.max(document.documentElement.clientWidth||0, window.innerWidth||0);
-      const preferredWidth = Math.min(560, Math.max(280, inputRect.width * 1.6));
-      let left = inputRect.left + (inputRect.width/2) - (preferredWidth/2);
-      left = Math.max(8, Math.min(left, viewportW - preferredWidth - 8));
-      const top = inputRect.bottom + 8;
-      suggestions.style.width = preferredWidth + 'px';
-      suggestions.style.left = left + 'px';
-      suggestions.style.top = top + 'px';
-    }
-
-    // ============ Fetch people & their movies (same as before) ============
-    async function searchPeople(query) {
-      // Check cache first - THÊM
-      if (peopleCache.has(query)) {
-        return peopleCache.get(query);
-      }
-      
-      try {
-        const url = `${TMDB_BASE}/search/person?api_key=${TMDB_API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1`;
-        const res = await fetch(url);
-        if (!res.ok) return [];
-        const json = await res.json();
-        const results = (json.results || []).slice(0, 3); // 5 → 3
-        
-        // Save to cache - THÊM
-        peopleCache.set(query, results);
-        return results;
-      } catch (e) { 
-        console.warn('People search failed:', e); 
-        return []; 
-      }
-    }
-
-    async function getMoviesFromPerson(personId, personName) {
-      try {
-        const url = `${TMDB_BASE}/person/${personId}/movie_credits?api_key=${TMDB_API_KEY}&language=vi-VN`;
-        const res = await fetch(url);
-        if (!res.ok) return [];
-        const json = await res.json();
-        const castMovies = (json.cast || []).slice(0,3).map(m=>({...m, media_type:'movie', _personName:personName, _personRole:'Diễn viên'}));
-        const crewMovies = (json.crew || []).filter(m=>m.job==='Director').slice(0,2).map(m=>({...m, media_type:'movie', _personName:personName, _personRole:'Đạo diễn'}));
-        return [...crewMovies, ...castMovies].slice(0,3);
-      } catch (e) { console.warn('Person credits failed:', e); return []; }
-    }
-
-    // ============ Core: fetch suggestions (page1 + people) and setup cache/paging ============
-    async function fetchSuggestions(q){
-      if (!q || q.trim().length < 2){ hideSuggestionsPanel(); return; }
-
-      // Cancel previous request
-      if (abortController) {
-        abortController.abort();
-      }
-      abortController = new AbortController();
-
-      try {
-        // reset cache/paging when new query
-        if (q !== lastQuery) {
-          cachedResults = []; displayedCount = 0; nextApiPage = 2; totalApiPages = 1; lastQuery = q;
-        }
-
-        // fetch page 1 of multi search (we will filter to movie/tv)
-        const moviesRes = await fetch(`${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&language=vi-VN&query=${encodeURIComponent(q)}&page=1&include_adult=false`);
-        if (!moviesRes.ok) throw new Error('TMDB error');
-        const moviesJson = await moviesRes.json();
-        const movieResults = (moviesJson.results || []).filter(r => ['movie','tv'].includes(r.media_type));
-        totalApiPages = moviesJson.total_pages || 1;
-        nextApiPage = 2;
-
-        // people results & their movies
-        let peopleMovies = [];
-        if (q.length >= 3) {  // only search people for 3+ chars to reduce noise
-          const people = await searchPeople(q); 
-          if (people.length > 0) {
-            const prs = await Promise.all(people.map(p => getMoviesFromPerson(p.id, p.name)));
-            peopleMovies = prs.flat();
-          }
-        }
-
-        // Combine and dedupe
-        const uniqueMap = new Map();
-        [...movieResults, ...peopleMovies].forEach(item=>{
-          // ensure id uniqueness keys might collide between tv/movie id spaces but we keep media_type as well
-          const key = `${item.media_type || 'movie'}_${item.id}`;
-          if (!uniqueMap.has(key)) uniqueMap.set(key, item);
-          else {
-            const existing = uniqueMap.get(key);
-            if (item._personName && !existing._personName) uniqueMap.set(key, item);
-          }
-        });
-
-        const all = Array.from(uniqueMap.values());
-
-        // Filter initial match by title or person name (same logic as before)
-        const qNorm = normalizeVietnamese(q);
-        let results = all.filter(item=>{
-          const title = normalizeVietnamese(item.title || item.name || '');
-          const personName = normalizeVietnamese(item._personName || '');
-          return title.includes(qNorm) || personName.includes(qNorm);
-        });
-
-        // Add relevance & sort
-        results = results.map(item => ({...item, _relevance: calculateRelevance(item, q)}));
-        results.sort((a,b)=> (b._relevance||0) - (a._relevance||0));
-
-        // cache results
-        cachedResults = results;
-
-        // render first chunk
-        displayedCount = 0;
-        loadMoreSuggestions(); // will render first PAGE_SIZE chunk (or less)
-
-      } catch (err) {
-        suggestions.innerHTML = '<div class="no-results">Lỗi khi tìm kiếm</div>';
-        showSuggestionsPanel();
-        console.warn('search failed', err);
-      }
-    }
-
-    // helper to fetch and append next API page (when user scrolls beyond cachedResults)
-    async function fetchNextApiPageAndAppend(query) {
-      if (nextApiPage > totalApiPages) return;
-      try {
-        const res = await fetch(`${TMDB_BASE}/search/multi?api_key=${TMDB_API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=${nextApiPage}&include_adult=false`);
-        if (!res.ok) return;
-        const json = await res.json();
-        const more = (json.results || []).filter(r => ['movie','tv'].includes(r.media_type));
-        nextApiPage = (json.page || nextApiPage) + 1;
-        totalApiPages = json.total_pages || totalApiPages;
-
-        // Deduplicate against cachedResults by media_type+id
-        const existingKeys = new Set(cachedResults.map(it=>`${it.media_type||'movie'}_${it.id}`));
-        const deduped = more.filter(it => !existingKeys.has(`${it.media_type||'movie'}_${it.id}`));
-        // Add to cachedResults
-        // (We do NOT fetch peopleMovies for subsequent pages to keep it performant)
-        cachedResults = cachedResults.concat(deduped);
-      } catch (e) { console.warn('Fetching next page failed', e); }
-    }
-
-    // ============ Load more logic for suggestions (called on scroll & initial) ============
-    let loadingMore = false;
-    async function loadMoreSuggestions(){
-      if (loadingMore) return;
-      if (!cachedResults || cachedResults.length === 0) return;
-
-      loadingMore = true;
-
-      // If we've exhausted cachedResults but API has more pages, fetch next page
-      if (displayedCount >= cachedResults.length && nextApiPage <= totalApiPages) {
-        await fetchNextApiPageAndAppend(lastQuery);
-      }
-
-      // Determine chunk to show
-      const start = displayedCount;
-      let end = Math.min(cachedResults.length, displayedCount + PAGE_SIZE);
-      if (typeof end !== 'number' || Number.isNaN(end)) {
-        end = displayedCount; // an toàn
-      }
-      const chunk = cachedResults.slice(start, end);
-      const append = start > 0;
-
-      // If there's nothing to append and we couldn't fetch more pages -> show message if none shown yet
-      if (chunk.length === 0) {
-        if (displayedCount === 0) {
-          suggestions.innerHTML = '<div class="no-results">Không tìm thấy kết quả</div>';
-          showSuggestionsPanel();
-        }
-        loadingMore = false;
-        return;
-      }
-
-      renderSuggestionsChunk(chunk, append);
-      displayedCount = (typeof end === 'number') ? end : displayedCount;
-      loadingMore = false;
-    }
-
-    // scroll handler for suggestions (debounced)
-    const suggestionScrollHandler = debounce(async function() {
-      if (!suggestions || suggestions.style.display === 'none') return;
-      // if scrolled within 120px of bottom -> load more
-      if (suggestions.scrollTop + suggestions.clientHeight >= suggestions.scrollHeight - 120) {
-        await loadMoreSuggestions();
-      }
-    }, 120);
-
-    // ============ Relevance (same as before) ============
-    function calculateRelevance(item, query) {
-      const q = normalizeVietnamese(query || lastQuery || '');
-      const title = normalizeVietnamese(item.title || item.name || '');
-      const overview = normalizeVietnamese(item.overview || '');
-      let score = 0;
-      if (title === q) score += 100;
-      else if (title.startsWith(q)) score += 80;
-      else if (title.includes(q)) score += 50;
-      if (overview.includes(q)) score += 20;
-      score += (item.popularity || 0) * 0.1;
-      score += (item.vote_average || 0) * 2;
-      return score;
-    }
-
-    // ============ Filters: apply filters on cachedResults (only when query present) ============
-    async function applyFilters() {
-      const query = searchInput.value.trim();
-      if (!query) {
-        suggestions.innerHTML = '<div class="no-results">Vui lòng nhập từ khóa vào ô tìm kiếm trước khi áp dụng bộ lọc.</div>';
-        showSuggestionsPanel();
-        return;
-      }
-
-      // collect filter values
-      const yearFrom = document.getElementById('yearFrom').value;
-      const yearTo = document.getElementById('yearTo').value;
-      const minRating = parseFloat(document.getElementById('minRating').value || 0);
-      filterState.yearFrom = yearFrom || null;
-      filterState.yearTo = yearTo || null;
-      filterState.minRating = minRating;
-
-      try {
-        // If cachedResults is empty (e.g., user typed but didn't trigger search yet), call fetchSuggestions to populate
-        if (lastQuery !== query || cachedResults.length === 0) {
-          await fetchSuggestions(query);
-        }
-
-        // Use a copy to filter so cachedResults remains original for later (unless you want to overwrite)
-        let results = cachedResults.slice();
-
-        // Genres (OR logic)
-        if (filterState.genres && filterState.genres.length > 0) {
-          results = results.filter(item => {
-            const gids = item.genre_ids || [];
-            return filterState.genres.some(g => gids.includes(g));
-          });
-        }
-
-        // Year range
-        if (filterState.yearFrom) {
-          results = results.filter(item => {
-            const y = (item.release_date || item.first_air_date || '').substring(0,4);
-            return y && parseInt(y,10) >= parseInt(filterState.yearFrom,10);
-          });
-        }
-        if (filterState.yearTo) {
-          results = results.filter(item => {
-            const y = (item.release_date || item.first_air_date || '').substring(0,4);
-            return y && parseInt(y,10) <= parseInt(filterState.yearTo,10);
-          });
-        }
-
-        // Min rating
-        if (filterState.minRating && filterState.minRating > 0) {
-          results = results.filter(item => (item.vote_average || 0) >= filterState.minRating);
-        }
-
-        // Quick filters sort / additional constraints
-        if (filterState.quickFilter === 'trending') {
-          results.sort((a,b)=> (b.popularity||0) - (a.popularity||0));
-        } else if (filterState.quickFilter === 'new') {
-          results.sort((a,b)=> {
-            const da = a.release_date ? new Date(a.release_date).getTime() : 0;
-            const db = b.release_date ? new Date(b.release_date).getTime() : 0;
-            return db - da;
-          });
-        } else if (filterState.quickFilter === 'top-rated') {
-          results = results.filter(r => (r.vote_count || 0) >= 20);
-          results.sort((a,b)=> (b.vote_average||0) - (a.vote_average||0));
-        }
-
-        // Now set cachedResults to filtered results for pagination within filtered set
-        cachedResults = results;
-        displayedCount = 0;
-        nextApiPage = totalApiPages + 1; // prevent fetching more original pages while viewing filtered set
-
-        // If no results
-        if (!results || results.length === 0) {
-          suggestions.innerHTML = '<div class="no-results">Không có phim phù hợp với từ khóa + bộ lọc hiện tại.</div>';
-          showSuggestionsPanel();
-          return;
-        }
-
-        // Render first chunk of filtered results
-        loadMoreSuggestions();
-
-        // Close filters panel UI
-        const filtersPanelEl = document.getElementById('filtersPanel');
-        const filtersToggleEl = document.getElementById('filtersToggle');
-        if (filtersPanelEl) filtersPanelEl.classList.remove('show');
-        if (filtersToggleEl) filtersToggleEl.classList.remove('active');
-
-      } catch (err) {
-        console.warn('Filter apply failed:', err);
-        suggestions.innerHTML = '<div class="no-results">Lỗi khi áp dụng bộ lọc</div>';
-        showSuggestionsPanel();
-      }
-    }
-
-    // ============ Event handling for input & keyboard & click ============
-    const debouncedSearch = debounce(q => fetchSuggestions(q), 400);
-
-    /*
-    ĐÂY LÀ LOGIC GỐC MÀ BẠN CUNG CẤP (searchToggle điều hướng)
-    Tôi sẽ giữ nguyên logic này.
-    */
-    searchToggle?.addEventListener('click', e => {
-      e.preventDefault();
-      // Navigate to search page instead of opening inline search
-      window.location.href = '/search';
-    });
-
-    document.addEventListener('click', e => {
-      if (!e.target.closest('.search-box') && !e.target.closest('#searchSuggestions')) {
-        searchInput.classList.remove('active');
-        hideSuggestionsPanel();
-      }
-    });
-
-    /*
-    MERGE ADD:
-    Thêm lại logic click cho chuông thông báo (từ nhánh Cuong)
-    */
-    document.addEventListener('click', function(e) {
-      if (e.target.matches('.fa-bell') || e.target.closest('.bell-container')) {
-        e.preventDefault();
-        e.stopPropagation();
-        const dropdown = document.querySelector('.notification .dropdown');
-        const searchInput = document.getElementById('searchInput');
-        
-        // Hide search input if it's active
-        if (searchInput && searchInput.classList.contains('active')) {
-          searchInput.classList.remove('active');
-          hideSuggestionsPanel(); // Use new hide function
-        }
-        
-        if (dropdown) dropdown.classList.toggle('active');
-      }
-    });
-
-
-    searchInput.addEventListener('input', e => {
-      const v = e.target.value.trim();
-      if (!v) { hideSuggestionsPanel(); cachedResults = []; displayedCount = 0; lastQuery = ''; return; }
-      debouncedSearch(v);
-    });
-
-    // keyboard navigation
-    searchInput.addEventListener('keydown', e => {
-      const items = suggestions.querySelectorAll('.search-suggestion');
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (items.length === 0) return;
-        focusedIndex = Math.min(items.length - 1, focusedIndex + 1);
-        items.forEach((it,i)=>it.classList.toggle('active', i === focusedIndex));
-        if (items[focusedIndex]) items[focusedIndex].scrollIntoView({block:'nearest', inline:'nearest'});
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (items.length === 0) return;
-        focusedIndex = Math.max(0, focusedIndex - 1);
-        items.forEach((it,i)=>it.classList.toggle('active', i === focusedIndex));
-        if (items[focusedIndex]) items[focusedIndex].scrollIntoView({block:'nearest', inline:'nearest'});
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const itemsNow = suggestions.querySelectorAll('.search-suggestion');
-        if (focusedIndex >= 0 && itemsNow[focusedIndex]) {
-          const id = itemsNow[focusedIndex].dataset.id;
-          if (id) window.location.href = `/movie/detail/${id}`;
-        } else {
-          // Navigate to search page with current filters
-          const term = searchInput.value.trim();
-          if (!term) return;
-          
-          let url = `/search?query=${encodeURIComponent(term)}`;
-          
-          // Add filters if any
-          if (filterState.genres && filterState.genres.length > 0) {
-            url += '&genres=' + filterState.genres.join(',');
-          }
-          if (filterState.yearFrom) {
-            url += '&yearFrom=' + filterState.yearFrom;
-          }
-          if (filterState.yearTo) {
-            url += '&yearTo=' + filterState.yearTo;
-          }
-          if (filterState.minRating && filterState.minRating > 0) {
-            url += '&minRating=' + filterState.minRating;
-          }
-          if (filterState.quickFilter) {
-            url += '&quickFilter=' + filterState.quickFilter;
-          }
-          
-          window.location.href = url;
-        }
-      } else if (e.key === 'Escape') {
-        hideSuggestionsPanel();
-        searchInput.blur();
-      }
-    });
-
-    suggestions.addEventListener('click', e => {
-      const item = e.target.closest('.search-suggestion');
-      if (!item) return;
-      const id = item.dataset.id;
-      if (id) window.location.href = `/movie/detail/${id}`;
-    });
-
-    suggestions.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const item = e.target.closest('.search-suggestion');
-        if (!item) return;
-        const id = item.dataset.id;
-        if (id) window.location.href = `/movie/detail/${id}`;
-      }
-    });
-
-    // attach scroll handler on suggestions panel for lazy load
-    suggestions.addEventListener('scroll', suggestionScrollHandler);
-
-    // reposition on resize/scroll
-    const reposition = debounce(()=>{ if (suggestions && suggestions.style.display !== 'none') positionSuggestions(); }, 80);
-    window.addEventListener('resize', reposition);
-    window.addEventListener('scroll', reposition, true);
-
-    // Initialize features
-    initVoiceSearch();
-    initFilters();
-    initAISearch(); // Initialize AI search
-
-    // Expose some helpers to console for debugging (optional)
-    window.__searchDebug = {
-      getCached: ()=>cachedResults,
-      getDisplayedCount: ()=>displayedCount,
-      loadMore: loadMoreSuggestions
-    };
-
-  })();
-</script>
-
-<script>
-// Genre navigation handler
+// Giữ lại: Logic cuộn header
 document.addEventListener('DOMContentLoaded', function() {
-    
-
     // ---------- small helpers ----------
     const safeQuery = (s) => document.querySelector(s);
 
@@ -2051,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
-  // Thêm vào cuối khối script trong header.html
+// Giữ lại: Logic dropdown avatar
 document.addEventListener('DOMContentLoaded', function() {
     const avatarBtn = document.getElementById('userAvatarBtn');
     const dropdownMenu = document.getElementById('userDropdownMenu');

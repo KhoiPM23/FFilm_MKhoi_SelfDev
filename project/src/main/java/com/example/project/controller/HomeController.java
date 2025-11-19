@@ -2,9 +2,8 @@ package com.example.project.controller;
 
 import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +18,8 @@ import java.util.Map;
 @Controller
 public class HomeController {
 
+    //---- 1. CẤU HÌNH & REPOSITORY ----
+
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
 
@@ -26,105 +27,81 @@ public class HomeController {
     private RestTemplate restTemplate;
 
     @Autowired
-    private MovieService movieService; // Cổng logic chính
+    private MovieService movieService; 
 
+    //---- 2. MAIN HOME LOGIC ----
+
+    // Hiển thị trang chủ
     @GetMapping("/")
     public String home(Model model) {
         try {
-            // Tải Banner (Giữ nguyên logic G5)
-            setBanner(model);
+            int dbFetchLimit = 40;
+            int finalCarouselLimit = 20;
+
+            //----- 1. Tải Phim Hot (SSR - cho Banner và Carousel 1)
+            Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
+            String hotApiUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
             
-            // [G29] TỐI ƯU: Gọi hàm service chung
-            int carouselLimit = 20; // Giới hạn 20 phim mỗi carousel
+            List<Map<String, Object>> hotMovies = movieService.getMergedCarouselMovies(
+                hotApiUrl, dbHotMovies, finalCarouselLimit, MovieService.SortBy.HOT);
+            model.addAttribute("hotMovies", hotMovies);
 
-            // Gọi hàm mới và chỉ lấy danh sách "movies"
-            Map<String, Object> hotData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1", carouselLimit
-            );
-            Map<String, Object> newData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/movie/now_playing?api_key=" + API_KEY + "&language=vi-VN&page=1", carouselLimit
-            );
-            Map<String, Object> animeData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=16&sort_by=popularity.desc&page=1", carouselLimit
-            );
-            Map<String, Object> kidsData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=10751&sort_by=popularity.desc&page=1", carouselLimit
-            );
-            Map<String, Object> actionData = movieService.loadAndSyncPaginatedMovies(
-                BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=28&sort_by=popularity.desc&page=1", carouselLimit
-            );
-
-            // Gán danh sách phim (List<Map>) vào model
-            model.addAttribute("hotMovies", (List<Map<String, Object>>) hotData.get("movies"));
-            model.addAttribute("newMovies", (List<Map<String, Object>>) newData.get("movies"));
-            model.addAttribute("animeMovies", (List<Map<String, Object>>) animeData.get("movies"));
-            model.addAttribute("kidsMovies", (List<Map<String, Object>>) kidsData.get("movies"));
-            model.addAttribute("actionMovies", (List<Map<String, Object>>) actionData.get("movies"));
+            //----- 2. Set Banner (dựa trên Phim Hot đã gộp)
+            setBanner(model, hotMovies);
+            
+            //----- 3. Trả về danh sách RỖNG cho 4 carousel còn lại (tải bất đồng bộ bằng JS)
+            model.addAttribute("newMovies", new ArrayList<>());
+            model.addAttribute("animeMovies", new ArrayList<>());
+            model.addAttribute("kidsMovies", new ArrayList<>());
+            model.addAttribute("actionMovies", new ArrayList<>());
 
             return "index";
+            
         } catch (Exception e) {
             System.err.println("ERROR in home(): " + e.getMessage());
             e.printStackTrace();
-            ensureDefaultAttributes(model); // Đảm bảo trang không bị crash
+            ensureDefaultAttributes(model); // Hàm fallback
             return "index";
         }
     }
 
-    /**
-     * [G43] Sửa lỗi: Banner phải gọi hàm LAZY
-     */
-    private void setBanner(Model model) {
+    //---- 3. HELPER FUNCTIONS ----
+
+    // Set Banner từ danh sách phim đã gộp
+    private void setBanner(Model model, List<Map<String, Object>> hotMovies) {
         try {
-            String listUrl = BASE_URL + "/movie/popular?api_key=" + API_KEY + "&language=vi-VN&page=1";
-            String listResp = restTemplate.getForObject(listUrl, String.class);
-
-            if (listResp != null && !listResp.isEmpty()) {
-                JSONObject listJson = new JSONObject(listResp);
-                JSONArray results = listJson.optJSONArray("results");
-
-                if (results != null && results.length() > 0) {
-                    JSONObject firstMovieJson = results.getJSONObject(0);
-                    int tmdbId = firstMovieJson.optInt("id", -1);
-
-                    if (tmdbId > 0) {
-                        // [G43] SỬA LỖI:
-                        // Movie bannerMovie = movieService.getMovieOrSync(tmdbId); // LỖI (Eager)
-                        Movie bannerMovie = movieService.getMoviePartial(tmdbId); // ĐÚNG (Lazy)
-                        
-                        Map<String, Object> bannerMap = movieService.convertToMap(bannerMovie);
-                        String trailerKey = movieService.findBestTrailerKey(tmdbId);
-                        String logoPath = movieService.findBestLogoPath(tmdbId);
-                        bannerMap.put("trailerKey", trailerKey); 
-                        bannerMap.put("logoPath", logoPath);     
-                        model.addAttribute("banner", bannerMap);
-                        return;
-                    }
-                }
+            if (hotMovies != null && !hotMovies.isEmpty()) {
+                Map<String, Object> bannerMap = hotMovies.get(0);
+                int movieID = (int) bannerMap.get("id");
+                
+                //----- Gọi API Service bằng movieID (PK)
+                String trailerKey = movieService.findBestTrailerKey(movieID);
+                String logoPath = movieService.findBestLogoPath(movieID);
+                
+                bannerMap.put("trailerKey", trailerKey); 
+                bannerMap.put("logoPath", logoPath);     
+                model.addAttribute("banner", bannerMap);
+                return;
             }
-        } catch (Exception e) {
-            System.err.println("Error in setBanner (G43): " + e.getMessage());
-        }
+        } catch (Exception e) { System.err.println("Error in setBanner: " + e.getMessage()); }
+        
+        // Fallback nếu có lỗi
         model.addAttribute("banner", createDefaultBanner());
     }
     
-    /**
-     * [G29] XÓA BỎ:
-     * Hàm private loadMoviesFromApi(String endpoint) đã bị xóa
-     * vì logic của nó đã được chuyển vào MovieService.loadAndSyncPaginatedMovies()
-     */
-    // private List<Map<String, Object>> loadMoviesFromApi(String endpoint) { ... }
-
-
-    // (Các hàm createDefaultBanner và ensureDefaultAttributes giữ nguyên)
+    // Tạo Banner mặc định (khi không có dữ liệu)
     private Map<String, Object> createDefaultBanner() {
         Map<String, Object> banner = new HashMap<>();
-        banner.put("id", 550); banner.put("title", "Welcome to FFilm");
+        banner.put("id", 550); // Movie ID (PK) mặc định
+        banner.put("title", "Welcome to FFilm");
         banner.put("overview", "Khám phá thế giới phim ảnh");
         banner.put("backdrop", "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg");
         banner.put("rating", "8.5"); banner.put("year", "2025"); banner.put("runtime", 120);
+        banner.put("country", "Việt Nam");
         return banner;
     }
     
+    // Đảm bảo các thuộc tính có tồn tại khi có lỗi (tránh lỗi Thymeleaf)
     private void ensureDefaultAttributes(Model model) {
         if (!model.containsAttribute("banner")) model.addAttribute("banner", createDefaultBanner());
         model.addAttribute("hotMovies", new ArrayList<>());
@@ -139,4 +116,5 @@ public class HomeController {
         return "service/watch-history"; 
                                        
     }
+
 }

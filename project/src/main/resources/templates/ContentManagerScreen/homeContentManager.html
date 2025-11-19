@@ -1,12 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FFilm - Content Manager Home</title>
-    <!-- Tải Font Awesome cho các icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Tải Font Inter từ Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <style>
         /* Định nghĩa các biến CSS cho màu sắc */
@@ -184,32 +182,26 @@
 </head>
 <body>
 
-    <!-- 1. Thanh Header -->
     <header id="main-header">
         <div class="logo">FFilm</div>
         <div class="header-controls">
-            <!-- Nút Home -->
-            <a href="index.html" class="nav-item home-link" aria-label="Trang chủ">
+            <a href="/" class="nav-item home-link" aria-label="Trang chủ">
                 <i class="fas fa-home"></i> Home
             </a>
-            <!-- Thông tin người dùng -->
             <div class="user-info">
                 <i class="fas fa-user-circle"></i> Content Manager
             </div>
         </div>
     </header>
 
-    <!-- 2. Nội dung chính - Dashboard Cards -->
     <main id="dashboard-content">
-        <!-- Card 1: Quản lý Phim -->
-        <a href="manage-movie.html" class="dashboard-card movie-card" title="Quản lý Phim">
+        <a href="/manage-movies" class="dashboard-card movie-card" title="Quản lý Phim">
             <i class="fas fa-film"></i>
             <h2>Manage Movies</h2>
             <p>Quản lý nội dung, thêm/sửa/xóa phim, cập nhật trạng thái.</p>
         </a>
 
-        <!-- Card 2: Quản lý Banner -->
-        <a href="manage-banner.html" class="dashboard-card banner-card" title="Quản lý Banner">
+        <a href="#" class="dashboard-card banner-card" title="Quản lý Banner">
             <i class="fas fa-images"></i>
             <h2>Manage Banners</h2>
             <p>Cập nhật slide show, banner quảng cáo trên trang chủ và các trang khác.</p>

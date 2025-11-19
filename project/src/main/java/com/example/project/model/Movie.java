@@ -1,8 +1,12 @@
 package com.example.project.model;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
+// THAY ĐỔI: Import Set và HashSet
+import java.util.Set;
+import java.util.HashSet;
+import java.util.List; // Vẫn giữ List cho các quan hệ 1-N
+import java.util.ArrayList; // Vẫn giữ ArrayList cho các quan hệ 1-N
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -63,9 +67,9 @@ public class Movie {
     
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Season> seasons = new ArrayList<>();
+    private List<Season> seasons = new ArrayList<>(); // 1-N dùng List
 
-    // Quan hệ với Diễn viên/Đạo diễn (Nhiều - Nhiều)
+    // THAY ĐỔI: Quan hệ với Diễn viên/Đạo diễn (Nhiều - Nhiều) -> Dùng Set
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "Movie_Person",
@@ -73,9 +77,9 @@ public class Movie {
         inverseJoinColumns = @JoinColumn(name = "personID")
     )
     @JsonIgnore
-    private List<Person> persons = new ArrayList<>();
+    private Set<Person> persons = new HashSet<>(); // <-- THAY ĐỔI TỪ LIST SANG SET
 
-    // Quan hệ với Thể loại (Nhiều - Nhiều) - Dùng để đồng bộ TMDB
+    // THAY ĐỔI: Quan hệ với Thể loại (Nhiều - Nhiều) -> Dùng Set
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "Movie_Genre",
@@ -83,7 +87,7 @@ public class Movie {
         inverseJoinColumns = @JoinColumn(name = "genreID")
     )
     @JsonIgnore
-    private List<Genre> genres = new ArrayList<>();
+    private Set<Genre> genres = new HashSet<>(); // <-- THAY ĐỔI TỪ LIST SANG SET
 
     // Quan hệ với Category (Nhiều - Nhiều) - Dùng cho nội bộ của bạn
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -93,19 +97,19 @@ public class Movie {
         inverseJoinColumns = @JoinColumn(name = "categoryID")
     )
     @JsonIgnore
-    private List<Category> categories = new ArrayList<>();
+    private Set<Category> categories = new HashSet<>(); // <-- NÊN DÙNG SET
 
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Review> reviews;
+    private List<Review> reviews; // 1-N dùng List
 
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Comment> comments;
+    private List<Comment> comments; // 1-N dùng List
 
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Report> reports;
+    private List<Report> reports; // 1-N dùng List
 
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore 
@@ -113,7 +117,7 @@ public class Movie {
 
     public Movie() {}
 
-    // --- GETTERS & SETTERS (ĐẦY ĐỦ) ---
+    // --- GETTERS & SETTERS (ĐÃ CẬP NHẬT) ---
 
     public int getMovieID() { return movieID; }
     public void setMovieID(int movieID) { this.movieID = movieID; }
@@ -166,14 +170,17 @@ public class Movie {
     public List<Season> getSeasons() { return seasons; }
     public void setSeasons(List<Season> seasons) { this.seasons = seasons; }
 
-    public List<Person> getPersons() { return persons; }
-    public void setPersons(List<Person> persons) { this.persons = persons; }
+    // THAY ĐỔI (List -> Set)
+    public Set<Person> getPersons() { return persons; }
+    public void setPersons(Set<Person> persons) { this.persons = persons; }
 
-    public List<Genre> getGenres() { return genres; }
-    public void setGenres(List<Genre> genres) { this.genres = genres; }
+    // THAY ĐỔI (List -> Set)
+    public Set<Genre> getGenres() { return genres; }
+    public void setGenres(Set<Genre> genres) { this.genres = genres; }
     
-    public List<Category> getCategories() { return categories; }
-    public void setCategories(List<Category> categories) { this.categories = categories; }
+    // THAY ĐỔI (List -> Set)
+    public Set<Category> getCategories() { return categories; }
+    public void setCategories(Set<Category> categories) { this.categories = categories; }
 
     public List<Review> getReviews() { return reviews; }
     public void setReviews(List<Review> reviews) { this.reviews = reviews; }

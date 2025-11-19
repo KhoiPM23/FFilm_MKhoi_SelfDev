@@ -4,13 +4,11 @@ public class MovieFavorite {
     private Integer id;
     private String title;
     private String posterPath;
-    private Integer tmdbId;
 
-    public MovieFavorite(Integer id, String title, String posterPath, Integer tmdbId) {
+    public MovieFavorite(Integer id, String title, String posterPath) {
         this.id = id;
         this.title = title;
         this.posterPath = posterPath;
-        this.tmdbId = tmdbId;
     }
 
     public MovieFavorite() {
@@ -38,13 +36,5 @@ public class MovieFavorite {
 
     public void setPosterPath(String posterPath) {
         this.posterPath = posterPath;
-    }
-
-    public Integer getTmdbId() {
-        return tmdbId;
-    }
-
-    public void setTmdbId(Integer tmdbId) {
-        this.tmdbId = tmdbId;
     }
 }

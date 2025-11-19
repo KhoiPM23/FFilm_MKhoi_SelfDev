@@ -3,6 +3,8 @@ package com.example.project.model;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore; // THÊM IMPORT NÀY
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,8 +40,10 @@ public class SubscriptionPlan {
     private boolean status;
 
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL)
+    @JsonIgnore // THÊM ANNOTATION NÀY ĐỂ TRÁNH VÒNG LẶP
     private List<Subscription> subscriptions;
 
+    // Constructors, Getters, Setters giữ nguyên
     public SubscriptionPlan() {
     }
 
@@ -109,5 +113,4 @@ public class SubscriptionPlan {
     public void setSubscriptions(List<Subscription> subscriptions) {
         this.subscriptions = subscriptions;
     }
-
 }

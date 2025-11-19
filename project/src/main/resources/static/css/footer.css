@@ -130,30 +130,45 @@
         gap: 12px;
     }
 
-    .app-btn {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 20px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
+    .app-btn-new {
+        display: inline-block;
         border-radius: 8px;
-        color: white;
-        text-decoration: none;
-        transition: all 0.3s;
+        overflow: hidden; /* Quan trọng cho hiệu ứng shine */
+        position: relative;
+        transform: translateY(0);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
-    .app-btn:hover {
-        background: rgba(255,255,255,0.1);
-        border-color: #e50914;
+    .app-btn-new img {
+        height: 40px; /* Chiều cao chuẩn */
+        display: block;
     }
 
-    .app-btn i {
-        font-size: 1.5rem;
+    .app-btn-new:hover {
+        transform: translateY(-4px); /* Hiệu ứng nổi lên */
+        box-shadow: 0 5px 15px rgba(229, 9, 20, 0.3);
     }
 
-    .app-btn span {
-        font-size: 0.9rem;
+    /* Hiệu ứng Shine (lóe sáng) */
+    .app-btn-new::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -150%;
+        width: 70%;
+        height: 100%;
+        background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            transparent 100%
+        );
+        transform: skewX(-20deg);
+        transition: left 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .app-btn-new:hover::after {
+        left: 150%;
     }
 
     .footer-copyright {
