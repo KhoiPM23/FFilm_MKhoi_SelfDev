@@ -75,14 +75,18 @@ public class SearchController {
             fullSearchResults = new ArrayList<>();
             Set<Integer> addedTmdbIds = new HashSet<>();
 
-            //----- Bước 1: Kết quả từ DB
-            List<Movie> dbResults = movieService.searchMoviesByTitle(query.trim());
-            for (Movie movie : dbResults) {
-                fullSearchResults.add(movieService.convertToMap(movie));
-                if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+            //----- Bước 1: Kết quả từ DB (Luôn an toàn)
+            try {
+                List<Movie> dbResults = movieService.searchMoviesByTitle(query.trim());
+                for (Movie movie : dbResults) {
+                    fullSearchResults.add(movieService.convertToMap(movie));
+                    if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi Search DB: " + e.getMessage());
             }
 
-            //----- Bước 2: Kết quả từ Person Search (Credits)
+            //----- Bước 2: Kết quả từ Person Search (Credits) - CÓ FALLBACK
             try {
                 String personSearchUrl = BASE_URL + "/search/person?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
                 String personResponse = restTemplate.getForObject(personSearchUrl, String.class);
@@ -99,7 +103,7 @@ public class SearchController {
                         JSONObject creditsJson = new JSONObject(creditsResponse);
                         String personName = person.optString("name");
                         
-                        // Lấy Cast & Crew (Director)
+                        // Lấy Cast
                         JSONArray castMovies = creditsJson.optJSONArray("cast");
                         if (castMovies != null) {
                             for (int j = 0; j < Math.min(castMovies.length(), 10); j++) {
@@ -114,6 +118,7 @@ public class SearchController {
                                 }
                             }
                         }
+                        // Lấy Crew (Director)
                         JSONArray crewMovies = creditsJson.optJSONArray("crew");
                         if (crewMovies != null) {
                             int directorCount = 0;
@@ -135,30 +140,36 @@ public class SearchController {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Lỗi Person search: " + e.getMessage());
+                // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi để app không sập
+                System.err.println("⚠️ Lỗi Person Search (API có thể mất kết nối): " + e.getMessage());
             }
 
-            //----- Bước 3: Kết quả từ API Movie (3 trang)
-            for (int apiPage = 1; apiPage <= 3; apiPage++) {
-                String movieSearchUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=" + apiPage + "&include_adult=false";
-                String movieResponse = restTemplate.getForObject(movieSearchUrl, String.class);
-                JSONObject paginationJson = new JSONObject(movieResponse);
-                JSONArray movieResults = paginationJson.optJSONArray("results");
+            //----- Bước 3: Kết quả từ API Movie (3 trang) - CÓ FALLBACK
+            try {
+                for (int apiPage = 1; apiPage <= 3; apiPage++) {
+                    String movieSearchUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=" + apiPage + "&include_adult=false";
+                    String movieResponse = restTemplate.getForObject(movieSearchUrl, String.class);
+                    JSONObject paginationJson = new JSONObject(movieResponse);
+                    JSONArray movieResults = paginationJson.optJSONArray("results");
 
-                if (movieResults != null && movieResults.length() > 0) {
-                    for (int i = 0; i < movieResults.length(); i++) {
-                        JSONObject item = movieResults.getJSONObject(i);
-                        int tmdbId = item.optInt("id", -1);
+                    if (movieResults != null && movieResults.length() > 0) {
+                        for (int i = 0; i < movieResults.length(); i++) {
+                            JSONObject item = movieResults.getJSONObject(i);
+                            int tmdbId = item.optInt("id", -1);
 
-                        if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
-                            Movie movie = movieService.syncMovieFromList(item);
-                            if (movie != null) {
-                                fullSearchResults.add(movieService.convertToMap(movie));
-                                addedTmdbIds.add(tmdbId);
+                            if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
+                                Movie movie = movieService.syncMovieFromList(item);
+                                if (movie != null) {
+                                    fullSearchResults.add(movieService.convertToMap(movie));
+                                    addedTmdbIds.add(tmdbId);
+                                }
                             }
                         }
-                    }
-                } else break;
+                    } else break;
+                }
+            } catch (Exception e) {
+                // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi
+                System.err.println("⚠️ Lỗi Movie Search API (API có thể mất kết nối): " + e.getMessage());
             }
 
             session.setAttribute(sessionKey, fullSearchResults);
@@ -212,22 +223,27 @@ public class SearchController {
         List<Map<String, Object>> aiSuggestions = new ArrayList<>();
         List<Map<String, Object>> relatedMovies = new ArrayList<>();
 
-        if (!paginatedResults.isEmpty()) {
-            // Lấy ID (PK) của các phim trong kết quả chính để loại trừ
-            List<Integer> excludeIds = paginatedResults.stream().map(m -> (Integer) m.get("id")).collect(Collectors.toList());
+        // Bọc trong try-catch để đảm bảo trang Search không bao giờ chết vì gợi ý
+        try {
+            if (!paginatedResults.isEmpty()) {
+                // Lấy ID (PK) của các phim trong kết quả chính để loại trừ
+                List<Integer> excludeIds = paginatedResults.stream().map(m -> (Integer) m.get("id")).collect(Collectors.toList());
 
-            // Phân tích Top 5 (hoặc ít hơn)
-            List<Map<String, Object>> topResults = paginatedResults.subList(0, Math.min(paginatedResults.size(), 5));
-            
-            // (List 1) Phân tích Genre cho Related Movies
-            Integer topGenreId = analyzeTopGenre(topResults);
-            
-            // (List 2) Phân tích Intent cho AI Suggestions (Waterfall)
-            Movie topResultMovie = movieService.getMovieById((Integer) topResults.get(0).get("id"));
+                // Phân tích Top 5 (hoặc ít hơn)
+                List<Map<String, Object>> topResults = paginatedResults.subList(0, Math.min(paginatedResults.size(), 5));
+                
+                // (List 1) Phân tích Genre cho Related Movies
+                Integer topGenreId = analyzeTopGenre(topResults);
+                
+                // (List 2) Phân tích Intent cho AI Suggestions (Waterfall)
+                Movie topResultMovie = movieService.getMovieById((Integer) topResults.get(0).get("id"));
 
-            // Tải dữ liệu gợi ý
-            aiSuggestions = loadAiSuggestions(topResultMovie, excludeIds);
-            relatedMovies = loadRelatedMovies(topGenreId, encodedQuery, excludeIds);
+                // Tải dữ liệu gợi ý
+                aiSuggestions = loadAiSuggestions(topResultMovie, excludeIds);
+                relatedMovies = loadRelatedMovies(topGenreId, encodedQuery, excludeIds);
+            }
+        } catch (Exception e) {
+             System.err.println("Lỗi khi tạo Gợi ý (không ảnh hưởng kết quả chính): " + e.getMessage());
         }
 
         //----- Bước 7: Gán Model và Trả về
@@ -256,18 +272,23 @@ public class SearchController {
     private Integer analyzeTopGenre(List<Map<String, Object>> topResults) {
         if (topResults == null || topResults.isEmpty()) return null;
 
-        //----- Đếm tần suất xuất hiện của các Genre ID
-        Map<Integer, Long> genreCounts = topResults.stream()
-            .map(movieMap -> movieService.getMovieById((Integer) movieMap.get("id")))
-            .flatMap(movie -> movie.getGenres().stream())
-            .map(Genre::getTmdbGenreId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        try {
+            //----- Đếm tần suất xuất hiện của các Genre ID
+            Map<Integer, Long> genreCounts = topResults.stream()
+                .map(movieMap -> movieService.getMovieById((Integer) movieMap.get("id")))
+                .filter(Objects::nonNull)
+                .flatMap(movie -> movie.getGenres().stream())
+                .map(Genre::getTmdbGenreId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-        //----- Tìm Genre ID xuất hiện nhiều nhất
-        Optional<Map.Entry<Integer, Long>> maxEntry = genreCounts.entrySet().stream().max(Map.Entry.comparingByValue());
+            //----- Tìm Genre ID xuất hiện nhiều nhất
+            Optional<Map.Entry<Integer, Long>> maxEntry = genreCounts.entrySet().stream().max(Map.Entry.comparingByValue());
 
-        return maxEntry.map(Map.Entry::getKey).orElse(null);
+            return maxEntry.map(Map.Entry::getKey).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // List 1: Gợi ý theo THỂ LOẠI (Related Movies)
@@ -279,24 +300,28 @@ public class SearchController {
         com.example.project.service.MovieService.SortBy sortBy = MovieService.SortBy.HOT;
         Page<Movie> dbMovies;
 
-        if (topGenreId != null) {
-            //----- Nguồn API: Phim cùng thể loại (Genre)
-            apiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=" + topGenreId + "&sort_by=popularity.desc";
-            //----- Nguồn DB: Phim cùng thể loại
-            dbMovies = movieService.getMoviesByGenreFromDB(topGenreId, dbFetchLimit, 0);
-        } else {
-            //----- Fallback API: API Search (dùng query)
-            apiUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
-            //----- Fallback DB: Hot DB
-            dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
-        }
-        
-        List<Map<String, Object>> mergedMovies = movieService.getMergedCarouselMovies(apiUrl, dbMovies, limit, sortBy);
+        try {
+            if (topGenreId != null) {
+                //----- Nguồn API: Phim cùng thể loại (Genre)
+                apiUrl = BASE_URL + "/discover/movie?api_key=" + API_KEY + "&language=vi-VN&with_genres=" + topGenreId + "&sort_by=popularity.desc";
+                //----- Nguồn DB: Phim cùng thể loại
+                dbMovies = movieService.getMoviesByGenreFromDB(topGenreId, dbFetchLimit, 0);
+            } else {
+                //----- Fallback API: API Search (dùng query)
+                apiUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
+                //----- Fallback DB: Hot DB
+                dbMovies = movieService.getHotMoviesFromDB(dbFetchLimit);
+            }
+            
+            List<Map<String, Object>> mergedMovies = movieService.getMergedCarouselMovies(apiUrl, dbMovies, limit, sortBy);
 
-        // Lọc bỏ các ID đã hiển thị trong kết quả chính
-        return mergedMovies.stream()
-            .filter(m -> !excludeIds.contains((Integer) m.get("id")))
-            .collect(Collectors.toList());
+            // Lọc bỏ các ID đã hiển thị trong kết quả chính
+            return mergedMovies.stream()
+                .filter(m -> !excludeIds.contains((Integer) m.get("id")))
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+             return new ArrayList<>(); // Trả về rỗng nếu lỗi
+        }
     }
 
     // List 2: Gợi ý theo INTENT (AI Suggestions / Waterfall 5 Lớp)
@@ -304,14 +329,18 @@ public class SearchController {
         int limit = 20;
         if (topResultMovie == null) return new ArrayList<>();
 
-        //----- Gọi hàm Waterfall mới từ MovieService
-        List<Map<String, Object>> recommendedMovies = movieService.getRecommendedMoviesWaterfall(topResultMovie, new HashMap<>());
+        try {
+            //----- Gọi hàm Waterfall mới từ MovieService
+            List<Map<String, Object>> recommendedMovies = movieService.getRecommendedMoviesWaterfall(topResultMovie, new HashMap<>());
 
-        // Lọc bỏ các ID đã hiển thị trong kết quả chính
-        return recommendedMovies.stream()
-            .filter(m -> !excludeIds.contains((Integer) m.get("id")))
-            .limit(limit)
-            .collect(Collectors.toList());
+            // Lọc bỏ các ID đã hiển thị trong kết quả chính
+            return recommendedMovies.stream()
+                .filter(m -> !excludeIds.contains((Integer) m.get("id")))
+                .limit(limit)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+             return new ArrayList<>(); // Trả về rỗng nếu lỗi
+        }
     }
 
     //---- 4. UTILS ----
