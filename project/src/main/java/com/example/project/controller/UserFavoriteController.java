@@ -53,6 +53,7 @@ public class UserFavoriteController {
             @PathVariable Integer movieId,
             @SessionAttribute("user") UserSessionDto user) {
         Integer userId = user.getId();
+        System.out.println("Movie ID = " + movieId);
         AddUserFavoriteRequest req = new AddUserFavoriteRequest(movieId, userId,
                 java.sql.Date.valueOf(LocalDate.now()));
         boolean success = favoriteService.addFavorite(req);

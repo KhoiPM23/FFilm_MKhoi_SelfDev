@@ -5,7 +5,6 @@ import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import com.example.project.dto.SubscriptionPlanRegisterRequest;
 import com.example.project.model.Subscription;
 import com.example.project.model.SubscriptionPlan;
@@ -35,9 +34,7 @@ public class SubscriptionService {
                 .orElse(null);
         if (plan == null)
             return false;
-
         Date startDate = new Date();
-
         Calendar cal = Calendar.getInstance();
         cal.setTime(startDate);
         cal.add(Calendar.DAY_OF_MONTH, 30);
@@ -49,8 +46,14 @@ public class SubscriptionService {
                 true,
                 user,
                 plan);
-
         subscriptionRepository.save(sub);
         return true;
     }
+
+    public boolean checkActiveSubscription(int userID) {
+        Subscription sub = subscriptionRepository.findByUser_UserIDAndStatus(userID, true)
+                .orElse(null);
+        return sub != null;
+    }
+
 }

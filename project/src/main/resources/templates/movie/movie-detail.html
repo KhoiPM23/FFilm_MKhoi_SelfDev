@@ -51,7 +51,7 @@
                     <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"><i class="fas fa-play"></i> Xem phim</a>
                     <div class="action-buttons-group">
                         <button
-                            th:attr="data-movie-id=${tmdbId}"
+                            th:attr="data-movie-id=${movie.id}"
                             class="btn-circle hero-action-icon hover-like-btn"
                             th:classappend="${isFavorite} ? 'active' : ''"  onclick="toggleHoverLike(this)"
                             title="Yêu thích"
@@ -271,5 +271,59 @@
     <script src="/js/movie/share-modal.js"></script>
     <script src="/js/script.js"></script> 
     <script src="/js/movie/movie-detail.js"></script>
+    <script>
+      function toggleHoverLike(button) {
+        // Đọc 'data-movie-id' (như đã sửa)
+        const movieId = button.getAttribute("data-movie-id");
+
+        if (!movieId) {
+          console.error("Không tìm thấy movie ID!");
+          return;
+        }
+
+        // (Tùy chọn) Lấy CSRF token nếu bạn dùng Spring Security
+        const csrfToken = document
+          .querySelector("meta[name='_csrf']")
+          ?.getAttribute("content");
+        const csrfHeader = document
+          .querySelector("meta[name='_csrf_header']")
+          ?.getAttribute("content");
+
+        const headers = {
+          "Content-Type": "application/json",
+        };
+
+        if (csrfHeader && csrfToken) {
+          headers[csrfHeader] = csrfToken;
+        }
+
+        fetch(`/favorites/${movieId}`, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({}),
+
+          // --- GIẢI PHÁP CHO VẤN ĐỀ 1 LÀ DÒNG NÀY ---
+          // Yêu cầu trình duyệt gửi kèm cookie (chứa session)
+          credentials: "include",
+          // -----------------------------------------
+        })
+          .then((response) => {
+            if (response.ok) {
+              // Thay đổi icon khi thành công
+              button.querySelector("i").classList.toggle("fas");
+              button.querySelector("i").classList.toggle("far");
+            } else if (response.status === 401 || response.status === 400) {
+              alert("Bạn cần đăng nhập để thực hiện chức năng này!");
+            } else {
+              alert("Không thể thêm vào yêu thích! (Lỗi server)");
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert("Có lỗi xảy ra!");
+          });
+      }
+    </script>
 </body>
+
 </html>

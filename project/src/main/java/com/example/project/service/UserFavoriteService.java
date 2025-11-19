@@ -20,33 +20,26 @@ import com.example.project.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
+//Đoạn này của Linh
+
 @Service
 @RequiredArgsConstructor // TỐT HƠN @Autowired
 public class UserFavoriteService {
 
     @Autowired
     private FavoriteRepository favoriteRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private MovieRepository movieRepository;
 
     public boolean addFavorite(AddUserFavoriteRequest req) {
-        Optional<User> userOpt = userRepository.findById(req.getUserID());
-        Optional<Movie> movieOpt = movieRepository.findByTmdbId(req.getTmdbId());
-        if (userOpt.isEmpty() || movieOpt.isEmpty()) {
-            return false;
-        }
 
-        if (favoriteRepository.existsByUserIDAndMovieID(req.getUserID(), req.getTmdbId())) {
+        if (favoriteRepository.existsByUserIDAndMovieID(req.getUserID(), req.getMovieID())) {
             return false;
         }
 
         UserFavorite uf = new UserFavorite();
         uf.setUserID(req.getUserID());
-        uf.setMovieID(req.getTmdbId());
+        uf.setMovieID(req.getMovieID());
         uf.setCreateAt(req.getCreateAt());
-
+        System.out.println("Movie ID = " + uf.getMovieID());
         favoriteRepository.save(uf);
         return true;
     }
