@@ -22,28 +22,34 @@ public class SubscriptionController {
         this.subscriptionService = subscriptionService;
     }
 
-    // POST đăng ký gói
+    // POST đăng ký gói (Điểm tiếp nối luồng mới)
     @PostMapping("/register")
     public String registerSubscription(
             @SessionAttribute("user") UserSessionDto userDto,
             @RequestParam Integer planId,
             RedirectAttributes redirectAttributes) {
         if (userDto == null) {
-            return "login";
+            return "redirect:/login";
         }
         Integer userId = userDto.getId();
-        System.out.println("User ID: " + userId);
-        System.out.println("Plan ID: " + planId);
         SubscriptionPlanRegisterRequest planRegisterRequest = new SubscriptionPlanRegisterRequest(userId, planId);
-        boolean success = subscriptionService.registerSubscription(planRegisterRequest);
+        
+        try {
+            // Gọi hàm đăng ký Pending mới
+            Integer subId = subscriptionService.registerPendingSubscription(planRegisterRequest); 
 
-        if (!success) {
-            redirectAttributes.addFlashAttribute("message", "Đăng ký thất bại! Chúng tôi sẽ liên hệ với bạn sớm.");
+            if (subId == null) {
+                redirectAttributes.addFlashAttribute("error", "Đăng ký thất bại! Không tìm thấy user hoặc gói.");
+                return "redirect:/subscriptionPlan";
+            }
+            
+            // Chuyển hướng đến trang xác nhận thanh toán (điểm tiếp nối)
+            return "redirect:/payment/confirm/" + subId; 
+            
+        } catch (RuntimeException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/subscriptionPlan";
         }
-
-        redirectAttributes.addFlashAttribute("message", "Đăng ký thành công! Chúng tôi sẽ liên hệ với bạn sớm.");
-        return "redirect:/";
     }
 
-}
+} 
