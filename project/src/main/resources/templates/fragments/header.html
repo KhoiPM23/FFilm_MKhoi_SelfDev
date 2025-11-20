@@ -167,9 +167,13 @@
             <div class="dropdown-header">
               Xin chào,
               <span th:text="${session.user.userName}">Minh Cường</span>
+
             </div>
             <a th:href="@{/profile}" class="dropdown-item">
               <i class="fas fa-user-circle"></i> Profile
+            </a>
+            <a th:href="@{/payment/history}" class="dropdown-item">
+              <i class="fas fa-file-invoice-dollar"></i> Gói & Thanh toán
             </a>
             <a th:href="@{/history}" class="dropdown-item">
               <i class="fas fa-history"></i> Lịch sử xem
