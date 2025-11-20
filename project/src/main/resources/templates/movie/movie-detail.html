@@ -1,275 +1,476 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title th:text="${movie.title} + ' - FFilm'">Chi tiết phim</title>
-    <meta name="movie-id" th:content="${movieId}">
-    <meta name="tmdb-id" th:if="${tmdbId != null}" th:content="${tmdbId}">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/footer.css">
-    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
-    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
-    <link rel="stylesheet" th:href="@{/css/movie/movie-detail.css}">
-</head>
-<body>
+    <meta name="movie-id" th:content="${movieId}" />
+    <meta name="tmdb-id" th:if="${tmdbId != null}" th:content="${tmdbId}" />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/footer.css" />
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}" />
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}" />
+    <link rel="stylesheet" th:href="@{/css/movie/movie-detail.css}" />
+  </head>
+  <body>
     <div th:replace="~{fragments/header :: header}"></div>
 
-    <section class="hero-banner" 
-            id="heroBanner" 
-            th:attr="data-movie-id=${movieId},
+    <section
+      class="hero-banner"
+      id="heroBanner"
+      th:attr="data-movie-id=${movieId},
                     data-trailer-key=${movie.trailerKey}, 
                     data-logo-path=${movie.logoPath}"
-            th:style="'background-image: url(' + ${movie.backdrop} + ')'"> 
-        
-        <div class="hero-video-container" id="heroVideoContainer"><div id="heroPlayer"></div></div>
-        <div class="hero-overlay"></div>
-        
-        <div class="hero-content">
-            <div class="movie-main-info">
-                <div class="hero-title-container">
-                    <img id="heroLogo" src="" alt="Movie Logo" style="display:none; max-height: 160px; margin-bottom: 25px;">
-                    <h1 class="hero-title" id="heroTitleText" th:text="${movie.title}">Tên Phim</h1>
-                </div>
-                
-                <div class="hero-meta">
-                    <div class="content-rating" id="contentRating"><span>T16</span></div>
-                    <div class="rating"><i class="fas fa-star"></i><span th:text="${movie.rating}">0.0</span></div>
-                    <div class="year" th:text="${movie.year}">...</div>
-                    <div class="duration" th:text="${movie.runtime} + ' phút'">0 phút</div>
-                    <div class="quality-badge" style="background:#e50914;padding:2px 7px;border-radius:4px;font-weight:700;font-size:0.85rem">HD</div>
-                    <div class="country" th:text="${movie.country}">—</div>
-                </div>
+      th:style="'background-image: url(' + ${movie.backdrop} + ')'"
+    >
+      <div class="hero-video-container" id="heroVideoContainer">
+        <div id="heroPlayer"></div>
+      </div>
+      <div class="hero-overlay"></div>
 
-                <div class="hero-genres">
-                    <a th:each="g : ${movie.genres}" th:text="${g}" href="#" class="hero-genre-tag">Thể loại</a>
-                </div>
+      <div class="hero-content">
+        <div class="movie-main-info">
+          <div class="hero-title-container">
+            <img
+              id="heroLogo"
+              src=""
+              alt="Movie Logo"
+              style="display: none; max-height: 160px; margin-bottom: 25px"
+            />
+            <h1 class="hero-title" id="heroTitleText" th:text="${movie.title}">
+              Tên Phim
+            </h1>
+          </div>
 
-                <div class="hero-actions">
-                    <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"><i class="fas fa-play"></i> Xem phim</a>
-                    <div class="action-buttons-group">
-                        <button
-                            th:attr="data-movie-id=${movie.id}"
-                            class="btn-circle hero-action-icon hover-like-btn"
-                            th:classappend="${isFavorite} ? 'active' : ''"  onclick="toggleHoverLike(this)"
-                            title="Yêu thích"
-                        >
-                            <i th:class="${isFavorite} ? 'fas fa-heart' : 'far fa-heart'"
-                            th:style="${isFavorite} ? 'color: #E50914' : ''"></i>
-                        </button>
-                        <button class="btn-circle hero-action-icon hover-share-btn" 
-                                th:data-movie-id="${movieId}" 
-                                th:data-movie-title="${movie.title}"
-                                onclick="showShareModal(this)" title="Chia sẻ">
-                            <i class="fas fa-share-alt"></i>
-                        </button>
-                        <div class="action-divider"></div>
-                        <button class="btn-circle volume-btn" id="volumeBtn" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
-                    </div>
-                </div>
+          <div class="hero-meta">
+            <div class="content-rating" id="contentRating">
+              <span>T16</span>
             </div>
+            <div class="rating">
+              <i class="fas fa-star"></i
+              ><span th:text="${movie.rating}">0.0</span>
+            </div>
+            <div class="year" th:text="${movie.year}">...</div>
+            <div class="duration" th:text="${movie.runtime} + ' phút'">
+              0 phút
+            </div>
+            <div
+              class="quality-badge"
+              style="
+                background: #e50914;
+                padding: 2px 7px;
+                border-radius: 4px;
+                font-weight: 700;
+                font-size: 0.85rem;
+              "
+            >
+              HD
+            </div>
+            <div class="country" th:text="${movie.country}">—</div>
+          </div>
+
+          <div class="hero-genres">
+            <a
+              th:each="g : ${movie.genres}"
+              th:text="${g}"
+              href="#"
+              class="hero-genre-tag"
+              >Thể loại</a
+            >
+          </div>
+
+          <div class="hero-actions">
+            <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"
+              ><i class="fas fa-play"></i> Xem phim</a
+            >
+            <div class="action-buttons-group">
+              <button
+                th:attr="data-movie-id=${movie.id}"
+                class="btn-circle hero-action-icon hover-like-btn"
+                th:classappend="${isFavorite} ? 'active' : ''"
+                onclick="toggleHoverLike(this)"
+                title="Yêu thích"
+              >
+                <i
+                  th:class="${isFavorite} ? 'fas fa-heart' : 'far fa-heart'"
+                  th:style="${isFavorite} ? 'color: #E50914' : ''"
+                ></i>
+              </button>
+              <button
+                class="btn-circle hero-action-icon hover-share-btn"
+                th:data-movie-id="${movieId}"
+                th:data-movie-title="${movie.title}"
+                onclick="showShareModal(this)"
+                title="Chia sẻ"
+              >
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <div class="action-divider"></div>
+              <button
+                class="btn-circle volume-btn"
+                id="volumeBtn"
+                title="Bật/Tắt tiếng"
+              >
+                <i class="fas fa-volume-mute"></i>
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
     </section>
 
     <div class="main-content-wrapper">
-        
-        <div class="content-primary">
-            
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Đạo diễn</span>
-                    <span class="info-value" th:text="${movie.director}">—</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Quốc gia</span>
-                    <span class="info-value" th:text="${movie.country}">—</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Phát hành</span>
-                    <span class="info-value" th:text="${movie.releaseDate}">—</span>
-                </div>
-                 <div class="info-item">
-                    <span class="info-label">Ngôn ngữ</span>
-                    <span class="info-value" th:text="${movie.language}">—</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Ngân sách</span>
-                    <span class="info-value" th:text="${movie.budget}">—</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Doanh thu</span>
-                    <span class="info-value" th:text="${movie.revenue}">—</span>
-                </div>
-            </div>
-
-            <div class="description-wrapper">
-                <h3 class="section-title-small">Nội dung phim</h3>
-                <div class="description-content" id="descContent">
-                    <p class="description-text" id="descText" th:text="${movie.overview}">
-                        Nội dung phim đang cập nhật...
-                    </p>
-                </div>
-                <button class="description-toggle-btn" id="descToggleBtn" onclick="toggleFPTDescription()">
-                    <span>Xem thêm</span> <i class="fas fa-chevron-down"></i>
-                </button>
-            </div>
-
-            <div class="trailer-section" id="trailerSection" style="margin-bottom: 60px; display: none;">
-                <h2 class="section-title" style="font-size: 1.6rem; margin-bottom: 25px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fab fa-youtube" style="color:#e50914;"></i> Trailer & Hậu trường
-                </h2>
-                
-                <div class="trailer-grid" id="trailerGrid" style="display: none;">
-                    </div>
-                
-                <div class="fallback-message" id="trailerFallback" 
-                    style="display: none; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; padding: 40px 20px; text-align: center; color: #888;">
-                    <i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 15px;"></i>
-                    <p style="margin: 0; font-size: 1rem;">Chưa có trailer hoặc video hậu trường cho phim này.</p>
-                </div>
-
-            </div>
-
-            <div class="cast-section" th:if="${castList != null && !castList.isEmpty()}" style="margin-bottom: 60px;">
-                <h2 class="section-title" style="font-size: 1.6rem; margin-bottom: 30px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-users" style="color:#e50914;"></i> Diễn viên
-                </h2>
-                <div class="cast-grid" id="castGrid">
-                    
-                    <div th:each="p : ${castList}" class="cast-card" 
-                         th:onclick="'window.location.href=\'/person/detail/' + ${p.id} + '\''">
-                         <div class="cast-img-wrapper">
-                            <img class="cast-img" th:src="${p.avatar}" th:alt="${p.name}" onerror="this.src='/images/placeholder-user.jpg'">
-                        </div>
-                        <div class="cast-info">
-                            <span class="cast-name" th:text="${p.name}">Actor Name</span>
-                            <span class="cast-role" th:text="${p.role}">Character</span>
-                        </div>
-                    </div>
-                </div>
-                <button id="castToggleBtn" class="cast-toggle-btn" th:if="${castList.size() > 6}" onclick="toggleCast()">Xem tất cả</button>
-            </div>
-
-            <div class="comments-wrapper" style="background: #121212; border-radius: 16px; padding: 30px; border: 1px solid #222; margin-top: 50px;">
-                </div>
-
-            <div class="comments-header">
-                <h3 class="comments-title">Bình luận</h3>
-                <div class="comments-tabs">
-                    <span class="comment-tab active">Mới nhất</span>
-                    <span class="comment-tab">Nhiều like nhất</span>
-                </div>
-            </div>
-
-            <div class="comment-input-box">
-                <div class="user-avatar">U</div>
-                <textarea class="comment-input-area" placeholder="Viết bình luận của bạn..." id="commentInput"></textarea>
-                <i class="fas fa-smile emoji-btn" onclick="toggleEmojiPicker(event)"></i>
-                
-                <div class="emoji-picker-mock" id="emojiPicker" style="display:none;">
-                    <span class="emoji-mock" onclick="addEmoji('😀')">😀</span>
-                    <span class="emoji-mock" onclick="addEmoji('😂')">😂</span>
-                    <span class="emoji-mock" onclick="addEmoji('😍')">😍</span>
-                    <span class="emoji-mock" onclick="addEmoji('🤔')">🤔</span>
-                    <span class="emoji-mock" onclick="addEmoji('🔥')">🔥</span>
-                    <span class="emoji-mock" onclick="addEmoji('👍')">👍</span>
-                    <span class="emoji-mock" onclick="addEmoji('👎')">👎</span>
-                    <span class="emoji-mock" onclick="addEmoji('👏')">👏</span>
-                </div>
-            </div>
-
-            <div class="comment-list">
-                <div class="comment-item">
-                    <div class="user-avatar" style="background: #007bff;">V</div>
-                    <div class="comment-body">
-                        <span class="comment-author-name">Văn A</span>
-                        <span class="comment-time">2 giờ trước</span>
-                        <p class="comment-content">Phim hay quá! Kỹ xảo mãn nhãn, nội dung cũng rất sâu sắc. 🔥</p>
-                        <div class="comment-actions">
-                            <span class="comment-action"><i class="fas fa-thumbs-up"></i> 15</span>
-                            <span class="comment-action"><i class="fas fa-thumbs-down"></i> 1</span>
-                            <span class="comment-action">Trả lời</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="comment-item">
-                    <div class="user-avatar" style="background: #28a745;">T</div>
-                    <div class="comment-body">
-                        <span class="comment-author-name">Thị B</span>
-                        <span class="comment-time">5 giờ trước</span>
-                        <p class="comment-content">Cũng bình thường, mình thấy hơi nhàm chán đoạn giữa. 🤔</p>
-                        <div class="comment-actions">
-                            <span class="comment-action"><i class="fas fa-thumbs-up"></i> 3</span>
-                            <span class="comment-action"><i class="fas fa-thumbs-down"></i> 0</span>
-                            <span class="comment-action">Trả lời</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div> 
-
-        <div class="content-sidebar">
-            <div class="sidebar-header">Top Phim Xu Hướng</div>
-                <div class="trending-list" id="trendingSidebar">                 
-            </div>
+      <div class="content-primary">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Đạo diễn</span>
+            <span class="info-value" th:text="${movie.director}">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Quốc gia</span>
+            <span class="info-value" th:text="${movie.country}">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Phát hành</span>
+            <span class="info-value" th:text="${movie.releaseDate}">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Ngôn ngữ</span>
+            <span class="info-value" th:text="${movie.language}">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Ngân sách</span>
+            <span class="info-value" th:text="${movie.budget}">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Doanh thu</span>
+            <span class="info-value" th:text="${movie.revenue}">—</span>
+          </div>
         </div>
 
-    </div> 
+        <div class="description-wrapper">
+          <h3 class="section-title-small">Nội dung phim</h3>
+          <div class="description-content" id="descContent">
+            <p
+              class="description-text"
+              id="descText"
+              th:text="${movie.overview}"
+            >
+              Nội dung phim đang cập nhật...
+            </p>
+          </div>
+          <button
+            class="description-toggle-btn"
+            id="descToggleBtn"
+            onclick="toggleFPTDescription()"
+          >
+            <span>Xem thêm</span> <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
 
-    <section class="movies movie-list-section full-width-section" style="margin-top: 0; display: none;" id="similarSection">
-        <div class="section-header" style="padding: 0; margin-bottom: 20px;">
-            <div class="section-title-wrapper"><h2 class="section-title" style="font-size: 1.6rem;">🔥 Phim tương tự</h2></div>
-            <div class="carousel-nav">
-                <button class="nav-btn prev-btn" id="similarPrevBtn"><i class="fas fa-chevron-left"></i></button>
-                <button class="nav-btn next-btn" id="similarNextBtn"><i class="fas fa-chevron-right"></i></button>
+        <div
+          class="trailer-section"
+          id="trailerSection"
+          style="margin-bottom: 60px; display: none"
+        >
+          <h2
+            class="section-title"
+            style="
+              font-size: 1.6rem;
+              margin-bottom: 25px;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            "
+          >
+            <i class="fab fa-youtube" style="color: #e50914"></i> Trailer & Hậu
+            trường
+          </h2>
+
+          <div
+            class="trailer-grid"
+            id="trailerGrid"
+            style="display: none"
+          ></div>
+
+          <div
+            class="fallback-message"
+            id="trailerFallback"
+            style="
+              display: none;
+              background: rgba(255, 255, 255, 0.03);
+              border: 1px dashed rgba(255, 255, 255, 0.1);
+              border-radius: 8px;
+              padding: 40px 20px;
+              text-align: center;
+              color: #888;
+            "
+          >
+            <i
+              class="fas fa-video-slash"
+              style="font-size: 2rem; margin-bottom: 15px"
+            ></i>
+            <p style="margin: 0; font-size: 1rem">
+              Chưa có trailer hoặc video hậu trường cho phim này.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="cast-section"
+          th:if="${castList != null && !castList.isEmpty()}"
+          style="margin-bottom: 60px"
+        >
+          <h2
+            class="section-title"
+            style="
+              font-size: 1.6rem;
+              margin-bottom: 30px;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            "
+          >
+            <i class="fas fa-users" style="color: #e50914"></i> Diễn viên
+          </h2>
+          <div class="cast-grid" id="castGrid">
+            <div
+              th:each="p : ${castList}"
+              class="cast-card"
+              th:onclick="'window.location.href=\'/person/detail/' + ${p.id} + '\''"
+            >
+              <div class="cast-img-wrapper">
+                <img
+                  class="cast-img"
+                  th:src="${p.avatar}"
+                  th:alt="${p.name}"
+                  onerror="this.src='/images/placeholder-user.jpg'"
+                />
+              </div>
+              <div class="cast-info">
+                <span class="cast-name" th:text="${p.name}">Actor Name</span>
+                <span class="cast-role" th:text="${p.role}">Character</span>
+              </div>
             </div>
+          </div>
+          <button
+            id="castToggleBtn"
+            class="cast-toggle-btn"
+            th:if="${castList.size() > 6}"
+            onclick="toggleCast()"
+          >
+            Xem tất cả
+          </button>
         </div>
-        <div class="movie-carousel">
-            <div class="movie-slider" id="similarSlider">
-                </div>
+
+        <div
+          class="comments-wrapper"
+          style="
+            background: #121212;
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #222;
+            margin-top: 50px;
+          "
+        ></div>
+
+        <div class="comments-header">
+          <h3 class="comments-title">Bình luận</h3>
+          <div class="comments-tabs">
+            <span class="comment-tab active">Mới nhất</span>
+            <span class="comment-tab">Nhiều like nhất</span>
+          </div>
         </div>
+
+        <div class="comment-input-box">
+          <div class="user-avatar">U</div>
+          <textarea
+            class="comment-input-area"
+            placeholder="Viết bình luận của bạn..."
+            id="commentInput"
+          ></textarea>
+          <i
+            class="fas fa-smile emoji-btn"
+            onclick="toggleEmojiPicker(event)"
+          ></i>
+
+          <div class="emoji-picker-mock" id="emojiPicker" style="display: none">
+            <span class="emoji-mock" onclick="addEmoji('😀')">😀</span>
+            <span class="emoji-mock" onclick="addEmoji('😂')">😂</span>
+            <span class="emoji-mock" onclick="addEmoji('😍')">😍</span>
+            <span class="emoji-mock" onclick="addEmoji('🤔')">🤔</span>
+            <span class="emoji-mock" onclick="addEmoji('🔥')">🔥</span>
+            <span class="emoji-mock" onclick="addEmoji('👍')">👍</span>
+            <span class="emoji-mock" onclick="addEmoji('👎')">👎</span>
+            <span class="emoji-mock" onclick="addEmoji('👏')">👏</span>
+          </div>
+        </div>
+
+        <div class="comment-list">
+          <div class="comment-item">
+            <div class="user-avatar" style="background: #007bff">V</div>
+            <div class="comment-body">
+              <span class="comment-author-name">Văn A</span>
+              <span class="comment-time">2 giờ trước</span>
+              <p class="comment-content">
+                Phim hay quá! Kỹ xảo mãn nhãn, nội dung cũng rất sâu sắc. 🔥
+              </p>
+              <div class="comment-actions">
+                <span class="comment-action"
+                  ><i class="fas fa-thumbs-up"></i> 15</span
+                >
+                <span class="comment-action"
+                  ><i class="fas fa-thumbs-down"></i> 1</span
+                >
+                <span class="comment-action">Trả lời</span>
+              </div>
+            </div>
+          </div>
+          <div class="comment-item">
+            <div class="user-avatar" style="background: #28a745">T</div>
+            <div class="comment-body">
+              <span class="comment-author-name">Thị B</span>
+              <span class="comment-time">5 giờ trước</span>
+              <p class="comment-content">
+                Cũng bình thường, mình thấy hơi nhàm chán đoạn giữa. 🤔
+              </p>
+              <div class="comment-actions">
+                <span class="comment-action"
+                  ><i class="fas fa-thumbs-up"></i> 3</span
+                >
+                <span class="comment-action"
+                  ><i class="fas fa-thumbs-down"></i> 0</span
+                >
+                <span class="comment-action">Trả lời</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-sidebar">
+        <div class="sidebar-header">Top Phim Xu Hướng</div>
+        <div class="trending-list" id="trendingSidebar"></div>
+      </div>
+    </div>
+
+    <section
+      class="movies movie-list-section full-width-section"
+      style="margin-top: 0; display: none"
+      id="similarSection"
+    >
+      <div class="section-header" style="padding: 0; margin-bottom: 20px">
+        <div class="section-title-wrapper">
+          <h2 class="section-title" style="font-size: 1.6rem">
+            🔥 Phim tương tự
+          </h2>
+        </div>
+        <div class="carousel-nav">
+          <button class="nav-btn prev-btn" id="similarPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="similarNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="movie-carousel">
+        <div class="movie-slider" id="similarSlider"></div>
+      </div>
     </section>
-    
-    <section class="movies movie-list-section full-width-section" style="border: none; display: none;" id="recommendSection">
-        <div class="section-header" style="padding: 0; margin-bottom: 20px;">
-            <div class="section-title-wrapper"><h2 class="section-title" style="font-size: 1.6rem;" id="recommendTitle" th:text="${recommendTitle ?: '✨ Có thể bạn thích'}">✨ Có thể bạn thích</h2></div>
-            <div class="carousel-nav">
-                <button class="nav-btn prev-btn" id="recommendPrevBtn"><i class="fas fa-chevron-left"></i></button>
-                <button class="nav-btn next-btn" id="recommendNextBtn"><i class="fas fa-chevron-right"></i></button>
-            </div>
+
+    <section
+      class="movies movie-list-section full-width-section"
+      style="border: none; display: none"
+      id="recommendSection"
+    >
+      <div class="section-header" style="padding: 0; margin-bottom: 20px">
+        <div class="section-title-wrapper">
+          <h2
+            class="section-title"
+            style="font-size: 1.6rem"
+            id="recommendTitle"
+            th:text="${recommendTitle ?: '✨ Có thể bạn thích'}"
+          >
+            ✨ Có thể bạn thích
+          </h2>
         </div>
-        <div class="movie-carousel">
-            <div class="movie-slider" id="recommendSlider">
-                </div>
+        <div class="carousel-nav">
+          <button class="nav-btn prev-btn" id="recommendPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="recommendNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
+      </div>
+      <div class="movie-carousel">
+        <div class="movie-slider" id="recommendSlider"></div>
+      </div>
     </section>
 
     <div th:replace="~{fragments/footer :: footer}"></div>
     <div th:replace="~{fragments/ai-chat :: ai-chat}"></div>
     <div th:replace="~{fragments/share-modal :: shareModal}"></div>
 
-    <div id="globalTrailerModal" class="share-modal-overlay" style="z-index: 100000;">
-        <div class="share-modal" style="width: 90vw; max-width: 1100px; aspect-ratio: 16/9; padding: 0; background: #000;">
-            <button class="share-modal-close" onclick="closeGlobalTrailer()" style="position: absolute; top: -15px; right: -15px; background: #000; border-radius: 50%; z-index: 10; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">&times;</button>
-            <iframe id="globalTrailerFrame" 
-                    width="100%" 
-                    height="100%" 
-                    src="" 
-                    frameborder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowfullscreen 
-                    style="border-radius: 8px;">
-            </iframe>
-        </div>
+    <div
+      id="globalTrailerModal"
+      class="share-modal-overlay"
+      style="z-index: 100000"
+    >
+      <div
+        class="share-modal"
+        style="
+          width: 90vw;
+          max-width: 1100px;
+          aspect-ratio: 16/9;
+          padding: 0;
+          background: #000;
+        "
+      >
+        <button
+          class="share-modal-close"
+          onclick="closeGlobalTrailer()"
+          style="
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            background: #000;
+            border-radius: 50%;
+            z-index: 10;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+          "
+        >
+          &times;
+        </button>
+        <iframe
+          id="globalTrailerFrame"
+          width="100%"
+          height="100%"
+          src=""
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          style="border-radius: 8px"
+        >
+        </iframe>
+      </div>
     </div>
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script th:src="@{/js/movie/ai-agent.js}" defer></script>
     <script src="/js/movie/share-modal.js"></script>
-    <script src="/js/script.js"></script> 
+    <script src="/js/script.js"></script>
     <script src="/js/movie/movie-detail.js"></script>
     <script>
       function toggleHoverLike(button) {
@@ -324,6 +525,5 @@
           });
       }
     </script>
-</body>
-
+  </body>
 </html>

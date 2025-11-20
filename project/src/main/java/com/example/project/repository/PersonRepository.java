@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional; // Bổ sung import
-import java.util.List; 
+import java.util.List;
 
 @Repository
 public interface PersonRepository extends JpaRepository<Person, Integer> {
@@ -18,7 +18,7 @@ public interface PersonRepository extends JpaRepository<Person, Integer> {
 
     // Tìm theo tên (bất chấp dấu tiếng Việt)
     @Query(value = "SELECT * FROM Person WHERE " +
-            "UPPER(full_name) COLLATE Vietnamese_CI_AI LIKE N'%' + UPPER(:name) + '%'", 
-            nativeQuery = true)
+            "UPPER(full_name) COLLATE Vietnamese_CI_AI LIKE N'%' + UPPER(:name) + '%'", nativeQuery = true)
     List<Person> findByNameFlexible(@Param("name") String name);
+
 }

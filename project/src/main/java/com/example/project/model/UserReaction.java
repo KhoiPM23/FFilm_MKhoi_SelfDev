@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "UserReaction", uniqueConstraints = @UniqueConstraint(columnNames = { "userID", "tmdbId" }))
+@Table(name = "UserReaction", uniqueConstraints = @UniqueConstraint(columnNames = { "userID", "movieID" }))
 public class UserReaction {
 
     @Id
@@ -16,8 +16,8 @@ public class UserReaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tmdbId", // ✔ JOIN bằng tmdbId
-            referencedColumnName = "tmdbId", // ✔ match với bảng Movie
+    @JoinColumn(name = "movieID", // ✔ JOIN bằng tmdbId
+            referencedColumnName = "movieID", // ✔ match với bảng Movie
             nullable = false, foreignKey = @ForeignKey(name = "FK_UserReaction_Movie"))
     private Movie movie;
 

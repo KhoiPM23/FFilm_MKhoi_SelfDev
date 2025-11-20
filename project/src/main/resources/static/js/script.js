@@ -4,6 +4,7 @@
  * Tối ưu hóa hiệu năng, quản lý trạng thái và xử lý tương tác giao diện người dùng.
  * =========================================================================================
  */
+
 (function() {
     'use strict';
 
@@ -911,6 +912,9 @@
             console.error("Lỗi: Không tìm thấy ID phim");
             return;
         }
+        prevBtn.style.display = "block";
+        nextBtn.style.display = "block";
+
 
         const icon = button.querySelector('i');
         const wasActive = button.classList.contains('active'); // Trạng thái hiện tại (trước khi click)
@@ -1212,3 +1216,4 @@
     });
 
 })();
+
