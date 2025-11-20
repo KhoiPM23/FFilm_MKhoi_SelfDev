@@ -2,6 +2,7 @@ package com.example.project.controller;
 
 import com.example.project.model.Genre;
 import com.example.project.model.Movie;
+import com.example.project.model.Person;
 import com.example.project.service.MovieService;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -75,15 +76,47 @@ public class SearchController {
             fullSearchResults = new ArrayList<>();
             Set<Integer> addedTmdbIds = new HashSet<>();
 
-            //----- Bước 1: Kết quả từ DB (Luôn an toàn)
+            //----- Bước 1: Kết quả từ DB (LUÔN CHẠY - KHÔNG PHỤ THUỘC MẠNG)
             try {
-                List<Movie> dbResults = movieService.searchMoviesByTitle(query.trim());
+                String cleanQuery = query.trim();
+                
+                // 1.1 Tìm theo Tên phim
+                List<Movie> dbResults = movieService.searchMoviesByTitle(cleanQuery);
                 for (Movie movie : dbResults) {
-                    fullSearchResults.add(movieService.convertToMap(movie));
-                    if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+                    // Check trùng lặp
+                    boolean exists = fullSearchResults.stream()
+                        .anyMatch(m -> m.get("id").equals(movie.getMovieID()));
+                    
+                    if (!exists) {
+                        fullSearchResults.add(movieService.convertToMap(movie));
+                        if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+                    }
                 }
+
+                // 1.2 [ĐÃ SỬA] Tìm theo Tên Người & Hiển thị Role cụ thể
+                List<Person> persons = movieService.searchPersons(cleanQuery);
+                for (Person p : persons) {
+                    for (Movie movie : p.getMovies()) {
+                        // Check trùng lặp
+                        boolean exists = fullSearchResults.stream()
+                            .anyMatch(m -> m.get("id").equals(movie.getMovieID()));
+
+                        if (!exists) {
+                            // Logic xác định Role
+                            String roleInfo = "Diễn viên: " + p.getFullName();
+                            if (movie.getDirector() != null && movie.getDirector().equalsIgnoreCase(p.getFullName())) {
+                                roleInfo = "Đạo diễn: " + p.getFullName();
+                            }
+
+                            // Thêm phim vào danh sách với Role cụ thể
+                            fullSearchResults.add(movieService.convertToMap(movie, roleInfo));
+                            if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+                        }
+                    }
+                }
+
             } catch (Exception e) {
-                System.err.println("Lỗi Search DB: " + e.getMessage());
+                System.err.println("Lỗi truy vấn DB: " + e.getMessage());
             }
 
             //----- Bước 2: Kết quả từ Person Search (Credits) - CÓ FALLBACK

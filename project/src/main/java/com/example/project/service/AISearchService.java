@@ -21,7 +21,7 @@ public class AISearchService {
 
     // Base URL cho model đã test (gemini-2.5-flash)
     private static final String GEMINI_API_URL_BASE =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
 
     private final RestTemplate restTemplate;
 
@@ -65,6 +65,53 @@ public class AISearchService {
             result.put("suggestions", Collections.emptyList());
         }
 
+        return result;
+    }
+
+    // [THÊM MỚI - DÀNH RIÊNG CHO AI AGENT]
+    public Map<String, Object> getMovieRecommendationForAgent(String description) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (!isConfigured()) {
+                result.put("answer", "AI chưa sẵn sàng.");
+                result.put("movies", new ArrayList<>());
+                return result;
+            }
+
+            String prompt = "Bạn là chuyên gia điện ảnh. Với mô tả: \"" + description + "\"\n" +
+                    "Trả về JSON thuần (không markdown):\n" +
+                    "{\n" +
+                    "  \"answer\": \"Câu trả lời duyên dáng 2-3 câu\",\n" +
+                    "  \"movies\": [\n" +
+                    "    {\"title\": \"Tên Tiếng Anh\", \"alt_title\": \"Tên Tiếng Việt\"},\n" +
+                    "    {\"title\": \"Your Name\", \"alt_title\": \"Tên Cậu Là Gì\"}\n" +
+                    "  ]\n" +
+                    "}\n" +
+                    "Gợi ý 4-6 phim. Nếu không biết tên Việt thì để rỗng alt_title.";
+
+            String aiResponse = callGeminiAPI(prompt);
+            String clean = aiResponse.replaceAll("```json|```", "").trim();
+            JSONObject json = new JSONObject(clean);
+            
+            result.put("answer", json.optString("answer", "Dưới đây là gợi ý phim:"));
+            
+            List<Map<String, String>> movies = new ArrayList<>();
+            JSONArray arr = json.optJSONArray("movies");
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject m = arr.getJSONObject(i);
+                    Map<String, String> movie = new HashMap<>();
+                    movie.put("title", m.optString("title", ""));
+                    movie.put("alt_title", m.optString("alt_title", ""));
+                    movies.add(movie);
+                }
+            }
+            result.put("movies", movies);
+            
+        } catch (Exception e) {
+            result.put("answer", "Xin lỗi, AI gặp lỗi.");
+            result.put("movies", new ArrayList<>());
+        }
         return result;
     }
 
@@ -295,6 +342,43 @@ public class AISearchService {
             result.put("suggestions", Collections.emptyList());
         }
 
+        return result;
+    }
+
+    // [THÊM MỚI] Hàm này dành riêng cho Chatbot (Trả về JSON cấu trúc chuẩn)
+    public Map<String, Object> getStructuredRecommendation(String description) {
+        Map<String, Object> result = new HashMap<>();
+        if (!isConfigured()) return result;
+
+        try {
+            // Prompt ép kiểu JSON để lấy tên gốc và tên việt
+            String prompt = "Bạn là chuyên gia điện ảnh. Với mô tả: \"" + description + "\"\n" +
+                    "Hãy gợi ý 5 bộ phim phù hợp nhất.\n" +
+                    "BẮT BUỘC trả về JSON thuần túy (không markdown, không giải thích thêm) theo định dạng:\n" +
+                    "{ \"answer\": \"Lời dẫn ngắn gọn 1-2 câu...\", \"movies\": [\"Tên phim 1 (Tên gốc)\", \"Tên tiếng Việt 1\", \"Tên phim 2\"] }";
+
+            String responseText = callGeminiAPI(prompt);
+            
+            // Clean JSON string
+            String cleanJson = responseText.replaceAll("```json", "").replaceAll("```", "").trim();
+            JSONObject json = new JSONObject(cleanJson);
+            
+            result.put("success", true);
+            result.put("answer", json.optString("answer", "Đây là các phim phù hợp:"));
+            
+            JSONArray moviesArr = json.optJSONArray("movies");
+            List<String> suggestions = new ArrayList<>();
+            if (moviesArr != null) {
+                for (int i = 0; i < moviesArr.length(); i++) {
+                    suggestions.add(moviesArr.getString(i));
+                }
+            }
+            result.put("suggestions", suggestions);
+
+        } catch (Exception e) {
+            System.err.println("AI Chat Suggestion Error: " + e.getMessage());
+            result.put("suggestions", new ArrayList<>());
+        }
         return result;
     }
 

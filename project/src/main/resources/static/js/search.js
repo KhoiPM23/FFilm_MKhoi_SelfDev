@@ -48,10 +48,9 @@
         ];
 
         // =========================================================================
-        // 2. KHÔI PHỤC LOGIC AI SEARCH (TỪ HEADER_OLD.DOCX)
+        // 2. KHÔI PHỤC & NÂNG CẤP LOGIC AI SEARCH (AUTH + SESSION STORAGE)
         // =========================================================================
         function initAISearch() {
-            // Lấy đúng ID nút trong trang Search
             const aiToggle = document.getElementById('aiSearchPageBtn'); 
             const aiModal = document.getElementById('aiSearchModal');
             const aiClose = document.getElementById('aiModalClose');
@@ -60,24 +59,49 @@
             const aiInput = document.getElementById('aiSearchInput');
             const aiLoading = document.getElementById('aiLoading');
             const aiError = document.getElementById('aiError');
-            
-            // Container kết quả (đảm bảo ID đúng trong HTML)
             const aiMovieResults = document.getElementById('aiMovieResults');
 
-            // Open modal
+            // Key lưu trữ session
+            const STORAGE_KEY = 'ffilm_ai_search_state';
+
+            // --- [NEW] 1. KHÔI PHỤC TRẠNG THÁI CŨ (NẾU CÓ) ---
+            function restoreState() {
+                const savedState = sessionStorage.getItem(STORAGE_KEY);
+                if (savedState && aiInput && aiMovieResults) {
+                    try {
+                        const data = JSON.parse(savedState);
+                        // Khôi phục text đã nhập
+                        aiInput.value = data.prompt || '';
+                        // Khôi phục kết quả
+                        if (data.answer || (data.suggestions && data.suggestions.length > 0)) {
+                            aiMovieResults.hidden = false;
+                            renderAIRecommendation(data.answer, data.suggestions || []);
+                        }
+                    } catch (e) {
+                        console.error("Lỗi khôi phục trạng thái AI Search", e);
+                        sessionStorage.removeItem(STORAGE_KEY);
+                    }
+                }
+            }
+
+            // Gọi hàm khôi phục ngay khi init
+            restoreState();
+
+            // --- [NEW] 2. CHECK LOGIN KHI MỞ MODAL ---
             aiToggle?.addEventListener('click', (e) => {
                 e.stopPropagation();
+                
+                // Kiểm tra đăng nhập (Biến global từ header.html)
+                if (typeof window.isUserLoggedIn !== 'undefined' && !window.isUserLoggedIn) {
+                    window.location.href = '/login';
+                    return;
+                }
+
                 if(aiModal) {
                     aiModal.hidden = false;
-                    // Reset trạng thái
-                    aiInput.value = '';
-                    if(aiMovieResults) aiMovieResults.hidden = true;
-                    if(aiLoading) aiLoading.hidden = true;
-                    if(aiError) aiError.hidden = true;
-                    if(aiSearchBtn) aiSearchBtn.disabled = false;
-                    
-                    document.body.style.overflow = 'hidden'; // Khóa cuộn trang
-                    setTimeout(() => aiInput.focus(), 100);
+                    document.body.style.overflow = 'hidden';
+                    // Focus vào input nếu chưa có nội dung, hoặc giữ nguyên nếu đã restore
+                    if (!aiInput.value) setTimeout(() => aiInput.focus(), 100);
                 }
             });
 
@@ -93,7 +117,7 @@
             aiCancel?.addEventListener('click', closeModal);
             aiModal?.querySelector('.ai-modal-overlay')?.addEventListener('click', closeModal);
 
-            // Example chips (Gợi ý nhanh)
+            // Example chips
             document.querySelectorAll('.example-chip').forEach(chip => {
                 chip.addEventListener('click', function() {
                     aiInput.value = this.dataset.example;
@@ -101,7 +125,7 @@
                 });
             });
 
-            // AI Search Submit Logic (Khôi phục từ header_old)
+            // AI Search Submit
             aiSearchBtn?.addEventListener('click', async () => {
                 const description = aiInput.value.trim();
 
@@ -110,14 +134,13 @@
                     return;
                 }
 
-                // UI Loading state
+                // UI Loading
                 if(aiLoading) aiLoading.hidden = false;
                 if(aiError) aiError.hidden = true;
                 if(aiMovieResults) aiMovieResults.hidden = true;
                 aiSearchBtn.disabled = true;
 
                 try {
-                    // Gọi API backend
                     const response = await fetch('/api/ai-search/suggest', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -130,13 +153,18 @@
                         throw new Error(data.message || 'AI failed');
                     }
 
-                    // Tắt loading
                     if(aiLoading) aiLoading.hidden = true;
 
-                    // Hiển thị kết quả
                     if (aiMovieResults) {
                         aiMovieResults.hidden = false;
                         renderAIRecommendation(data.answer, data.suggestions || []);
+                        
+                        // --- [NEW] 3. LƯU TRẠNG THÁI VÀO SESSION STORAGE ---
+                        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+                            prompt: description,
+                            answer: data.answer,
+                            suggestions: data.suggestions || []
+                        }));
                     }
 
                 } catch (error) {
@@ -147,7 +175,6 @@
                 }
             });
 
-            // Hàm render giao diện chat đẹp (từ header_old)
             function renderAIRecommendation(answer, suggestions) {
                 if (!aiMovieResults) return;
 
@@ -157,7 +184,7 @@
                             <i class="fas fa-robot"></i>
                             <strong>Gợi ý từ AI:</strong>
                         </div>
-                        <p class="ai-answer-text">${escapeHtml(answer)}</p>
+                        <p class="ai-answer-text">${escapeHtml(answer || '')}</p>
                     </div>
                 `;
 
@@ -182,14 +209,14 @@
 
                 aiMovieResults.innerHTML = html;
 
-                // Gán sự kiện click cho các chip gợi ý -> Chuyển sang trang search
+                // Gán sự kiện click -> Chuyển trang (State đã được lưu ở bước submit)
                 aiMovieResults.querySelectorAll('.ai-suggestion-chip').forEach(chip => {
                     chip.addEventListener('click', function() {
                         const query = this.dataset.query;
-                        closeModal(); // Đóng modal
-                        // Điền vào ô search chính và tìm kiếm
                         if(mainInput) {
                             mainInput.value = query;
+                            // Đóng modal trước khi search để trải nghiệm mượt hơn
+                            closeModal(); 
                             performSearch(); 
                         }
                     });
@@ -270,7 +297,7 @@
         }
 
         /**
-         * [ĐÃ GIA CỐ] - Tối ưu tốc độ "bung" và chịu lỗi mất mạng (Fallback to DB)
+         * [SỬA VĐ 3+5] - Tối ưu tốc độ "bung" (Render trước, Sync sau)
          */
         async function fetchLiveSuggestions(query) {
             if (abortController) abortController.abort();
@@ -283,119 +310,87 @@
                     lastQuery = query;
                 }
 
-                // BƯỚC 1: Tìm DB (Luôn chạy, ít khi lỗi vì local)
-                let dbMovies = [];
-                try {
-                    const dbRes = await fetch(
-                        `/api/movie/search-db?query=${encodeURIComponent(query)}`,
-                        { signal: abortController.signal }
-                    );
-                    if (dbRes.ok) {
-                        dbMovies = await dbRes.json();
-                    }
-                } catch (e) {
-                    console.warn("DB Search failed:", e);
-                    // DB lỗi thì coi như rỗng, không chặn luồng
-                }
+                // BƯỚC 1: Tìm DB
+                const dbRes = await fetch(
+                    `/api/movie/search-db?query=${encodeURIComponent(query)}`,
+                    { signal: abortController.signal }
+                );
+                const dbMovies = await dbRes.json();
                 
-                // BƯỚC 2: Tìm API (movie + tv) - BỌC TRY CATCH ĐỂ FALLBACK
-                let apiResults = [];
-                try {
-                    const apiRes = await fetch(
-                        `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`,
-                        { signal: abortController.signal }
-                    );
-                    if (apiRes.ok) {
-                        const apiData = await apiRes.json();
-                        apiResults = (apiData.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
-                    }
-                } catch (e) {
-                    if (e.name !== 'AbortError') {
-                         console.warn("External API Search failed (Offline mode?):", e);
-                         // API lỗi -> apiResults vẫn là [], code chạy tiếp để hiển thị DB
-                    } else {
-                        throw e; // Ném lại AbortError để xử lý ở ngoài (debounce)
-                    }
-                }
+                // BƯỚC 2: Tìm API (movie + tv)
+                const apiRes = await fetch(
+                    `${API_BASE}/search/multi?api_key=${API_KEY}&language=vi-VN&query=${encodeURIComponent(query)}&page=1&include_adult=false`,
+                    { signal: abortController.signal }
+                );
+                if (!apiRes.ok) throw new Error('API Error');
                 
-                // BƯỚC 3: Tìm Person - BỌC TRY CATCH
+                const apiData = await apiRes.json();
+                const apiResults = (apiData.results || []).filter(r => ['movie', 'tv'].includes(r.media_type));
+                
+                // BƯỚC 3: Tìm Person
                 let peopleMovies = [];
-                try {
-                    if (query.length >= 3) {
-                        // Hàm searchPeople đã có try-catch nhưng thêm lớp bảo vệ này
-                        const people = await searchPeople(query); 
-                        if (people && people.length > 0) {
-                            // Promise.allSettled an toàn hơn Promise.all nếu 1 request fail
-                            const promises = people.map(p => getMoviesFromPerson(p.id, p.name));
-                            // Dùng map catch để giả lập allSettled nếu môi trường cũ, hoặc đơn giản catch từng cái
-                            const results = await Promise.all(promises.map(p => p.catch(e => []))); 
-                            peopleMovies = results.flat();
-                        }
+                if (query.length >= 3) {
+                    const people = await searchPeople(query);
+                    if (people.length > 0) {
+                        const promises = people.map(p => getMoviesFromPerson(p.id, p.name));
+                        const results = await Promise.all(promises);
+                        peopleMovies = results.flat();
                     }
-                } catch (e) {
-                     console.warn("Person Search failed:", e);
                 }
                 
-                // BƯỚC 4: MERGE (Logic giữ nguyên, chỉ cần đảm bảo input là mảng)
+                // BƯỚC 4: MERGE (Ưu tiên DB)
                 const uniqueMap = new Map();
-                const allTmdbIdsToSync = new Set(); 
+                const allTmdbIdsToSync = new Set(); // ID cần sync
                 
                 // 1. Thêm DB
-                if (Array.isArray(dbMovies)) {
-                    dbMovies.forEach(movieMap => {
-                        const tmdbId = movieMap.tmdbId;
-                        const dbPk = movieMap.id;
-                        const key = tmdbId ? `movie_${tmdbId}` : `db_${dbPk}`;
-                        if (!uniqueMap.has(key)) {
-                            movieMap._relevance = 1000 + calculateRelevance(movieMap, query);
-                            uniqueMap.set(key, movieMap);
-                        }
-                    });
-                }
+                dbMovies.forEach(movieMap => {
+                    const tmdbId = movieMap.tmdbId;
+                    const dbPk = movieMap.id;
+                    const key = tmdbId ? `movie_${tmdbId}` : `db_${dbPk}`;
+                    if (!uniqueMap.has(key)) {
+                        movieMap._relevance = 1000 + calculateRelevance(movieMap, query);
+                        uniqueMap.set(key, movieMap);
+                    }
+                });
 
                 // 2. Thêm Person
-                if (Array.isArray(peopleMovies)) {
-                    peopleMovies.forEach(item => {
-                        const key = `movie_${item.id}`;
-                        if (!uniqueMap.has(key)) {
-                            item._relevance = 500 + calculateRelevance(item, query);
-                            uniqueMap.set(key, item);
-                            allTmdbIdsToSync.add(item.id); 
-                        }
-                    });
-                }
+                peopleMovies.forEach(item => {
+                    const key = `movie_${item.id}`;
+                    if (!uniqueMap.has(key)) {
+                        item._relevance = 500 + calculateRelevance(item, query);
+                        uniqueMap.set(key, item);
+                        allTmdbIdsToSync.add(item.id); 
+                    }
+                });
 
                 // 3. Thêm API
-                if (Array.isArray(apiResults)) {
-                    apiResults.forEach(item => {
-                        const key = `movie_${item.id}`;
-                        if (!uniqueMap.has(key)) {
-                            item._relevance = calculateRelevance(item, query);
-                            uniqueMap.set(key, item);
-                            allTmdbIdsToSync.add(item.id); 
-                        }
-                    });
-                }
+                apiResults.forEach(item => {
+                    const key = `movie_${item.id}`;
+                    if (!uniqueMap.has(key)) {
+                        item._relevance = calculateRelevance(item, query);
+                        uniqueMap.set(key, item);
+                        allTmdbIdsToSync.add(item.id); 
+                    }
+                });
                 
-                // BƯỚC 5: Sắp xếp & Render
+                // BƯỚC 5: Sắp xếp
                 let results = Array.from(uniqueMap.values());
                 results.sort((a, b) => (b._relevance || 0) - (a._relevance || 0));
                 
                 cachedResults = results;
                 displayedCount = 0;
                 
+                // [SỬA VĐ 3] RENDER NGAY LẬP TỨC
                 loadMoreSuggestions(); 
                 
-                // Chỉ sync nếu có mạng (hàm này bên trong cũng nên có try-catch hoặc fetch sẽ fail silent)
-                if (allTmdbIdsToSync.size > 0) {
-                    syncApiMoviesInBackground(Array.from(allTmdbIdsToSync)).catch(e => console.log("Sync skipped (Offline)"));
-                }
+                // [SỬA VĐ 3] SYNC NGẦM (Fire-and-forget)
+                syncApiMoviesInBackground(Array.from(allTmdbIdsToSync));
                 
             } catch (error) {
                 if (error.name !== 'AbortError') {
-                    console.error('Critical Live search error:', error);
-                    // Nếu lỗi quá nặng (ví dụ cú pháp), vẫn cho hiển thị DB nếu có cache
-                    if (cachedResults.length > 0) loadMoreSuggestions();
+                    console.error('Live search error:', error);
+                    liveSuggestions.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,0.5)">Lỗi tải dữ liệu</div>';
+                    liveSuggestions.style.display = 'block';
                 }
             }
         }

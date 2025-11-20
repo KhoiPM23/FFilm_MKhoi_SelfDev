@@ -407,7 +407,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    /* Biến toàn cục kiểm tra đăng nhập cho AI Agent */
+    window.isUserLoggedIn = /*[[${session.user != null}]]*/ false;
+    /*]]>*/
+</script>
 </header>
 
 </body>

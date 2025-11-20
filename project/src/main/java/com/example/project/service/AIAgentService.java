@@ -49,6 +49,8 @@ public class AIAgentService {
     private final Cache conversationCache;
     private final AISearchService aiSearchService;
 
+    private final AIChatHistoryRepository chatHistoryRepository;
+
     private Map<String, Object> websiteContext;
 
     @Autowired
@@ -61,7 +63,8 @@ public class AIAgentService {
             PersonRepository personRepository,
             MovieService movieService,
             CacheManager cacheManager,
-            AISearchService aiSearchService
+            AISearchService aiSearchService,
+            AIChatHistoryRepository chatHistoryRepository
     ) {
         this.geminiApiKey = geminiApiKey;
         this.restTemplate = restTemplate;
@@ -72,6 +75,7 @@ public class AIAgentService {
         this.aiSearchService = aiSearchService;
         this.movieService = movieService;
         this.conversationCache = cacheManager.getCache("conversationCache");
+        this.chatHistoryRepository = chatHistoryRepository;
         
         loadWebsiteContext();
     }
@@ -274,94 +278,116 @@ public class AIAgentService {
         
         "Câu hỏi: \"%s\"\nJSON:";
 
-    //---- LOGIC XỬ LÝ CHÍNH ----
+    //---- 4. LOGIC XỬ LÝ CHÍNH (CẬP NHẬT QUAN TRỌNG) ----
 
     public Map<String, Object> processMessage(String message, String conversationId) throws Exception {
-        if (isUnsafe(message)) return createResponse("Xin lỗi, nội dung này vi phạm chính sách an toàn của FFilm.");
+        if (isUnsafe(message)) return createResponse("Xin lỗi, nội dung này vi phạm chính sách an toàn của FFilm.", null);
         if (!isConfigured()) throw new Exception("Gemini API key chưa cấu hình");
 
         String aiResponseText = "Xin lỗi, tôi chưa thể xử lý yêu cầu này.";
+        List<Map<String, Object>> recommendedMovies = new ArrayList<>();
+
+        // Lấy Context từ Cache
         ConversationContext context = conversationCache.get(conversationId, ConversationContext.class);
         if (context == null) context = new ConversationContext();
 
-        // Strip quotes & normalize
         message = message.replace("\"", "").replace("'", "").trim();
         String cleanMsg = message.toLowerCase();
 
-        // 1. LOCAL SHORTCUTS
+        // 1. CHECK LOCAL SHORTCUTS
         if (cleanMsg.contains("liệt kê") && cleanMsg.contains("thể loại")) {
-            return createResponse(formatGenresResponse(genreRepository.findAll(), "tất cả thể loại"));
-        }
-        if (cleanMsg.contains("gói cước") || cleanMsg.contains("bao nhiêu tiền")) {
-            return createResponse("Hiện tại, thông tin về các gói cước của FFilm đang trong quá trình cập nhật. Bạn vui lòng theo dõi trang chủ để biết thêm chi tiết nhé!");
-        }
-        if (cleanMsg.contains("bạn là ai") || cleanMsg.equals("hi") || cleanMsg.equals("xin chào")) {
-            return createResponse("Chào bạn! Tôi là trợ lý ảo chuyên về phim ảnh của FFilm. Tôi có thể giúp bạn tìm phim, tra cứu thông tin diễn viên và nhiều hơn nữa.");
+            return createResponse(formatGenresResponse(genreRepository.findAll(), "tất cả thể loại"), null);
         }
 
-        // 2. CONTEXT CHECK - IMPROVED
+        // 2. CHECK FOLLOW-UP (XEM THÊM / CÒN KHÔNG / PHIM CỦA ỔNG)
+        // Logic: Chỉ xử lý nếu Context cũ có QuestionAsked hợp lệ
         boolean isFollowUp = context.getLastQuestionAsked() != null && 
-        
-            (cleanMsg.matches("^(có|co|ok|oke|ờ|u|uh|uhm|được|dc)$") ||
-            cleanMsg.equals("có") || cleanMsg.equals("co") ||
-            cleanMsg.equals("ok") || cleanMsg.equals("oke") ||
-            cleanMsg.equals("ừ") || cleanMsg.equals("u") ||
-            cleanMsg.matches("^(xem thêm|thêm|tiếp|nữa|còn|next)$") ||
-            cleanMsg.matches("^(có nữa không|còn nữa không|có gì khác)$") ||
-            cleanMsg.equals("xem thêm") || cleanMsg.equals("xem them") ||
-            cleanMsg.equals("còn nữa không") || cleanMsg.equals("con nua khong") ||
-            cleanMsg.equals("có nữa không") || cleanMsg.equals("co nua khong") ||
-            cleanMsg.equals("tiếp") || cleanMsg.equals("tiep") ||
-            cleanMsg.matches(".*(của ổng|của bả|của anh ấy|của cô ấy|của người này).*"));
+             (cleanMsg.matches("^(có|co|ok|oke|ờ|u|uh|uhm|được|dc)$") ||
+              cleanMsg.matches(".*(xem thêm|thêm|tiếp|nữa|còn|next).*") ||
+              cleanMsg.matches(".*(còn nữa không|có gì khác).*") ||
+              cleanMsg.matches(".*(của ổng|của bả|của anh ấy|của cô ấy|của người này).*"));
 
         if (isFollowUp) {
-            aiResponseText = handleFollowUp(context, cleanMsg);
+            // Gọi hàm xử lý FollowUp và lấy kết quả
+            Map<String, Object> followUpResult = handleFollowUp(context, cleanMsg);
+            // Cập nhật lại cache
             conversationCache.put(conversationId, context);
-            return createResponse(aiResponseText);
+            return followUpResult;
         }
 
-        // 3. AI PROCESSING (Phase 8)
+        // 3. CALL AI (NẾU KHÔNG PHẢI FOLLOW-UP)
         try {
             String prompt = String.format(FLAT_PROMPT, message);
             JSONObject request = buildGeminiRequest_Simple(prompt);
             JSONObject response = callGeminiAPI(request);
             String jsonText = extractTextResponse(response);
-            System.out.println("🤖 AI Raw Response: " + jsonText);
             
             JSONObject brain = parseJsonSafely(jsonText);
             
             if (brain == null) {
-                aiResponseText = runKeywordFallback(message, context);
+                // Fallback nếu AI không trả về JSON
+                Map<String, Object> fallback = runKeywordFallback(message, context);
+                aiResponseText = (String) fallback.get("message");
+                recommendedMovies = (List<Map<String, Object>>) fallback.get("movies");
             } else {
                 String intent = brain.optString("intent", "UNKNOWN");
                 System.out.println("🔵 Intent: " + intent + " | Brain: " + brain.toString());
 
                 switch (intent) {
-                    case "DESCRIPTION_SEARCH": // <--- CASE MỚI QUAN TRỌNG
-                        aiResponseText = handleDescriptionSearch(message);
-                        context = new ConversationContext(); // Reset context vì đây là tìm kiếm mới
+                    case "DESCRIPTION_SEARCH":
+                        Map<String, Object> searchResult = aiSearchService.getMovieRecommendation(message);
+                        if (Boolean.TRUE.equals(searchResult.get("success"))) {
+                             aiResponseText = (String) searchResult.get("answer");
+                             List<String> suggestions = (List<String>) searchResult.get("suggestions");
+                             if (suggestions != null) {
+                                 for (String title : suggestions) {
+                                     List<Movie> dbMovies = movieRepository.findByTitleContainingIgnoreCase(title.trim());
+                                     if (!dbMovies.isEmpty()) {
+                                         // [QUAN TRỌNG] Thêm vào danh sách để vẽ thẻ
+                                         recommendedMovies.add(movieService.convertToMap(dbMovies.get(0)));
+                                     }
+                                 }
+                             }
+                        } else {
+                             aiResponseText = "Xin lỗi, tôi chưa hiểu rõ mô tả.";
+                        }
+                        // Reset context cho search mới
+                        context = new ConversationContext(); 
                         break;
+
                     case "FILTER":
-                    case "SEMANTIC": // Gộp chung logic Filter
+                    case "SEMANTIC":
                         MovieSearchFilters filters = parseFlatFilters(brain);
                         if (filters.hasFilters()) {
-                            context = new ConversationContext(); // Reset
+                            // Reset context mới cho filter này
+                            context = new ConversationContext();
                             List<Movie> movies = movieService.findMoviesByFilters(filters);
                             
                             if (!movies.isEmpty()) {
                                 context.setLastSubjectType("Filter");
-                                context.setLastSubjectId(filters); 
+                                context.setLastSubjectId(filters);
                                 context.setLastQuestionAsked("ask_more_filter");
                                 
-                                aiResponseText = formatMoviesResponse(movies, "yêu cầu của bạn", context);
+                                // [QUAN TRỌNG] Lấy 10 phim đầu tiên
+                                List<Movie> firstPage = movies.stream().limit(10).collect(Collectors.toList());
+                                for(Movie m : firstPage) {
+                                    recommendedMovies.add(movieService.convertToMap(m));
+                                    context.addShownMovieId(m.getMovieID()); // Đánh dấu đã xem
+                                }
                                 
+                                // Tạo câu dẫn tự nhiên
+                                aiResponseText = generateNaturalResponse(filters, movies.size());
+                                
+                                // Kiểm tra nếu filter theo người -> Set context follow-up
                                 if (filters.getDirector() != null) updateContext(context, "Person", filters.getDirector(), "ask_director_movies");
                                 else if (filters.getActor() != null) updateContext(context, "Person", filters.getActor(), "ask_person_movies");
                             } else {
-                                aiResponseText = runKeywordFallback(message, context);
+                                aiResponseText = "Rất tiếc, không tìm thấy phim nào phù hợp với tiêu chí của bạn.";
                             }
                         } else {
-                            aiResponseText = runKeywordFallback(message, context);
+                             Map<String, Object> fallback = runKeywordFallback(message, context);
+                             aiResponseText = (String) fallback.get("message");
+                             recommendedMovies = (List<Map<String, Object>>) fallback.get("movies");
                         }
                         break;
 
@@ -372,140 +398,254 @@ public class AIAgentService {
                         
                         Movie targetMovie = movieService.findMovieByTitleAndContext(subject, contextName);
                         
-                        if (targetMovie == null) {
-                            // Nếu không tìm thấy phim, thử tìm người
-                            List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(subject);
-                            if (!persons.isEmpty()) {
-                                context = new ConversationContext();
-                                aiResponseText = formatPersonsResponse(persons, subject, context);
-                            } else {
-                                aiResponseText = runKeywordFallback(subject, context);
-                            }
-                        } else {
-                            context = new ConversationContext();
+                        if (targetMovie != null) {
+                            context = new ConversationContext(); // Reset
+                            recommendedMovies.add(movieService.convertToMap(targetMovie));
                             
                             if ("director".equals(qType)) {
                                 String d = targetMovie.getDirector();
                                 if (d != null && !d.isEmpty()) {
-                                    aiResponseText = formatMovieDetail(targetMovie, context) + 
-                                                    "\n\n👉 Đạo diễn: **" + d + "**\n" +
-                                                    "Bạn muốn xem thêm phim của đạo diễn này không?";
+                                    aiResponseText = "Đây là phim **" + targetMovie.getTitle() + "**, đạo diễn là **" + d + "**.\nBạn có muốn xem thêm phim của đạo diễn này không?";
                                     updateContext(context, "Person", d, "ask_director_movies");
                                 } else {
-                                    aiResponseText = formatMovieDetail(targetMovie, context) + 
-                                                    "\n\n⚠️ Thông tin đạo diễn đang được cập nhật.";
+                                    aiResponseText = "Đây là thông tin phim **" + targetMovie.getTitle() + "** (Chưa có thông tin đạo diễn).";
                                 }
                             } else if ("actor".equals(qType) || "cast".equals(qType)) {
-                                if (!targetMovie.getPersons().isEmpty()) {
-                                    String cast = targetMovie.getPersons().stream()
-                                        .limit(5)
-                                        .map(Person::getFullName)
-                                        .collect(Collectors.joining(", "));
-                                    aiResponseText = formatMovieDetail(targetMovie, context) + 
-                                                    "\n\n🎭 **Diễn viên chính**: " + cast;
-                                    
-                                    Person firstActor = targetMovie.getPersons().iterator().next();
-                                    aiResponseText += "\n\nBạn muốn xem phim khác của " + firstActor.getFullName() + " không?";
-                                    updateContext(context, "Person", firstActor.getPersonID(), "ask_person_movies");
-                                } else {
-                                    aiResponseText = formatMovieDetail(targetMovie, context) + 
-                                                    "\n\n⚠️ Thông tin diễn viên đang được cập nhật.";
-                                }
+                                 aiResponseText = "Thông tin diễn viên phim **" + targetMovie.getTitle() + "**:\n";
+                                 if (!targetMovie.getPersons().isEmpty()) {
+                                     String cast = targetMovie.getPersons().stream().limit(5).map(Person::getFullName).collect(Collectors.joining(", "));
+                                     aiResponseText += "Diễn viên chính: " + cast + ".";
+                                     // Set context theo diễn viên đầu tiên
+                                     Person first = targetMovie.getPersons().iterator().next();
+                                     updateContext(context, "Person", first.getFullName(), "ask_person_movies"); // Lưu tên String cho dễ query
+                                     aiResponseText += "\nBạn muốn xem thêm phim của " + first.getFullName() + " không?";
+                                 }
                             } else {
                                 aiResponseText = formatMovieDetail(targetMovie, context);
                             }
+                        } else {
+                             // Tìm người
+                             List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(subject);
+                             if (!persons.isEmpty()) {
+                                 context = new ConversationContext();
+                                 // [MỚI] Tự động tìm phim của người này luôn
+                                 Person p = persons.get(0);
+                                 MovieSearchFilters f = new MovieSearchFilters();
+                                 f.setActor(p.getFullName()); // Hoặc director tùy logic
+                                 
+                                 List<Movie> mList = movieService.findMoviesByFilters(f);
+                                 if(!mList.isEmpty()) {
+                                     aiResponseText = "Tìm thấy diễn viên/đạo diễn **" + p.getFullName() + "**. Dưới đây là các phim có sự tham gia của họ:";
+                                     for(Movie m : mList.stream().limit(10).toList()) recommendedMovies.add(movieService.convertToMap(m));
+                                     
+                                     // Set context để xem thêm
+                                     context.setLastSubjectType("Filter");
+                                     context.setLastSubjectId(f);
+                                     context.setLastQuestionAsked("ask_more_filter");
+                                 } else {
+                                     aiResponseText = "Tìm thấy **" + p.getFullName() + "** nhưng chưa có phim nào của họ trong hệ thống.";
+                                 }
+                             } else {
+                                 Map<String, Object> fallback = runKeywordFallback(subject, context);
+                                 aiResponseText = (String) fallback.get("message");
+                                 recommendedMovies = (List<Map<String, Object>>) fallback.get("movies");
+                             }
                         }
                         break;
+
                     case "TRENDING":
                         context = new ConversationContext();
                         context.setLastSubjectType("Trending");
                         context.setLastQuestionAsked("ask_more_trending");
-                        aiResponseText = formatMoviesResponse(movieService.getHotMoviesForAI(5), "phim hot nhất hiện tại", context);
+                        List<Movie> hotMovies = movieService.getHotMoviesForAI(10);
+                        aiResponseText = "Dưới đây là Top 10 phim đang thịnh hành nhất trên FFilm:";
+                        for(Movie m : hotMovies) {
+                            recommendedMovies.add(movieService.convertToMap(m));
+                            context.addShownMovieId(m.getMovieID());
+                        }
                         break;
 
                     case "SUBSCRIPTION_INFO":
-                        context = new ConversationContext();
-                        String subQuery = brain.optString("subscription_query", "plans");
-                        aiResponseText = handleSubscriptionQuery(subQuery);
+                        aiResponseText = handleSubscriptionQuery(brain.optString("subscription_query", "plans"));
                         break;
+
                     case "QA":
                     case "CHITCHAT":
                         aiResponseText = brain.optString("reply", "Xin chào! Tôi có thể giúp gì cho bạn?");
-                        context = new ConversationContext();
+                        // Giữ nguyên context cũ
                         break;
 
                     default:
-                        aiResponseText = runKeywordFallback(message, context);
+                        Map<String, Object> fallback = runKeywordFallback(message, context);
+                        aiResponseText = (String) fallback.get("message");
+                        recommendedMovies = (List<Map<String, Object>>) fallback.get("movies");
                         break;
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
-            aiResponseText = runKeywordFallback(message, context);
+            aiResponseText = "Đã có lỗi xảy ra: " + e.getMessage();
         }
 
         conversationCache.put(conversationId, context);
-        return createResponse(aiResponseText);
+        return createResponse(aiResponseText, recommendedMovies);
+    }
+
+    // [MỚI] Hàm lưu lịch sử chat vào Database
+    public void saveChatHistory(String sessionId, Integer userId, String userMsg, String botMsg, List<Map<String, Object>> movies) {
+        try {
+            // 1. Lưu User Message
+            AIChatHistory userHistory = new AIChatHistory(userId, sessionId, userMsg, AIChatHistory.SenderRole.USER);
+            chatHistoryRepository.save(userHistory);
+
+            // 2. Xử lý Metadata (Danh sách ID phim)
+            String metadata = null;
+            if (movies != null && !movies.isEmpty()) {
+                metadata = movies.stream()
+                        .map(m -> String.valueOf(m.get("id"))) // Lấy Movie ID
+                        .collect(Collectors.joining(","));
+            }
+
+            // 3. Lưu Bot Message kèm Metadata
+            AIChatHistory botHistory = new AIChatHistory(userId, sessionId, botMsg, AIChatHistory.SenderRole.BOT);
+            botHistory.setMetadata(metadata);
+            chatHistoryRepository.save(botHistory);
+
+        } catch (Exception e) {
+            System.err.println("Lỗi lưu lịch sử chat: " + e.getMessage());
+        }
+    }
+
+    // [MỚI] Hàm lấy lịch sử chat (cho API /history)
+    public List<Map<String, Object>> getChatHistory(String sessionId, Integer userId) {
+        List<AIChatHistory> historyList;
+        
+        // Ưu tiên lấy theo User ID nếu có
+        if (userId != null) {
+            historyList = chatHistoryRepository.findByUserIdOrderByTimestampAsc(userId);
+        } else {
+            historyList = chatHistoryRepository.findBySessionIdOrderByTimestampAsc(sessionId);
+        }
+
+        return historyList.stream().map(h -> {
+            Map<String, Object> msgMap = new HashMap<>();
+            msgMap.put("role", h.getRole().toString());
+            msgMap.put("message", h.getMessage());
+            msgMap.put("timestamp", h.getTimestamp());
+
+            // Nếu có metadata (ID phim), load lại thông tin phim
+            if (h.getMetadata() != null && !h.getMetadata().isEmpty()) {
+                try {
+                    List<Integer> ids = Arrays.stream(h.getMetadata().split(","))
+                            .map(Integer::parseInt)
+                            .collect(Collectors.toList());
+                    
+                    List<Map<String, Object>> movies = new ArrayList<>();
+                    for (Integer id : ids) {
+                        Movie m = movieRepository.findById(id).orElse(null);
+                        if (m != null) movies.add(movieService.convertToMap(m));
+                    }
+                    msgMap.put("movies", movies);
+                } catch (Exception e) {
+                    // Bỏ qua lỗi parse metadata
+                }
+            }
+            return msgMap;
+        }).collect(Collectors.toList());
     }
     
-    //---- HELPERS ----
+    //---- 5. HELPERS LOGIC (CẬP NHẬT) ----
 
-    private String handleFollowUp(ConversationContext context, String message) {
+    // Xử lý Follow-up trả về Map (JSON) thay vì String
+    private Map<String, Object> handleFollowUp(ConversationContext context, String message) {
         String q = context.getLastQuestionAsked();
         Object id = context.getLastSubjectId();
         String msg = message.toLowerCase();
         
-        // Xem thêm Filter
+        List<Map<String, Object>> movies = new ArrayList<>();
+        String responseText = "Xin lỗi, tôi không hiểu ý bạn.";
+
+        // 1. Xem thêm Filter
         if ("ask_more_filter".equals(q) && id instanceof MovieSearchFilters) {
              MovieSearchFilters f = (MovieSearchFilters) id;
-             List<Movie> m = movieService.findMoviesByFilters(f);
-             return formatMoviesResponse(m, "các kết quả tiếp theo", context);
-        }
-        // Xem thêm Trending
-        if ("ask_more_trending".equals(q)) {
-             List<Movie> m = movieService.getHotMoviesForAI(20); 
-             return formatMoviesResponse(m, "các phim hot khác", context);
-        }
-        // Context cũ là: Gợi ý Đạo diễn -> User hỏi "Phim của ổng" / "Có"
-        if ("ask_director_movies".equals(q) && id instanceof String) {
-            // Nếu user đồng ý hoặc hỏi "của ổng/của ai"
-            if (msg.matches(".*(có|ok|xem|của).*")) {
-                MovieSearchFilters f = new MovieSearchFilters(); 
-                f.setDirector((String) id);
-                
-                // Reset context sang Filter để hỗ trợ "xem thêm" về sau
-                context.setLastSubjectType("Filter"); 
-                context.setLastSubjectId(f); 
-                context.setLastQuestionAsked("ask_more_filter");
-                
-                List<Movie> m = movieService.findMoviesByFilters(f);
-                return formatMoviesResponse(m, "các phim do " + id + " đạo diễn", context);
-            }
-        }
-        // Context cũ là: Gợi ý Diễn viên -> User hỏi "Phim của ổng" / "Có"
-        if ("ask_person_movies".equals(q)) {
-             if (msg.matches(".*(có|ok|xem|của).*")) {
-                MovieSearchFilters f = new MovieSearchFilters();
-                String name = "";
-                if (id instanceof Integer) {
-                    Person p = personRepository.findById((Integer) id).orElse(null);
-                    if (p != null) { f.setActor(p.getFullName()); name = p.getFullName(); }
-                } else if (id instanceof String) {
-                    f.setActor((String) id); name = (String) id;
-                }
-                
-                if (f.getActor() != null) {
-                    context.setLastSubjectType("Filter"); 
-                    context.setLastSubjectId(f); 
-                    context.setLastQuestionAsked("ask_more_filter");
-                    
-                    List<Movie> m = movieService.findMoviesByFilters(f);
-                    return formatMoviesResponse(m, "các phim có sự tham gia của " + name, context);
-                }
+             List<Movie> allMovies = movieService.findMoviesByFilters(f);
+             
+             // Lọc phim đã xem
+             List<Movie> newBatch = allMovies.stream()
+                 .filter(m -> !context.getShownMovieIds().contains(m.getMovieID()))
+                 .limit(10)
+                 .collect(Collectors.toList());
+                 
+             if (!newBatch.isEmpty()) {
+                 responseText = "Dưới đây là các kết quả tiếp theo:";
+                 for(Movie m : newBatch) {
+                     movies.add(movieService.convertToMap(m));
+                     context.addShownMovieId(m.getMovieID());
+                 }
+             } else {
+                 responseText = "Đã hết phim phù hợp với tiêu chí này rồi ạ.";
              }
+             return createResponse(responseText, movies);
         }
         
-        return runKeywordFallback(message, context);
+        // 2. Xem thêm Trending
+        if ("ask_more_trending".equals(q)) {
+             // Lấy 20 phim hot
+             List<Movie> allHot = movieService.getHotMoviesForAI(20);
+             List<Movie> newBatch = allHot.stream()
+                 .filter(m -> !context.getShownMovieIds().contains(m.getMovieID()))
+                 .limit(10)
+                 .collect(Collectors.toList());
+                 
+             if (!newBatch.isEmpty()) {
+                 responseText = "Các phim hot khác đây ạ:";
+                 for(Movie m : newBatch) {
+                     movies.add(movieService.convertToMap(m));
+                     context.addShownMovieId(m.getMovieID());
+                 }
+             } else {
+                 responseText = "Đã hiển thị hết danh sách phim hot.";
+             }
+             return createResponse(responseText, movies);
+        }
+        
+        // 3. Hỏi "Phim của ổng" (Context: Đạo diễn / Diễn viên)
+        // Lưu ý: id ở đây là Tên (String) hoặc ID (Integer)
+        if (("ask_director_movies".equals(q) || "ask_person_movies".equals(q)) && msg.matches(".*(có|ok|xem|của).*")) {
+            MovieSearchFilters f = new MovieSearchFilters();
+            String name = "";
+            
+            if (id instanceof String) name = (String) id;
+            else if (id instanceof Integer) { // Trường hợp lưu ID, cần query tên lại (ít dùng trong logic mới)
+                 // Tạm thời assume String vì updateContext lưu String tên
+                 name = String.valueOf(id); 
+            }
+
+            if ("ask_director_movies".equals(q)) f.setDirector(name);
+            else f.setActor(name);
+            
+            // Chuyển Context sang Filter để hỗ trợ "xem thêm"
+            context.setLastSubjectType("Filter");
+            context.setLastSubjectId(f);
+            context.setLastQuestionAsked("ask_more_filter");
+            context.setShownMovieIds(new ArrayList<>()); // Reset list đã xem
+            
+            List<Movie> mList = movieService.findMoviesByFilters(f);
+            if (!mList.isEmpty()) {
+                responseText = "Các phim có sự tham gia của **" + name + "**:";
+                for(Movie m : mList.stream().limit(10).toList()) {
+                    movies.add(movieService.convertToMap(m));
+                    context.addShownMovieId(m.getMovieID());
+                }
+            } else {
+                responseText = "Hiện tại chưa có thêm phim nào của **" + name + "** trong hệ thống.";
+            }
+            return createResponse(responseText, movies);
+        }
+
+        // Fallback
+        Map<String, Object> fallback = runKeywordFallback(message, context);
+        return createResponse((String)fallback.get("message"), (List<Map<String, Object>>)fallback.get("movies"));
     }
 
     //---- DESCRIPTION SEARCH HANDLER (NEW INTEGRATION) ----
@@ -760,15 +900,22 @@ public class AIAgentService {
         return sb.toString();
     }
     
-    private String runKeywordFallback(String msg, ConversationContext ctx) {
+    private Map<String, Object> runKeywordFallback(String msg, ConversationContext ctx) {
         String lower = msg.toLowerCase().trim();
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> movies = new ArrayList<>();
+        String text = "";
         
-        // PRIORITY 0: Subscription Keywords (Cao nhất)
+        // PRIORITY 0: Subscription Keywords
         if (lower.matches(".*(gói|đăng ký|cước|giá|bao nhiêu tiền|thanh toán|hủy|miễn phí|premium|cho xem|list).*") 
         && lower.matches(".*(gói|cước|giá|tiền).*")) {
-            if (lower.contains("hủy")) return handleSubscriptionQuery("cancel");
-            if (lower.contains("thanh toán")) return handleSubscriptionQuery("payment");
-            return handleSubscriptionQuery("plans");
+            String responseText;
+            if (lower.contains("hủy")) responseText = handleSubscriptionQuery("cancel");
+            else if (lower.contains("thanh toán")) responseText = handleSubscriptionQuery("payment");
+            else responseText = handleSubscriptionQuery("plans");
+            
+            // FIX: Bọc responseText vào Map
+            return createResponse(responseText, null); 
         }
         
         // PRIORITY 1: Movie Title Search (Ưu tiên cao)
@@ -787,24 +934,30 @@ public class AIAgentService {
                 ctx.setLastSubjectType("Filter"); 
                 ctx.setLastSubjectId(f); 
                 ctx.setLastQuestionAsked("ask_more_filter");
-                return formatMoviesResponse(moviesByTitle, "'" + cleanTitle + "'", ctx);
+                // FIX: Bọc kết quả vào Map
+                return createResponse("Tìm thấy phim khớp với từ khóa '" + cleanTitle + "':", movies);
             }
         }
         
-        // PRIORITY 2: Person Search (Tên người riêng lẻ)
+        // PRIORITY 2: Person Search
         if (!lower.contains("phim") && msg.split("\\s+").length <= 4) {
             List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(msg);
             if (!persons.isEmpty()) {
-                ctx = new ConversationContext();
-                return formatPersonsResponse(persons, msg, ctx);
+                ctx.setLastSubjectType("Person"); 
+                // Giả sử lấy người đầu tiên để set context
+                ctx.setLastSubjectId(persons.get(0).getPersonID());
+                ctx.setLastQuestionAsked("ask_person_movies");
+                
+                // Format response cho person
+                String personText = formatPersonsResponse(persons, msg, ctx);
+                return createResponse(personText, null);
             }
         }
         
-        // PRIORITY 3: Mood Detection (Cảm xúc)
+        // PRIORITY 3: Mood Detection
         List<String> moodGenres = detectMood(lower);
         if (!moodGenres.isEmpty()) {
-            MovieSearchFilters f = new MovieSearchFilters();
-            f.setGenres(moodGenres);
+            MovieSearchFilters f = new MovieSearchFilters(); f.setGenres(moodGenres);
             return executeFilter(f, ctx, "phim phù hợp với tâm trạng của bạn");
         }
         
@@ -826,41 +979,67 @@ public class AIAgentService {
         
         // PRIORITY 6: Trending
         if (lower.matches(".*(hot|xu hướng|phổ biến|nổi bật|đang xem|mới nhất).*")) {
-            ctx = new ConversationContext();
             ctx.setLastSubjectType("Trending");
             ctx.setLastQuestionAsked("ask_more_trending");
-            return formatMoviesResponse(movieService.getHotMoviesForAI(5), "phim hot nhất", ctx);
+            List<Movie> hotMovies = movieService.getHotMoviesForAI(5);
+            for(Movie m : hotMovies) {
+                 movies.add(movieService.convertToMap(m));
+                 ctx.addShownMovieId(m.getMovieID());
+            }
+            // FIX: Bọc kết quả vào Map
+            return createResponse("Dưới đây là các phim đang hot:", movies);
         }
         
         // FINAL FALLBACK: No match
         ctx.setShownMovieIds(new ArrayList<>());
         ctx.setShownPersonIds(new ArrayList<>());
         ctx.setLastQuestionAsked(null);
-        
-        return "Rất tiếc, FFilm không tìm thấy kết quả nào cho '" + msg + "'.\n\n" +
+
+        // FIX: Bọc thông báo lỗi vào Map
+        return createResponse("Rất tiếc, FFilm không tìm thấy kết quả nào cho '" + msg + "'.\n\n" +
             "💡 Gợi ý:\n" +
             "• Tìm theo thể loại: 'phim hài', 'phim kinh dị', 'phim hành động'\n" +
             "• Tìm theo quốc gia: 'phim hàn quốc', 'phim việt nam', 'phim mỹ'\n" +
             "• Tìm theo tâm trạng: 'tôi đang buồn', 'tôi cần động lực', 'muốn cười'\n" +
             "• Tìm theo tên: 'Mai', 'Bố Già', 'Interstellar'\n" +
-            "• Gói đăng ký: 'các gói cước', 'bao nhiêu tiền'";
+            "• Gói đăng ký: 'các gói cước', 'bao nhiêu tiền'", null);
+    }
+
+    private String generateNaturalResponse(MovieSearchFilters f, int count) {
+        StringBuilder sb = new StringBuilder("Đã tìm thấy ");
+        sb.append(count).append(" phim");
+        
+        if (f.getGenres() != null && !f.getGenres().isEmpty()) sb.append(" thể loại **").append(String.join(", ", f.getGenres())).append("**");
+        if (f.getCountry() != null) sb.append(" của **").append(f.getCountry()).append("**");
+        if (f.getYearFrom() != null) sb.append(" năm **").append(f.getYearFrom()).append("**");
+        if (f.getActor() != null) sb.append(" có diễn viên **").append(f.getActor()).append("**");
+        
+        sb.append(" cho bạn:");
+        return sb.toString();
     }
 
     // Helper method - THÊM MỚI sau runKeywordFallback()
-    private String executeFilter(MovieSearchFilters f, ConversationContext ctx, String reason) {
+    private Map<String, Object> executeFilter(MovieSearchFilters f, ConversationContext ctx, String reason) {
         ctx = new ConversationContext();
         List<Movie> movies = movieService.findMoviesByFilters(f);
         
         if (movies.isEmpty()) {
-            return "Rất tiếc, hiện tại FFilm chưa có " + reason + " trong kho.\n\n" +
+            return createResponse("Rất tiếc, hiện tại FFilm chưa có " + reason + " trong kho.\n\n" +
                 "💡 Thử tìm kiếm khác:\n" +
                 "• Thay đổi thể loại hoặc quốc gia\n" +
-                "• Xem phim hot: 'phim gì hot nhất'";
+                "• Xem phim hot: 'phim gì hot nhất'", null);
         }
         
         ctx.setLastSubjectType("Filter");
         ctx.setLastSubjectId(f);
         ctx.setLastQuestionAsked("ask_more_filter");
+
+        List<Map<String, Object>> resultMovies = new ArrayList<>();
+        // Lấy tối đa 10 phim (để hiển thị nhiều hơn như bạn yêu cầu)
+        for(Movie m : movies.stream().limit(10).toList()) {
+            resultMovies.add(movieService.convertToMap(m));
+            ctx.addShownMovieId(m.getMovieID());
+        }
         
         // Gợi ý similar movies nếu có country + genre
         String suggestion = "";
@@ -868,7 +1047,7 @@ public class AIAgentService {
             suggestion = "\n\n💡 Có thể bạn cũng thích: 'phim " + f.getGenres().get(0).toLowerCase() + " " + f.getCountry().toLowerCase() + "'";
         }
         
-        return formatMoviesResponse(movies, reason, ctx) + suggestion;
+        return createResponse(formatMoviesResponse(movies, reason, ctx) + suggestion, resultMovies);
     }
 
     // Helper: Format giá tiền (Fix lỗi compilation)
@@ -1053,5 +1232,16 @@ public class AIAgentService {
 
     public boolean isConfigured() { return geminiApiKey != null && !geminiApiKey.isEmpty(); }
     private void loadWebsiteContext() {} 
-    private Map<String, Object> createResponse(String msg) { return Map.of("success", true, "message", msg, "type", "website", "timestamp", System.currentTimeMillis()); }
+    // Helper cập nhật response format
+    private Map<String, Object> createResponse(String msg, List<Map<String, Object>> movies) {
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("message", msg);
+        if (movies != null && !movies.isEmpty()) {
+            res.put("movies", movies);
+        }
+        res.put("type", "website");
+        res.put("timestamp", System.currentTimeMillis());
+        return res;
+    }
 }

@@ -1193,6 +1193,24 @@ public class MovieService {
         return getMovieByIdOrSync(candidates.get(0).getMovieID());
     }
 
+    // [MỚI] Tìm phim trong DB dựa trên tên diễn viên/đạo diễn
+    @Transactional(readOnly = true)
+    public List<Movie> searchMoviesByPersonName(String name) {
+        List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(name);
+        Set<Movie> movies = new HashSet<>();
+        for (Person p : persons) {
+            // Vì fetch type có thể là LAZY, gọi size() để đảm bảo Hibernate load dữ liệu
+            p.getMovies().size(); 
+            movies.addAll(p.getMovies());
+        }
+        return new ArrayList<>(movies);
+    }
+
+    // [MỚI] Tìm danh sách Person theo tên (để Controller tự xử lý role)
+    public List<Person> searchPersons(String name) {
+        return personRepository.findByFullNameContainingIgnoreCase(name);
+    }
+
     //----- Helper: Map DTO sang Entity (cho CRUD)
     private void mapRequestToMovie(MovieRequest request, Movie movie) {
         movie.setTitle(request.getTitle());

@@ -1,20 +1,83 @@
-// ==================== AI Chat Widget JavaScript ====================
+// ==================== AI Chat Widget JavaScript (Final Optimized) ====================
 
 (function() {
     'use strict';
 
-    // Prevent double initialization
     if (window.aiChatInitialized) return;
     window.aiChatInitialized = true;
 
     // DOM Elements
     let chatIcon, chatWindow, closeBtn, sendBtn, input, messagesContainer, typingIndicator, suggestionsContainer;
-
-    // State
     let conversationId = generateUUID();
     let isSending = false;
 
-    // Initialize on DOM ready
+    // --- INJECT CSS STYLE TRỰC TIẾP (Không cần file css ngoài) ---
+    const aiStyle = document.createElement('style');
+    aiStyle.innerHTML = `
+        /* AI Movie Carousel Style */
+        .ai-movie-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 10px 4px 15px 4px;
+            scrollbar-width: thin;
+            scroll-behavior: smooth;
+            width: 100%;
+        }
+        .ai-movie-scroll::-webkit-scrollbar { height: 4px; }
+        .ai-movie-scroll::-webkit-scrollbar-thumb { background: #e50914; border-radius: 2px; }
+        
+        .ai-movie-card {
+            flex: 0 0 130px;
+            width: 130px;
+            background: #1f1f1f;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: transform 0.2s, border-color 0.2s;
+            border: 1px solid #333;
+            position: relative;
+        }
+        .ai-movie-card:hover {
+            transform: translateY(-5px);
+            border-color: #e50914;
+        }
+        .ai-card-poster {
+            width: 100%;
+            height: 190px;
+            object-fit: cover;
+        }
+        .ai-card-rating {
+            position: absolute;
+            top: 6px; right: 6px;
+            background: rgba(0,0,0,0.8);
+            color: #ffd700;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .ai-card-info {
+            padding: 8px;
+        }
+        .ai-card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .ai-card-year {
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+    `;
+    document.head.appendChild(aiStyle);
+
+    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
@@ -22,143 +85,96 @@
     }
 
     function init() {
-        try {
-            // Get DOM elements
-            chatIcon = document.getElementById('aiChatIcon');
-            chatWindow = document.getElementById('aiChatWindow');
-            closeBtn = document.getElementById('aiCloseBtn');
-            sendBtn = document.getElementById('aiSendBtn');
-            input = document.getElementById('aiInput');
-            messagesContainer = document.getElementById('aiMessages');
-            typingIndicator = document.getElementById('aiTyping');
-            suggestionsContainer = document.getElementById('aiSuggestions');
+        chatIcon = document.getElementById('aiChatIcon');
+        chatWindow = document.getElementById('aiChatWindow');
+        closeBtn = document.getElementById('aiCloseBtn');
+        sendBtn = document.getElementById('aiSendBtn');
+        input = document.getElementById('aiInput');
+        messagesContainer = document.getElementById('aiMessages');
+        typingIndicator = document.getElementById('aiTyping');
+        suggestionsContainer = document.getElementById('aiSuggestions');
 
-            if (!chatIcon || !chatWindow) {
-                console.warn('AI Chat widget not found on this page');
+        if (!chatIcon) return;
+
+        // --- [LỚP BẢO MẬT 1] LOGIN CHECK ---
+        chatIcon.addEventListener('click', () => {
+            // Kiểm tra biến global từ header.html
+            if (typeof window.isUserLoggedIn !== 'undefined' && !window.isUserLoggedIn) {
+                // Chuyển hướng login nếu chưa đăng nhập
+                window.location.href = '/login';
                 return;
             }
+            openChat();
+        });
 
-            // Attach event listeners
-            chatIcon.addEventListener('click', openChat);
-            closeBtn.addEventListener('click', closeChat);
-            sendBtn.addEventListener('click', sendMessage);
-            
-            // Enter to send, Shift+Enter for new line
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
+        closeBtn.addEventListener('click', closeChat);
+        sendBtn.addEventListener('click', sendMessage);
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
 
-            // Auto-resize textarea
-            input.addEventListener('input', autoResizeTextarea);
+        input.addEventListener('input', autoResizeTextarea);
+        attachSuggestionHandlers();
 
-            // Attach suggestion chips
-            attachSuggestionHandlers();
-
-            console.log('✅ AI Chat widget initialized');
-
-        } catch (error) {
-            console.error('AI Chat init error:', error);
+        // Load History nếu đã đăng nhập
+        if (typeof window.isUserLoggedIn !== 'undefined' && window.isUserLoggedIn) {
+            loadChatHistory();
         }
     }
 
-    // ==================== UI Functions ====================
-
-    function openChat() {
-        chatWindow.hidden = false;
-        chatIcon.style.display = 'none';
-        input.focus();
+    async function loadChatHistory() {
+        try {
+            const res = await fetch('/api/ai-agent/history');
+            if (res.ok) {
+                const history = await res.json();
+                // Nếu có history, xóa nội dung mặc định (welcome)
+                if (history.length > 0) messagesContainer.innerHTML = '';
+                
+                history.forEach(msg => {
+                    if (msg.role === 'USER') addUserMessage(msg.message);
+                    else addBotMessage(msg.message, msg.movies);
+                });
+                scrollToBottom();
+            }
+        } catch (e) { console.error("Lỗi load history", e); }
     }
-
-    function closeChat() {
-        chatWindow.hidden = true;
-        chatIcon.style.display = 'flex';
-    }
-
-    function autoResizeTextarea() {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    }
-
-    function scrollToBottom() {
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    }
-
-    // ==================== Message Functions ====================
 
     async function sendMessage() {
         const message = input.value.trim();
-        
         if (!message || isSending) return;
 
-        // Add user message to UI
         addUserMessage(message);
         input.value = '';
         input.style.height = 'auto';
+        if (suggestionsContainer) suggestionsContainer.style.display = 'none';
 
-        // Hide suggestions after first message
-        if (suggestionsContainer) {
-            suggestionsContainer.style.display = 'none';
-        }
-
-        // Show typing indicator
         showTyping();
-
         isSending = true;
         sendBtn.disabled = true;
 
         try {
-            console.log('🔵 Sending request to /api/ai-agent/chat');
-            console.log('Message:', message);
-            
             const response = await fetch('/api/ai-agent/chat', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    message: message,
-                    conversationId: conversationId
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, conversationId: conversationId })
             });
 
-            console.log('Response status:', response.status);
-            
-            // Check if response is JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('❌ Server returned non-JSON response:', text);
-                throw new Error('Server trả về response không phải JSON. Status: ' + response.status);
-            }
-
             const data = await response.json();
-            console.log('Response data:', data);
-
             hideTyping();
 
             if (data.success) {
-                addBotMessage(data.message);
+                addBotMessage(data.message, data.movies);
             } else {
                 addBotMessage('Xin lỗi, có lỗi xảy ra: ' + (data.error || 'Unknown error'));
             }
 
         } catch (error) {
-            console.error('❌ Send message error:', error);
             hideTyping();
-            
-            if (error.message.includes('Failed to fetch')) {
-                addBotMessage('⚠️ Không thể kết nối đến server. Kiểm tra xem server có đang chạy không?');
-            } else if (error.message.includes('404') || error.message.includes('Not Found')) {
-                addBotMessage('⚠️ Endpoint /api/ai-agent/chat không tồn tại. Kiểm tra lại Controller!');
-            } else {
-                addBotMessage('⚠️ Lỗi: ' + error.message);
-            }
+            addBotMessage('⚠️ Không thể kết nối đến server.');
         } finally {
             isSending = false;
             sendBtn.disabled = false;
@@ -166,119 +182,100 @@
         }
     }
 
+    // --- RENDER FUNCTIONS ---
+
     function addUserMessage(text) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'ai-message user';
-        messageDiv.innerHTML = `
-            <div class="ai-message-avatar">
-                <i class="fas fa-user"></i>
-            </div>
-            <div class="ai-message-content">
-                <p>${escapeHtml(text)}</p>
-            </div>
-        `;
-        messagesContainer.appendChild(messageDiv);
+        const div = document.createElement('div');
+        div.className = 'ai-message user';
+        div.innerHTML = `<div class="ai-message-content"><p>${escapeHtml(text)}</p></div>`;
+        messagesContainer.appendChild(div);
         scrollToBottom();
     }
 
-    function addBotMessage(text) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'ai-message bot';
+    // Hàm hiển thị tin nhắn Bot kèm Movie Cards (nếu có)
+    function addBotMessage(text, movies) {
+        const div = document.createElement('div');
+        div.className = 'ai-message bot';
         
-        // Format text with line breaks and basic markdown
-        const formattedText = formatBotMessage(text);
-        
-        messageDiv.innerHTML = `
-            <div class="ai-message-avatar">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="ai-message-content">
-                ${formattedText}
-            </div>
+        let html = `
+            <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
+            <div class="ai-message-content" style="width: 100%; max-width: 85%;">
+                ${formatBotMessage(text)}
         `;
-        messagesContainer.appendChild(messageDiv);
+
+        // Nếu có phim -> Render Carousel vào trong message content luôn
+        if (movies && Array.isArray(movies) && movies.length > 0) {
+            html += renderMovieSuggestions(movies);
+        }
+
+        html += `</div>`; // End ai-message-content
+
+        div.innerHTML = html;
+        messagesContainer.appendChild(div);
         scrollToBottom();
+    }
+
+    // Tạo HTML chuỗi thẻ phim (Reuse Style đã inject)
+    function renderMovieSuggestions(movies) {
+        let html = `<div class="ai-movie-scroll">`;
+        
+        movies.forEach(m => {
+            const poster = m.poster || '/images/placeholder.jpg';
+            const title = escapeHtml(m.title || 'Unknown');
+            const year = m.year || '';
+            const rating = m.rating || 'N/A';
+            
+            html += `
+                <div class="ai-movie-card" onclick="window.location.href='/movie/detail/${m.id}'">
+                    <div style="position: relative;">
+                        <img class="ai-card-poster" src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'">
+                        <div class="ai-card-rating">⭐ ${rating}</div>
+                    </div>
+                    <div class="ai-card-info">
+                        <div class="ai-card-title" title="${title}">${title}</div>
+                        <div class="ai-card-year">${year}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        return html;
     }
 
     function formatBotMessage(text) {
-        if (!text) return '<p>...</p>';
-
-        // Convert markdown-style formatting
-        let formatted = text
-            // Bold: **text** -> <strong>text</strong>
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            // Italic: *text* -> <em>text</em>
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            // Line breaks
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>');
-
-        // Wrap in paragraph if not already
-        if (!formatted.startsWith('<p>')) {
-            formatted = '<p>' + formatted + '</p>';
-        }
-
-        // Convert bullet points (- item or • item)
-        formatted = formatted.replace(/<p>[-•]\s*(.*?)<\/p>/g, '<li>$1</li>');
-        
-        // Wrap consecutive <li> in <ul>
-        formatted = formatted.replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>');
-
-        return formatted;
+        if (!text) return '';
+        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                   .replace(/\n/g, '<br>');
     }
 
-    function showTyping() {
-        if (typingIndicator) {
-            typingIndicator.hidden = false;
-            typingIndicator.style.display = 'flex'; // Ensure visible
-            scrollToBottom();
-        }
+    // UI Utilities
+    function openChat() {
+        chatWindow.hidden = false;
+        chatIcon.style.display = 'none';
+        input.focus();
+        scrollToBottom();
     }
-
-    function hideTyping() {
-        if (typingIndicator) {
-            typingIndicator.hidden = true;
-            typingIndicator.style.display = 'none'; // Ensure hidden
-        }
+    function closeChat() {
+        chatWindow.hidden = true;
+        chatIcon.style.display = 'flex';
     }
-
-    // ==================== Suggestion Chips ====================
-
+    function showTyping() { if(typingIndicator) { typingIndicator.hidden = false; typingIndicator.style.display = 'flex'; scrollToBottom(); } }
+    function hideTyping() { if(typingIndicator) typingIndicator.hidden = true; }
+    function autoResizeTextarea() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+    function scrollToBottom() { if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
     function attachSuggestionHandlers() {
-        const chips = document.querySelectorAll('.suggestion-chip');
-        chips.forEach(chip => {
-            chip.addEventListener('click', function() {
-                const question = this.dataset.question;
-                if (question) {
-                    input.value = question;
-                    sendMessage();
-                }
-            });
+        document.querySelectorAll('.suggestion-chip').forEach(chip => {
+            chip.addEventListener('click', function() { input.value = this.dataset.question; sendMessage(); });
         });
     }
-
-    // ==================== Utilities ====================
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     function generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
         });
     }
 
-    // ==================== Export for debugging ====================
-    window.aiChat = {
-        open: openChat,
-        close: closeChat,
-        send: sendMessage,
-        conversationId: () => conversationId
-    };
+    window.aiChat = { open: openChat, close: closeChat, send: sendMessage };
 
 })();

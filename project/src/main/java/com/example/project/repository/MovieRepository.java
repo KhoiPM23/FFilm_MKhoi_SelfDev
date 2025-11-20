@@ -22,25 +22,26 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
     @Query("SELECT m.tmdbId FROM Movie m WHERE m.tmdbId IN :tmdbIds")
     List<Integer> findTmdbIdsIn(@Param("tmdbIds") List<Integer> tmdbIds);
 
-    // [FIX] Sửa lỗi tìm kiếm Tiếng Việt (case-insensitive) bằng Native Query
+    // [FIX] Tìm chính xác (giữ nguyên)
     @Query(value = "SELECT * FROM Movie m WHERE UPPER(m.title) LIKE N'%' + UPPER(:title) + '%'", nativeQuery = true)
     List<Movie> findByTitleContainingIgnoreCase(@Param("title") String title);
 
-    /**
-     * [THÊM MỚI] 
-     * Tìm tất cả các đối tượng Movie có tmdbId nằm trong danh sách.
-     */
-    List<Movie> findByTmdbIdIn(List<Integer> tmdbIds);
+    // [FIX QUAN TRỌNG] Sửa cú pháp LIKE cho SQL Server
+    // Cũ (Lỗi): LIKE %:keyword%
+    // Mới (Chuẩn): LIKE N'%' + :keyword + N'%'
+    @Query(value = "SELECT * FROM Movie m WHERE m.title LIKE N'%' + :keyword + N'%' OR m.description LIKE N'%' + :keyword + N'%'", nativeQuery = true)
+    List<Movie> searchBroadly(@Param("keyword") String keyword);
 
-    /**
-     * [GIẢI PHÁP 3] Thêm các hàm query DB cho carousel
-     */
-    // Lấy phim hot (rating cao nhất)
+    List<Movie> findByTmdbIdIn(List<Integer> tmdbIds);
+    
     Page<Movie> findAllByOrderByRatingDesc(Pageable pageable);
-    
-    // Lấy phim mới (ngày ra mắt mới nhất)
     Page<Movie> findAllByOrderByReleaseDateDesc(Pageable pageable);
-    
-    // Lấy phim theo TMDB Genre ID (ví dụ: 16 cho Anime)
     Page<Movie> findAllByGenres_TmdbGenreId(Integer tmdbGenreId, Pageable pageable);
+
+    // [FIX QUAN TRỌNG] Sửa cú pháp LIKE cho tìm kiếm linh hoạt (nếu dùng)
+    @Query(value = "SELECT * FROM Movie WHERE " +
+            "UPPER(title) COLLATE Vietnamese_CI_AI LIKE N'%' + UPPER(:keyword) + '%' OR " +
+            "UPPER(description) COLLATE Vietnamese_CI_AI LIKE N'%' + UPPER(:keyword) + '%'", 
+            nativeQuery = true)
+    List<Movie> findByKeywordFlexible(@Param("keyword") String keyword);
 }

@@ -45,20 +45,45 @@ public class MovieApiController {
 
     //---- 2. API CORE SYNC (SEARCH & SYNC) ----
 
-    // API tìm phim theo TÊN trong DB (Dùng cho Live Suggestion)
+    // API tìm phim theo TÊN hoặc TÊN NGƯỜI trong DB (Dùng cho Live Suggestion)
     @GetMapping("/search-db")
     public ResponseEntity<List<Map<String, Object>>> liveSearchDb(@RequestParam("query") String query) {
         if (query == null || query.trim().length() < 2) {
             return ResponseEntity.ok(List.of());
         }
         
-        //----- Tìm kiếm và convert dữ liệu đã có trong DB
-        List<Movie> dbResults = movieService.searchMoviesByTitle(query.trim());
-        List<Map<String, Object>> mappedResults = dbResults.stream()
-            .map(movie -> movieService.convertToMap(movie)) 
-            .collect(Collectors.toList());
+        String cleanQuery = query.trim();
+        // Dùng LinkedHashMap để giữ thứ tự chèn (ưu tiên phim trùng tên trước)
+        Map<Integer, Map<String, Object>> resultMap = new java.util.LinkedHashMap<>();
+
+        // 1. Tìm theo Title phim (Ưu tiên cao nhất)
+        List<Movie> dbTitleResults = movieService.searchMoviesByTitle(cleanQuery);
+        for (Movie m : dbTitleResults) {
+            resultMap.put(m.getMovieID(), movieService.convertToMap(m));
+        }
+        
+        // 2. [ĐÃ SỬA] Tìm theo Tên Diễn viên/Đạo diễn & Gán Role cụ thể
+        List<Person> persons = movieService.searchPersons(cleanQuery);
+        for (Person p : persons) {
+            // Eager load phim của người này
+            for (Movie m : p.getMovies()) {
+                // Chỉ thêm nếu phim chưa có trong list
+                if (!resultMap.containsKey(m.getMovieID())) {
+                    Map<String, Object> map = movieService.convertToMap(m);
+                    
+                    // Logic xác định Role: So sánh tên người tìm được với tên Đạo diễn của phim
+                    String roleInfo = "Diễn viên: " + p.getFullName();
+                    if (m.getDirector() != null && m.getDirector().equalsIgnoreCase(p.getFullName())) {
+                        roleInfo = "Đạo diễn: " + p.getFullName();
+                    }
+                    
+                    map.put("role_info", roleInfo); // Gán chuỗi định dạng đẹp
+                    resultMap.put(m.getMovieID(), map);
+                }
+            }
+        }
             
-        return ResponseEntity.ok(mappedResults);
+        return ResponseEntity.ok(new ArrayList<>(resultMap.values()));
     }
     
     // API kiểm tra phim theo TMDB ID (Sync Lazy nếu thiếu, trả về Map)
