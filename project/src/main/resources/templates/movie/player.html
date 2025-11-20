@@ -964,7 +964,7 @@
         }
       }
 
-      // ===== LIKE/DISLIKE FUNCTIONALITY =====
+      // ===== LIKE/DISLIKE FUNCTIONALITY (SERVER-SIDE CONTROL) =====
       let likeCount = 0;
       let userAction = null; // null, 'like', hoặc 'dislike'
       let userId = null;
@@ -983,20 +983,6 @@
         const userIdInput = document.getElementById("currentUserId");
         if (userIdInput && userIdInput.value) {
           userId = parseInt(userIdInput.value);
-          console.log("User ID đã được tải:", userId); // Thêm log để kiểm tra
-        } else {
-          console.log("Không tìm thấy User ID input hoặc value rỗng."); // Thêm log
-        }
-      }
-
-      // Load like state from localStorage
-      function loadLikeStateFromStorage() {
-        const saved = localStorage.getItem(`movie_${movieID}_engagement`);
-        if (saved) {
-          const data = JSON.parse(saved);
-          likeCount = data.likeCount || 0;
-          userAction = data.userAction || null;
-          updateUI();
         }
       }
 
@@ -1029,20 +1015,6 @@
           dislikeIcon.classList.remove("far");
           dislikeIcon.classList.add("fas");
         }
-      }
-
-      // Save like state
-      function saveLikeState() {
-        if (likeCount < 0) {
-          likeCount = 0;
-        }
-        localStorage.setItem(
-          `movie_${movieID}_engagement`,
-          JSON.stringify({
-            likeCount: likeCount,
-            userAction: userAction,
-          })
-        );
       }
 
       // Tách hàm disable/enable buttons
@@ -1104,7 +1076,7 @@
         try {
           const formData = new FormData();
           formData.append("userId", userId);
-          formData.append("movieID", movieID );
+          formData.append("movieID", movieID);
 
           const response = await fetch("/user-reaction/remove", {
             method: "POST",
@@ -1122,7 +1094,31 @@
         }
       }
 
-      // Handle Like (ĐÃ SỬA LỖI LOGIC -1)
+      // [ĐÃ SỬA] Tải trạng thái và tổng số like từ Server
+      async function loadServerEngagement() {
+        if (!movieID) return;
+        try {
+          const response = await fetch(`/user-reaction/engagement/${movieID}`);
+          if (response.ok) {
+            const data = await response.json();
+
+            // Cập nhật biến toàn cục với dữ liệu từ server (Khắc phục Vấn đề 1 & 2)
+            likeCount = data.totalLikes || 0; // <-- SỐ LƯỢNG LIKE TỪ SERVER
+            userAction = data.userAction || null; // <-- TRẠNG THÁI NGƯỜI DÙNG TỪ SERVER
+            updateUI();
+          } else {
+            console.error("Failed to load server engagement status.");
+          }
+        } catch (e) {
+          console.error("Network error loading engagement status.", e);
+          // Fallback
+          likeCount = 0;
+          userAction = null;
+          updateUI();
+        }
+      }
+
+      // Handle Like
       async function handleLike() {
         if (!userId) {
           alert("Vui lòng đăng nhập!");
@@ -1133,50 +1129,25 @@
         isSubmitting = true;
         setButtonsDisabled(true);
 
-        const previousAction = userAction;
-        const previousLikeCount = likeCount;
-        let success = true;
-
         try {
           if (userAction === "like") {
-            // 1. Bỏ like (từ "like" về "null")
-            likeCount--;
-            userAction = null;
-            success = await callRemoveAPI();
+            await callRemoveAPI();
           } else {
-            // 2. Thêm like (từ "null" hoặc "dislike" sang "like")
-
-            // Sửa lỗi logic -1: Bất kể đang là 'dislike' hay 'null',
-            // khi nhấn 'like' thì count đều phải tăng.
-            if (userAction === "dislike") {
-              // Chuyển từ dislike sang like
-            } else {
-              // Chuyển từ null sang like
-            }
-            likeCount++; // Gộp chung logic
-
-            userAction = "like";
-            success = await callLikeAPI();
+            await callLikeAPI();
           }
 
-          if (!success) {
-            userAction = previousAction;
-            likeCount = previousLikeCount;
-            alert("Có lỗi xảy ra, vui lòng thử lại!");
-          }
+          // **QUAN TRỌNG:** Tải lại trạng thái VÀ SỐ LƯỢNG từ server
+          await loadServerEngagement();
         } catch (error) {
           console.error("Lỗi mạng trong handleLike:", error);
-          userAction = previousAction;
-          likeCount = previousLikeCount;
+          await loadServerEngagement();
         } finally {
-          updateUI();
-          saveLikeState();
           isSubmitting = false;
           setButtonsDisabled(false);
         }
       }
 
-      // Handle Dislike (ĐÃ SỬA LOGIC)
+      // Handle Dislike
       async function handleDislike() {
         if (!userId) {
           alert("Vui lòng đăng nhập!");
@@ -1187,46 +1158,30 @@
         isSubmitting = true;
         setButtonsDisabled(true);
 
-        const previousAction = userAction;
-        const previousLikeCount = likeCount;
-        let success = true;
-
         try {
           if (userAction === "dislike") {
-            // 1. Bỏ dislike (từ "dislike" về "null")
-            userAction = null;
-            success = await callRemoveAPI();
+            await callRemoveAPI();
           } else {
-            if (userAction === "like") {
-              // Đang like, chuyển sang dislike
-              likeCount--;
-            }
-
-            userAction = "dislike";
-            success = await callDislikeAPI();
+            await callDislikeAPI();
           }
 
-          if (!success) {
-            userAction = previousAction;
-            likeCount = previousLikeCount;
-            alert("Có lỗi xảy ra, vui lòng thử lại!");
-          }
+          // **QUAN TRỌNG:** Tải lại trạng thái VÀ SỐ LƯỢNG từ server
+          await loadServerEngagement();
         } catch (error) {
           console.error("Lỗi mạng trong handleDislike:", error);
-          userAction = previousAction;
-          likeCount = previousLikeCount;
+          await loadServerEngagement();
         } finally {
-          updateUI();
-          saveLikeState();
           isSubmitting = false;
           setButtonsDisabled(false);
         }
       }
 
+      // Khởi tạo các biến global và tải trạng thái từ Server
       initUserData();
 
       document.addEventListener("DOMContentLoaded", function () {
-        loadLikeStateFromStorage();
+        // [ĐÃ SỬA] Thay thế loadLikeStateFromStorage() bằng loadServerEngagement()
+        loadServerEngagement();
 
         const desc = document.getElementById("descText");
         if (desc) {
@@ -1238,7 +1193,6 @@
           }, 100);
         }
       });
-
       // ===== SCROLL EFFECT =====
       window.addEventListener("scroll", function () {
         const header = document.querySelector(".main-header");

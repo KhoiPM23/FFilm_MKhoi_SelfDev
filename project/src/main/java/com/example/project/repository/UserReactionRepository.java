@@ -21,4 +21,7 @@ public interface UserReactionRepository extends JpaRepository<UserReaction, Inte
     @Query("SELECT r.movie.movieID FROM UserReaction r WHERE r.user.id = :userId")
     Set<Integer> findLikedMovieIDsByUserID(@Param("userId") Integer userId);
 
+    @Query("SELECT COUNT(r) FROM UserReaction r WHERE r.movie.movieID = :movieID AND r.isLike = TRUE")
+    Long countLikesByMovieID(@Param("movieID") Integer movieID);
+
 }

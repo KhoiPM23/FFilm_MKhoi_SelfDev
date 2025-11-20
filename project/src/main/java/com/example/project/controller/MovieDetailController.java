@@ -18,6 +18,8 @@ import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpSession;
 
+import jakarta.servlet.http.HttpSession;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,8 +30,6 @@ import java.util.Set;
 
 @Controller
 public class MovieDetailController {
-
-    // ---- 1. CẤU HÌNH & REPOSITORY ----
 
     private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
     private final String BASE_URL = "https://api.themoviedb.org/3";
@@ -43,10 +43,8 @@ public class MovieDetailController {
     @Autowired
     private FavoriteRepository favoriteRepository;
 
-    // Bảng Map Ngôn ngữ (Dùng cho hiển thị trên UI)
     private static final Map<String, String> LANGUAGE_MAP = createLanguageMap();
 
-    // ----- Helper: Tạo Map Ngôn ngữ tĩnh
     private static Map<String, String> createLanguageMap() {
         Map<String, String> map = new HashMap<>();
         // Châu Á
@@ -121,6 +119,7 @@ public class MovieDetailController {
     }
 
     @GetMapping({ "/movie/detail/{id}", "/movie/detail" })
+
     public String movieDetail(
             @PathVariable(required = false) String id,
             @RequestParam(required = false) String movieId,
@@ -130,14 +129,13 @@ public class MovieDetailController {
             return "redirect:/";
 
         try {
-            // ----- Lấy movieID (Database PK) và đồng bộ EAGER
+
             int movieID = Integer.parseInt(finalIdStr);
             Movie movie = movieService.getMovieByIdOrSync(movieID);
 
             if (movie != null) {
                 Map<String, Object> movieMap = movieService.convertToMap(movie);
 
-                // ----- Xử lý ngôn ngữ hiển thị
                 String langCode = (String) movieMap.get("language");
                 movieMap.put("language", getLanguageName(langCode));
 
@@ -166,6 +164,7 @@ public class MovieDetailController {
                     model.addAttribute("recommendTitle", "Phim Khác");
                 }
 
+                // ----- Gán Model cho Thymeleaf (Carousel list rỗng vì đã chuyển sang JS)
                 model.addAttribute("movie", movieMap);
                 model.addAttribute("movieId", String.valueOf(movieID));
                 model.addAttribute("clientSideLoad", false);
@@ -234,7 +233,6 @@ public class MovieDetailController {
         model.addAttribute("trailers", new ArrayList<>());
         model.addAttribute("castList", new ArrayList<>());
         model.addAttribute("recommendTitle", "Phim Khác");
-
         return "movie/movie-detail";
     }
 }

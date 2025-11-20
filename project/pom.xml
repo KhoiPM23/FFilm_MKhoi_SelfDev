@@ -23,7 +23,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <lombok.version>1.18.34</lombok.version> <!-- Giữ lại từ nhánh feature -->
     </properties>
-
+   
     <dependencies>
         <!-- Spring Boot Starters (Web, Thymeleaf) -->
         <dependency>
@@ -54,7 +54,7 @@
             <artifactId>mssql-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
-
+        
         <!-- Security & Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

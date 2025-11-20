@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh toán thành công - FFilm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            min-height: 100vh;
+            color: #fff;
+            line-height: 1.6;
+        }
+
+        .container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .success-card {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            max-width: 560px;
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-header {
+            background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);
+            padding: 48px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .success-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+
+        .success-icon {
+            position: relative;
+            z-index: 1;
+            margin-bottom: 16px;
+        }
+
+        .success-icon i {
+            font-size: 72px;
+            color: #fff;
+            animation: checkmark 0.8s ease-out 0.3s both;
+        }
+
+        @keyframes checkmark {
+            0% {
+                transform: scale(0) rotate(-45deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2) rotate(0deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .success-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+            letter-spacing: -0.5px;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+            font-weight: 400;
+        }
+
+        .success-body {
+            padding: 40px;
+        }
+
+        .info-section {
+            margin-bottom: 32px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #999;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-label i {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .info-value {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .plan-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #e50914 0%, #ff4444 100%);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .order-code {
+            font-family: 'Courier New', monospace;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .support-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .support-section p {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 12px;
+            line-height: 1.8;
+        }
+
+        .support-email {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #e50914;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .support-email:hover {
+            color: #ff4444;
+            gap: 12px;
+        }
+
+        .support-email i {
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e50914 0%, #ff0a16 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #ff0a16 0%, #ff2a2a 100%);
+            box-shadow: 0 6px 20px rgba(229, 9, 20, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn i {
+            font-size: 16px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 640px) {
+            .success-card {
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            .success-header {
+                padding: 40px 24px;
+            }
+
+            .success-icon i {
+                font-size: 56px;
+            }
+
+            .success-title {
+                font-size: 24px;
+            }
+
+            .success-subtitle {
+                font-size: 14px;
+            }
+
+            .success-body {
+                padding: 24px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .info-value {
+                text-align: left;
+            }
+        }
+
+        /* Animation for elements */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        .fade-in:nth-child(1) { animation-delay: 0.4s; }
+        .fade-in:nth-child(2) { animation-delay: 0.5s; }
+        .fade-in:nth-child(3) { animation-delay: 0.6s; }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-card">
+            <div class="success-header">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h1 class="success-title">Thanh toán thành công!</h1>
+                <p class="success-subtitle">Chúc mừng bạn đã nâng cấp tài khoản</p>
+            </div>
+
+            <div class="success-body">
+                <div class="info-section fade-in">
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-crown"></i>
+                            Gói đăng ký
+                        </span>
+                        <span class="info-value">
+                            <span class="plan-badge">GÓI PREMIUM</span>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-receipt"></i>
+                            Mã giao dịch
+                        </span>
+                        <span class="info-value">
+                            <span class="order-code">#ORD123456789</span>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">
+                            <i class="fas fa-check-double"></i>
+                            Trạng thái
+                        </span>
+                        <span class="info-value" style="color: #1db954;">
+                            Đã kích hoạt
+                        </span>
+                    </div>
+                </div>
+
+                <div class="support-section fade-in">
+                    <p>
+                        <i class="fas fa-info-circle" style="margin-right: 8px; color: #666;"></i>
+                        Tài khoản của bạn đã được nâng cấp thành công. Bạn có thể bắt đầu trải nghiệm ngay bây giờ!
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Cần hỗ trợ? Liên hệ: 
+                        <a href="mailto:support@ffilm.vn" class="support-email">
+                            <i class="fas fa-envelope"></i>
+                            support@ffilm.vn
+                        </a>
+                    </p>
+                </div>
+
+                <div class="action-buttons fade-in">
+                    <a href="/" class="btn btn-primary">
+                        <i class="fas fa-home"></i>
+                        Về Trang Chủ
+                    </a>
+                    <a href="/profile" class="btn btn-secondary">
+                        <i class="fas fa-user"></i>
+                        Tài Khoản
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
