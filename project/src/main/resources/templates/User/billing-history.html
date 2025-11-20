@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Lịch Sử Giao Dịch - FFlix</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
+
+    <style>
+        :root {
+            --primary-red: #e50914;
+            --dark-bg: #141414;
+            --card-bg: #1f1f1f;
+            --text-color: #ffffff;
+            --text-muted: #b3b3b3;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .billing-container {
+            max-width: 1200px;
+            margin: 100px auto 60px; /* Top margin for header */
+            padding: 0 20px;
+            min-height: 60vh;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .page-title h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .page-title p {
+            color: var(--text-muted);
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 0;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .tab-btn.active {
+            color: var(--text-color);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--primary-red);
+            border-radius: 2px;
+        }
+
+        /* TABLE STYLES */
+        .table-responsive {
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th {
+            text-align: left;
+            padding: 18px 24px;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 15px;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-success, .status-active {
+            background: rgba(70, 211, 105, 0.15);
+            color: #46d369;
+            border: 1px solid rgba(70, 211, 105, 0.3);
+        }
+
+        .status-failed, .status-expired {
+            background: rgba(229, 9, 20, 0.15);
+            color: #ff6b6b;
+            border: 1px solid rgba(229, 9, 20, 0.3);
+        }
+        
+        .status-pending {
+            background: rgba(255, 193, 7, 0.15);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .plan-name {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .price {
+            font-family: 'Inter', monospace;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn-back:hover {
+            background: #444;
+        }
+
+        /* Content sections */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="billing-container">
+        <div class="page-header">
+            <div class="page-title">
+                <h1>Lịch Sử & Gói Cước</h1>
+                <p>Quản lý các gói đăng ký và lịch sử thanh toán của bạn</p>
+            </div>
+            <a th:href="@{/profile}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Quay lại Profile
+            </a>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab('subscriptions')">Gói Đăng Ký</button>
+            <button class="tab-btn" onclick="openTab('payments')">Lịch Sử Thanh Toán</button>
+        </div>
+
+        <div id="subscriptions" class="tab-content active">
+            <div class="table-responsive" th:if="${not #lists.isEmpty(subscriptions)}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Gói Dịch Vụ</th>
+                            <th>Ngày Bắt Đầu</th>
+                            <th>Ngày Hết Hạn</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="sub : ${subscriptions}">
+                            <td class="plan-name" th:text="${sub.plan.planName}">Premium</td>
+                            <td th:text="${#dates.format(sub.startDate, 'dd/MM/yyyy')}">01/01/2023</td>
+                            <td th:text="${#dates.format(sub.endDate, 'dd/MM/yyyy')}">31/01/2023</td>
+                            <td>
+                                <span th:if="${sub.status}" class="status-badge status-active">Đang hoạt động</span>
+                                <span th:unless="${sub.status}" class="status-badge status-expired">Đã hết hạn/Chờ</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${#lists.isEmpty(subscriptions)}" class="empty-state">
+                <i class="fas fa-crown"></i>
+                <h3>Chưa có gói đăng ký nào</h3>
+                <p>Bạn chưa đăng ký gói dịch vụ nào của FFilm.</p>
+                <a th:href="@{/subscriptionPlan}" style="color: #e50914; text-decoration: none; font-weight: 600; margin-top: 10px; display: inline-block;">Xem các gói ngay &rarr;</a>
+            </div>
+        </div>
+
+        <div id="payments" class="tab-content">
+            <div class="table-responsive" th:if="${not #lists.isEmpty(payments)}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Giao Dịch</th>
+                            <th>Gói</th>
+                            <th>Số Tiền</th>
+                            <th>Phương Thức</th>
+                            <th>Ngày Thanh Toán</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="pay : ${payments}">
+                            <td style="font-family: monospace; color: var(--text-muted);" th:text="${'TXN-' + pay.paymentID}">TXN-123</td>
+                            <td class="plan-name" th:text="${pay.subscription.plan.planName}">Premium</td>
+                            <td class="price" th:text="${#numbers.formatDecimal(pay.amount, 0, 'COMMA', 0, 'POINT')} + ' đ'">100.000 đ</td>
+                            <td th:text="${pay.method}">VNPAY</td>
+                            <td th:text="${#dates.format(pay.paymentDate, 'dd/MM/yyyy HH:mm')}">01/01/2023 10:30</td>
+                            <td>
+                                <span th:if="${pay.status == 'SUCCESS'}" class="status-badge status-success">Thành công</span>
+                                <span th:if="${pay.status == 'FAILED'}" class="status-badge status-failed">Thất bại</span>
+                                <span th:if="${pay.status != 'SUCCESS' and pay.status != 'FAILED'}" class="status-badge status-pending" th:text="${pay.status}">Pending</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${#lists.isEmpty(payments)}" class="empty-state">
+                <i class="fas fa-receipt"></i>
+                <h3>Chưa có giao dịch nào</h3>
+                <p>Lịch sử thanh toán của bạn đang trống.</p>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="fragments/footer :: footer"></div>
+
+    <script>
+        function openTab(tabName) {
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected content and activate button
+            document.getElementById(tabName).classList.add('active');
+            
+            // Find the button that called this (based on text roughly or logic) 
+            // Simpler approach: onclick passes 'this' or we find by index. 
+            // Here we just iterate since there are only 2.
+            const buttons = document.querySelectorAll('.tab-btn');
+            if(tabName === 'subscriptions') buttons[0].classList.add('active');
+            else buttons[1].classList.add('active');
+        }
+    </script>
+</body>
+</html>

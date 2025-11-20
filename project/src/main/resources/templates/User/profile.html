@@ -1,244 +1,508 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <title>Hồ Sơ Người Dùng - FFlix</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        /* CSS CHUNG */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        
-        /* CĂN GIỮA VÀ BACKGROUND */
-        body { 
-            height: 100vh; 
-            color: #fff; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
+        :root {
+            --primary-red: #e50914;
+            --primary-hover: #b20710;
+            --dark-bg: #141414;
+            --card-bg: rgba(20, 20, 20, 0.85);
+            --text-color: #ffffff;
+            --text-muted: #b3b3b3;
+            --border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.9)), 
-                        url('https://bloganchoi.com/wp-content/uploads/2021/09/5-series-phim-netflix-cuc-chat-1068x601.jpg') 
-                        center/cover no-repeat fixed; 
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+                url('https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/US-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg') center/cover no-repeat fixed;
         }
 
-        /* CONTAINER CHÍNH */
-        .container { 
-            /* THAY ĐỔI 3: Tăng chiều rộng container */
-            max-width: 650px; 
+        /* --- MAIN CONTAINER --- */
+        .profile-card {
             width: 100%;
-            margin: 0 auto; 
-            background: rgba(31, 31, 31, 0.9);
-            padding: 40px; 
-            border-radius: 8px; 
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); 
-            position: relative;
+            max-width: 800px;
+            background: var(--card-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-out;
         }
-        
-        h1 { color: #e50914; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; font-weight: 700; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #333; }
-        .info-label { color: #aaa; font-size: 14px; }
-        .info-value { font-weight: 500; }
-        
-        /* Chỉnh sửa form & Buttons */
-        input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #555; border-radius: 6px; background: #333; color: #fff; }
-        
-        /* Message style */
-        .message-success { color: #00ff7f; margin-bottom: 15px; font-weight: 500; }
-        .message-error { color: #ff4d4d; margin-bottom: 15px; font-weight: 500; }
 
-        .form-title { color: #fff; font-size: 20px; margin-bottom: 15px; }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
 
-        /* --- STYLE CHO HAI NÚT HÀNH ĐỘNG --- */
-        .profile-actions {
-            /* THAY ĐỔI 2: Đặt hai nút cạnh nhau và căn chỉnh */
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- HEADER SECTION --- */
+        .profile-header {
+            background: linear-gradient(to right, rgba(229, 9, 20, 0.1), transparent);
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            background: #333;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            color: var(--primary-red);
+            border: 2px solid var(--primary-red);
+            box-shadow: 0 5px 15px rgba(229, 9, 20, 0.3);
+        }
+
+        .profile-title h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .profile-title span {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 400;
+            display: block;
+        }
+
+        .membership-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 12px;
+            color: #46d369;
+            /* Green for active status */
+            border: 1px solid rgba(70, 211, 105, 0.3);
+        }
+
+        /* --- BODY SECTION --- */
+        .profile-body {
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .info-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-group:last-child {
+            border-bottom: none;
+        }
+
+        .label-with-icon {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: 500;
+            padding-left: 26px;
+            /* Align with text of label */
+            color: #fff;
+        }
+
+        .info-value.password {
+            letter-spacing: 3px;
+            font-family: monospace;
+            color: var(--text-muted);
+        }
+
+        /* --- FOOTER ACTIONS --- */
+        .profile-footer {
+            padding: 30px 40px;
+            background: rgba(0, 0, 0, 0.3);
             display: flex;
             justify-content: space-between;
+            align-items: center;
             gap: 20px;
-            margin-top: 30px;
         }
-        .action-btn {
-            flex-grow: 1; /* Chia đều không gian */
-            text-align: center;
-            text-decoration: none; 
-            padding: 10px 20px;
+
+        .btn {
+            padding: 12px 24px;
             border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 15px;
             cursor: pointer;
-            border: none;
-        }
-        .edit-profile-btn { /* Nút Chỉnh sửa Hồ sơ */
-            background: #e50914; 
-            color: #fff;
-        }
-        .edit-profile-btn:hover {
-            background: #f40612;
-            transform: translateY(-1px); 
-        }
-        .back-to-home-btn { /* Nút Trở về Trang Chủ */
-            background: #333;
-            color: #fff;
-            border: 1px solid #555;
-            display: flex;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-        }
-        .back-to-home-btn:hover {
-            background: #444;
-            transform: translateY(-1px);
+            border: none;
         }
 
-        /* --- CSS MODAL --- */
+        .btn-primary {
+            background: var(--primary-red);
+            color: white;
+            box-shadow: 0 4px 10px rgba(229, 9, 20, 0.4);
+            flex: 2;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            color: white;
+            border-color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* --- MESSAGES --- */
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 0 40px 20px 40px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background: rgba(70, 211, 105, 0.15);
+            color: #46d369;
+            border: 1px solid rgba(70, 211, 105, 0.3);
+        }
+
+        .alert-error {
+            background: rgba(229, 9, 20, 0.15);
+            color: #ff6b6b;
+            border: 1px solid rgba(229, 9, 20, 0.3);
+        }
+
+        /* --- MODAL --- */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.0);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 1000;
-            opacity: 0; visibility: hidden; 
-            transition: opacity 0.3s ease, visibility 0s 0.3s; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
         }
+
         .modal-overlay.active {
-            opacity: 1; visibility: visible;
-            background: rgba(0, 0, 0, 0.85); 
-            backdrop-filter: blur(5px); 
-            transition: opacity 0.3s ease; 
+            opacity: 1;
+            visibility: visible;
         }
+
         .modal-content {
-            background: #1f1f1f; padding: 30px; border-radius: 12px;
-            width: 90%; max-width: 450px;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7); 
-            transform: translateY(-50px); 
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            background: #181818;
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: white;
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        /* FORM INPUTS */
+        .input-wrapper {
+            margin-bottom: 20px;
             position: relative;
         }
-        .modal-overlay.active .modal-content {
-            transform: translateY(0);
-        }
-        .close-btn { position: absolute; top: 15px; right: 15px; color: #aaa; font-size: 24px; cursor: pointer; transition: color 0.2s; }
-        .close-btn:hover { color: #e50914; }
-        
-        /* Trường mật khẩu hiện/ẩn */
-        .password-field { position: relative; margin-bottom: 15px; }
-        .password-field input { padding-right: 40px; }
-        .toggle-password { position: absolute; top: 50%; right: 15px; transform: translateY(-40%); cursor: pointer; color: #aaa; font-size: 16px; }
-        .toggle-password:hover { color: #fff; }
 
-        /* THAY ĐỔI 1: Căn giữa nút Lưu Thay Đổi */
-        .form-button-center {
-            text-align: center;
-            margin-top: 25px; 
-        }
-        .form-button-center button {
-            width: auto; /* Điều chỉnh width để không chiếm 100% */
-            min-width: 180px;
-            padding: 10px 30px;
+        input {
+            width: 100%;
+            padding: 16px;
+            background: #333;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.2s;
         }
 
+        input:focus {
+            outline: none;
+            background: #444;
+            border-bottom: 2px solid var(--primary-red);
+        }
+
+        .password-field i {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            color: #888;
+            cursor: pointer;
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .profile-card {
+                margin: 0 15px;
+            }
+
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 30px;
+            }
+
+            .profile-footer {
+                flex-direction: column-reverse;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .info-value {
+                padding-left: 0;
+                margin-top: 5px;
+            }
+        }
     </style>
 </head>
+
 <body>
 
-    <div class="container">
-        <h1>Hồ Sơ Của Bạn</h1>
-        
-        <p th:if="${message}" class="message-success" th:text="${message}"></p>
-        <p th:if="${error}" class="message-error" th:text="${error}"></p>
-
-        <div class="info-row">
-            <span class="info-label">Tên người dùng:</span>
-            <span class="info-value" th:text="${userProfile.userName}"></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Email:</span>
-            <span class="info-value" th:text="${userProfile.email}"></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Số điện thoại:</span>
-                        <span class="info-value" th:text="${userProfile.phoneNumber}"></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Mật khẩu:</span>
-            <span class="info-value">***********</span>
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="avatar-container">
+                <div class="avatar-img">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+            <div class="profile-title">
+                <h2>Xin chào, <span th:text="${userProfile.userName}"
+                        style="display:inline; color:inherit; font-size:inherit;">User</span>!</h2>
+                <span>Quản lý thông tin cá nhân và bảo mật</span>
+                <span class="membership-badge"><i class="fas fa-check-circle"></i> Tài khoản FFlix</span>
+            </div>
         </div>
-        
-        <div class="profile-actions">
-            <a th:href="@{/}" class="action-btn back-to-home-btn">
-                <i class="fas fa-arrow-left"></i> Trở về Trang Chủ
+
+        <div style="margin-top: 20px;">
+            <div th:if="${message}" class="alert alert-success">
+                <i class="fas fa-check-circle"></i> <span th:text="${message}"></span>
+            </div>
+            <div th:if="${error}" class="alert alert-error">
+                <i class="fas fa-exclamation-triangle"></i> <span th:text="${error}"></span>
+            </div>
+        </div>
+
+        <div class="profile-body">
+            <div class="info-group">
+                <div class="label-with-icon"><i class="fas fa-user"></i> Tên người dùng</div>
+                <div class="info-value" th:text="${userProfile.userName}">Nguyen Van A</div>
+            </div>
+
+            <div class="info-group">
+                <div class="label-with-icon"><i class="fas fa-envelope"></i> Email</div>
+                <div class="info-value" th:text="${userProfile.email}">email@example.com</div>
+            </div>
+
+            <div class="info-group">
+                <div class="label-with-icon"><i class="fas fa-phone"></i> Số điện thoại</div>
+                <div class="info-value" th:text="${userProfile.phoneNumber}">0912345678</div>
+            </div>
+
+            <div class="info-group">
+                <div class="label-with-icon"><i class="fas fa-lock"></i> Mật khẩu</div>
+                <div class="info-value password">••••••••••••</div>
+            </div>
+        </div>
+
+        <div class="profile-footer">
+            <a th:href="@{/}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Quay lại
             </a>
-            <button onclick="toggleEditForm()" class="action-btn edit-profile-btn">
-                Chỉnh Sửa Hồ Sơ
+            <a th:href="@{/payment/history}" class="action-btn"
+                style="background: #2a2a2a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fas fa-receipt"></i> Lịch sử Giao dịch
+            </a>
+            <button onclick="toggleEditForm()" class="btn btn-primary">
+                <i class="fas fa-pen-to-square"></i> Chỉnh sửa hồ sơ
             </button>
         </div>
-
     </div>
-    
+
     <div id="editModal" class="modal-overlay">
         <div class="modal-content">
             <span class="close-btn" onclick="toggleEditForm()">&times;</span>
-            <p class="form-title">Chỉnh Sửa Hồ Sơ</p>
+            <h3 class="modal-title">Cập nhật thông tin</h3>
 
             <form th:action="@{/profile/update}" th:object="${userProfile}" method="post">
                 <input type="hidden" th:field="*{id}" />
-                
-                <input type="text" th:field="*{userName}" placeholder="Tên người dùng mới" required>
-                <input type="email" th:field="*{email}" placeholder="Email mới (Nếu thay đổi, cần đăng nhập lại)" required>
-                <input type="text" th:field="*{phoneNumber}" placeholder="Số điện thoại mới" required>
-                
-                <div class="password-field">
-                    <input type="password" id="confirmPassword" name="currentPassword" placeholder="Nhập mật khẩu hiện tại để xác nhận" required>
-                    <i class="fas fa-eye toggle-password" onclick="togglePasswordVisibility('confirmPassword', this)"></i>
+
+                <div class="input-wrapper">
+                    <input type="text" th:field="*{userName}" placeholder="Tên người dùng" required>
                 </div>
 
-                <div class="form-button-center">
-                    <button type="submit">Lưu Thay Đổi</button>
+                <div class="input-wrapper">
+                    <input type="email" th:field="*{email}" placeholder="Email mới (Yêu cầu đăng nhập lại)" required>
                 </div>
+
+                <div class="input-wrapper">
+                    <input type="text" th:field="*{phoneNumber}" placeholder="Số điện thoại" required>
+                </div>
+
+                <div class="input-wrapper password-field">
+                    <input type="password" id="confirmPassword" name="currentPassword"
+                        placeholder="Xác nhận mật khẩu hiện tại" required>
+                    <i class="fas fa-eye toggle-password"
+                        onclick="togglePasswordVisibility('confirmPassword', this)"></i>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-save">Lưu thay đổi</button>
             </form>
         </div>
     </div>
-    
+
     <script>
-        // HÀM TOGGLE MODAL VỚI HIỆU ỨNG
         function toggleEditForm() {
             var modal = document.getElementById('editModal');
-            
+            var body = document.body;
+
             if (modal.classList.contains('active')) {
                 modal.classList.remove('active');
-                document.body.style.overflow = 'auto';
+                body.style.overflow = 'auto';
             } else {
                 modal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-
+                body.style.overflow = 'hidden';
+                // Focus vào input đầu tiên để UX tốt hơn
                 setTimeout(() => {
-                    const firstInput = modal.querySelector('input[type="text"], input[type="email"]');
+                    const firstInput = modal.querySelector('input:not([type="hidden"])');
                     if (firstInput) firstInput.focus();
-                }, 300);
+                }, 100);
             }
         }
-        
-        // HÀM CHUYỂN ĐỔI HIỆN/ẨN MẬT KHẨU
+
         function togglePasswordVisibility(fieldId, iconElement) {
             var passwordField = document.getElementById(fieldId);
-            
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
-                iconElement.classList.remove('fa-eye');
-                iconElement.classList.add('fa-eye-slash');
+                iconElement.classList.replace('fa-eye', 'fa-eye-slash');
             } else {
                 passwordField.type = 'password';
-                iconElement.classList.remove('fa-eye-slash');
-                iconElement.classList.add('fa-eye');
+                iconElement.classList.replace('fa-eye-slash', 'fa-eye');
             }
         }
 
-        // Đóng Modal khi click ra ngoài
-        document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target.id === 'editModal') {
+        // Đóng modal khi click ra ngoài
+        document.getElementById('editModal').addEventListener('click', function (e) {
+            if (e.target === this) toggleEditForm();
+        });
+
+        // Đóng modal bằng phím ESC
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.getElementById('editModal').classList.contains('active')) {
                 toggleEditForm();
             }
         });
     </script>
 </body>
+
 </html>
