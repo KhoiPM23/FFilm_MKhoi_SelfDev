@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác Nhận Thanh Toán - FFilm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/footer.css}">
+    <style>
+        body { background: #0c0c0c; }
+        .confirm-container {
+            max-width: 800px;
+            margin: 120px auto 80px;
+            padding: 40px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .confirm-header {
+            margin-bottom: 30px;
+        }
+        .confirm-header h2 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #e50914;
+            margin-bottom: 10px;
+        }
+        .confirm-header p {
+            color: #ccc;
+            font-size: 16px;
+        }
+        .plan-details {
+            text-align: left;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 30px;
+            background: #222;
+            margin-bottom: 40px;
+        }
+        .plan-details h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px dashed #333;
+            font-size: 16px;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: #aaa; }
+        .detail-value { font-weight: 600; color: #fff; }
+        .detail-value.price { color: #4CAF50; font-size: 20px; }
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn-pay {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-pay:hover {
+            background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+        }
+        .btn-cancel {
+            background: #333;
+            color: #ccc;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-cancel:hover {
+            background: #555;
+            color: #fff;
+        }
+        .error-message {
+             color: #ff4d4d;
+             background: rgba(229, 9, 20, 0.1);
+             padding: 15px;
+             border-radius: 8px;
+             margin-bottom: 20px;
+             border: 1px solid rgba(229, 9, 20, 0.3);
+             font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="confirm-container">
+        <div th:if="${error}" class="error-message">
+            <i class="fas fa-exclamation-triangle"></i> <span th:text="${error}"></span>
+        </div>
+        <div class="confirm-header">
+            <h2>Xác Nhận Thanh Toán Gói</h2>
+            <p>Vui lòng kiểm tra lại thông tin gói dịch vụ trước khi tiến hành thanh toán.</p>
+        </div>
+
+        <div class="plan-details">
+            <h3 th:text="${plan.planName}">Tên Gói</h3>
+            <div class="detail-row">
+                <span class="detail-label">Mô tả</span>
+                <span class="detail-value" th:text="${plan.description}">Mô tả gói</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Trạng thái hiện tại</span>
+                <span class="detail-value" style="color: #ffc107;">Đang chờ thanh toán</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Tổng thanh toán</span>
+                <span class="detail-value price">
+                    <span th:text="${#numbers.formatDecimal(plan.price, 0, 'POINT', 0, 'COMMA')}"></span>₫
+                </span>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <a th:href="@{'/payment/create-link/' + ${subId}}" class="btn-pay">
+                <i class="fas fa-credit-card"></i> Thanh Toán Ngay
+            </a>
+            <a th:href="@{/subscriptionPlan}" class="btn-cancel">
+                <i class="fas fa-times"></i> Hủy & Chọn lại
+            </a>
+        </div>
+    </div>
+
+    <div th:replace="fragments/footer :: footer"></div>
+</body>
+</html>
