@@ -26,26 +26,27 @@ import org.springframework.web.bind.annotation.*;
 public class UserAuthenticationController {
 
     private final UserService userService;
-    
+
     // Giữ lại các mapping @GetMapping cho admin, moderator nếu bạn có
     // (Trong file bạn gửi không có, nhưng file zip có)
     @GetMapping("/ModeratorScreen/homeModeratorManage")
     public String showModeratorHome() {
-        return "ModeratorScreen/homeModeratorManage"; 
-    }
-    @GetMapping("/AdminScreen/homeAdminManager")
-    public String showAdminManager() {
-        return "AdminScreen/homeAdminManager"; 
-    }
-    @GetMapping("/ContentManagerScreen/homeContentManager")
-    public String showContentManagement() {
-        return "ContentManagerScreen/homeContentManager"; 
+        return "ModeratorScreen/homeModeratorManage";
     }
 
+    @GetMapping("/AdminScreen/homeAdminManager")
+    public String showAdminManager() {
+        return "AdminScreen/homeAdminManager";
+    }
+
+    @GetMapping("/ContentManagerScreen/homeContentManager")
+    public String showContentManagement() {
+        return "ContentManagerScreen/homeContentManager";
+    }
 
     @GetMapping("/register")
     public String showRegisterForm() {
-        return "Authentication/register"; 
+        return "Authentication/register";
     }
 
     @GetMapping("/login")
@@ -75,18 +76,17 @@ public class UserAuthenticationController {
             if (!userService.isPasswordValid(dto.getPassword(), user.getPassword())) {
                 throw new IllegalArgumentException("Mật khẩu không đúng");
             }
-            
+
             if (!user.isStatus()) {
                 throw new IllegalArgumentException("Tài khoản chưa được kích hoạt.");
             }
 
             // 2. TẠO DTO
             UserSessionDto userSession = new UserSessionDto(
-                user.getUserID(), 
-                user.getUserName(),
-                user.getEmail(),
-                user.getRole()
-            );
+                    user.getUserID(),
+                    user.getUserName(),
+                    user.getEmail(),
+                    user.getRole());
 
             String userRole = user.getRole() != null ? user.getRole().toLowerCase() : "";
 
@@ -96,51 +96,50 @@ public class UserAuthenticationController {
             session.removeAttribute("admin");
             session.removeAttribute("contentManager");
             session.removeAttribute("moderator");
-            // Hoặc kỹ hơn: session.invalidate(); sau đó request.getSession(true); 
+            // Hoặc kỹ hơn: session.invalidate(); sau đó request.getSession(true);
             // nhưng cách removeAttribute đơn giản hơn với code hiện tại của bạn.
 
             // 3. LƯU DTO VÀO SESSION
-            if ("user".equals(userRole)) { 
-                session.setAttribute("user", userSession); 
+            if ("user".equals(userRole)) {
+                session.setAttribute("user", userSession);
                 return "redirect:/";
-            } else if ("admin".equals(userRole)) { 
-                session.setAttribute("admin", userSession); 
+            } else if ("admin".equals(userRole)) {
+                session.setAttribute("admin", userSession);
                 return "redirect:/AdminScreen/homeAdminManager";
-            } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) { 
-                session.setAttribute("contentManager", userSession); 
+            } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) {
+                session.setAttribute("contentManager", userSession);
                 return "redirect:/ContentManagerScreen/homeContentManager";
-            } else if ("moderator".equals(userRole)) { 
-                session.setAttribute("moderator", userSession); 
-                return "redirect:/ModeratorScreen/homeModeratorManage"; 
+            } else if ("moderator".equals(userRole)) {
+                session.setAttribute("moderator", userSession);
+                return "redirect:/ModeratorScreen/homeModeratorManage";
             } else {
                 throw new IllegalArgumentException("Vai trò không hợp lệ: " + userRole);
             }
 
         } catch (IllegalArgumentException e) {
             model.addAttribute("loginError", e.getMessage());
-            return "Authentication/login"; 
+            return "Authentication/login";
         }
     }
-    
+
     /**
      * ĐÃ SỬA LỖI:
      * Hủy toàn bộ session và chuyển về /login.
      */
     @GetMapping("/logout")
     public String logout(HttpSession session) {
-        session.removeAttribute("user"); 
-        session.removeAttribute("admin"); 
-        session.removeAttribute("contentManager"); 
-        session.removeAttribute("moderator"); 
+        session.removeAttribute("user");
+        session.removeAttribute("admin");
+        session.removeAttribute("contentManager");
+        session.removeAttribute("moderator");
         session.invalidate(); // Hủy session hoàn toàn
         return "redirect:/login"; // Chuyển về trang login
     }
 
-
     @PostMapping("/api/register")
     @ResponseBody
     public ResponseEntity<?> registerApi(@Valid @RequestBody UserRegisterDto dto,
-                                         BindingResult bindingResult) {
+            BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             String errorMsg = bindingResult.getFieldErrors()
                     .stream()
@@ -151,7 +150,7 @@ public class UserAuthenticationController {
         }
 
         try {
-            userService.createUser(dto); 
+            userService.createUser(dto);
             return ResponseEntity.ok(Map.of("message", "Đăng ký thành công!"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -164,14 +163,14 @@ public class UserAuthenticationController {
         if (model.containsAttribute("message")) {
             model.addAttribute("message", model.getAttribute("message"));
         }
-        return "Authentication/forgot-password-email"; 
+        return "Authentication/forgot-password-email";
     }
 
     // --- 2. Xử lý gửi email ---
     @PostMapping("/auth/forgot-password")
-    public String processForgotPassword(@RequestParam("email") String email, 
-                                        RedirectAttributes redirectAttributes) {
-        
+    public String processForgotPassword(@RequestParam("email") String email,
+            RedirectAttributes redirectAttributes) {
+
         Optional<User> userOptional = userService.findByEmail(email);
 
         if (userOptional.isEmpty()) {
@@ -180,23 +179,24 @@ public class UserAuthenticationController {
         }
 
         userService.processForgotPassword(email);
-        
-        redirectAttributes.addFlashAttribute("message", 
-            "Đã gửi liên kết đặt lại mật khẩu đến email " + email + ". Vui lòng kiểm tra hộp thư của bạn.");
-        
-        return "redirect:/auth/forgot-password"; 
+
+        redirectAttributes.addFlashAttribute("message",
+                "Đã gửi liên kết đặt lại mật khẩu đến email " + email + ". Vui lòng kiểm tra hộp thư của bạn.");
+
+        return "redirect:/auth/forgot-password";
     }
 
     // --- 3. Trang nhập mật khẩu mới (sau khi click link) ---
     @GetMapping("/auth/reset-password")
-    public String showResetPasswordForm(@RequestParam("token") String token, 
-                                        Model model,
-                                        RedirectAttributes redirectAttributes) {
-        
+    public String showResetPasswordForm(@RequestParam("token") String token,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+
         Optional<PasswordResetToken> tokenOptional = userService.validatePasswordResetToken(token);
 
         if (tokenOptional.isEmpty()) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.");
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.");
             return "redirect:/login";
         }
 
@@ -209,19 +209,21 @@ public class UserAuthenticationController {
 
     // --- 4. Xử lý cập nhật mật khẩu mới ---
     @PostMapping("/auth/reset-password")
-    public String resetPassword(@RequestParam("token") String token, 
-                                @RequestParam("password") String newPassword, 
-                                @RequestParam("confirmPassword") String confirmPassword,
-                                RedirectAttributes redirectAttributes) {
+    public String resetPassword(@RequestParam("token") String token,
+            @RequestParam("password") String newPassword,
+            @RequestParam("confirmPassword") String confirmPassword,
+            RedirectAttributes redirectAttributes) {
 
         if (newPassword == null || newPassword.isBlank() || !newPassword.equals(confirmPassword)) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Mật khẩu mới không được để trống và phải khớp với xác nhận mật khẩu.");
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Mật khẩu mới không được để trống và phải khớp với xác nhận mật khẩu.");
             return "redirect:/auth/reset-password?token=" + token;
         }
-        
+
         Optional<PasswordResetToken> tokenOptional = userService.validatePasswordResetToken(token);
         if (tokenOptional.isEmpty()) {
-             redirectAttributes.addFlashAttribute("errorMessage", "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.");
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.");
             return "redirect:/login";
         }
 
@@ -229,9 +231,9 @@ public class UserAuthenticationController {
 
         // Chuyển về /login để hiển thị thông báo
         redirectAttributes.addFlashAttribute("successMessage", "Cập nhật mật khẩu mới thành công! Vui lòng đăng nhập.");
-        return "redirect:/login"; 
+        return "redirect:/login";
     }
-    
+
     // --- 6. Hiển thị trang Profile ---
     /**
      * ĐÃ SỬA LỖI:
@@ -239,7 +241,7 @@ public class UserAuthenticationController {
      */
     @GetMapping("/profile")
     public String showProfile(HttpSession session, Model model) {
-        
+
         // 1. LẤY DTO TỪ SESSION
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
         if (userSession == null) {
@@ -247,30 +249,28 @@ public class UserAuthenticationController {
             // (Tùy logic của bạn, ở đây giả định chỉ "user" mới vào /profile)
             return "redirect:/login";
         }
-        
+
         // 2. LẤY ENTITY MỚI TỪ DB (Cách này luôn an toàn)
         User currentUser = userService.getUserById(userSession.getId());
-        
+
         // 3. Tạo DTO cho form
         UserProfileUpdateDto updateDto = new UserProfileUpdateDto(
-            currentUser.getUserID(), 
-            currentUser.getUserName(), 
-            currentUser.getEmail(), 
-            currentUser.getPhoneNumber()
-        );
+                currentUser.getUserID(),
+                currentUser.getUserName(),
+                currentUser.getEmail(),
+                currentUser.getPhoneNumber());
 
         model.addAttribute("userProfile", updateDto);
-        
+
         if (model.containsAttribute("message")) {
             model.addAttribute("message", model.getAttribute("message"));
         }
         if (model.containsAttribute("error")) {
             model.addAttribute("error", model.getAttribute("error"));
         }
-        
+
         return "User/profile";
     }
-
 
     // --- 7. Xử lý Chỉnh sửa Profile ---
     /**
@@ -279,14 +279,14 @@ public class UserAuthenticationController {
      */
     @PostMapping("/profile/update")
     public String updateProfile(@Valid @ModelAttribute("userProfile") UserProfileUpdateDto dto,
-                                BindingResult bindingResult,
-                                HttpSession session,
-                                RedirectAttributes redirectAttributes) {
-        
+            BindingResult bindingResult,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+
         // Kiểm tra xem session có hợp lệ không
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
         if (userSession == null || userSession.getId() != dto.getId()) {
-             return "redirect:/login"; // Lỗi bảo mật hoặc session hết hạn
+            return "redirect:/login"; // Lỗi bảo mật hoặc session hết hạn
         }
 
         if (bindingResult.hasErrors()) {
@@ -301,24 +301,23 @@ public class UserAuthenticationController {
 
         try {
             boolean emailChanged = userService.updateProfile(dto);
-            
+
             if (emailChanged) {
-                session.invalidate(); 
-                redirectAttributes.addFlashAttribute("message", 
-                    "Email của bạn đã được cập nhật thành công! Vui lòng đăng nhập lại bằng Email mới.");
-                
-                return "redirect:/profile/update-success"; 
+                session.invalidate();
+                redirectAttributes.addFlashAttribute("message",
+                        "Email của bạn đã được cập nhật thành công! Vui lòng đăng nhập lại bằng Email mới.");
+
+                return "redirect:/profile/update-success";
             } else {
                 // CẬP NHẬT LẠI DTO TRONG SESSION
                 User updatedUser = userService.getUserById(dto.getId());
                 UserSessionDto updatedSessionDto = new UserSessionDto(
-                    updatedUser.getUserID(),
-                    updatedUser.getUserName(),
-                    updatedUser.getEmail(),
-                    updatedUser.getRole()
-                );
+                        updatedUser.getUserID(),
+                        updatedUser.getUserName(),
+                        updatedUser.getEmail(),
+                        updatedUser.getRole());
                 session.setAttribute("user", updatedSessionDto); // <-- CẬP NHẬT DTO
-                
+
                 redirectAttributes.addFlashAttribute("message", "Cập nhật hồ sơ thành công!");
                 return "redirect:/profile";
             }
@@ -327,16 +326,16 @@ public class UserAuthenticationController {
             return "redirect:/profile";
         }
     }
-    
+
     // --- 8. Trang Thông báo Cập nhật thành công (khi đổi Email) ---
     @GetMapping("/profile/update-success")
     public String updateSuccess(Model model, HttpSession session) {
         if (model.containsAttribute("message")) {
             model.addAttribute("message", model.getAttribute("message"));
         } else {
-            return "redirect:/login"; 
+            return "redirect:/login";
         }
-        
+
         return "User/update-success";
     }
 }

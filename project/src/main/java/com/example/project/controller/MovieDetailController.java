@@ -5,6 +5,7 @@ import com.example.project.model.Person;
 import com.example.project.service.MovieService;
 import com.example.project.dto.UserSessionDto; // [THÊM] Import UserSessionDto
 import com.example.project.repository.FavoriteRepository; // [THÊM] Import Repo
+import com.example.project.repository.SubscriptionRepository;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,8 +19,6 @@ import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpSession;
 
-import jakarta.servlet.http.HttpSession;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +26,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.example.project.service.SubscriptionService;
 
 @Controller
 public class MovieDetailController {
@@ -42,6 +43,9 @@ public class MovieDetailController {
 
     @Autowired
     private FavoriteRepository favoriteRepository;
+
+    @Autowired
+    private SubscriptionService subscriptionService;
 
     private static final Map<String, String> LANGUAGE_MAP = createLanguageMap();
 
@@ -142,13 +146,16 @@ public class MovieDetailController {
 
                 // === LOGIC KIỂM TRA FAVORITE BAN ĐẦU ===
                 boolean isFavorite = false;
+                boolean isVip = false;
                 UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
                 if (userSession != null) {
                     // Kiểm tra xem phim đã tồn tại trong danh sách yêu thích của người dùng này
                     // chưa
                     isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
+                    isVip = subscriptionService.checkActiveSubscription(userSession.getId());
                 }
                 model.addAttribute("isFavorite", isFavorite); // <-- TRUYỀN isFavorite vào Model
+                model.addAttribute("isVip", isVip);
                 // =======================================
 
                 Integer tmdbId = movie.getTmdbId();

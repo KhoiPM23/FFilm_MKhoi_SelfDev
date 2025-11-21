@@ -912,6 +912,7 @@ public class MovieService {
                 backdrop = "https://image.tmdb.org/t/p/original" + movie.getBackdropPath();
         }
         map.put("backdrop", backdrop);
+        map.put("isFree", movie.isFree());
 
         // ----- Dữ liệu phụ
         if (movie.getReleaseDate() != null) {

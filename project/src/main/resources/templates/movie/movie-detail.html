@@ -85,9 +85,20 @@
           </div>
 
           <div class="hero-actions">
-            <a th:href="@{'/movie/player/' + ${movie.id}}" class="btn-play"
+            <a
+              th:if="${movie.isFree or isVip}"
+              th:href="@{'/movie/player/' + ${movie.id}}"
+              class="btn-play"
               ><i class="fas fa-play"></i> Xem phim</a
             >
+
+            <a
+              th:if="${!movie.isFree and !isVip}"
+              th:href="@{/subscriptionPlan}"
+              class="btn-play"
+            >
+              <i class="fas fa-crown"></i> Đăng ký
+            </a>
             <div class="action-buttons-group">
               <button
                 th:attr="data-movie-id=${movie.id}"
