@@ -108,7 +108,8 @@
                         data-rating=${movie.rating},
                         data-year=${movie.year},
                         data-runtime=${movie.runtime},
-                        data-country=${movie.country}"
+                        data-country=${movie.country},
+                        data-content-rating=${movie.contentRating}" 
                 onclick="switchBanner(this)">
                 
                 <img th:src="@{${#strings.replace(movie.backdrop, '/original', '/w500')}}" 
@@ -365,37 +366,51 @@
      */
     function createMovieCardHTML(movie) {
         const movieId = movie.id;
-        const movieTitle = movie.title || 'Unknown';
+        // Hàm escape HTML an toàn
+        const escapeHtml = (str) => (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+        
+        const safeTitle = escapeHtml(movie.title || 'Unknown');
+        const safeOverview = escapeHtml(movie.overview || 'Đang tải mô tả...');
         const poster = movie.poster || '/images/placeholder.jpg';
         const backdrop = movie.backdrop || '/images/placeholder.jpg';
         const rating = movie.rating || '—';
         const year = movie.year || '—';
-        const overview = movie.overview || 'Đang tải mô tả...';
         
+        // [MỚI] Lấy dữ liệu chi tiết ngay lập tức
+        const runtime = movie.runtime || '—';
+        const contentRating = movie.contentRating || 'T';
+        const country = movie.country || 'Quốc tế';
+
+        // [CODE MỚI] Xử lý Genre có Tooltip chuẩn
+        let genresHtml = '<span class="genre-tag">Không có</span>';
+        if (movie.genres && movie.genres.length > 0) {
+            // 1. Hai thẻ đầu tiên
+            genresHtml = movie.genres.slice(0, 2).map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('');
+            
+            // 2. Các thẻ còn lại (Tooltip)
+            if (movie.genres.length > 2) {
+                const remaining = movie.genres.slice(2);
+                const tooltipHtml = remaining.map(g => `<div class="genre-bubble">${escapeHtml(g)}</div>`).join('');
+                
+                genresHtml += `
+                    <span class="genre-tag genre-tag-more" 
+                        onmouseenter="if(window.showGenreTooltip) window.showGenreTooltip(this)" 
+                        onmouseleave="if(window.hideGenreTooltip) window.hideGenreTooltip(this)">
+                        +${remaining.length}
+                        <div class="custom-genre-tooltip">${tooltipHtml}</div>
+                    </span>
+                `;
+            }
+        }
+
         const playerId = `hover-player-async-${movieId}`;
 
-        // Hàm escape HTML đơn giản
-        const escapeHtml = (str) => {
-            if (!str) return '';
-            return str.replace(/[&<>"']/g, (m) => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            }[m]));
-        };
-        const safeTitle = escapeHtml(movieTitle);
-        const safeOverview = escapeHtml(overview);
-
-        // Lấy các hàm global từ script.js (nếu đã load)
-        const clickDetail = `event.stopPropagation(); (window.goToMovieDetail || function(btn){ location.href = '/movie/detail/' + btn.dataset.movieId; })(this)`;
-        const clickLike = `event.stopPropagation(); (window.toggleHoverLike || function(btn){ btn.classList.toggle('active'); })(this)`;
-        const clickShare = `event.stopPropagation(); (window.showShareModal || function(){ alert('Lỗi chia sẻ'); })(this)`;
-
+        // [QUAN TRỌNG] onclick cho nút bấm đã được thêm đầy đủ
         return `
         <div class="movie-card" data-movie-id="${movieId}">
-            
             <div class="movie-poster">
                 <img src="${poster}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
             </div>
-            
             <div class="movie-info">
                 <h3>${safeTitle}</h3>
                 <p class="movie-rating">⭐ <span>${rating}</span></p>
@@ -405,19 +420,25 @@
                 <div class="hover-card-media">
                     <img class="hover-card-image" src="${backdrop}" alt="${safeTitle}" onerror="this.src='/images/placeholder.jpg'">
                     <div class="hover-player-container"><div class="hover-player" id="${playerId}"></div></div>
-                    <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng"><i class="fas fa-volume-mute"></i></button>
+                    <button class="hover-volume-btn" type="button" title="Bật/Tắt tiếng" onclick="event.stopPropagation();"><i class="fas fa-volume-mute"></i></button>
                 </div>
                 <div class="hover-card-content">
                     <div class="hover-card-actions">
-                        <button class="hover-play-btn" type="button" data-movie-id="${movieId}" onclick="${clickDetail}">
+                        <button class="hover-play-btn" type="button" 
+                                data-movie-id="${movieId}" 
+                                onclick="event.stopPropagation(); window.goToMovieDetail(this)">
                             <i class="fas fa-play"></i> Xem ngay
                         </button>
-                        <button class="hover-action-icon hover-like-btn" type="button" onclick="${clickLike}" title="Thêm vào danh sách">
+                        <button class="hover-action-icon hover-like-btn" type="button" 
+                                data-movie-id="${movieId}" data-tmdb-id="${movie.tmdbId || movieId}"
+                                onclick="event.stopPropagation(); window.toggleHoverLike(this)" 
+                                title="Thêm vào danh sách">
                             <i class="far fa-heart"></i>
                         </button>
                         <button class="hover-action-icon hover-share-btn" type="button"
                                 data-movie-id="${movieId}" data-movie-title="${safeTitle}"
-                                onclick="${clickShare}" title="Chia sẻ">
+                                onclick="event.stopPropagation(); window.showShareModal(this)" 
+                                title="Chia sẻ">
                             <i class="fas fa-share-alt"></i>
                         </button>
                     </div>
@@ -428,13 +449,11 @@
                         <span class="meta-quality">HD</span>
                     </div>
                     <div class="hover-card-meta-extra">
-                        <span class="meta-extra-rating loading-meta">T</span>
-                        <span class="meta-extra-runtime loading-meta">— phút</span>
-                        <span class="meta-extra-country loading-meta">Quốc gia</span>
+                        <span class="meta-extra-rating">${contentRating}</span>
+                        <span class="meta-extra-runtime" style="white-space: nowrap;">${runtime}</span>
+                        <span class="meta-extra-country">${country}</span>
                     </div>
-                    <div class="hover-card-genres">
-                        <span class="genre-tag loading-genre">Đang tải...</span>
-                    </div>
+                    <div class="hover-card-genres">${genresHtml}</div>
                     <p class="hover-card-description">${safeOverview}</p>
                 </div>
             </div>

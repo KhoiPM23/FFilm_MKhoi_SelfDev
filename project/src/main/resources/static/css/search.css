@@ -580,6 +580,7 @@
             backdrop-filter: blur(4px);
         }
 
+        /* 1. Giới hạn chiều cao Modal và thiết lập Layout dọc */
         .ai-modal-content {
             position: relative;
             width: 90%;
@@ -589,6 +590,15 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
             animation: slideUp 0.3s ease-out;
             border: 1px solid rgba(102, 126, 234, 0.2);
+            max-height: 85vh;       /* Chiều cao tối đa 85% viewport */
+            display: flex;          /* Dùng flex để chia layout */
+            flex-direction: column;
+        }
+
+        /* 2. Giữ Header và Footer cố định (không bị co) */
+        .ai-modal-header,
+        .ai-modal-footer {
+            flex-shrink: 0; /* Không cho phép co lại khi thiếu chỗ */
         }
 
         @keyframes slideUp {
@@ -643,8 +653,30 @@
             color: white;
         }
 
+        /* 3. Cho phép phần thân (Body) cuộn khi nội dung dài */
         .ai-modal-body {
             padding: 28px;
+            
+            /* [FIX MỚI] Scroll nội bộ */
+            overflow-y: auto; /* Bật thanh cuộn dọc nếu tràn */
+            flex: 1;          /* Chiếm toàn bộ không gian trống còn lại */
+            
+            /* Tùy chỉnh thanh cuộn cho đẹp (Webkit browsers) */
+            scrollbar-width: thin;
+            scrollbar-color: #667eea rgba(0,0,0,0.1);
+        }
+
+        /* Style thanh cuộn cho Chrome/Safari/Edge */
+        .ai-modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .ai-modal-body::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 3px;
+        }
+        .ai-modal-body::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
         }
 
         .ai-description {

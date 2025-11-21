@@ -1097,3 +1097,54 @@ footer {
     .movie-poster { height: 210px; }
     .nav-btn { width: 35px; height: 35px; font-size: 14px; }
 }
+
+/* ========================================= */
+/* ---- CINEMATIC VIEW TRANSITIONS (NATIVE) ---- */
+/* ========================================= */
+
+/* Kích hoạt Native Transition */
+@view-transition {
+  navigation: auto;
+}
+
+/* --- TRANG CŨ (Rời đi) --- */
+::view-transition-old(root) {
+  /* Thời gian 0.6s, đường cong 'Ease-out Quint' cực mượt */
+  animation: 0.6s cubic-bezier(0.22, 1, 0.36, 1) both fade-out-scale;
+  /* Giữ nguyên vị trí để không bị nhảy layout */
+  transform-origin: center top;
+}
+
+/* --- TRANG MỚI (Đến) --- */
+::view-transition-new(root) {
+  /* Thời gian 0.6s, cùng nhịp điệu */
+  animation: 0.6s cubic-bezier(0.22, 1, 0.36, 1) both fade-in-slide;
+  /* Đảm bảo nằm trên trang cũ */
+  z-index: 9999; 
+}
+
+/* --- ĐỊNH NGHĨA HIỆU ỨNG --- */
+
+@keyframes fade-out-scale {
+  from { 
+    opacity: 1; 
+    transform: scale(1); 
+    filter: blur(0px);
+  }
+  to { 
+    opacity: 0; 
+    transform: scale(0.98); /* Thu nhỏ nhẹ tạo chiều sâu 3D */
+    filter: blur(2px);      /* Làm mờ nhẹ để focus vào trang mới */
+  }
+}
+
+@keyframes fade-in-slide {
+  from { 
+    opacity: 0; 
+    transform: translateY(30px); /* Trượt từ dưới lên một quãng vừa đủ */
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}

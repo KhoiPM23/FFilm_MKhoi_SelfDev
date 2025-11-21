@@ -15,16 +15,11 @@ import com.example.project.config.VnPayConfig; // Import Config
 import com.example.project.dto.UserSessionDto;
 import com.example.project.model.Subscription;
 import com.example.project.model.SubscriptionPlan;
-import com.example.project.service.BillingService;
 import com.example.project.service.SubscriptionService;
 import com.example.project.service.VnPayService; 
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
-
-import com.example.project.model.Payment;
-import com.example.project.service.BillingService;
-import java.util.Date;
 
 @Controller
 @RequestMapping("/payment")
@@ -35,9 +30,6 @@ public class PaymentController {
     
     @Autowired 
     private VnPayService vnPayService; 
-
-    @Autowired
-    private BillingService billingService;
 
     // [1. Trang Xác nhận]
     @GetMapping("/confirm/{subId}")
@@ -118,54 +110,35 @@ public class PaymentController {
     // [3. Xử lý Phản hồi VNPay]
     @GetMapping("/vnpay_return")
     public String handleVnPayReturn(HttpServletRequest request, Model model) {
+        
         Integer subId = null;
-        String vnp_TxnRef = request.getParameter("vnp_TxnRef");
-        // ... (Logic lấy subId giữ nguyên) ...
-        if (vnp_TxnRef != null && vnp_TxnRef.contains("_")) {
-             subId = Integer.parseInt(vnp_TxnRef.split("_")[0]);
-        } else if (vnp_TxnRef != null) {
-             subId = Integer.parseInt(vnp_TxnRef);
-        }
-
         try {
-            // 1. Validate chữ ký (Giữ nguyên)
+            // Lấy lại subId từ vnp_TxnRef (dạng: "105_8329")
+            String vnp_TxnRef = request.getParameter("vnp_TxnRef");
+            if (vnp_TxnRef != null && vnp_TxnRef.contains("_")) {
+                subId = Integer.parseInt(vnp_TxnRef.split("_")[0]);
+            } else if (vnp_TxnRef != null) {
+                subId = Integer.parseInt(vnp_TxnRef);
+            }
+
+            // 1. Xác thực chữ ký
             if (!vnPayService.verifyVnPayCallback(request)) {
                  throw new RuntimeException("Chữ ký điện tử không hợp lệ.");
             }
             
             String vnp_ResponseCode = request.getParameter("vnp_ResponseCode");
-            String amountStr = request.getParameter("vnp_Amount");
-            double amount = amountStr != null ? Double.parseDouble(amountStr) / 100 : 0;
 
-            // Lấy thông tin Subscription để lấy User
-            Subscription sub = subscriptionService.getSubscriptionById(subId);
-
-            // TẠO ĐỐI TƯỢNG PAYMENT
-            Payment payment = new Payment();
-            payment.setAmount(amount);
-            payment.setMethod("VNPAY");
-            payment.setPaymentDate(new Date());
-            payment.setSubscription(sub);
-            payment.setUser(sub.getUser());
-
+            // 2. Kiểm tra kết quả (00 là thành công)
             if ("00".equals(vnp_ResponseCode)) {
-                // THÀNH CÔNG
-                subscriptionService.activateSubscription(subId);
-                payment.setStatus("SUCCESS"); // Lưu trạng thái thành công
-                billingService.savePayment(payment); // <--- LƯU VÀO DB
-
+                Subscription sub = subscriptionService.activateSubscription(subId);
                 model.addAttribute("orderCode", vnp_TxnRef);
                 model.addAttribute("planName", sub.getPlan().getPlanName());
                 model.addAttribute("transactionId", request.getParameter("vnp_TransactionNo"));
-                model.addAttribute("totalPrice", request.getParameter("vnp_Amount")); 
+                model.addAttribute("totalPrice", request.getParameter("vnp_Amount")); // Chia 100 nếu hiển thị
                 model.addAttribute("paymentTime", request.getParameter("vnp_PayDate"));
                 
                 return "service/payment-success";
             } else {
-                // THẤT BẠI
-                payment.setStatus("FAILED"); // Lưu trạng thái thất bại
-                billingService.savePayment(payment); // <--- LƯU VÀO DB
-                
                 throw new RuntimeException("Giao dịch thất bại. Mã lỗi: " + vnp_ResponseCode);
             }
             
@@ -174,14 +147,5 @@ public class PaymentController {
             model.addAttribute("orderCode", subId);
             return "service/payment-cancel"; 
         }
-    }
-    @GetMapping("/history")
-    public String showBillingHistory(@SessionAttribute("user") UserSessionDto userDto, Model model) {
-        if (userDto == null) return "redirect:/login";
-
-        model.addAttribute("payments", billingService.getPaymentHistory(userDto.getId()));
-        model.addAttribute("subscriptions", billingService.getSubscriptionHistory(userDto.getId()));
-        
-        return "User/billing-history";
     }
 }

@@ -29,12 +29,9 @@ public class SubscriptionController {
             @RequestParam Integer planId,
             RedirectAttributes redirectAttributes) {
         if (userDto == null) {
-            return "login";
+            return "redirect:/login";
         }
         Integer userId = userDto.getId();
-        System.out.println("User ID: " + userId);
-        System.out.println("Plan ID: " + planId);
-
         SubscriptionPlanRegisterRequest planRegisterRequest = new SubscriptionPlanRegisterRequest(userId, planId);
         
         try {

@@ -93,7 +93,13 @@ body { background: #0c0c0c; }
 
 /*----- Trailer Section */
 .trailer-section { margin-bottom: 60px; }
-.trailer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+.trailer-grid { 
+    display: grid; 
+    /* [FIX] Dùng auto-fill để 1 video không bị giãn full màn hình. 
+       Tăng min-width lên 320px cho đẹp hơn. */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+    gap: 20px; 
+}
 .trailer-card {
     position: relative; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; cursor: pointer;
     transition: all 0.3s; border: 2px solid transparent;
@@ -198,6 +204,208 @@ body { background: #0c0c0c; }
 .emoji-mock { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; }
 .emoji-mock:hover { transform: scale(1.2); }
 
+/* ========================================= */
+/* ---- NEW UI: STUDIO & COLLECTION HEADER ---- */
+/* ========================================= */
+
+/* --- 1. STUDIO HEADER (Gọn gàng, Tinh tế) --- */
+.studio-header-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 10px;
+}
+
+.studio-header-container .section-label {
+    color: #999;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.studio-header-container .studio-name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(229, 9, 20, 0.6); /* Glow nhẹ màu đỏ */
+}
+
+.studio-logo-wrapper {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 10px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.studio-logo-wrapper img {
+    height: 24px; /* Kích thước logo vừa phải */
+    width: auto;
+    object-fit: contain;
+    filter: brightness(0) invert(1); /* Biến logo đen thành trắng (nếu cần) */
+}
+
+
+/* ========================================= */
+/* ---- NEW UI: STUDIO & COLLECTION HEADER (FINAL) ---- */
+/* ========================================= */
+
+/* --- 1. STUDIO HEADER (Phiên bản Logo Nổi bật) --- */
+.studio-header-container {
+    display: flex;
+    align-items: center; /* Căn giữa theo trục dọc */
+    gap: 20px;
+    padding: 15px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    
+    /* Chống bôi đen/kéo thả */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.studio-header-container .section-label {
+    color: #666; /* Màu chữ chìm hơn để tôn Logo */
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Bỏ box bao quanh, để logo tự do trên nền tối */
+.studio-logo-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.studio-logo-wrapper img {
+    height: 45px; /* Tăng kích thước logo lên gấp đôi (cũ là 24px) */
+    width: auto;
+    object-fit: contain;
+    
+    /* Hiệu ứng chuyển logo sang trắng hoàn toàn để nổi trên nền đen */
+    filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(255,255,255,0.3));
+    
+    opacity: 0.9;
+    transition: all 0.3s ease;
+    
+    /* Chống kéo ảnh */
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+/* Hiệu ứng nhẹ khi hover vào khu vực studio */
+.studio-header-container:hover .studio-logo-wrapper img {
+    opacity: 1;
+    transform: scale(1.05);
+    filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(229, 9, 20, 0.6)); /* Glow đỏ nhẹ khi hover */
+}
+
+
+/* --- 2. COLLECTION HEADER (Phiên bản Cinematic - Hòa trộn nền) --- */
+
+.section-header.collection-mode {
+    position: relative;
+    /* [FIX 1] Tăng chiều cao lên 320px để ảnh thoáng hơn, không bị cảm giác "hộp diêm" */
+    height: 320px; 
+    
+    margin-top: 60px; 
+    margin-bottom: 40px;
+    
+    /* Giữ bo góc nhưng nhẹ nhàng hơn */
+    border-radius: 16px;
+    overflow: hidden;
+    
+    /* [FIX 2] Căn chỉnh trọng tâm ảnh: 
+       center: căn giữa ngang
+       30%: lấy điểm cách mép trên 30% làm tâm (thường là vị trí mắt/mặt nhân vật)
+       cover: phủ kín khung
+    */
+    background-size: cover;
+    background-position: center 30%; 
+    
+    display: flex;
+    align-items: center; 
+    padding: 0 !important;
+    
+    /* Xóa border cứng, thay bằng box-shadow để tạo chiều sâu */
+    border: none; 
+    
+    /* [FIX 3 - QUAN TRỌNG NHẤT] Hiệu ứng Vignette (Làm tối 4 góc)
+       Giúp ảnh hòa vào nền web, xóa bỏ cảm giác bị cắt cụt ở viền
+    */
+    box-shadow: inset 0 0 80px 20px #0c0c0c; 
+    
+    z-index: 0;
+    user-select: none;
+}
+
+/* Lớp phủ Gradient kép để làm nổi chữ và hòa trộn mượt mà */
+.section-header.collection-mode::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    
+    /* Kết hợp 2 lớp gradient:
+       1. Trái sang phải: Để làm nền cho chữ.
+       2. Dưới lên trên: Để chân ảnh không bị cắt cụt mà chìm vào danh sách phim.
+    */
+    background: 
+        linear-gradient(90deg, #0c0c0c 15%, rgba(12,12,12,0.6) 50%, transparent 100%),
+        linear-gradient(to top, #0c0c0c 0%, transparent 30%);
+}
+
+/* Phần chữ giữ nguyên, chỉ tinh chỉnh padding */
+.collection-overlay {
+    position: relative;
+    z-index: 2;
+    padding-left: 60px; 
+    max-width: 65%;
+    /* Thêm text-shadow mạnh hơn để chữ nổi bật trên mọi nền ảnh */
+    text-shadow: 0 2px 15px rgba(0,0,0,0.9);
+}
+
+.collection-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e50914;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.collection-subtitle::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background-color: #e50914;
+    box-shadow: 0 0 10px #e50914; /* Glow nhẹ cho đường kẻ */
+}
+
+.collection-title {
+    font-size: 2.8rem; 
+    font-weight: 900; 
+    color: #fff;
+    margin: 0;
+    line-height: 1.1;
+    text-shadow: 0 4px 20px rgba(0,0,0,1); /* Bóng đổ chữ đậm hơn để dễ đọc */
+    font-family: 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+    
+    /* Chống chọn text */
+    user-select: none;
+}
 
 /*==========================================================*/
 /*---- 5. RESPONSIVE & UTILS ----*/

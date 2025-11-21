@@ -4,7 +4,6 @@
  * Tối ưu hóa hiệu năng, quản lý trạng thái và xử lý tương tác giao diện người dùng.
  * =========================================================================================
  */
-
 (function() {
     'use strict';
 
@@ -78,17 +77,17 @@
     }
 
     /**
-     * Hiển thị Logo và Content Rating của Banner (gọi API rating).
+     * Hiển thị Logo của Banner (Offline Mode).
+     * Content Rating đã được xử lý bởi switchBanner hoặc Thymeleaf ban đầu.
      */
     function displayHeroExtras() {
         if (!heroBanner) return;
         const heroLogo = document.getElementById('heroLogo');
         const heroTitleText = document.getElementById('heroTitleText');
-        const contentRatingSpan = document.getElementById('contentRating')?.querySelector('span');
 
-        // 1. Hiển thị Logo
+        // Hiển thị Logo nếu có path trong DB
         const logoPath = heroBanner.dataset.logoPath;
-        if (logoPath && logoPath !== 'null') {
+        if (logoPath && logoPath !== 'null' && logoPath !== '') {
             if (heroLogo) {
                 heroLogo.src = `https://image.tmdb.org/t/p/w500${logoPath}`;
                 heroLogo.style.display = 'block';
@@ -97,31 +96,6 @@
         } else {
             if (heroLogo) heroLogo.style.display = 'none';
             if (heroTitleText) heroTitleText.style.display = 'block';
-        }
-
-        // 2. Hiển thị Content Rating
-        if (contentRatingSpan) {
-            const movieId = heroBanner.dataset.movieId;
-            if (!movieId) return;
-            fetch(`${TMDB_BASE_URL}/movie/${movieId}/release_dates?api_key=${TMDB_API_KEY}`)
-                .then(res => res.json())
-                .then(detailData => {
-                    let finalRating = 'T';
-                    const usRelease = detailData.results?.find(r => r.iso_3166_1 === 'US'); 
-                    const certification = usRelease?.release_dates.find(d => d.certification && (d.type === 4 || d.type === 3))?.certification;
-                    if (certification) {
-                        switch(certification.toUpperCase()) {
-                            case 'G': case 'TV-G': finalRating = 'T'; break;
-                            case 'PG': case 'PG-13': case 'TV-PG': finalRating = 'T13+'; break;
-                            case 'R': case 'TV-14': finalRating = 'T16+'; break;
-                            case 'NC-17': case 'TV-MA': finalRating = 'T18+'; break;
-                            default: finalRating = 'T';
-                        }
-                    }
-                    contentRatingSpan.textContent = finalRating;
-                }).catch(e => {
-                    contentRatingSpan.textContent = 'T'; // Mặc định
-                });
         }
     }
 
@@ -229,6 +203,12 @@
             if (ratingSpan) ratingSpan.textContent = movieData.rating;
             if (yearDiv) yearDiv.textContent = movieData.year;
             if (heroOverview) heroOverview.textContent = movieData.overview;
+
+            // [MỚI] Cập nhật Content Rating từ DB (Offline)
+            const contentRatingSpan = document.getElementById('contentRating')?.querySelector('span');
+            if (contentRatingSpan) {
+                contentRatingSpan.textContent = movieData.contentRating || 'T';
+            }
             
             // CẬP NHẬT DURATION VÀ COUNTRY
             if (heroDuration) {
@@ -582,23 +562,9 @@
             const detailData = responseData.movie; 
             const trailerKey = responseData.trailerKey; 
 
-            // Lấy Content Rating
-            let finalRating = 'T';
-            try {
-                const ratingResp = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/release_dates?api_key=${TMDB_API_KEY}`);
-                const ratingData = await ratingResp.json();
-                const usRelease = ratingData.results.find(r => r.iso_3166_1 === 'US');
-                const certification = usRelease?.release_dates.find(d => d.certification && (d.type === 4 || d.type === 3))?.certification;
-                if (certification) {
-                    switch(certification.toUpperCase()) {
-                        case 'G': case 'TV-G': finalRating = 'T'; break;
-                        case 'PG': case 'PG-13': case 'TV-PG': finalRating = 'T13+'; break;
-                        case 'R': case 'TV-14': finalRating = 'T16+'; break;
-                        case 'NC-17': case 'TV-MA': finalRating = 'T18+'; break;
-                        default: finalRating = 'T';
-                    }
-                }
-            } catch(e) { /* Bỏ qua lỗi rating */ }
+            // [MỚI] Lấy Content Rating trực tiếp từ API nội bộ (DB)
+            // MovieService.convertToMap đã include field 'contentRating'
+            const finalRating = detailData.contentRating || 'T';
 
             // Lưu cache
             const cacheData = {
@@ -912,9 +878,6 @@
             console.error("Lỗi: Không tìm thấy ID phim");
             return;
         }
-        prevBtn.style.display = "block";
-        nextBtn.style.display = "block";
-
 
         const icon = button.querySelector('i');
         const wasActive = button.classList.contains('active'); // Trạng thái hiện tại (trước khi click)
@@ -1183,6 +1146,37 @@
         return `${window.location.pathname}?${urlParams.toString()}`;
     }
 
+    /**
+     * [MỚI] Thiết lập phím tắt toàn cục (Global Shortcuts).
+     */
+    function setupGlobalShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Bỏ qua nếu người dùng đang nhập liệu trong ô input/textarea
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) {
+                return;
+            }
+
+            // Phím '/': Focus tìm kiếm hoặc chuyển trang
+            if (e.key === '/') {
+                e.preventDefault(); // Ngăn ký tự '/' bị gõ vào ô input nếu focus quá nhanh
+                
+                // Trường hợp 1: Đang ở trang Search (đã có ô nhập liệu chính)
+                const mainInput = document.getElementById('mainSearchInput');
+                if (mainInput) {
+                    mainInput.focus();
+                    // Mẹo: Đặt con trỏ về cuối văn bản nếu đã có chữ
+                    const val = mainInput.value;
+                    mainInput.value = '';
+                    mainInput.value = val;
+                } 
+                // Trường hợp 2: Đang ở trang khác -> Chuyển sang trang Search
+                else {
+                    window.location.href = '/search';
+                }
+            }
+        });
+    }
+
 
     // =========================================================================
     // 9. KHỞI TẠO CHUNG (INITIALIZATION)
@@ -1197,6 +1191,7 @@
         setupDescriptionToggle(); 
         setupBackToTopButton();
         setupLazyLoading(); 
+        setupGlobalShortcuts();
         
         // 2. Khởi tạo Banner (Nếu có)
         if (document.getElementById('heroBanner')) {
@@ -1214,6 +1209,7 @@
         initHoverCards(); 
         initializePagination(); 
     });
-
+    window.initHoverCards = initHoverCards;
+    window.initializeAllCarousels = initializeAllCarousels;
+    window.enhanceHoverCard = enhanceHoverCard; // Phòng hờ nếu cần gọi trực tiếp
 })();
-
