@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản Lý Doanh Thu</title>
+    
+    <link rel="stylesheet" href="/css/ManageAccount.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Bổ sung CSS riêng cho Chart và một số tinh chỉnh màu sắc */
+        .chart-wrapper {
+            background-color: var(--bg-secondary, #1f1f1f); /* Fallback color */
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: 450px;
+            position: relative;
+        }
+
+        /* Override màu badge để khớp với theme tối của Revenue */
+        .badge-success { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .badge-fail { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+        
+        /* Custom màu cho các icon stats của Revenue */
+        .stat-icon.green { background: rgba(46, 204, 113, 0.1); color: #2ecc71; }
+        .stat-icon.purple { background: rgba(155, 89, 182, 0.1); color: #9b59b6; }
+        
+        /* Đảm bảo text hiển thị tốt trên nền tối */
+        .table-container {
+            background-color: #1f1f1f; /* Màu nền card */
+            color: #fff;
+        }
+        
+        /* CSS fallback nếu file ManageAccount.css chưa load được biến */
+        :root {
+            --text-primary: #ffffff;
+            --text-secondary: #a3a3a3;
+        }
+        
+        h2.chart-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/admin-sidebar :: sidebar}"></div>
+
+    <div class="main-content">
+        
+        <div class="header">
+            <h1>Quản lý doanh thu</h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="alert('Chức năng đang phát triển')">
+                    <i class="fas fa-file-export"></i> Xuất báo cáo
+                </button>
+                <button class="btn btn-primary" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i> Cập nhật
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Hôm nay</span>
+                    <div class="stat-icon green">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                </div>
+                <div class="stat-value" 
+                     th:text="${stats != null && stats.todayRevenue != null 
+                                ? #numbers.formatDecimal(stats.todayRevenue, 0, 'COMMA', 0, 'POINT') + ' đ'
+                                : '0 đ'}">0 đ</div>
+                <div class="stat-change" style="color: #2ecc71;">
+                    <i class="fas fa-chart-line"></i> Doanh thu ngày
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tháng này</span>
+                    <div class="stat-icon blue">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                </div>
+                <div class="stat-value"
+                     th:text="${stats != null && stats.monthRevenue != null 
+                                ? #numbers.formatDecimal(stats.monthRevenue, 0, 'COMMA', 0, 'POINT') + ' đ'
+                                : '0 đ'}">0 đ</div>
+                <div class="stat-change">
+                    <i class="fas fa-clock"></i> Tích lũy tháng
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tổng doanh thu</span>
+                    <div class="stat-icon red">
+                        <i class="fas fa-sack-dollar"></i>
+                    </div>
+                </div>
+                <div class="stat-value" style="color: #E50914;"
+                     th:text="${stats != null && stats.totalRevenue != null 
+                                ? #numbers.formatDecimal(stats.totalRevenue, 0, 'COMMA', 0, 'POINT') + ' đ'
+                                : '0 đ'}">0 đ</div>
+                <div class="stat-change">
+                    <i class="fas fa-globe"></i> Toàn thời gian
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tổng giao dịch</span>
+                    <div class="stat-icon purple">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                </div>
+                <div class="stat-value" th:text="${stats != null ? stats.totalTransactions : 0}">0</div>
+                <div class="stat-change">
+                    <i class="fas fa-check-circle"></i> Đã xử lý
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-wrapper">
+            <h2 class="chart-title">Biểu đồ tăng trưởng năm <span th:text="${currentYear}">2025</span></h2>
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <span class="table-title">Giao dịch gần đây</span>
+                <div class="filter-group">
+                    <div class="search-box">
+                        <input type="text" placeholder="Tìm mã GD..." id="searchInput">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <table th:if="${recentPayments != null && !recentPayments.isEmpty()}">
+                <thead>
+                    <tr>
+                        <th>Mã GD</th>
+                        <th>Khách hàng</th>
+                        <th>Gói cước</th>
+                        <th>Số tiền</th>
+                        <th>Phương thức</th>
+                        <th>Ngày giờ</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionTable">
+                    <tr th:each="p : ${recentPayments}">
+                        <td th:text="'#' + ${p.paymentID}">-</td>
+                        
+                        <td>
+                            <div class="user-info" style="display: flex; align-items: center; gap: 10px;">
+                                <div class="user-avatar" 
+                                     style="width: 30px; height: 30px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">
+                                    <span th:text="${p.user != null ? #strings.substring(p.user.userName,0,1) : 'K'}"></span>
+                                </div>
+                                <span th:text="${p.user != null ? p.user.userName : 'Khách vãng lai'}"></span>
+                            </div>
+                        </td>
+
+                        <td th:text="${p.subscription != null && p.subscription.plan != null 
+                                      ? p.subscription.plan.planName 
+                                      : 'N/A'}">-</td>
+
+                        <td style="font-weight: bold;" 
+                            th:text="${p.amount != null 
+                                      ? #numbers.formatDecimal(p.amount, 0, 'COMMA', 0, 'POINT') + ' đ'
+                                      : '0 đ'}">-</td>
+                                      
+                        <td th:text="${p.method != null ? p.method : 'N/A'}">-</td>
+                        
+                        <td th:text="${p.paymentDate != null 
+                                      ? #dates.format(p.paymentDate, 'dd/MM/yyyy HH:mm')
+                                      : '-'}">-</td>
+                        <td>
+                            <span th:if="${p.status == 'SUCCESS' || p.status == '00'}" 
+                                  class="badge badge-success">Thành công</span>
+                            <span th:unless="${p.status == 'SUCCESS' || p.status == '00'}" 
+                                  class="badge badge-fail" 
+                                  th:text="${p.status}">Lỗi</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div th:if="${recentPayments == null || recentPayments.isEmpty()}" class="empty-state">
+                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 15px; color: #a3a3a3;"></i>
+                <p>Chưa có dữ liệu giao dịch nào.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function() {
+            // Search logic đơn giản phía client
+            const searchInput = document.getElementById('searchInput');
+            if(searchInput) {
+                searchInput.addEventListener('keyup', function() {
+                    const value = this.value.toLowerCase();
+                    const rows = document.querySelectorAll('#transactionTable tr');
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(value) ? '' : 'none';
+                    });
+                });
+            }
+
+            // Chart Logic
+            const ctx = document.getElementById('revenueChart');
+            if (!ctx) return;
+
+            const rawData = /*[[${chartData}]]*/ [];
+            const chartData = Array.isArray(rawData) ? rawData : Array(12).fill(0);
+
+            const context = ctx.getContext('2d');
+            const gradient = context.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(229, 9, 20, 0.6)');
+            gradient.addColorStop(1, 'rgba(229, 9, 20, 0.0)');
+
+            new Chart(context, {
+                type: 'line',
+                data: {
+                    labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
+                             'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
+                    datasets: [{
+                        label: 'Doanh thu (VNĐ)',
+                        data: chartData,
+                        borderColor: '#E50914',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#fff',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('vi-VN').format(context.parsed.y) + ' đ';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#333', borderDash: [5, 5] },
+                            ticks: { 
+                                color: '#a3a3a3',
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('vi-VN', { notation: "compact" }).format(value) + 'đ'; 
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#a3a3a3' }
+                        }
+                    }
+                }
+            });
+        });
+        /*]]>*/
+    </script>
+</body>
+</html>
