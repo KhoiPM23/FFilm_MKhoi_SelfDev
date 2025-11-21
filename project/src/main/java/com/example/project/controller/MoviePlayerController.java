@@ -28,6 +28,9 @@ public class MoviePlayerController {
     @Value("${app.default.video.url:/video/movie1.mp4}")
     private String defaultVideoUrl;
 
+    @Value("${app.ad.video.url:/video/ad_sample.mp4}")
+    private String adVideoUrl;
+
     @GetMapping("/movie/player/{id}")
     public String watchMovie(@PathVariable("id") int id,
             // CÁCH AN TOÀN NHẤT: Dùng required = false để Spring tiêm NULL thay vì ném lỗi
@@ -36,18 +39,29 @@ public class MoviePlayerController {
 
         try {
             Movie movie = moviePlayerService.getMovieById(id);
-            movie.setUrl(defaultVideoUrl);
+            movie.setUrl(defaultVideoUrl); // Giả định set URL này cho video chính
 
-            // [LOGIC BẢO VỆ] Kiểm tra nếu phim trả phí VÀ người dùng chưa đăng nhập
-            if (!movie.isFree() && sessionDto == null) {
-                return "redirect:/login"; // Redirect nếu chưa login
-            }
-            if (!movie.isFree() && sessionDto != null
-                    && !subscriptionService.checkActiveSubscription(sessionDto.getId())) {
-                return "redirect:/subscriptionPlan";
+            // 1. Xác định trạng thái VIP của người dùng
+            boolean isVip = sessionDto != null && subscriptionService.checkActiveSubscription(sessionDto.getId());
+
+            // 2. Mặc định không quảng cáo
+            boolean hasAd = false;
+
+            // 3. Kiểm tra phim TRẢ PHÍ (Ưu tiên)
+            if (!movie.isFree() && !isVip) {
+                // Phim trả phí VÀ user không phải VIP/chưa đăng nhập
+                return "redirect:/subscriptionPlan"; // Bắt buộc mua gói
             }
 
-            // ... (Tiếp tục logic xem phim)
+            // 4. Xử lý phim MIỄN PHÍ
+            if (movie.isFree() && !isVip) {
+                // Phim miễn phí VÀ user không phải VIP -> Kích hoạt Quảng cáo
+                hasAd = true;
+                model.addAttribute("adUrl", adVideoUrl);
+            }
+
+            model.addAttribute("hasAd", hasAd); // Truyền flag có quảng cáo
+            model.addAttribute("isVip", isVip); // Truyền trạng thái VIP
             model.addAttribute("movie", movie);
             List<Movie> recommended = moviePlayerService.getRecommendedMovies();
             recommended.removeIf(m -> m.getMovieID() == id);

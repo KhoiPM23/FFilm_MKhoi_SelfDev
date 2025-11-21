@@ -3,9 +3,12 @@ package com.example.project.controller;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
+import java.util.Map; // <-- THÊM
+import java.util.HashMap;
 
 import org.springframework.data.domain.Page;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity; // <-- THÊM
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +16,17 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.SessionAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody; // <-- THÊM
+
 import com.example.project.service.UserFavoriteService;
 import com.example.project.dto.MovieFavorite;
 import com.example.project.dto.UserSessionDto;
-import org.springframework.web.bind.annotation.PostMapping;
 import com.example.project.dto.AddUserFavoriteRequest;
+import com.example.project.repository.FavoriteRepository; // <-- THÊM
+import com.example.project.model.UserFavorite;
+import com.example.project.model.UserFavoriteId; // <-- THÊM
+import jakarta.transaction.Transactional; // <-- THÊM
 
 @Controller
 @RequestMapping("/favorites")
@@ -25,6 +34,9 @@ public class UserFavoriteController {
 
     @Autowired
     private UserFavoriteService favoriteService;
+
+    @Autowired
+    private FavoriteRepository favoriteRepository; // <-- Cần để thực hiện logic toggle
 
     @GetMapping("/my-list")
     public String showAllFavorite(
@@ -48,20 +60,48 @@ public class UserFavoriteController {
         return "service/list-favorite";
     }
 
+    /**
+     * [SỬA LỖI] Phương thức mới: Toggle Favorite (Thêm/Xóa) và trả về JSON status.
+     */
+    @Transactional
     @PostMapping("/{movieId}")
-    public String addFavorite(
+    @ResponseBody // Trả về JSON
+    public ResponseEntity<Map<String, String>> toggleFavorite(
             @PathVariable Integer movieId,
-            @SessionAttribute("user") UserSessionDto user) {
-        Integer userId = user.getId();
-        System.out.println("Movie ID = " + movieId);
-        AddUserFavoriteRequest req = new AddUserFavoriteRequest(movieId, userId,
-                java.sql.Date.valueOf(LocalDate.now()));
-        boolean success = favoriteService.addFavorite(req);
-        if (success) {
-            return "redirect:/movie/detail/" + movieId;
-        } else {
-            return "error";
+            @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
+
+        Map<String, String> response = new HashMap<>();
+
+        if (userSession == null) {
+            // Trường hợp chưa đăng nhập
+            response.put("status", "unauthorized");
+            response.put("message", "Vui lòng đăng nhập để thêm phim yêu thích.");
+            return ResponseEntity.status(401).body(response);
         }
+
+        Integer userId = userSession.getId();
+
+        // 1. Kiểm tra trạng thái hiện tại
+        boolean exists = favoriteRepository.existsByUserIDAndMovieID(userId, movieId);
+
+        if (exists) {
+            // 2. Nếu đã tồn tại -> XÓA
+            favoriteRepository.deleteById(new UserFavoriteId(movieId, userId));
+            response.put("status", "removed");
+            response.put("message", "Đã xóa khỏi danh sách yêu thích.");
+        } else {
+            // 3. Nếu chưa tồn tại -> THÊM
+            UserFavorite uf = new UserFavorite();
+            uf.setUserID(userId);
+            uf.setMovieID(movieId);
+            uf.setCreateAt(new Date(System.currentTimeMillis()));
+            favoriteRepository.save(uf);
+
+            response.put("status", "added");
+            response.put("message", "Đã thêm vào danh sách yêu thích.");
+        }
+
+        return ResponseEntity.ok(response);
     }
 
 }

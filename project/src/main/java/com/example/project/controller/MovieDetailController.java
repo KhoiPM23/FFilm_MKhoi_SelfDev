@@ -119,11 +119,12 @@ public class MovieDetailController {
     }
 
     @GetMapping({ "/movie/detail/{id}", "/movie/detail" })
-
     public String movieDetail(
             @PathVariable(required = false) String id,
             @RequestParam(required = false) String movieId,
-            Model model) {
+            Model model,
+            HttpSession session) { // <-- ĐÃ THÊM tham số HttpSession
+
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
         if (finalIdStr == null || finalIdStr.isEmpty())
             return "redirect:/";
@@ -138,6 +139,17 @@ public class MovieDetailController {
 
                 String langCode = (String) movieMap.get("language");
                 movieMap.put("language", getLanguageName(langCode));
+
+                // === LOGIC KIỂM TRA FAVORITE BAN ĐẦU ===
+                boolean isFavorite = false;
+                UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+                if (userSession != null) {
+                    // Kiểm tra xem phim đã tồn tại trong danh sách yêu thích của người dùng này
+                    // chưa
+                    isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
+                }
+                model.addAttribute("isFavorite", isFavorite); // <-- TRUYỀN isFavorite vào Model
+                // =======================================
 
                 Integer tmdbId = movie.getTmdbId();
                 if (tmdbId != null) {

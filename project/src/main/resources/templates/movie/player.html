@@ -601,7 +601,7 @@
           <div
             class="video-container"
             id="player-wrapper"
-            th:attr="data-movie-id=${movie.movieID}"
+            th:attr="data-movie-id=${movie.movieID}, data-has-ad=${hasAd}, data-ad-url=${hasAd ? adUrl : ''}"
           >
             <div
               th:if="${movie.url}"
@@ -616,9 +616,8 @@
               <video
                 id="defaultVideoPlayer"
                 controls
-                autoplay
                 muted
-                loop
+                playsinline
                 style="
                   width: 100%;
                   height: 100%;
@@ -627,23 +626,81 @@
                 "
               >
                 <source th:src="@{${movie.url}}" type="video/mp4" />
-
                 Trình duyệt của bạn không hỗ trợ tag video.
               </video>
             </div>
 
             <div
-              th:unless="${movie.url}"
+              id="adPlayerContainer"
+              th:if="${hasAd}"
               style="
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 100%;
                 position: absolute;
-                width: 100%;
+                inset: 0;
+                z-index: 10;
+                background: black;
               "
             >
-              Chưa có link video
+              <video
+                id="adVideoPlayer"
+                th:src="${adUrl}"
+                muted
+                playsinline
+                style="width: 100%; height: 100%; object-fit: cover"
+              ></video>
+
+              <div
+                id="adCountdown"
+                style="
+                  position: absolute;
+                  top: 15px;
+                  right: 15px;
+                  background: rgba(0, 0, 0, 0.7);
+                  color: white;
+                  padding: 5px 10px;
+                  border-radius: 5px;
+                  font-size: 14px;
+                  z-index: 11;
+                "
+              >
+                Quảng cáo: <span id="adTimer">15</span>s
+              </div>
+
+              <button
+                id="skipAdBtn"
+                style="
+                  position: absolute;
+                  bottom: 15px;
+                  right: 15px;
+                  background: #e50914;
+                  color: white;
+                  border: none;
+                  padding: 10px 15px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  display: none;
+                  font-weight: 600;
+                "
+              >
+                Bỏ qua <i class="fas fa-chevron-right"></i>
+              </button>
+
+              <a
+                th:href="@{/subscriptionPlan}"
+                style="
+                  position: absolute;
+                  bottom: 15px;
+                  left: 15px;
+                  background: rgba(0, 0, 0, 0.5);
+                  color: #ffc107;
+                  border: 1px solid #ffc107;
+                  padding: 10px 15px;
+                  border-radius: 8px;
+                  font-size: 14px;
+                  text-decoration: none;
+                "
+              >
+                <i class="fas fa-crown"></i> Xem không quảng cáo
+              </a>
             </div>
           </div>
 
@@ -1201,6 +1258,154 @@
             window.scrollY > 50 ? "rgba(20,20,20,0.98)" : "rgba(0,0,0,0.95)";
           header.style.boxShadow =
             window.scrollY > 50 ? "0 4px 20px rgba(0,0,0,0.4)" : "none";
+        }
+      });
+
+      // player.js - Video Player with Ad Integration
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const playerWrapper = document.getElementById("player-wrapper");
+        const movieId = playerWrapper?.dataset.movieId;
+        const hasAd = playerWrapper?.dataset.hasAd === "true";
+
+        // Video Elements
+        const mainVideo = document.getElementById("defaultVideoPlayer");
+        const adVideo = document.getElementById("adVideoPlayer");
+        const adContainer = document.getElementById("adPlayerContainer");
+        const adTimerDisplay = document.getElementById("adTimer");
+        const skipAdBtn = document.getElementById("skipAdBtn");
+
+        let isHistoryRecorded = false;
+
+        // ----------------------------------------------------
+        // 1. MAIN VIDEO & HISTORY RECORDER
+        // ----------------------------------------------------
+
+        /**
+         * Bắt đầu phát video chính và ghi lại lịch sử.
+         */
+        function startMainVideo() {
+          if (adContainer) adContainer.style.display = "none";
+
+          // 1. Kích hoạt video chính
+          if (mainVideo) {
+            mainVideo.style.display = "block";
+
+            // Đảm bảo video bắt đầu từ đầu
+            if (mainVideo.paused) {
+              mainVideo.currentTime = 0;
+            }
+
+            // Bỏ muted (để user nghe được) và play
+            mainVideo.muted = false;
+            mainVideo.play().catch((e) => {
+              console.log(
+                "Main video autoplay block. User must click play.",
+                e
+              );
+            });
+
+            // Bật lại controls (nếu chúng đã bị tắt)
+            mainVideo.controls = true;
+          }
+
+          // 2. Ghi lại lịch sử xem (chỉ ghi 1 lần)
+          if (movieId && !isHistoryRecorded) {
+            recordHistory();
+            isHistoryRecorded = true;
+          }
+        }
+
+        /**
+         * Ghi lại lịch sử xem. (Được lấy từ code cũ)
+         */
+        const recordHistory = async () => {
+          if (!movieId) return;
+
+          try {
+            const response = await fetch(`/api/history/record/${movieId}`, {
+              method: "POST",
+              headers: { Accept: "application/json" },
+            });
+
+            if (response.ok) {
+              console.log("Watch history recorded successfully.");
+            } else if (response.status === 401) {
+              console.log("User not logged in. Skipping history record.");
+            } else {
+              console.error("Failed to record watch history.");
+            }
+          } catch (error) {
+            console.error("Error calling record history API:", error);
+          }
+        };
+
+        // ----------------------------------------------------
+        // 2. AD MANAGER
+        // ----------------------------------------------------
+
+        function initAdPlayer() {
+          if (!hasAd || !adVideo || !adContainer) return startMainVideo();
+
+          let skipDelaySeconds = 5; // Cho phép bỏ qua sau 5 giây đầu
+
+          // Cần ensure video chính pause và muted để chặn âm thanh
+          if (mainVideo) {
+            mainVideo.pause();
+            mainVideo.muted = true;
+            mainVideo.controls = false; // Tắt controls của phim chính trong lúc ad
+          }
+
+          // Chơi quảng cáo
+          adVideo.muted = false;
+          adVideo.play().catch((e) => {
+            console.log("Ad autoplay blocked. Starting main video.", e);
+            startMainVideo(); // Fallback nếu chặn
+            return;
+          });
+
+          // Logic đếm ngược và skip
+          adVideo.addEventListener("loadedmetadata", () => {
+            const duration = adVideo.duration;
+            const interval = setInterval(() => {
+              const currentTime = adVideo.currentTime;
+              const remaining = Math.ceil(duration - currentTime);
+
+              if (!isNaN(remaining) && remaining >= 0) {
+                adTimerDisplay.textContent = remaining;
+              }
+
+              if (currentTime >= skipDelaySeconds && skipAdBtn) {
+                skipAdBtn.style.display = "block";
+              }
+
+              if (remaining <= 0) {
+                clearInterval(interval);
+              }
+            }, 1000);
+          });
+
+          // Khi quảng cáo kết thúc -> Chuyển sang phim chính
+          adVideo.addEventListener("ended", startMainVideo);
+
+          // Logic Skip
+          if (skipAdBtn) {
+            skipAdBtn.addEventListener("click", () => {
+              adVideo.pause();
+              startMainVideo();
+            });
+          }
+
+          // Fallback nếu quảng cáo lỗi
+          adVideo.addEventListener("error", startMainVideo);
+
+          console.log("Ad playing. History recording deferred.");
+        }
+
+        if (hasAd) {
+          initAdPlayer();
+        } else {
+          startMainVideo();
         }
       });
     </script>
