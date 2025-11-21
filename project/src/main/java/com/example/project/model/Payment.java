@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,11 +38,14 @@ public class Payment {
     @NotBlank(message = "status  is not null")
     private String status;
 
-    @ManyToOne
+    
+    // ✅ FIX: Thêm FetchType.EAGER để load ngay lập tức
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "userID")
     private User user;
 
-    @ManyToOne
+    // ✅ FIX: Thêm FetchType.EAGER để load ngay lập tức
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "subscriptionID")
     private Subscription subscription;
 
