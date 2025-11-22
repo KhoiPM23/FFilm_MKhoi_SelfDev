@@ -63,11 +63,13 @@ public class UserAuthenticationController {
      * ĐÃ SỬA LỖI:
      * Sử dụng UserSessionDto thay vì User Entity.
      */
+    // src/main/java/com/example/project/controller/UserAuthenticationController.java
+
     @PostMapping("/login")
     public String login(
             @ModelAttribute("user") UserLoginDto dto,
             Model model,
-            HttpSession session) { // Spring tự inject session hiện tại vào
+            HttpSession session) {
         try {
             // 1. Logic kiểm tra đăng nhập (giữ nguyên)
             User user = userService.findByEmail(dto.getEmail())
@@ -81,7 +83,7 @@ public class UserAuthenticationController {
                 throw new IllegalArgumentException("Tài khoản chưa được kích hoạt.");
             }
 
-            // 2. TẠO DTO
+            // 2. TẠO DTO & XÁC ĐỊNH VAI TRÒ
             UserSessionDto userSession = new UserSessionDto(
                     user.getUserID(),
                     user.getUserName(),
@@ -90,27 +92,39 @@ public class UserAuthenticationController {
 
             String userRole = user.getRole() != null ? user.getRole().toLowerCase() : "";
 
-            // --- BỔ SUNG QUAN TRỌNG: DỌN DẸP SESSION CŨ ---
-            // Trước khi set attribute mới, hãy xóa hết các attribute định danh cũ
+            // --- DỌN DẸP SESSION CŨ ---
             session.removeAttribute("user");
             session.removeAttribute("admin");
             session.removeAttribute("contentManager");
             session.removeAttribute("moderator");
-            // Hoặc kỹ hơn: session.invalidate(); sau đó request.getSession(true);
-            // nhưng cách removeAttribute đơn giản hơn với code hiện tại của bạn.
 
-            // 3. LƯU DTO VÀO SESSION
-            if ("user".equals(userRole)) {
+            // --- BƯỚC 3: CHUYỂN HƯỚNG ƯU TIÊN (PREV_URL) ---
+            String redirectUrl = (String) session.getAttribute("PREV_URL");
+            session.removeAttribute("PREV_URL"); // Dọn dẹp ngay lập tức
+
+            // Vẫn phải set session user trước khi redirect
+            if ("user".equals(userRole))
                 session.setAttribute("user", userSession);
+            else if ("admin".equals(userRole))
+                session.setAttribute("admin", userSession);
+            else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole))
+                session.setAttribute("contentManager", userSession);
+            else if ("moderator".equals(userRole))
+                session.setAttribute("moderator", userSession);
+
+            if (redirectUrl != null && !redirectUrl.isEmpty()) {
+                return "redirect:" + redirectUrl; // Chuyển hướng đến trang đã lưu
+            }
+            // --- KẾT THÚC CHUYỂN HƯỚNG ƯU TIÊN ---
+
+            // 4. CHUYỂN HƯỚNG MẶC ĐỊNH THEO VAI TRÒ (Logic cũ)
+            if ("user".equals(userRole)) {
                 return "redirect:/";
             } else if ("admin".equals(userRole)) {
-                session.setAttribute("admin", userSession);
                 return "redirect:/AdminScreen/homeAdminManager";
             } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) {
-                session.setAttribute("contentManager", userSession);
                 return "redirect:/ContentManagerScreen/homeContentManager";
             } else if ("moderator".equals(userRole)) {
-                session.setAttribute("moderator", userSession);
                 return "redirect:/ModeratorScreen/homeModeratorManage";
             } else {
                 throw new IllegalArgumentException("Vai trò không hợp lệ: " + userRole);

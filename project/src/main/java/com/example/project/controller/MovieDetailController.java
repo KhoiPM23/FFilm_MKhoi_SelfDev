@@ -127,7 +127,13 @@ public class MovieDetailController {
             @PathVariable(required = false) String id,
             @RequestParam(required = false) String movieId,
             Model model,
-            HttpSession session) { // <-- ĐÃ THÊM tham số HttpSession
+            HttpSession session) {
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+
+        if (userSession == null) {
+            session.setAttribute("PREV_URL", "/movie/detail/" + ((id != null) ? id : ("?movieId=" + movieId)));
+            return "redirect:/login";
+        }
 
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
         if (finalIdStr == null || finalIdStr.isEmpty())
@@ -147,7 +153,6 @@ public class MovieDetailController {
                 // === LOGIC KIỂM TRA FAVORITE BAN ĐẦU ===
                 boolean isFavorite = false;
                 boolean isVip = false;
-                UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
                 if (userSession != null) {
                     // Kiểm tra xem phim đã tồn tại trong danh sách yêu thích của người dùng này
                     // chưa
