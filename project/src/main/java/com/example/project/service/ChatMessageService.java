@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.project.model.ChatMessage;
@@ -15,6 +16,9 @@ public class ChatMessageService {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     private final List<String> onlineModerators = new CopyOnWriteArrayList<>();
 
@@ -75,9 +79,10 @@ public class ChatMessageService {
 
     @Transactional
     public ChatMessage saveChatMessage(ChatMessage chatMessage) {
-        if (chatMessage.getTimestamp() == null) {
+        if (chatMessage.getTimestamp() == null)
             chatMessage.setTimestamp(LocalDateTime.now());
-        }
+        if (chatMessage.getStatus() == null)
+            chatMessage.setStatus("SENT");
         return chatMessageRepository.save(chatMessage);
     }
 
@@ -103,5 +108,26 @@ public class ChatMessageService {
             latestMessagesMap.putIfAbsent(partnerEmail, msg);
         }
         return new java.util.ArrayList<>(latestMessagesMap.values());
+    }
+
+    
+    @Transactional
+    public void markMessagesAsSeen(String senderEmail, String recipientEmail) {
+        chatMessageRepository.updateStatusToSeen(senderEmail, recipientEmail);
+
+        ChatMessage seenAck = new ChatMessage();
+        seenAck.setSenderEmail(recipientEmail); 
+        seenAck.setRecipientEmail(senderEmail);
+        seenAck.setType(ChatMessage.MessageType.CHAT); 
+        seenAck.setContent("SEEN_ACK");
+        seenAck.setStatus("SEEN");
+
+        // Gửi tín hiệu này qua WebSocket cho senderEmail
+        // (Logic routing tương tự như lúc chat)
+        if (senderEmail.equals("WAITING_QUEUE")) return; 
+
+
+        messagingTemplate.convertAndSendToUser(senderEmail, "/queue/messages", seenAck);
+        messagingTemplate.convertAndSend("/topic/moderator/" + senderEmail, seenAck);
     }
 }

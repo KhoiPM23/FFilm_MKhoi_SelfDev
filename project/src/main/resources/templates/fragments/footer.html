@@ -101,91 +101,121 @@
         <div th:if="${session.user != null}">
 
             <style>
+                /* Wrapper */
                 .custom-chat-wrapper {
                     font-family: 'Segoe UI', sans-serif;
                 }
 
+                /* Icon Chat Tròn */
                 #support-chat-icon-fixed {
                     position: fixed !important;
                     bottom: 130px !important;
                     right: 20px !important;
                     width: 68px !important;
                     height: 68px !important;
-                    background-color: #141414 !important;
-                    border: 2px solid #E50914 !important;
-                    border-radius: 50% !important;
-                    display: flex !important;
+                    background-color: #141414;
+                    border: 2px solid #E50914;
+                    border-radius: 50%;
+                    display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
-                    z-index: 2147483647 !important;
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8) !important;
-                    transition: transform 0.2s ease;
+                    z-index: 9999;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+                    transition: transform 0.2s;
                 }
 
                 #support-chat-icon-fixed:hover {
                     transform: scale(1.1);
-                    background-color: #E50914 !important;
-                    color: white !important;
                 }
 
                 #support-chat-icon-fixed i {
-                    font-size: 24px !important;
-                    color: #E50914 !important;
+                    font-size: 24px;
+                    color: #E50914;
                 }
 
-                #support-chat-icon-fixed:hover i {
-                    color: white !important;
+                /* Badge Số lượng (Chấm đỏ) */
+                .notification-badge {
+                    position: absolute;
+                    top: -5px;
+                    right: -5px;
+                    background-color: #E50914;
+                    color: white;
+                    border-radius: 50%;
+                    width: 22px;
+                    height: 22px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    font-weight: bold;
+                    border: 2px solid #141414;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    pointer-events: none;
                 }
 
+                .notification-badge.visible {
+                    opacity: 1;
+                }
+
+                /* Cửa sổ Chat */
                 #support-chat-window-fixed {
-                    position: fixed !important;
-                    bottom: 200px !important;
-                    right: 30px !important;
-                    width: 340px !important;
-                    height: 450px !important;
-                    background-color: #141414 !important;
-                    border: 1px solid #333 !important;
-                    border-radius: 16px !important;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9) !important;
+                    position: fixed;
+                    bottom: 200px;
+                    right: 30px;
+                    width: 350px;
+                    height: 450px;
+                    background: #141414;
+                    border: 1px solid #333;
+                    border-radius: 15px;
                     display: none;
                     flex-direction: column;
+                    z-index: 9999;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
                     overflow: hidden;
-                    z-index: 2147483647 !important;
                 }
 
                 #support-chat-window-fixed.show {
-                    display: flex !important;
+                    display: flex;
                 }
 
-                .chat-header-fixed {
-                    padding: 15px;
-                    background: linear-gradient(135deg, #b81d24, #E50914);
+                /* Nội dung chat */
+                .chat-header {
+                    background: #E50914;
                     color: white;
+                    padding: 15px;
                     font-weight: bold;
                     display: flex;
                     justify-content: space-between;
-                    align-items: center;
                 }
 
-                .chat-body-fixed {
+                .chat-body {
                     flex: 1;
                     padding: 15px;
                     overflow-y: auto;
+                    background: #1f1f1f;
                     display: flex;
                     flex-direction: column;
                     gap: 10px;
-                    background: #141414;
+                }
+
+                .chat-footer {
+                    padding: 10px;
+                    background: #222;
+                    display: flex;
+                    gap: 10px;
+                    border-top: 1px solid #333;
                 }
 
                 .chat-msg {
-                    padding: 10px 14px;
-                    border-radius: 12px;
-                    max-width: 85%;
+                    padding: 8px 12px;
+                    border-radius: 15px;
+                    max-width: 80%;
                     font-size: 14px;
-                    color: #fff;
                     line-height: 1.4;
                     word-wrap: break-word;
+                    color: white;
                 }
 
                 .chat-msg.received {
@@ -200,15 +230,19 @@
                     border-bottom-right-radius: 2px;
                 }
 
-                .chat-footer-fixed {
-                    padding: 12px;
-                    border-top: 1px solid #333;
-                    background: #222;
-                    display: flex;
-                    gap: 10px;
+                /* Trạng thái tin nhắn (Đã gửi/Đã xem) */
+                .msg-status {
+                    font-size: 10px;
+                    color: #888;
+                    text-align: right;
+                    margin-top: -5px;
+                    margin-bottom: 5px;
+                    font-style: italic;
+                    align-self: flex-end;
                 }
 
-                .chat-input-fixed {
+                /* Input */
+                .chat-input {
                     flex: 1;
                     background: #333;
                     border: none;
@@ -218,7 +252,7 @@
                     outline: none;
                 }
 
-                .chat-send-btn-fixed {
+                .send-btn {
                     background: none;
                     border: none;
                     color: #E50914;
@@ -232,129 +266,214 @@
 
                 <div id="support-chat-icon-fixed" onclick="toggleChat()">
                     <i class="fas fa-headset"></i>
+                    <div id="unread-badge" class="notification-badge">0</div>
                 </div>
 
                 <div id="support-chat-window-fixed">
-                    <div class="chat-header-fixed">
-                        <span><i class="fas fa-headset"></i> Hỗ trợ FFilm</span>
-                        <span onclick="toggleChat()" style="cursor:pointer; font-size: 20px;">&times;</span>
+                    <div class="chat-header">
+                        <span>Hỗ trợ trực tuyến</span>
+                        <span onclick="toggleChat()" style="cursor:pointer;">&times;</span>
                     </div>
-                    <div id="chat-messages-area" class="chat-body-fixed">
-                        <div class="chat-msg received">Xin chào <span th:text="${session.user.userName}">User</span>!
-                            Chúng tôi có thể giúp gì cho bạn?</div>
-                    </div>
-                    <div class="chat-footer-fixed">
-                        <input type="text" id="chat-input-msg" class="chat-input-fixed" placeholder="Nhập tin nhắn..."
+                    <div id="chat-messages-area" class="chat-body"></div>
+                    <div class="chat-footer">
+                        <input type="text" id="chat-input-msg" class="chat-input" placeholder="Nhập tin nhắn..."
                             onkeypress="handleEnter(event)">
-                        <button class="chat-send-btn-fixed" onclick="sendMsg()"><i
-                                class="fas fa-paper-plane"></i></button>
+                        <button class="send-btn" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
             </div>
 
             <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-
             <script>
-                // Lấy chính xác User từ Session (Đã đảm bảo không null nhờ th:if ở ngoài)
                 const userName = document.querySelector('meta[name="_userIdentifier"]').getAttribute('content');
+                let stompClientFixed = null;
+                let unreadCount = 0;
+                let isChatOpen = false;
 
-                var stompClientFixed = null;
-                var isConnected = false;
+                // [AUDIO GỐC]
+                const audioUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-                console.log("👤 FFilm Member Chat Init:", userName);
-
+                // --- 1. UI CONTROL ---
                 function toggleChat() {
-                    var win = document.getElementById('support-chat-window-fixed');
+                    const win = document.getElementById('support-chat-window-fixed');
                     win.classList.toggle('show');
+                    isChatOpen = win.classList.contains('show');
 
-                    if (win.classList.contains('show')) {
-                        connectToChat();
+                    if (isChatOpen) {
+                        // Reset badge ngay lập tức để trải nghiệm mượt
+                        unreadCount = 0;
+                        updateBadge();
+
+                        if (!stompClientFixed) connectToChat();
+
+                        // Load lịch sử và Báo Đã Xem
+                        loadChatHistory(true);
+
                         setTimeout(() => document.getElementById('chat-input-msg').focus(), 100);
                     }
                 }
 
-                function handleEnter(e) {
-                    if (e.key === 'Enter') sendMsg();
+                function updateBadge() {
+                    const badge = document.getElementById('unread-badge');
+                    badge.innerText = unreadCount;
+
+                    // Chỉ hiện nếu > 0
+                    if (unreadCount > 0) {
+                        badge.classList.add('visible');
+                        // [FIX HIỂN THỊ] Đảm bảo badge không bị méo khi số lớn
+                        if (unreadCount > 99) badge.innerText = '99+';
+                    } else {
+                        badge.classList.remove('visible');
+                    }
                 }
 
-                function connectToChat() {
-                    if (isConnected && stompClientFixed) return;
+                function handleEnter(e) { if (e.key === 'Enter') sendMsg(); }
 
-                    var socket = new SockJS('/ws');
+                // --- 2. WEBSOCKET ---
+                function connectToChat() {
+                    if (stompClientFixed) return;
+
+                    const socket = new SockJS('/ws');
                     stompClientFixed = Stomp.over(socket);
-                    stompClientFixed.debug = null; // Tắt log cho gọn
+                    // stompClientFixed.debug = null; 
 
                     stompClientFixed.connect({}, function () {
-                        console.log('✅ WebSocket Connected');
-                        isConnected = true;
+                        console.log("✅ Chat Connected: " + userName);
 
-                        // Lắng nghe tin nhắn trả về của riêng User này
                         stompClientFixed.subscribe('/user/queue/messages', function (payload) {
-                            var msg = JSON.parse(payload.body);
-                            // Chỉ hiện tin nhắn ĐẾN (từ Mod hoặc System)
+                            const msg = JSON.parse(payload.body);
+
+                            // A. Xử lý SEEN_ACK (Mod đã xem)
+                            if (msg.content === 'SEEN_ACK' && msg.status === 'SEEN') {
+                                document.querySelectorAll('.msg-status').forEach(label => {
+                                    if (label.innerText === 'Đã gửi') label.innerText = 'Đã xem';
+                                });
+                                return;
+                            }
+
+                            // B. Xử lý tin nhắn mới
                             if (msg.senderEmail !== userName) {
-                                appendFixedMsg(msg.content, 'received');
+                                if (!isChatOpen) {
+                                    unreadCount++;
+                                    updateBadge();
+                                    playAudio(); // Kêu ting ting
+                                } else {
+                                    appendFixedMsg(msg.content, 'received');
+                                    // Đang mở chat -> Báo đã xem ngay cho người gửi tin này
+                                    markSenderAsSeen(msg.senderEmail);
+                                }
                             }
                         });
 
-                        // Tải lịch sử chat
-                        loadChatHistory();
-
-                    }, function (err) {
-                        console.error('Socket Error:', err);
-                        isConnected = false;
+                        // Load lần đầu để lấy số badge chính xác từ Server
+                        loadChatHistory(false);
                     });
                 }
 
-                function loadChatHistory() {
+                function playAudio() {
+                    const audio = new Audio(audioUrl);
+                    audio.volume = 0.5; // [YÊU CẦU] Độ vang 50%
+                    audio.play().catch(() => { });
+                }
+
+                // --- 3. DATA & MESSAGE ---
+                function loadChatHistory(shouldMarkSeen) {
                     fetch('/api/chat/history/' + userName)
                         .then(res => res.json())
                         .then(msgs => {
-                            var area = document.getElementById('chat-messages-area');
-                            // Reset và thêm lời chào
-                            area.innerHTML = `<div class="chat-msg received">Xin chào <b>${userName}</b>! Bạn cần hỗ trợ gì không?</div>`;
+                            const area = document.getElementById('chat-messages-area');
+                            // Chỉ clear nếu đang mở chat hoặc clear để init
+                            if (isChatOpen || area.innerHTML === "") area.innerHTML = '';
+
+                            if (msgs.length === 0 && isChatOpen) {
+                                area.innerHTML = '<div class="chat-msg received">Xin chào! Chúng tôi có thể giúp gì cho bạn?</div>';
+                            }
+
+                            // [LOGIC MỚI] Đếm chính xác số tin chưa đọc
+                            let serverUnreadCount = 0;
+                            let sendersToMarkSeen = new Set(); // Danh sách các Mod cần báo đã xem
 
                             msgs.forEach(msg => {
-                                var type = (msg.senderEmail === userName) ? 'sent' : 'received';
-                                appendFixedMsg(msg.content, type);
+                                const type = (msg.senderEmail === userName) ? 'sent' : 'received';
+                                let statusText = null;
+
+                                if (type === 'sent') {
+                                    statusText = (msg.status === 'SEEN') ? 'Đã xem' : 'Đã gửi';
+                                } else {
+                                    // Nếu là tin nhận mà chưa SEEN -> Đếm
+                                    if (msg.status !== 'SEEN') {
+                                        serverUnreadCount++;
+                                        // Lưu tên Mod này lại để tí nữa báo đã xem
+                                        sendersToMarkSeen.add(msg.senderEmail);
+                                    }
+                                }
+
+                                // Chỉ render khi chat mở
+                                if (isChatOpen) {
+                                    appendFixedMsg(msg.content, type, statusText);
+                                }
                             });
-                        })
-                        .catch(e => console.log("History empty"));
+
+                            console.log("🔢 Tin chưa đọc từ DB:", serverUnreadCount);
+
+                            // Cập nhật Badge (Nếu chat đang đóng)
+                            if (!isChatOpen) {
+                                unreadCount = serverUnreadCount;
+                                updateBadge();
+                            }
+
+                            // [FIX QUAN TRỌNG] Báo đã xem cho TẤT CẢ các Mod có tin chưa đọc
+                            if (shouldMarkSeen && sendersToMarkSeen.size > 0) {
+                                sendersToMarkSeen.forEach(modEmail => {
+                                    markSenderAsSeen(modEmail);
+                                });
+                            }
+
+                            if (isChatOpen) area.scrollTop = area.scrollHeight;
+                        });
+                }
+
+                // Hàm gọi API báo đã xem
+                function markSenderAsSeen(senderEmail) {
+                    // Bỏ qua tin hệ thống
+                    if (senderEmail === 'SYSTEM_BOT' || senderEmail === 'WAITING_QUEUE') return;
+
+                    console.log("👀 Báo đã xem cho:", senderEmail);
+                    fetch('/api/chat/seen/' + senderEmail, { method: 'PUT' });
                 }
 
                 function sendMsg() {
-                    var input = document.getElementById('chat-input-msg');
-                    var content = input.value.trim();
+                    const input = document.getElementById('chat-input-msg');
+                    const content = input.value.trim();
                     if (!content) return;
 
-                    if (!stompClientFixed || !isConnected) {
-                        connectToChat();
-                        alert("Đang kết nối lại...");
-                        return;
-                    }
+                    if (!stompClientFixed) { connectToChat(); return; }
 
-                    var chatMessage = {
-                        content: content,
-                        senderEmail: userName, // Gửi đúng tên đăng nhập
-                        type: 'CHAT'
-                    };
-
+                    const chatMessage = { content: content, senderEmail: userName, type: 'CHAT' };
                     stompClientFixed.send("/app/chat.sendMessageToModerator", {}, JSON.stringify(chatMessage));
 
-                    // Hiện tin nhắn phía mình
-                    appendFixedMsg(content, 'sent');
+                    appendFixedMsg(content, 'sent', 'Đã gửi');
                     input.value = '';
                 }
 
-                function appendFixedMsg(text, type) {
-                    var area = document.getElementById('chat-messages-area');
-                    var div = document.createElement('div');
+                function appendFixedMsg(text, type, statusText) {
+                    const area = document.getElementById('chat-messages-area');
+                    const div = document.createElement('div');
                     div.className = 'chat-msg ' + type;
-                    div.innerHTML = text; // Dùng innerHTML để render thẻ b hoặc i nếu cần
+                    div.innerText = text;
                     area.appendChild(div);
+
+                    if (type === 'sent' && statusText) {
+                        const stat = document.createElement('div');
+                        stat.className = 'msg-status';
+                        stat.innerText = statusText;
+                        area.appendChild(stat);
+                    }
                     area.scrollTop = area.scrollHeight;
                 }
+
+                document.addEventListener('DOMContentLoaded', connectToChat);
             </script>
         </div>
     </footer>

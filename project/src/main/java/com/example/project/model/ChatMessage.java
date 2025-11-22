@@ -19,6 +19,8 @@ public class ChatMessage {
 
     @Enumerated(EnumType.STRING)
     private MessageType type;
+    @Column(name = "status")
+    private String status;
 
     public enum MessageType {
         CHAT, LOCK, UNLOCK, JOIN
@@ -71,5 +73,13 @@ public class ChatMessage {
     public void setType(MessageType type) {
         this.type = type;
     }
-    
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
 }

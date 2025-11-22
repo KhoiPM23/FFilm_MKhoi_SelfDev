@@ -1,9 +1,9 @@
 'use strict';
 
 // --- BIẾN TOÀN CỤC ---
-const modName = document.querySelector('meta[name="_modName"]').content; // Lấy từ thẻ meta HTML
+const modName = document.querySelector('meta[name="_modName"]').content;
 let stompClient = null;
-let currentChatUser = null; // Email của user đang chat hiện tại
+let currentChatUser = null;
 
 // --- DOM ELEMENTS ---
 const userListUl = document.getElementById('userList');
@@ -17,65 +17,172 @@ const msgInput = document.getElementById('msgInput');
 function connect() {
     const socket = new SockJS('/ws');
     stompClient = Stomp.over(socket);
-
+    // stompClient.debug = null; 
     stompClient.connect({}, onConnected, onError);
 }
 
 function onConnected() {
     console.log("🟢 Connected as Moderator: " + modName);
-
-    // A. Đăng ký Moderator Online
+    
+    // Đăng ký
     stompClient.send("/app/chat.moderatorJoin", {}, JSON.stringify({ senderEmail: modName }));
-
-    // B. Lắng nghe tin nhắn riêng (Được hệ thống chia bài)
+    
+    // Lắng nghe
     stompClient.subscribe('/topic/moderator/' + modName, onPrivateMessageReceived);
-
-    // C. Lắng nghe hàng chờ chung (Khi chưa có Mod nào nhận khách)
     stompClient.subscribe('/topic/admin/queue', onQueueMessageReceived);
-
-    // D. Load danh sách hội thoại cũ
+    
+    // Load data
     loadConversations();
 }
 
-function onError(error) {
-    console.log('🔴 Error connecting to WebSocket:', error);
-}
+function onError(error) { console.log('WebSocket Error:', error); }
 
 // --- 2. XỬ LÝ TIN NHẮN ĐẾN ---
 
-// Tin nhắn riêng (User chat với Mod này hoặc Mod khác reply)
 function onPrivateMessageReceived(payload) {
     const message = JSON.parse(payload.body);
+
+    // Xử lý tín hiệu Đã Xem từ User (SEEN_ACK)
+    if (message.content === 'SEEN_ACK' && message.status === 'SEEN') {
+        if (currentChatUser === message.senderEmail) {
+            // Đổi chữ "Đã gửi" thành "Đã xem" trên màn hình Mod
+            document.querySelectorAll('.msg-status').forEach(label => {
+                if (label.innerText === 'Đã gửi') label.innerText = 'Đã xem';
+            });
+        }
+        return; 
+    }
+
     handleIncomingMessage(message);
 }
 
-// Tin nhắn hàng chờ (User mới chưa ai nhận)
 function onQueueMessageReceived(payload) {
     const message = JSON.parse(payload.body);
-    // Hiển thị badge "NEW" hoặc thêm vào danh sách
     handleIncomingMessage(message, true);
 }
 
 function handleIncomingMessage(message, isQueue = false) {
-    // Xác định đối phương là ai (Nếu mình là người gửi -> đối phương là recipient, ngược lại là sender)
     let otherParty = (message.senderEmail === modName) ? message.recipientEmail : message.senderEmail;
+    if (isQueue) otherParty = message.senderEmail;
 
-    // Nếu tin nhắn đến từ WAITING_QUEUE, hiển thị tên người gửi gốc
-    if (isQueue) {
-        otherParty = message.senderEmail;
-    }
+    // Kiểm tra xem có đang chat với người này không
+    const isNotCurrentChat = (currentChatUser !== otherParty);
 
-    // 1. Cập nhật Sidebar (Đưa user lên đầu danh sách)
-    updateSidebarUser(otherParty, message.content, isQueue);
+    // CẬP NHẬT SIDEBAR (Tăng số đếm nếu không chat)
+    updateSidebarUser(otherParty, message.content, isQueue || isNotCurrentChat);
 
-    // 2. Nếu đang mở chat với user này -> Hiển thị tin nhắn lên màn hình
-    if (currentChatUser === otherParty) {
+    if (!isNotCurrentChat) {
+        // Đang mở chat với người này -> Render tin nhắn
         renderMessage(message);
         scrollToBottom();
+        
+        // [QUAN TRỌNG] Đang chat trực tiếp thì báo Đã xem luôn
+        markAsSeen(otherParty); 
+    } 
+    // KHÔNG CÒN ÂM THANH HAY POPUP NỮA
+}
+
+// --- 3. LOGIC SIDEBAR & ĐẾM SỐ ---
+
+function updateSidebarUser(email, lastMessage, isUnread) {
+    const existingItem = document.getElementById('user-row-' + email);
+
+    if (existingItem) {
+        // Update nội dung tin nhắn cuối
+        existingItem.querySelector('.u-msg').textContent = lastMessage;
+        
+        // Đưa lên đầu danh sách
+        userListUl.prepend(existingItem);
+
+        // Xử lý số đếm (Counter)
+        if (isUnread) {
+            existingItem.classList.add('unread'); // Tô đậm text
+            const badge = existingItem.querySelector('.unread-count');
+            
+            // Lấy số hiện tại + 1
+            let currentCount = parseInt(badge.innerText) || 0;
+            currentCount++;
+            
+            badge.innerText = currentCount;
+            badge.classList.add('visible'); // Hiện badge lên
+        }
+    } else {
+        // Tạo mới user (Nếu chưa có)
+        // Nếu isUnread = true (tin nhắn mới đến) -> Set số là 1, ngược lại là 0
+        createUserListItem(email, lastMessage, isUnread ? 1 : 0);
     }
 }
 
-// --- 3. GỬI TIN NHẮN (REPLY) ---
+function createUserListItem(email, lastMsg, initialCount) {
+    const li = document.createElement('li');
+    li.id = 'user-row-' + email;
+    li.className = 'user-item';
+    
+    // Nếu có tin chưa đọc thì thêm class unread để tô đậm
+    if (initialCount > 0) li.classList.add('unread');
+
+    li.onclick = () => selectUser(email);
+
+    // Class cho badge: nếu count > 0 thì thêm 'visible'
+    let badgeClass = (initialCount > 0) ? 'unread-count visible' : 'unread-count';
+
+    // Cấu trúc HTML mới: Chia Group Text và Badge riêng
+    li.innerHTML = `
+        <div class="user-info-group">
+            <span class="u-email">${email}</span>
+            <span class="u-msg">${lastMsg}</span>
+        </div>
+        <span class="${badgeClass}">${initialCount}</span>
+    `;
+    userListUl.prepend(li);
+}
+
+// --- 4. CHỌN USER (RESET SỐ & BÁO ĐÃ XEM) ---
+
+function selectUser(email) {
+    currentChatUser = email;
+
+    // UI Updates
+    document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
+    
+    const currentItem = document.getElementById('user-row-' + email);
+    if(currentItem) {
+        currentItem.classList.add('active');
+        
+        // [RESET SỐ ĐẾM]
+        currentItem.classList.remove('unread'); // Bỏ tô đậm
+        const badge = currentItem.querySelector('.unread-count');
+        badge.innerText = '0';       // Về 0
+        badge.classList.remove('visible'); // Ẩn đi
+    }
+
+    chatWithUserSpan.textContent = email;
+    emptyState.style.display = 'none';
+    chatWindow.style.display = 'flex';
+    msgContainer.innerHTML = '';
+
+    // Load lịch sử
+    fetch('/api/chat/history/' + email)
+        .then(res => res.json())
+        .then(messages => {
+            messages.forEach(renderMessage);
+            scrollToBottom();
+            
+            // [QUAN TRỌNG] Gọi API báo đã xem khi vừa bấm vào
+            markAsSeen(email);
+        });
+}
+
+// --- 5. CÁC HÀM HỖ TRỢ KHÁC ---
+
+function markAsSeen(senderEmail) {
+    // Gọi API PUT để set status SEEN trong DB
+    fetch('/api/chat/seen/' + senderEmail, { method: 'PUT' })
+        .then(res => {
+            if(res.ok) console.log("Marked as seen for: " + senderEmail);
+        });
+}
+
 function sendMsg() {
     const content = msgInput.value.trim();
     if (content && stompClient && currentChatUser) {
@@ -85,33 +192,20 @@ function sendMsg() {
             content: content,
             type: 'CHAT'
         };
-
         stompClient.send("/app/chat.replyToUser", {}, JSON.stringify(chatMessage));
         msgInput.value = '';
-
-        // Render ngay lập tức phía mình (hoặc đợi server phản hồi cũng được, ở đây render luôn cho mượt)
-        // Lưu ý: Controller của bạn có gửi lại tin nhắn cho Mod qua topic, nên có thể đợi onPrivateMessageReceived để tránh duplicate
-        // Tuy nhiên, để UX tốt, ta thường render luôn. Nhưng vì Controller ĐÃ gửi lại, ta sẽ ĐỢI onPrivateMessageReceived
+        
+        // Render ngay phía mình (Mặc định là Đã gửi)
+        // Lưu ý: appendMessage của hàm renderMessage sẽ xử lý hiển thị
     }
 }
 
-// --- 4. UI & LOGIC HỖ TRỢ ---
-// Trong file static/js/moderator-chat.js
-
 function loadConversations() {
     fetch('/api/chat/conversations')
-        .then(response => {
-            // [FIX] Kiểm tra xem request có thành công không
-            if (!response.ok) {
-                throw new Error('Lỗi Server: ' + response.status);
-            }
-            return response.json();
-        })
+        .then(res => res.ok ? res.json() : [])
         .then(messages => {
-            userListUl.innerHTML = ''; // Clear list cũ
+            userListUl.innerHTML = '';
             const uniqueUsers = new Set();
-
-            // [FIX] Kiểm tra chắc chắn messages là mảng mới chạy forEach
             if (Array.isArray(messages)) {
                 messages.forEach(msg => {
                     let user = (msg.senderEmail === modName) ? msg.recipientEmail : msg.senderEmail;
@@ -119,97 +213,35 @@ function loadConversations() {
 
                     if (!uniqueUsers.has(user)) {
                         uniqueUsers.add(user);
-                        createUserListItem(user, msg.content, false);
+                        // Load lần đầu coi như đã đọc hết (count = 0) cho gọn, 
+                        // hoặc bạn có thể xử lý logic check status 'SENT' để hiện số
+                        createUserListItem(user, msg.content, 0); 
                     }
                 });
             }
-        })
-        .catch(error => {
-            console.error("🔴 Lỗi tải danh sách chat:", error);
-            // Có thể hiển thị thông báo lỗi nhỏ lên giao diện nếu muốn
-        });
-}
-// Tạo hoặc cập nhật user trong sidebar
-function updateSidebarUser(email, lastMessage, isNew) {
-    // Tìm xem user đã có trong list chưa
-    const existingItem = document.getElementById('user-row-' + email);
-
-    if (existingItem) {
-        // Update nội dung và đưa lên đầu
-        existingItem.querySelector('.u-msg').textContent = lastMessage;
-        userListUl.prepend(existingItem); // Move to top
-        if (currentChatUser !== email) {
-            existingItem.classList.add('unread'); // Thêm class để báo tin mới (CSS tự thêm)
-        }
-    } else {
-        // Tạo mới
-        createUserListItem(email, lastMessage, isNew);
-    }
-}
-
-function createUserListItem(email, lastMsg, isNew) {
-    const li = document.createElement('li');
-    li.id = 'user-row-' + email;
-    li.className = 'user-item';
-    li.onclick = () => selectUser(email);
-
-    let badgeHtml = '';
-    if (isNew) {
-        badgeHtml = `<span class="status-badge badge-new">NEW</span>`;
-    }
-
-    li.innerHTML = `
-        ${badgeHtml}
-        <span class="u-email">${email}</span>
-        <span class="u-msg">${lastMsg}</span>
-    `;
-
-    // Insert vào đầu danh sách
-    userListUl.prepend(li);
-}
-
-// Chọn User để chat
-function selectUser(email) {
-    currentChatUser = email;
-
-    // UI Updates
-    document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-    document.getElementById('user-row-' + email)?.classList.add('active');
-
-    chatWithUserSpan.textContent = email;
-    emptyState.style.display = 'none';
-    chatWindow.style.display = 'flex';
-    msgContainer.innerHTML = ''; // Xóa tin nhắn cũ
-
-    // Load lịch sử chat
-    fetch('/api/chat/history/' + email)
-        .then(response => response.json())
-        .then(messages => {
-            messages.forEach(renderMessage);
-            scrollToBottom();
         });
 }
 
-// Render 1 tin nhắn ra màn hình
 function renderMessage(message) {
     const div = document.createElement('div');
-    // Kiểm tra xem tin nhắn là "Gửi đi" (Sent) hay "Nhận về" (Received)
-    // Nếu người gửi là Mod hiện tại -> Sent. Ngược lại -> Received
     const isSent = (message.senderEmail === modName);
-
     div.className = `message-row ${isSent ? 'sent' : 'received'}`;
 
+    let statusHtml = '';
+    if (isSent) {
+        const statusText = (message.status === 'SEEN') ? 'Đã xem' : 'Đã gửi';
+        statusHtml = `<div class="msg-status" style="font-size:10px; color:#888; text-align:right; font-style:italic;">${statusText}</div>`;
+    }
+
     div.innerHTML = `
-        <div class="message-bubble">
-            ${message.content}
-        </div>
+        <div class="message-bubble">${message.content}</div>
         <div style="font-size:10px; color:#555; margin-top:2px; text-align: ${isSent ? 'right' : 'left'}">
             ${new Date(message.timestamp).toLocaleTimeString()}
         </div>
+        ${statusHtml}
     `;
     msgContainer.appendChild(div);
-    scrollToBottom();
-}
+}   
 
 function scrollToBottom() {
     msgContainer.scrollTop = msgContainer.scrollHeight;
@@ -217,14 +249,11 @@ function scrollToBottom() {
 
 function finishChat() {
     if (confirm("Kết thúc phiên chat này?")) {
-        // Logic: Xóa khỏi list hoặc đổi trạng thái
-        // Hiện tại Controller chưa có API finish, ta chỉ clear UI
         currentChatUser = null;
         chatWindow.style.display = 'none';
         emptyState.style.display = 'block';
-        loadConversations(); // Reload lại list
-    }
+        loadConversations();
+    } 
 }
 
-// --- KHỞI CHẠY ---
 connect();

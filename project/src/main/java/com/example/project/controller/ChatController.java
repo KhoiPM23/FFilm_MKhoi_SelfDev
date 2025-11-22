@@ -4,6 +4,7 @@ import com.example.project.dto.UserSessionDto;
 import com.example.project.model.ChatMessage;
 import com.example.project.service.ChatMessageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -87,9 +88,7 @@ public class ChatController {
                 System.out.println("📥 [DEBUG 5] Lưu vào WAITING_QUEUE");
 
                 ChatMessage saved = chatMessageService.saveChatMessage(chatMessage);
-                System.out.println("💾 [DEBUG 6] Đã lưu DB thành công! ID: " + saved.getId()); // <-- Nếu thấy dòng này
-                                                                                               // là DB chắc chắn có
-
+                System.out.println("💾 [DEBUG 6] Đã lưu DB thành công! ID: " + saved.getId()); 
                 messagingTemplate.convertAndSendToUser(senderName, "/queue/messages", saved);
                 messagingTemplate.convertAndSend("/topic/admin/queue", saved);
             } else {
@@ -103,7 +102,6 @@ public class ChatController {
                 messagingTemplate.convertAndSend("/topic/moderator/" + assignedMod, saved);
             }
         } catch (Exception e) {
-            // [QUAN TRỌNG] In lỗi ra Console Server để đọc
             System.err.println("🔥 [CRITICAL ERROR] Lỗi khi xử lý tin nhắn:");
             e.printStackTrace();
         }
@@ -160,5 +158,30 @@ public class ChatController {
         }
 
         return List.of();
+    }
+
+    @PutMapping("/api/chat/seen/{senderEmail}")
+    @ResponseBody
+    public ResponseEntity<String> markAsSeen(@PathVariable String senderEmail, HttpSession session) {
+        // 1. Xác định ai là người đang xem (CurrentUser)
+        String viewerEmail = null;
+        
+        // Check xem là Mod hay User đang gọi
+        Object modSession = session.getAttribute("moderator");
+        Object userSession = session.getAttribute("user");
+
+        if (modSession instanceof UserSessionDto) {
+            viewerEmail = ((UserSessionDto) modSession).getUserName();
+        } else if (userSession instanceof UserSessionDto) {
+            viewerEmail = ((UserSessionDto) userSession).getUserName();
+        }
+
+        if (viewerEmail == null) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+
+        chatMessageService.markMessagesAsSeen(senderEmail, viewerEmail);
+
+        return ResponseEntity.ok("Marked as seen");
     }
 }

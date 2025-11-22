@@ -202,6 +202,58 @@
             color: black;
         }
 
+        /* Style cho item trong danh sách user */
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            /* Để đẩy số sang phải */
+            padding: 15px 20px;
+            border-bottom: 1px solid #2a2a2a;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        /* Phần chứa thông tin Text (Tên + Tin nhắn cuối) */
+        .user-info-group {
+            flex: 1;
+            overflow: hidden;
+            /* Để text dài không bị vỡ */
+            padding-right: 10px;
+        }
+
+        /* Badge đếm số tin chưa đọc */
+        .unread-count {
+            background-color: #E50914;
+            /* Đỏ Netflix */
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            display: none;
+            /* Mặc định ẩn */
+        }
+
+        .unread-count.visible {
+            display: inline-block;
+        }
+
+        /* Khi có tin mới chưa đọc: Làm đậm tên user */
+        .user-item.unread .u-email {
+            color: #fff;
+            font-weight: 900;
+        }
+
+        .user-item.unread .u-msg {
+            color: #B3B3B3;
+            font-weight: 700;
+        }
+
         /* 2.2. Khung Chat Chính (Chat Box) */
         .chat-window {
             flex: 1;
