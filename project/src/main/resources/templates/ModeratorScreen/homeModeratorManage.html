@@ -1,12 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FFilm - Moderator Home Dashboard</title>
-    <!-- Tải Font Awesome cho các icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Tải Font Inter từ Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <style>
         /* Định nghĩa các biến CSS cho màu sắc */
@@ -49,6 +47,7 @@
         .header-controls {
             display: flex;
             align-items: center;
+            gap: 20px; /* Khoảng cách giữa nút Home và Avatar */
         }
 
         .nav-item {
@@ -60,7 +59,6 @@
             transition: background-color 0.2s, color 0.2s;
             display: inline-flex;
             align-items: center;
-            margin-right: 15px;
         }
 
         .nav-item:hover {
@@ -74,18 +72,34 @@
             font-size: 18px;
         }
 
-        .user-info {
+        /* --- CSS MỚI: Phần hiển thị Avatar User (Thay thế user-info cũ) --- */
+        .user-profile-area {
             display: flex;
             align-items: center;
-            color: var(--color-light-gray);
-            font-size: 15px;
-            padding: 8px 0;
+            gap: 10px;
+            cursor: pointer;
         }
 
-        .user-info i {
-            color: var(--color-red); /* Icon user màu đỏ */
-            font-size: 20px;
-            margin-right: 10px;
+        .avatar-circle {
+            width: 40px;
+            height: 40px;
+            background-color: var(--color-red); /* Nền đỏ giống logo */
+            color: var(--color-white);
+            border-radius: 50%; /* Hình tròn */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            text-transform: uppercase;
+            border: 2px solid #fff; /* Viền trắng nhẹ cho nổi */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .user-name-text {
+            color: var(--color-white);
+            font-weight: 600;
+            font-size: 15px;
         }
 
         /* --- Nội dung chính (Dashboard) Styling - Chia 2 cột đều nhau --- */
@@ -153,8 +167,8 @@
                 width: 100%;
             }
             
-            .user-info {
-                display: none; 
+            .user-profile-area {
+                display: none; /* Ẩn trên mobile nếu cần tiết kiệm chỗ */
             }
 
             #dashboard-content {
@@ -175,33 +189,37 @@
 </head>
 <body>
 
-    <!-- 1. Thanh Header -->
     <header id="main-header">
         <div class="logo">FFilm</div>
         <div class="header-controls">
-            <!-- Nút Home -->
-            <a href="moderator_home.html" class="nav-item home-link" aria-label="Trang chủ">
+            <a href="#" class="nav-item home-link" aria-label="Trang chủ">
                 <i class="fas fa-home"></i> Home
             </a>
-            <!-- Thông tin người dùng (Đã đổi thành Moderator) -->
-            <div class="user-info">
-                <i class="fas fa-user-tie"></i> Content Moderator
+            
+            <div class="user-profile-area" th:if="${session.user != null}">
+                <div class="avatar-circle" 
+                     th:text="${#strings.substring(session.user.userName, 0, 1)}">
+                    M
+                </div>
+                <span class="user-name-text" th:text="${session.user.userName}">Moderator</span>
+            </div>
+
+            <div class="user-profile-area" th:unless="${session.user != null}">
+                <div class="avatar-circle">M</div>
+                <span class="user-name-text">Mod (Guest)</span>
             </div>
         </div>
     </header>
 
-    <!-- 2. Nội dung chính - Moderator Dashboard Cards (2 Thẻ) -->
     <main id="dashboard-content">
 
-        <!-- Quản lý Bình luận -->
-        <a href="manage-comments.html" class="dashboard-card comment-card" title="Quản lý Bình luận">
+        <a href="#" class="dashboard-card comment-card" title="Quản lý Bình luận">
             <i class="fas fa-comments"></i>
             <h2>Manage Comments</h2>
             <p>Kiểm duyệt, ẩn, xóa hoặc phản hồi các bình luận không phù hợp của người dùng.</p>
         </a>
         
-        <!-- Quản lý Hỗ trợ Khách hàng (Chat) -->
-        <a href="manage-chat.html" class="dashboard-card chat-card" title="Quản lý Chat Khách hàng">
+        <a th:href="@{/moderator/chat}" class="dashboard-card chat-card" title="Quản lý Chat Khách hàng">
             <i class="fas fa-headset"></i>
             <h2>Manage Customer Chat</h2>
             <p>Tiếp nhận và giải quyết các yêu cầu hỗ trợ trực tiếp từ khách hàng.</p>
