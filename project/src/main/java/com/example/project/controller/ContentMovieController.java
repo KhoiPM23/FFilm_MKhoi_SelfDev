@@ -3,6 +3,8 @@ package com.example.project.controller;
 import com.example.project.dto.MovieRequest;
 import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
+import com.example.project.service.TmdbSyncService;
+
 import jakarta.validation.Valid; // <-- THÊM IMPORT NÀY
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,8 @@ public class ContentMovieController {
     @Autowired
     private MovieService movieService;
 
+    @Autowired
+    private TmdbSyncService tmdbSyncService;
     /**
      * Lấy tất cả phim
      * Endpoint: GET /api/content/movies
@@ -120,5 +124,36 @@ public class ContentMovieController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
+    }
+
+    /**
+     * API MỚI: Admin Trigger Bulk Scan
+     * Gọi: POST /api/content/movies/scan-bulk?fromPage=1&toPage=50
+     */
+    @PostMapping("/scan-bulk")
+    public ResponseEntity<?> scanBulkMovies(
+            @RequestParam(defaultValue = "1") int fromPage,
+            @RequestParam(defaultValue = "10") int toPage) {
+        
+        if (toPage < fromPage) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Page kết thúc phải lớn hơn Page bắt đầu"));
+        }
+        
+        // Gọi service chạy ngầm (Async)
+        tmdbSyncService.startBulkScan(fromPage, toPage);
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true, 
+            "message", "Đã bắt đầu quét ngầm từ trang " + fromPage + " đến " + toPage + ". Bạn có thể đóng tab này."
+        ));
+    }
+
+    /**
+     * API MỚI: Dừng quét khẩn cấp
+     */
+    @PostMapping("/stop-scan")
+    public ResponseEntity<?> stopScan() {
+        tmdbSyncService.stopScan();
+        return ResponseEntity.ok(Map.of("message", "Đã gửi lệnh dừng quét."));
     }
 }

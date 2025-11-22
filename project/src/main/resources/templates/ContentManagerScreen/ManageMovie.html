@@ -685,6 +685,10 @@
       <div class="header">
         <h1>Quản lý phim</h1>
         <div class="header-actions">
+          <button class="btn btn-edit" onclick="openScanModal()"
+            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <i class="fas fa-satellite-dish"></i> Quét Data
+          </button>
           <div class="import-group">
             <input
               type="number"
@@ -725,6 +729,32 @@
       </div>
     </div>
 
+    <div class="modal" id="scanModal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <span class="modal-title">Quét Phim Hàng Loạt</span>
+            <button class="close-modal" onclick="closeScanModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="color: #bbb; margin-bottom: 15px; font-size: 0.9rem;">
+                Quét phim từ danh sách "Popular" của TMDB. <br>
+                (1 trang ~ 20 phim. Quét 500 trang = 10.000 phim).
+            </p>
+            <div class="form-group">
+                <label>Từ trang (Start Page)</label>
+                <input type="number" id="scanFrom" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>Đến trang (End Page)</label>
+                <input type="number" id="scanTo" value="5" min="1">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeScanModal()">Đóng</button>
+            <button class="btn btn-primary" onclick="startBulkScan()">Bắt đầu Quét</button>
+        </div>
+    </div>
+</div>
     <div class="modal" id="movieModal">
       <div class="modal-content">
         <div class="modal-header">
@@ -1228,6 +1258,36 @@
             }[c])
         );
       }
+      function openScanModal() {
+        document.getElementById('scanModal').classList.add('active');
+    }
+    function closeScanModal() {
+        document.getElementById('scanModal').classList.remove('active');
+    }
+
+    async function startBulkScan() {
+        const from = document.getElementById('scanFrom').value;
+        const to = document.getElementById('scanTo').value;
+        
+        closeScanModal();
+        showToast('info', 'Đang gửi yêu cầu quét...');
+
+        try {
+            const res = await fetch(`/api/content/movies/scan-bulk?fromPage=${from}&toPage=${to}`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                showToast('success', 'Đã bắt đầu quét ngầm! Server sẽ tự động tải phim.');
+            } else {
+                showToast('error', data.message || 'Lỗi khi gọi lệnh quét');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('error', 'Không thể kết nối Server');
+        }
+    }
     </script>
   </body>
 </html>

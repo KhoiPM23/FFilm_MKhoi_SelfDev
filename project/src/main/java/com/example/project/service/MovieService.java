@@ -27,7 +27,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import com.example.project.model.Collection;
-import com.example.project.repository.CollectionRepository;
 
 
 @Service
@@ -303,7 +302,7 @@ public class MovieService {
     //---- 5. CORE SYNC HELPERS (PRIVATE) ----
 
     @Transactional
-    private Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
+    public Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
         try {
             // [QUAN TRỌNG] Thêm "release_dates" vào append_to_response
             String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY 
@@ -422,6 +421,14 @@ public class MovieService {
             System.err.println("❌ Lỗi Sync Movie ID " + tmdbId + ": " + e.getMessage());
             return null;
         }
+    }
+
+    @Transactional
+    public void forceUpdateMovie(int tmdbId) {
+        // Tìm phim trong DB
+        Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
+        // Nếu có thì update, chưa có thì tạo mới (tham số thứ 2 là null)
+        fetchAndSaveMovieDetail(tmdbId, existing.orElse(null));
     }
 
     // --- [LOGIC MỚI] HÀM BÓC TÁCH CONTENT RATING ---
