@@ -19,7 +19,7 @@ public class WatchHistoryDto {
         this.movieTitle = history.getMovie().getTitle();
         this.moviePosterPath = history.getMovie().getPosterPath();
         this.lastWatchedAt = history.getLastWatchedAt();
-        this.movieUrl = "/movie/player/" + history.getMovie().getTmdbId();
+        this.movieUrl = "/movie/player/" + history.getMovie().getMovieID();
     }
 
     // Getters and Setters
