@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,90 +8,357 @@
     <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
+
 <body>
 
-<footer th:fragment="footer" class="site-footer">
-    <div class="footer-content">
-        <div class="footer-section">
-            <div class="footer-brand">
-                <img src="/images/footer/logo.jpg" alt="FFilm Logo" class="footer-logo">
-                <h3>FFilm</h3>
+    <footer th:fragment="footer" class="site-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <div class="footer-brand">
+                    <img alt="FFilm Logo" class="footer-logo">
+                    <h3>FFilm</h3>
+                </div>
+                <p class="footer-slogan">Xem phim trực tuyến chất lượng cao</p>
+                <div class="footer-social">
+                    <a href="#" class="social-link" title="Facebook"><i class="fab fa-facebook"></i></a>
+                    <a href="#" class="social-link" title="YouTube"><i class="fab fa-youtube"></i></a>
+                    <a href="#" class="social-link" title="Instagram"><i class="fab fa-instagram"></i></a>
+                </div>
             </div>
-            <p class="footer-slogan">Xem phim trực tuyến chất lượng cao</p>
-            <div class="footer-social">
-                <a href="#" class="social-link" title="Facebook"><i class="fab fa-facebook"></i></a>
-                <a href="#" class="social-link" title="YouTube"><i class="fab fa-youtube"></i></a>
-                <a href="#" class="social-link" title="Instagram"><i class="fab fa-instagram"></i></a>
+
+            <div class="footer-section">
+                <h4>Về FFilm</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Giới thiệu</a></li>
+                    <li><a href="#">Các gói dịch vụ</a></li>
+                    <li><a href="#">Trung tâm hỗ trợ</a></li>
+                    <li><a href="#">Thông tin</a></li>
+                </ul>
             </div>
-        </div>
 
-        <div class="footer-section">
-            <h4>Về FFilm</h4>
-            <ul class="footer-links">
-                <li><a href="#">Giới thiệu</a></li>
-                <li><a href="#">Các gói dịch vụ</a></li>
-                <li><a href="#">Trung tâm hỗ trợ</a></li>
-                <li><a href="#">Thông tin</a></li>
-            </ul>
-        </div>
+            <div class="footer-section">
+                <h4>Dịch vụ</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Quảng cáo</a></li>
+                    <li><a href="#">Mua gói</a></li>
+                    <li><a href="#">Bảo hành</a></li>
+                </ul>
+            </div>
 
-        <div class="footer-section">
-            <h4>Dịch vụ</h4>
-            <ul class="footer-links">
-                <li><a href="#">Quảng cáo</a></li>
-                <li><a href="#">Mua gói</a></li>
-                <li><a href="#">Bảo hành</a></li>
-            </ul>
-        </div>
+            <div class="footer-section">
+                <h4>Quy định</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Điều khoản sử dụng</a></li>
+                    <li><a href="#">Chính sách thanh toán</a></li>
+                    <li><a href="#">Chính sách bảo mật</a></li>
+                    <li><a href="#">Cam kết quyền riêng tư</a></li>
+                </ul>
+            </div>
 
-        <div class="footer-section">
-            <h4>Quy định</h4>
-            <ul class="footer-links">
-                <li><a href="#">Điều khoản sử dụng</a></li>
-                <li><a href="#">Chính sách thanh toán</a></li>
-                <li><a href="#">Chính sách bảo mật</a></li>
-                <li><a href="#">Cam kết quyền riêng tư</a></li>
-            </ul>
-        </div>
-
-        <div class="footer-section">
-            <h4>Thông tin</h4>
-            <p class="footer-contact">
-                <i class="fas fa-phone"></i> Hotline: 19006600
-            </p>
-            <p class="footer-contact">
-                <i class="fas fa-envelope"></i> Email: hotroffilm@fpt.com
-            </p>
-        </div>
-    </div>
-
-    <div class="footer-bottom">
-        <div class="footer-legal">
-            <p>Người đại diện: Ông Hoàng Việt Anh</p>
-            <p>Trụ sở: Tầng 8, tòa nhà FPT Tower, số 10 Phạm Văn Bạch, Cầu Giấy, Hà Nội</p>
-            <p>Số giấy chứng nhận đăng ký kinh doanh: 0101778163 do Sở Kế Hoạch Đầu Tư Thành Phố Hà Nội cấp vào ngày 28/07/2005</p>
-            <p>Giấy phép Cung cấp Dịch vụ Phát thanh, Truyền hình trên mạng Internet số 377/GP-BTTTT cấp ngày 10/10/2023.</p>
-        </div>
-        
-        <div class="footer-apps">
-            <p>Tải ứng dụng trên</p>
-            <div class="app-buttons">
-                <a href="#" class="app-btn-new app-store" aria-label="Tải trên App Store">
-                    <img th:src="@{/images/footer/apple.png}" alt="App Store">
-                </a>
-                <a href="#" class="app-btn-new google-play" aria-label="Tải trên Google Play">
-                    <img th:src="@{/images/footer/CHPlay.png}" alt="Google Play">
-                </a>
+            <div class="footer-section">
+                <h4>Thông tin</h4>
+                <p class="footer-contact">
+                    <i class="fas fa-phone"></i> Hotline: 19006600
+                </p>
+                <p class="footer-contact">
+                    <i class="fas fa-envelope"></i> Email: hotroffilm@fpt.com
+                </p>
             </div>
         </div>
-    </div>
 
-    <div class="footer-copyright">
-        <p>© 2025 FFilm - Xem phim trực tuyến chất lượng cao</p>
-    </div>
-</footer>
+        <div class="footer-bottom">
+            <div class="footer-legal">
+                <p>Người đại diện: Ông Hoàng Việt Anh</p>
+                <p>Trụ sở: Tầng 8, tòa nhà FPT Tower, số 10 Phạm Văn Bạch, Cầu Giấy, Hà Nội</p>
+                <p>Số giấy chứng nhận đăng ký kinh doanh: 0101778163 do Sở Kế Hoạch Đầu Tư Thành Phố Hà Nội cấp vào ngày
+                    28/07/2005</p>
+                <p>Giấy phép Cung cấp Dịch vụ Phát thanh, Truyền hình trên mạng Internet số 377/GP-BTTTT cấp ngày
+                    10/10/2023.</p>
+            </div>
+
+            <div class="footer-apps">
+                <p>Tải ứng dụng trên</p>
+                <div class="app-buttons">
+                    <a href="#" class="app-btn">
+                        <i class="fab fa-apple"></i>
+                        <span>App Store</span>
+                    </a>
+                    <a href="#" class="app-btn">
+                        <i class="fab fa-google-play"></i>
+                        <span>Google Play</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-copyright">
+            <p>© 2025 FFilm - Xem phim trực tuyến chất lượng cao</p>
+        </div>
 
 
+
+        <!-- chatMessageofN -->
+        <div th:if="${session.user != null}">
+
+            <style>
+                .custom-chat-wrapper {
+                    font-family: 'Segoe UI', sans-serif;
+                }
+
+                #support-chat-icon-fixed {
+                    position: fixed !important;
+                    bottom: 130px !important;
+                    right: 20px !important;
+                    width: 68px !important;
+                    height: 68px !important;
+                    background-color: #141414 !important;
+                    border: 2px solid #E50914 !important;
+                    border-radius: 50% !important;
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 2147483647 !important;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8) !important;
+                    transition: transform 0.2s ease;
+                }
+
+                #support-chat-icon-fixed:hover {
+                    transform: scale(1.1);
+                    background-color: #E50914 !important;
+                    color: white !important;
+                }
+
+                #support-chat-icon-fixed i {
+                    font-size: 24px !important;
+                    color: #E50914 !important;
+                }
+
+                #support-chat-icon-fixed:hover i {
+                    color: white !important;
+                }
+
+                #support-chat-window-fixed {
+                    position: fixed !important;
+                    bottom: 200px !important;
+                    right: 30px !important;
+                    width: 340px !important;
+                    height: 450px !important;
+                    background-color: #141414 !important;
+                    border: 1px solid #333 !important;
+                    border-radius: 16px !important;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9) !important;
+                    display: none;
+                    flex-direction: column;
+                    overflow: hidden;
+                    z-index: 2147483647 !important;
+                }
+
+                #support-chat-window-fixed.show {
+                    display: flex !important;
+                }
+
+                .chat-header-fixed {
+                    padding: 15px;
+                    background: linear-gradient(135deg, #b81d24, #E50914);
+                    color: white;
+                    font-weight: bold;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .chat-body-fixed {
+                    flex: 1;
+                    padding: 15px;
+                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    background: #141414;
+                }
+
+                .chat-msg {
+                    padding: 10px 14px;
+                    border-radius: 12px;
+                    max-width: 85%;
+                    font-size: 14px;
+                    color: #fff;
+                    line-height: 1.4;
+                    word-wrap: break-word;
+                }
+
+                .chat-msg.received {
+                    background: #333;
+                    align-self: flex-start;
+                    border-bottom-left-radius: 2px;
+                }
+
+                .chat-msg.sent {
+                    background: #E50914;
+                    align-self: flex-end;
+                    border-bottom-right-radius: 2px;
+                }
+
+                .chat-footer-fixed {
+                    padding: 12px;
+                    border-top: 1px solid #333;
+                    background: #222;
+                    display: flex;
+                    gap: 10px;
+                }
+
+                .chat-input-fixed {
+                    flex: 1;
+                    background: #333;
+                    border: none;
+                    color: white;
+                    padding: 10px;
+                    border-radius: 20px;
+                    outline: none;
+                }
+
+                .chat-send-btn-fixed {
+                    background: none;
+                    border: none;
+                    color: #E50914;
+                    font-size: 20px;
+                    cursor: pointer;
+                }
+            </style>
+
+            <div class="custom-chat-wrapper">
+                <meta name="_userIdentifier" th:content="${session.user.userName}">
+
+                <div id="support-chat-icon-fixed" onclick="toggleChat()">
+                    <i class="fas fa-headset"></i>
+                </div>
+
+                <div id="support-chat-window-fixed">
+                    <div class="chat-header-fixed">
+                        <span><i class="fas fa-headset"></i> Hỗ trợ FFilm</span>
+                        <span onclick="toggleChat()" style="cursor:pointer; font-size: 20px;">&times;</span>
+                    </div>
+                    <div id="chat-messages-area" class="chat-body-fixed">
+                        <div class="chat-msg received">Xin chào <span th:text="${session.user.userName}">User</span>!
+                            Chúng tôi có thể giúp gì cho bạn?</div>
+                    </div>
+                    <div class="chat-footer-fixed">
+                        <input type="text" id="chat-input-msg" class="chat-input-fixed" placeholder="Nhập tin nhắn..."
+                            onkeypress="handleEnter(event)">
+                        <button class="chat-send-btn-fixed" onclick="sendMsg()"><i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+            <script>
+                // Lấy chính xác User từ Session (Đã đảm bảo không null nhờ th:if ở ngoài)
+                const userName = document.querySelector('meta[name="_userIdentifier"]').getAttribute('content');
+
+                var stompClientFixed = null;
+                var isConnected = false;
+
+                console.log("👤 FFilm Member Chat Init:", userName);
+
+                function toggleChat() {
+                    var win = document.getElementById('support-chat-window-fixed');
+                    win.classList.toggle('show');
+
+                    if (win.classList.contains('show')) {
+                        connectToChat();
+                        setTimeout(() => document.getElementById('chat-input-msg').focus(), 100);
+                    }
+                }
+
+                function handleEnter(e) {
+                    if (e.key === 'Enter') sendMsg();
+                }
+
+                function connectToChat() {
+                    if (isConnected && stompClientFixed) return;
+
+                    var socket = new SockJS('/ws');
+                    stompClientFixed = Stomp.over(socket);
+                    stompClientFixed.debug = null; // Tắt log cho gọn
+
+                    stompClientFixed.connect({}, function () {
+                        console.log('✅ WebSocket Connected');
+                        isConnected = true;
+
+                        // Lắng nghe tin nhắn trả về của riêng User này
+                        stompClientFixed.subscribe('/user/queue/messages', function (payload) {
+                            var msg = JSON.parse(payload.body);
+                            // Chỉ hiện tin nhắn ĐẾN (từ Mod hoặc System)
+                            if (msg.senderEmail !== userName) {
+                                appendFixedMsg(msg.content, 'received');
+                            }
+                        });
+
+                        // Tải lịch sử chat
+                        loadChatHistory();
+
+                    }, function (err) {
+                        console.error('Socket Error:', err);
+                        isConnected = false;
+                    });
+                }
+
+                function loadChatHistory() {
+                    fetch('/api/chat/history/' + userName)
+                        .then(res => res.json())
+                        .then(msgs => {
+                            var area = document.getElementById('chat-messages-area');
+                            // Reset và thêm lời chào
+                            area.innerHTML = `<div class="chat-msg received">Xin chào <b>${userName}</b>! Bạn cần hỗ trợ gì không?</div>`;
+
+                            msgs.forEach(msg => {
+                                var type = (msg.senderEmail === userName) ? 'sent' : 'received';
+                                appendFixedMsg(msg.content, type);
+                            });
+                        })
+                        .catch(e => console.log("History empty"));
+                }
+
+                function sendMsg() {
+                    var input = document.getElementById('chat-input-msg');
+                    var content = input.value.trim();
+                    if (!content) return;
+
+                    if (!stompClientFixed || !isConnected) {
+                        connectToChat();
+                        alert("Đang kết nối lại...");
+                        return;
+                    }
+
+                    var chatMessage = {
+                        content: content,
+                        senderEmail: userName, // Gửi đúng tên đăng nhập
+                        type: 'CHAT'
+                    };
+
+                    stompClientFixed.send("/app/chat.sendMessageToModerator", {}, JSON.stringify(chatMessage));
+
+                    // Hiện tin nhắn phía mình
+                    appendFixedMsg(content, 'sent');
+                    input.value = '';
+                }
+
+                function appendFixedMsg(text, type) {
+                    var area = document.getElementById('chat-messages-area');
+                    var div = document.createElement('div');
+                    div.className = 'chat-msg ' + type;
+                    div.innerHTML = text; // Dùng innerHTML để render thẻ b hoặc i nếu cần
+                    area.appendChild(div);
+                    area.scrollTop = area.scrollHeight;
+                }
+            </script>
+        </div>
+    </footer>
 
 </body>
+
 </html>
