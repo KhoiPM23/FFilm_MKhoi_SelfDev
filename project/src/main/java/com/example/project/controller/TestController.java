@@ -28,4 +28,10 @@ public class TestController {
         // Trỏ tới file mới: AdminScreen/ManagePlans.html
         return "AdminScreen/ManagePlans";
     }
+
+    @GetMapping("/admin/manage-comments")
+    public String manageComments() {
+        // Trỏ tới trang quản lý comments của Admin
+        return "AdminScreen/ManageComments";
+    }
 }

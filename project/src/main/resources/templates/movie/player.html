@@ -745,42 +745,7 @@
 
 
 
-        <div class="comments-section">
-          <div class="comments-header">
-            <h2 class="comments-count">
-              <span id="comment-count">0</span>
-              Bình luận
-            </h2>
-          </div>
-
-          <div class="comment-input-box" th:if="${session.user != null}">
-            <div class="user-avatar">
-              <span th:text="${#strings.substring(session.user.userName,0,1).toUpperCase()}">U</span>
-            </div>
-            <div style="flex: 1">
-              <input type="text" id="comment-input-field" placeholder="Viết bình luận..." class="comment-input-field" />
-              <div class="comment-actions">
-                <button class="action-button" id="btn-submit-comment" disabled>
-                  Gửi
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="comment-input-box" th:unless="${session.user != null}"
-            style="background: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
-            <p style="color: #888; margin: 0;">
-              <i class="fas fa-lock" style="margin-right: 8px;"></i>
-              Bạn cần <a href="/login" style="color: #e50914; text-decoration: none;">đăng nhập</a> để bình luận
-            </p>
-          </div>
-
-          <div class="comment-list" id="comment-list">
-            <div style="text-align: center; color: #777; padding: 20px">
-              <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
-            </div>
-          </div>
-        </div>
+        
 
               <div class="engagement-buttons">
                 <div class="like-dislike-container">
@@ -904,73 +869,41 @@
           </div>
 
           <div class="comments-section">
-            <div class="comments-header">
-              <h2 class="comments-count">
-                <span
-                  th:text="${movie.comments != null ? movie.comments.size() : 0}"
-                  >0</span
-                >
-                Bình luận
-              </h2>
+          <div class="comments-header">
+            <h2 class="comments-count">
+              <span id="comment-count">0</span>
+              Bình luận
+            </h2>
+          </div>
+
+          <div class="comment-input-box" th:if="${session.user != null}">
+            <div class="user-avatar">
+              <span th:text="${#strings.substring(session.user.userName,0,1).toUpperCase()}">U</span>
             </div>
-
-            <div class="comment-input-box">
-              <div class="user-avatar"><i class="fas fa-user"></i></div>
-              <div style="flex: 1">
-                <input
-                  type="text"
-                  placeholder="Viết bình luận..."
-                  class="comment-input-field"
-                />
-                <div class="comment-actions">
-                  <button
-                    class="action-button"
-                    id="btn-submit-comment"
-                    disabled
-                  >
-                    Gửi
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="comment-list">
-              <th:block th:if="${not #lists.isEmpty(movie.comments)}">
-                <div class="comment-item" th:each="cmt : ${movie.comments}">
-                  <div
-                    class="user-avatar"
-                    th:text="${cmt.user != null ? #strings.substring(cmt.user.username,0,1).toUpperCase() : 'U'}"
-                  >
-                    U
-                  </div>
-                  <div class="comment-content">
-                    <div class="comment-author">
-                      <span
-                        th:text="${cmt.user != null ? cmt.user.username : 'Ẩn danh'}"
-                        >Username</span
-                      >
-                      <span
-                        class="comment-time"
-                        th:text="${cmt.createAt != null ? #dates.format(cmt.createAt, 'dd/MM/yyyy HH:mm') : 'Vừa xong'}"
-                      >
-                        Vừa xong
-                      </span>
-                    </div>
-                    <p style="color: #ddd" th:text="${cmt.content}">
-                      Nội dung bình luận
-                    </p>
-                  </div>
-                </div>
-              </th:block>
-
-              <div
-                th:if="${#lists.isEmpty(movie.comments)}"
-                style="text-align: center; color: #777; padding: 20px"
-              >
-                Chưa có bình luận nào. Hãy là người đầu tiên!
+            <div style="flex: 1">
+              <input type="text" id="comment-input-field" placeholder="Viết bình luận..." class="comment-input-field" />
+              <div class="comment-actions">
+                <button class="action-button" id="btn-submit-comment" disabled>
+                  Gửi
+                </button>
               </div>
             </div>
           </div>
+
+          <div class="comment-input-box" th:unless="${session.user != null}"
+            style="background: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
+            <p style="color: #888; margin: 0;">
+              <i class="fas fa-lock" style="margin-right: 8px;"></i>
+              Bạn cần <a href="/login" style="color: #e50914; text-decoration: none;">đăng nhập</a> để bình luận
+            </p>
+          </div>
+
+          <div class="comment-list" id="comment-list">
+            <div style="text-align: center; color: #777; padding: 20px">
+              <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
+            </div>
+          </div>
+        </div>
         </div>
         <div class="sidebar">
           <h3 class="section-title">Có thể bạn thích</h3>

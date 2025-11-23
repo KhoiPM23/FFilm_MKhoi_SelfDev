@@ -36,6 +36,12 @@
                 <i class="fas fa-film"></i>
                 <span>Quản lý phim</span>
             </a>
+
+            <a href="/admin/manage-comments" class="nav-item"
+               th:classappend="${currentPage == 'comments'} ? 'active'">
+                <i class="fas fa-comments"></i>
+                <span>Quản lý bình luận</span>
+            </a>
              </nav>
         
         <div class="sidebar-footer">
