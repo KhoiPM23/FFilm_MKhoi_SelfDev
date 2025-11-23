@@ -1,6 +1,5 @@
 package com.example.project.repository;
 
-
 import java.util.List;
 import java.util.Optional;
 
@@ -18,5 +17,7 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
     List<Subscription> findByUser_UserIDAndStatus(Integer userId, boolean status);
 
     List<Subscription> findByUser_UserIDOrderByStartDateDesc(Integer userId);
+
+    boolean existsByUser_UserIDAndStatus(Integer userId, boolean status);
 
 }

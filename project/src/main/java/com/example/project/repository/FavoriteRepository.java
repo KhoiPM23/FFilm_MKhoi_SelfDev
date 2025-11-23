@@ -1,5 +1,7 @@
 package com.example.project.repository;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +23,7 @@ public interface FavoriteRepository extends JpaRepository<UserFavorite, UserFavo
             "JOIN UserFavorite uf ON m.movieID = uf.movieID " +
             "WHERE uf.userID = :userID", nativeQuery = true)
     Page<MovieFavorite> findMoviesByUserID(@Param("userID") Integer userID, Pageable pageable);
+
+    @Query("SELECT uf.movieID FROM UserFavorite uf WHERE uf.userID = :userId")
+    List<Integer> findMovieIdsByUserID(@Param("userId") Integer userId);
 }

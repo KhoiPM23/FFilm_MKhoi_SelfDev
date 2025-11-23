@@ -1,107 +1,130 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title th:text="${banner.get('title')}">Trang chủ</title> 
-    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
-    <link rel="stylesheet" href="/css/footer.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-<div th:replace="fragments/header :: header"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <title th:text="${banner.get('title')}">Trang chủ</title>
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}" />
+    <link rel="stylesheet" href="/css/footer.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div th:replace="fragments/header :: header"></div>
 
-<section class="hero-banner" 
-         id="heroBanner" 
-         th:attr="data-movie-id=${banner.id}, 
+    <section
+      class="hero-banner"
+      id="heroBanner"
+      th:attr="data-movie-id=${banner.id}, 
                   data-title=${banner.title},
                   data-trailer-key=${banner.trailerKey},
                   data-logo-path=${banner.logoPath}"
-         th:style="'background-image: url(' + ${banner.backdrop} + ')'">
-    
-    <div class="hero-video-container" id="heroVideoContainer">
+      th:style="'background-image: url(' + ${banner.backdrop} + ')'"
+    >
+      <div class="hero-video-container" id="heroVideoContainer">
         <div id="heroPlayer"></div>
-    </div>
-    <div class="hero-overlay"></div>
-    
-    <div class="hero-content">
+      </div>
+      <div class="hero-overlay"></div>
+
+      <div class="hero-content">
         <div class="hero-title-container">
-            <img class="hero-logo-image" id="heroLogo" src="" alt="Movie Logo" style="display:none;">
-            <h1 class="hero-title" id="heroTitleText" th:text="${banner.title}">Movie Title</h1>
+          <img
+            class="hero-logo-image"
+            id="heroLogo"
+            src=""
+            alt="Movie Logo"
+            style="display: none"
+          />
+          <h1 class="hero-title" id="heroTitleText" th:text="${banner.title}">
+            Movie Title
+          </h1>
         </div>
-        
+
         <div class="hero-meta">
-            <div class="content-rating" id="contentRating">
-                <span>T13+</span>
-            </div>
-            <div class="rating">
-                <i class="fas fa-star"></i>
-                <span th:text="${banner.rating}">8.5</span>
-            </div>
-            <div class="year" th:text="${banner.year}">2025</div>
-            
-            <div class="duration" id="heroDuration" 
-                th:text="${banner.runtime == '—' ? '—' : banner.runtime + ' phút'}">
-                — phút
-            </div>
-            
-            <div class="country" id="heroCountry" 
-                th:text="${banner.country}">
-                Quốc gia
-            </div>
+          <div class="content-rating" id="contentRating">
+            <span>T13+</span>
+          </div>
+          <div class="rating">
+            <i class="fas fa-star"></i>
+            <span th:text="${banner.rating}">8.5</span>
+          </div>
+          <div class="year" th:text="${banner.year}">2025</div>
+
+          <div
+            class="duration"
+            id="heroDuration"
+            th:text="${banner.runtime == '—' ? '—' : banner.runtime + ' phút'}"
+          >
+            — phút
+          </div>
+
+          <div class="country" id="heroCountry" th:text="${banner.country}">
+            Quốc gia
+          </div>
         </div>
-        
+
         <button class="description-toggle" id="descToggle">
-            <i class="fas fa-chevron-down"></i>
+          <i class="fas fa-chevron-down"></i>
         </button>
-        
+
         <p class="hero-description" id="heroDesc" th:text="${banner.overview}">
-            Movie description here...
+          Movie description here...
         </p>
-        
+
         <div class="hero-actions">
-            <a th:href="@{'/movie/detail/' + ${banner.id}}" class="btn-play">
-                <i class="fas fa-play"></i>
-                Xem ngay
-            </a>
+          <a th:href="@{'/movie/detail/' + ${banner.id}}" class="btn-play">
+            <i class="fas fa-play"></i>
+            Xem ngay
+          </a>
 
-            <div class="action-buttons-group">
-                <button class="btn-circle hero-action-icon hover-like-btn" 
-                        id="heroLikeBtn" 
-                        type="button"
-                        th:data-movie-id="${banner.id}"
-                        th:attr="data-movie-id=${tmdbId}"
-                        th:onclick="'event.stopPropagation(); toggleHoverLike(this)'" 
-                        title="Thêm vào danh sách">
-                    <i class="far fa-heart"></i> 
-                </button>
-                
-                <button class="btn-circle hero-action-icon hover-share-btn" 
-                        id="heroShareBtn" 
-                        type="button"
-                        th:data-movie-id="${banner.id}"
-                        th:data-movie-title="${banner.title}"
-                        th:onclick="'event.stopPropagation(); showShareModal(this)'"
-                        title="Chia sẻ">
-                    <i class="fas fa-share-alt"></i>
-                </button>
-                
-                <div class="action-divider"></div>
+          <div class="action-buttons-group">
+            <button
+              class="btn-circle hero-action-icon hover-like-btn"
+              id="heroLikeBtn"
+              type="button"
+              th:data-movie-id="${banner.id}"
+              th:attr="data-movie-id=${tmdbId}"
+              th:onclick="'event.stopPropagation(); toggleHoverLike(this)'"
+              title="Thêm vào danh sách"
+            >
+              <i class="far fa-heart"></i>
+            </button>
 
-                <button class="btn-circle volume-btn" id="volumeBtn" title="Bật/Tắt tiếng">
-                    <i class="fas fa-volume-mute"></i>
-                </button>
-            </div>
+            <button
+              class="btn-circle hero-action-icon hover-share-btn"
+              id="heroShareBtn"
+              type="button"
+              th:data-movie-id="${banner.id}"
+              th:data-movie-title="${banner.title}"
+              th:onclick="'event.stopPropagation(); showShareModal(this)'"
+              title="Chia sẻ"
+            >
+              <i class="fas fa-share-alt"></i>
+            </button>
+
+            <div class="action-divider"></div>
+
+            <button
+              class="btn-circle volume-btn"
+              id="volumeBtn"
+              title="Bật/Tắt tiếng"
+            >
+              <i class="fas fa-volume-mute"></i>
+            </button>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <div class="mini-carousel">
+      <div class="mini-carousel">
         <div class="mini-carousel-track" id="miniCarousel">
-            <div th:each="movie, iterStat : ${hotMovies}" 
-                class="mini-card"
-                th:classappend="${iterStat.index == 0 ? 'active' : ''}" 
-                th:attr="data-movie-id=${movie.id}, 
+          <div
+            th:each="movie, iterStat : ${hotMovies}"
+            class="mini-card"
+            th:classappend="${iterStat.index == 0 ? 'active' : ''}"
+            th:attr="data-movie-id=${movie.id}, 
                         data-title=${movie.title}, 
                         data-overview=${movie.overview},
                         data-backdrop=${movie.backdrop},  
@@ -109,290 +132,367 @@
                         data-year=${movie.year},
                         data-runtime=${movie.runtime},
                         data-country=${movie.country},
-                        data-content-rating=${movie.contentRating}" 
-                onclick="switchBanner(this)">
-                
-                <img th:src="@{${#strings.replace(movie.backdrop, '/original', '/w500')}}" 
-                    th:alt="${movie.title}" 
-                    onerror="this.src='/images/placeholder.jpg'"> 
-                
-                <div class="mini-card-overlay"></div>
-            </div>
+                        data-content-rating=${movie.contentRating}"
+            onclick="switchBanner(this)"
+          >
+            <img
+              th:src="@{${#strings.replace(movie.backdrop, '/original', '/w500')}}"
+              th:alt="${movie.title}"
+              onerror="this.src='/images/placeholder.jpg'"
+            />
+
+            <div class="mini-card-overlay"></div>
+          </div>
         </div>
-    </div>
-</section>
+      </div>
+    </section>
 
-
-<section class="movies movie-list-section">
-    <div class="section-header">
+    <section class="movies movie-list-section">
+      <div class="section-header">
         <div class="section-title-wrapper">
-             <h2 class="section-title">🔥 Phim Hot</h2>
-             <a href="/discover?quickFilter=trending" class="view-more-link">
-                Xem thêm <i class="fas fa-chevron-right"></i>
-             </a>
+          <h2 class="section-title">🔥 Phim Hot</h2>
+          <a href="/discover?quickFilter=trending" class="view-more-link">
+            Xem thêm <i class="fas fa-chevron-right"></i>
+          </a>
         </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="hotPrevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="nav-btn next-btn" id="hotNextBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn prev-btn" id="hotPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="hotNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
-    </div>
-    
-    <div class="movie-carousel">
+      </div>
+
+      <div class="movie-carousel">
         <div class="movie-slider" id="hotSlider">
-    
-            <div th:each="movie, iterStat : ${hotMovies}" 
-                class="movie-card" 
-                th:classappend="'ranked rank-' + (((${iterStat.index}) % 5) + 1)"
-                th:attr="data-movie-id=${movie.id}">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" 
-                        th:alt="${movie.title}"
-                        onerror="this.src='/images/placeholder.jpg'">
-                    
-                    <div class="ranking-overlay"></div>
-                    <div class="ranking-number" th:text="${iterStat.index + 1}"></div>
-                </div>
-                
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">
-                        ⭐ <span th:text="${movie.rating}">8.5</span>
-                    </p>
-                </div>
-                
-                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+          <div
+            th:each="movie, iterStat : ${hotMovies}"
+            class="movie-card"
+            th:classappend="'ranked rank-' + (((${iterStat.index}) % 5) + 1)"
+            th:attr="data-movie-id=${movie.id}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.poster}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
 
+              <div class="ranking-overlay"></div>
+              <div class="ranking-number" th:text="${iterStat.index + 1}"></div>
             </div>
-        </div>
-    </div>
-</section>
 
-<section class="movies movie-list-section">
-    <div class="section-header">
-         <div class="section-title-wrapper">
-            <h2 class="section-title">🆕 Phim Mới Ra Mắt</h2>
-            <a href="/discover?quickFilter=new" class="view-more-link">
-                Xem thêm <i class="fas fa-chevron-right"></i>
-            </a>
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+              <p class="movie-rating">
+                ⭐ <span th:text="${movie.rating}">8.5</span>
+              </p>
+            </div>
+
+            <div
+              th:replace="~{fragments/hover-card :: hoverCard(${movie})}"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="movies movie-list-section">
+      <div class="section-header">
+        <div class="section-title-wrapper">
+          <h2 class="section-title">🆕 Phim Mới Ra Mắt</h2>
+          <a href="/discover?quickFilter=new" class="view-more-link">
+            Xem thêm <i class="fas fa-chevron-right"></i>
+          </a>
         </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="newPrevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="nav-btn next-btn" id="newNextBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn prev-btn" id="newPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="newNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
-    </div>
-    <div class="movie-carousel">
+      </div>
+      <div class="movie-carousel">
         <div class="movie-slider" id="newSlider">
-            <div th:each="movie : ${newMovies}" 
-                 class="movie-card" 
-                 th:attr="data-movie-id=${movie.id}">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
-                </div>
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                </div>
-                
-                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+          <div
+            th:each="movie : ${newMovies}"
+            class="movie-card"
+            th:attr="data-movie-id=${movie.id}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.poster}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
             </div>
-        </div>
-    </div>
-</section>
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+              <p class="movie-rating">
+                ⭐ <span th:text="${movie.rating}">8.5</span>
+              </p>
+            </div>
 
-<section class="movies movie-list-section">
-    <div class="section-header">
-         <div class="section-title-wrapper">
-            <h2 class="section-title">🎌 Anime Hot</h2>
-            <a href="/discover?genres=16" class="view-more-link">
-                Xem thêm <i class="fas fa-chevron-right"></i>
-            </a>
+            <div
+              th:replace="~{fragments/hover-card :: hoverCard(${movie})}"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="movies movie-list-section">
+      <div class="section-header">
+        <div class="section-title-wrapper">
+          <h2 class="section-title">🎌 Anime Hot</h2>
+          <a href="/discover?genres=16" class="view-more-link">
+            Xem thêm <i class="fas fa-chevron-right"></i>
+          </a>
         </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="animePrevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="nav-btn next-btn" id="animeNextBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn prev-btn" id="animePrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="animeNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
-    </div>
-    <div class="movie-carousel">
+      </div>
+      <div class="movie-carousel">
         <div class="movie-slider" id="animeSlider">
-            <div th:each="movie : ${animeMovies}" 
-                 class="movie-card" 
-                 th:attr="data-movie-id=${movie.id}">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
-                </div>
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                </div>
-                
-                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+          <div
+            th:each="movie : ${animeMovies}"
+            class="movie-card"
+            th:attr="data-movie-id=${movie.id}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.poster}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
             </div>
-        </div>
-    </div>
-</section>
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+              <p class="movie-rating">
+                ⭐ <span th:text="${movie.rating}">8.5</span>
+              </p>
+            </div>
 
-<section class="movies movie-list-section">
-    <div class="section-header">
-         <div class="section-title-wrapper">
-            <h2 class="section-title">👶 Phim Cho Trẻ Em</h2>
-            <a href="/discover?genres=10751" class="view-more-link">
-                Xem thêm <i class="fas fa-chevron-right"></i>
-            </a>
+            <div
+              th:replace="~{fragments/hover-card :: hoverCard(${movie})}"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="movies movie-list-section">
+      <div class="section-header">
+        <div class="section-title-wrapper">
+          <h2 class="section-title">👶 Phim Cho Trẻ Em</h2>
+          <a href="/discover?genres=10751" class="view-more-link">
+            Xem thêm <i class="fas fa-chevron-right"></i>
+          </a>
         </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="kidsPrevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="nav-btn next-btn" id="kidsNextBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn prev-btn" id="kidsPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="kidsNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
-    </div>
-    <div class="movie-carousel">
+      </div>
+      <div class="movie-carousel">
         <div class="movie-slider" id="kidsSlider">
-            <div th:each="movie : ${kidsMovies}" 
-                 class="movie-card" 
-                 th:attr="data-movie-id=${movie.id}">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
-                </div>
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                </div>
-                
-                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+          <div
+            th:each="movie : ${kidsMovies}"
+            class="movie-card"
+            th:attr="data-movie-id=${movie.id}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.poster}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
             </div>
-        </div>
-    </div>
-</section>
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+              <p class="movie-rating">
+                ⭐ <span th:text="${movie.rating}">8.5</span>
+              </p>
+            </div>
 
-<section class="movies movie-list-section">
-    <div class="section-header">
-         <div class="section-title-wrapper">
-            <h2 class="section-title">💥 Phim Hành Động Hot</h2>
-            <a href="/discover?genres=28" class="view-more-link">
-                Xem thêm <i class="fas fa-chevron-right"></i>
-            </a>
+            <div
+              th:replace="~{fragments/hover-card :: hoverCard(${movie})}"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="movies movie-list-section">
+      <div class="section-header">
+        <div class="section-title-wrapper">
+          <h2 class="section-title">💥 Phim Hành Động Hot</h2>
+          <a href="/discover?genres=28" class="view-more-link">
+            Xem thêm <i class="fas fa-chevron-right"></i>
+          </a>
         </div>
         <div class="carousel-nav">
-            <button class="nav-btn prev-btn" id="actionPrevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="nav-btn next-btn" id="actionNextBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn prev-btn" id="actionPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="actionNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
-    </div>
-    <div class="movie-carousel">
+      </div>
+      <div class="movie-carousel">
         <div class="movie-slider" id="actionSlider">
-            <div th:each="movie : ${actionMovies}" 
-                 class="movie-card" 
-                 th:attr="data-movie-id=${movie.id}">
-                
-                <div class="movie-poster">
-                    <img th:src="${movie.poster}" th:alt="${movie.title}" onerror="this.src='/images/placeholder.jpg'">
-                </div>
-                <div class="movie-info">
-                    <h3 th:text="${movie.title}">Movie Title</h3>
-                    <p class="movie-rating">⭐ <span th:text="${movie.rating}">8.5</span></p>
-                </div>
-                
-                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+          <div
+            th:each="movie : ${actionMovies}"
+            class="movie-card"
+            th:attr="data-movie-id=${movie.id}"
+          >
+            <div class="movie-poster">
+              <img
+                th:src="${movie.poster}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
             </div>
+            <div class="movie-info">
+              <h3 th:text="${movie.title}">Movie Title</h3>
+              <p class="movie-rating">
+                ⭐ <span th:text="${movie.rating}">8.5</span>
+              </p>
+            </div>
+
+            <div
+              th:replace="~{fragments/hover-card :: hoverCard(${movie})}"
+            ></div>
+          </div>
         </div>
-    </div>
-</section>
+      </div>
+    </section>
 
-<footer>
-    <div th:replace="fragments/footer :: footer"></div>
-</footer>
+    <footer>
+      <div th:replace="fragments/footer :: footer"></div>
+    </footer>
 
-<script th:inline="javascript">
-    
-    /**
-     * ==============================================================
-     * TỐI ƯU PERFORMANCE: Tải bất đồng bộ 4 carousel
-     * ==============================================================
-     */
-    document.addEventListener('DOMContentLoaded', () => {
+    <script th:inline="javascript">
+      /**
+       * ==============================================================
+       * TỐI ƯU PERFORMANCE: Tải bất đồng bộ 4 carousel
+       * ==============================================================
+       */
+      document.addEventListener("DOMContentLoaded", () => {
         // Tải 4 carousel song song
-        loadAsyncCarousel('/api/movie/home/new', 'newSlider');
-        loadAsyncCarousel('/api/movie/home/anime', 'animeSlider');
-        loadAsyncCarousel('/api/movie/home/kids', 'kidsSlider');
-        loadAsyncCarousel('/api/movie/home/action', 'actionSlider');
-    });
+        loadAsyncCarousel("/api/movie/home/new", "newSlider");
+        loadAsyncCarousel("/api/movie/home/anime", "animeSlider");
+        loadAsyncCarousel("/api/movie/home/kids", "kidsSlider");
+        loadAsyncCarousel("/api/movie/home/action", "actionSlider");
+      });
 
-    /**
-     * Hàm helper: Tải 1 carousel bằng AJAX
-     */
-    async function loadAsyncCarousel(apiUrl, targetSliderId) {
+      /**
+       * Hàm helper: Tải 1 carousel bằng AJAX
+       */
+      async function loadAsyncCarousel(apiUrl, targetSliderId) {
         const slider = document.getElementById(targetSliderId);
         if (!slider) return;
 
         try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error('API failed');
-            
-            const movies = await response.json();
-            
-            if (movies && movies.length > 0) {
-                // Render HTML
-                slider.innerHTML = movies.map(movie => createMovieCardHTML(movie)).join('');
-                
-                // Kích hoạt lại Hover Cards (từ script.js)
-                if (typeof initHoverCards === 'function') {
-                    initHoverCards();
-                }
+          const response = await fetch(apiUrl);
+          if (!response.ok) throw new Error("API failed");
 
-                // Kích hoạt lại Carousels (từ script.js)
-                // Phải gọi initializeAllCarousels() vì các nút bấm đã có trong DOM
-                if (typeof initializeAllCarousels === 'function') {
-                    initializeAllCarousels();
-                }
-            } else {
-                // Ẩn cả section nếu không có phim
-                if (slider.closest('.movie-list-section')) {
-                    slider.closest('.movie-list-section').style.display = 'none';
-                }
+          const movies = await response.json();
+
+          if (movies && movies.length > 0) {
+            // Render HTML
+            slider.innerHTML = movies
+              .map((movie) => createMovieCardHTML(movie))
+              .join("");
+
+            // Kích hoạt lại Hover Cards (từ script.js)
+            if (typeof initHoverCards === "function") {
+              initHoverCards();
             }
+
+            // Kích hoạt lại Carousels (từ script.js)
+            // Phải gọi initializeAllCarousels() vì các nút bấm đã có trong DOM
+            if (typeof initializeAllCarousels === "function") {
+              initializeAllCarousels();
+            }
+          } else {
+            // Ẩn cả section nếu không có phim
+            if (slider.closest(".movie-list-section")) {
+              slider.closest(".movie-list-section").style.display = "none";
+            }
+          }
         } catch (error) {
-            console.error(`Lỗi tải ${targetSliderId}:`, error);
-            if (slider.closest('.movie-list-section')) {
-                slider.closest('.movie-list-section').style.display = 'none';
-            }
+          console.error(`Lỗi tải ${targetSliderId}:`, error);
+          if (slider.closest(".movie-list-section")) {
+            slider.closest(".movie-list-section").style.display = "none";
+          }
         }
-    }
+      }
 
-    /**
-     * Hàm helper: Tạo HTML cho 1 movie card (dùng JSON)
-     * (Tái sử dụng logic từ hover-card.html và script.js)
-     */
-    function createMovieCardHTML(movie) {
+      /**
+       * Hàm helper: Tạo HTML cho 1 movie card (dùng JSON)
+       * (Tái sử dụng logic từ hover-card.html và script.js)
+       */
+      function createMovieCardHTML(movie) {
         const movieId = movie.id;
         // Hàm escape HTML an toàn
-        const escapeHtml = (str) => (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
-        
-        const safeTitle = escapeHtml(movie.title || 'Unknown');
-        const safeOverview = escapeHtml(movie.overview || 'Đang tải mô tả...');
-        const poster = movie.poster || '/images/placeholder.jpg';
-        const backdrop = movie.backdrop || '/images/placeholder.jpg';
-        const rating = movie.rating || '—';
-        const year = movie.year || '—';
-        
+        const escapeHtml = (str) =>
+          (str || "").replace(
+            /[&<>"']/g,
+            (m) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              }[m])
+          );
+
+        const safeTitle = escapeHtml(movie.title || "Unknown");
+        const safeOverview = escapeHtml(movie.overview || "Đang tải mô tả...");
+        const poster = movie.poster || "/images/placeholder.jpg";
+        const backdrop = movie.backdrop || "/images/placeholder.jpg";
+        const rating = movie.rating || "—";
+        const year = movie.year || "—";
+
         // [MỚI] Lấy dữ liệu chi tiết ngay lập tức
-        const runtime = movie.runtime || '—';
-        const contentRating = movie.contentRating || 'T';
-        const country = movie.country || 'Quốc tế';
+        const runtime = movie.runtime || "—";
+        const contentRating = movie.contentRating || "T";
+        const country = movie.country || "Quốc tế";
 
         // [CODE MỚI] Xử lý Genre có Tooltip chuẩn
         let genresHtml = '<span class="genre-tag">Không có</span>';
         if (movie.genres && movie.genres.length > 0) {
-            // 1. Hai thẻ đầu tiên
-            genresHtml = movie.genres.slice(0, 2).map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('');
-            
-            // 2. Các thẻ còn lại (Tooltip)
-            if (movie.genres.length > 2) {
-                const remaining = movie.genres.slice(2);
-                const tooltipHtml = remaining.map(g => `<div class="genre-bubble">${escapeHtml(g)}</div>`).join('');
-                
-                genresHtml += `
+          // 1. Hai thẻ đầu tiên
+          genresHtml = movie.genres
+            .slice(0, 2)
+            .map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`)
+            .join("");
+
+          // 2. Các thẻ còn lại (Tooltip)
+          if (movie.genres.length > 2) {
+            const remaining = movie.genres.slice(2);
+            const tooltipHtml = remaining
+              .map((g) => `<div class="genre-bubble">${escapeHtml(g)}</div>`)
+              .join("");
+
+            genresHtml += `
                     <span class="genre-tag genre-tag-more" 
                         onmouseenter="if(window.showGenreTooltip) window.showGenreTooltip(this)" 
                         onmouseleave="if(window.hideGenreTooltip) window.hideGenreTooltip(this)">
@@ -400,7 +500,7 @@
                         <div class="custom-genre-tooltip">${tooltipHtml}</div>
                     </span>
                 `;
-            }
+          }
         }
 
         const playerId = `hover-player-async-${movieId}`;
@@ -430,7 +530,9 @@
                             <i class="fas fa-play"></i> Xem ngay
                         </button>
                         <button class="hover-action-icon hover-like-btn" type="button" 
-                                data-movie-id="${movieId}" data-tmdb-id="${movie.tmdbId || movieId}"
+                                data-movie-id="${movieId}" data-tmdb-id="${
+          movie.tmdbId || movieId
+        }"
                                 onclick="event.stopPropagation(); window.toggleHoverLike(this)" 
                                 title="Thêm vào danh sách">
                             <i class="far fa-heart"></i>
@@ -459,17 +561,16 @@
             </div>
         </div>
         `;
-    }
-</script>
+      }
+    </script>
 
-<script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
 
-<div th:replace="fragments/ai-chat :: ai-chat"></div>
-<script th:src="@{/js/movie/ai-agent.js}" defer></script>
-<script src="/js/movie/share-modal.js"></script>
-<script src="/js/script.js"></script>
+    <div th:replace="fragments/ai-chat :: ai-chat"></div>
+    <script th:src="@{/js/movie/ai-agent.js}" defer></script>
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
 
-<div th:replace="fragments/share-modal :: shareModal"></div>
-
-</body>
+    <div th:replace="fragments/share-modal :: shareModal"></div>
+  </body>
 </html>
