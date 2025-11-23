@@ -224,24 +224,35 @@ function loadConversations() {
 
 function renderMessage(message) {
     const div = document.createElement('div');
-    const isSent = (message.senderEmail === modName);
+
+    const isSent = (message.senderEmail !== currentChatUser);
+
     div.className = `message-row ${isSent ? 'sent' : 'received'}`;
 
     let statusHtml = '';
-    if (isSent) {
-        const statusText = (message.status === 'SEEN') ? 'Đã xem' : 'Đã gửi';
-        statusHtml = `<div class="msg-status" style="font-size:10px; color:#888; text-align:right; font-style:italic;">${statusText}</div>`;
-    }
+    let senderNameHtml = '';
 
+    if (isSent) {
+        if (message.senderEmail === modName) {
+            const statusText = (message.status === 'SEEN') ? 'Đã xem' : 'Đã gửi';
+            statusHtml = `<div class="msg-status" style="font-size:10px; color:#888; text-align:right; font-style:italic;">${statusText}</div>`;
+        }
+        else {
+            senderNameHtml = `<div style="font-size:10px; color:#ccc; margin-bottom:2px; text-align:right;">Gửi bởi: <b>${message.senderEmail}</b></div>`;
+        }
+    }
     div.innerHTML = `
-        <div class="message-bubble">${message.content}</div>
+        ${senderNameHtml}
+        <div class="message-bubble">
+            ${message.content}
+        </div>
         <div style="font-size:10px; color:#555; margin-top:2px; text-align: ${isSent ? 'right' : 'left'}">
             ${new Date(message.timestamp).toLocaleTimeString()}
         </div>
         ${statusHtml}
     `;
     msgContainer.appendChild(div);
-}   
+}
 
 function scrollToBottom() {
     msgContainer.scrollTop = msgContainer.scrollHeight;
