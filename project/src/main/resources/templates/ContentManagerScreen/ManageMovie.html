@@ -52,7 +52,23 @@
         padding: 20px;
         border-right: 1px solid var(--border-color);
         z-index: 100;
+        display: flex;
+        flex-direction: column;
       }
+      .sidebar-footer {
+    margin-top: auto; /* Đẩy xuống dưới cùng */
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.logout-btn {
+    color: #ff6b6b !important; /* Màu đỏ nhạt */
+    transition: all 0.3s;
+}
+.logout-btn:hover {
+    background: rgba(220, 53, 69, 0.1) !important;
+    color: #dc3545 !important;
+}
 
       .logo {
         color: var(--primary-color);
@@ -362,6 +378,36 @@
         gap: 8px;
         justify-content: center;
       }
+      /* [MỚI] Style cho ô tìm kiếm local */
+.search-box {
+    position: relative;
+    margin-right: 10px;
+}
+
+.search-box input {
+    background: var(--background-surface);
+    border: 1px solid var(--border-color);
+    padding: 10px 40px 10px 16px; /* Padding phải lớn để tránh icon */
+    border-radius: 8px;
+    color: var(--text-primary);
+    width: 250px; /* Độ rộng vừa phải */
+    outline: none;
+    transition: all 0.3s;
+}
+
+.search-box input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.1);
+}
+
+.search-box i {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    pointer-events: none;
+}
 
       /* Modal */
       .modal {
@@ -679,12 +725,28 @@
           <span>Quản lý Feedback</span>
         </a>
       </nav>
+      <div class="sidebar-footer">
+        <a href="/logout" class="nav-item logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Đăng xuất</span>
+        </a>
+    </div>
     </div>
 
     <div class="main-content">
       <div class="header">
         <h1>Quản lý phim</h1>
         <div class="header-actions">
+          <select id="filterFree" class="filter-select" onchange="resetAndLoad()"
+            style="padding: 10px; border-radius: 8px; background: #1a1a1a; color: white; border: 1px solid #333; margin-right: 10px;">
+            <option value="">Tất cả loại</option>
+            <option value="true">Miễn phí</option>
+            <option value="false">Trả phí (VIP)</option>
+          </select>
+          <div class="search-box">
+            <input type="text" id="localSearchInput" placeholder="Tìm phim trong kho..." onkeyup="handleLocalSearch()">
+            <i class="fas fa-search"></i>
+          </div>
           <button class="btn btn-edit" onclick="openScanModal()"
             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
             <i class="fas fa-satellite-dish"></i> Quét Data
@@ -727,6 +789,7 @@
           <p>Hãy thêm phim mới hoặc import từ TMDB.</p>
         </div>
       </div>
+      <div id="pagination" style="padding: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;"></div>
     </div>
 
     <div class="modal" id="scanModal">
@@ -903,20 +966,50 @@
       let currentMode = "add";
       let currentId = null;
 
-      document.addEventListener("DOMContentLoaded", loadMovies);
-
-      async function loadMovies() {
-        try {
-          const response = await fetch(API_URL);
-          if (!response.ok) throw new Error("Failed to fetch movies");
-          const movies = await response.json();
-          renderTable(movies);
-        } catch (error) {
-          console.error(error);
-          showToast("error", "Không thể tải danh sách phim.");
+      document.addEventListener('DOMContentLoaded', () => loadMovies(0));
+      async function loadMovies(page) {
+        // [CHỐT CHẶN AN TOÀN]
+        // Nếu page không phải là số (ví dụ: là Event, null, undefined...) -> Ép về 0 ngay lập tức
+        if (typeof page !== 'number' || isNaN(page)) {
+            page = 0;
         }
-      }
 
+        currentPage = page;
+        const keyword = document.getElementById('localSearchInput').value.trim();
+        const isFree = document.getElementById('filterFree').value;
+        const tbody = document.getElementById('movieTableBody');
+        
+        if (tbody) tbody.style.opacity = '0.5';
+
+        // URL bây giờ sẽ luôn sạch đẹp: page=0, page=1...
+        let url = `/api/content/movies/manage?page=${page}&size=${pageSize}&sortBy=movieID&direction=desc`;
+        
+        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+        if (isFree) url += `&isFree=${isFree}`;
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Load failed'); // Nếu lỗi server -> nhảy xuống catch
+            
+            const data = await res.json();
+            
+            renderTable(data.content);
+            
+            // Kiểm tra hàm renderPagination có tồn tại không trước khi gọi
+            if (typeof renderPagination === 'function') {
+                renderPagination(data);
+            }
+            
+        } catch (error) {
+            console.error("Chi tiết lỗi:", error);
+            // Chỉ hiện Toast nếu không phải lỗi do người dùng hủy request (AbortError)
+            if (error.name !== 'AbortError') {
+                showToast('error', 'Lỗi tải dữ liệu: ' + error.message);
+            }
+        } finally {
+            if (tbody) tbody.style.opacity = '1';
+        }
+    }
       /**
        * Đây là hàm đã được sửa lỗi logic hiển thị poster
        */
@@ -1287,6 +1380,143 @@
             console.error(e);
             showToast('error', 'Không thể kết nối Server');
         }
+    }
+    // [MỚI] Xử lý tìm kiếm local
+    let searchTimeout = null;
+
+    function handleLocalSearch() {
+        const query = document.getElementById('localSearchInput').value.trim();
+        
+        // Xóa timeout cũ nếu người dùng vẫn đang gõ
+        if (searchTimeout) clearTimeout(searchTimeout);
+
+        // Đặt timeout mới (chờ 500ms sau khi ngừng gõ)
+        searchTimeout = setTimeout(() => {
+            performSearch(query);
+        }, 500);
+    }
+
+    async function performSearch(query) {
+        const tbody = document.getElementById('movieTableBody');
+        
+        // Hiệu ứng loading nhẹ (tùy chọn)
+        tbody.style.opacity = '0.5';
+
+        try {
+            let url = API_URL; // Mặc định lấy tất cả (/api/content/movies)
+            
+            if (query) {
+                // Nếu có từ khóa, gọi endpoint search mới
+                url = `${API_URL}/search?query=${encodeURIComponent(query)}`;
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Search failed");
+            
+            const movies = await response.json();
+            renderTable(movies);
+            
+        } catch (error) {
+            console.error(error);
+            showToast("error", "Lỗi khi tìm kiếm phim.");
+        } finally {
+            tbody.style.opacity = '1';
+        }
+    } 
+    // --- BIẾN TOÀN CỤC ---
+    let currentPage = 0;
+    const pageSize = 20;
+   
+
+    // --- KHỞI TẠO ---
+    document.addEventListener('DOMContentLoaded', () => loadMovies(0));
+
+    // --- HÀM RESET VÀ LOAD (Dùng khi đổi filter/search) ---
+    function resetAndLoad() {
+        loadMovies(0);
+    }
+
+    function handleLocalSearch() {
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => loadMovies(0), 500); // Debounce 500ms
+    }
+
+    // --- HÀM LOAD DATA CHÍNH (GỌI API /manage) ---
+    async function loadMovies(page) {
+        currentPage = page;
+        const keyword = document.getElementById('localSearchInput').value.trim();
+        const isFree = document.getElementById('filterFree').value;
+        const tbody = document.getElementById('movieTableBody');
+        
+        tbody.style.opacity = '0.5'; // Hiệu ứng loading
+
+        // Xây dựng URL
+        let url = `/api/content/movies/manage?page=${page}&size=${pageSize}&sortBy=movieID&direction=desc`;
+        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+        if (isFree) url += `&isFree=${isFree}`;
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Load failed');
+            
+            const data = await res.json(); // data là Page object {content: [], totalPages: ...}
+            
+            renderTable(data.content); // Render bảng từ content
+            renderPagination(data);    // Render nút phân trang
+            
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Lỗi tải dữ liệu');
+        } finally {
+            tbody.style.opacity = '1';
+        }
+    }
+
+    function renderPagination(pageData) {
+        const container = document.getElementById('pagination');
+        
+        // [THÊM ĐOẠN CHECK NÀY] Nếu không tìm thấy thẻ div, dừng lại ngay để không báo lỗi
+        if (!container) {
+            console.warn("Không tìm thấy thẻ div có id='pagination'. Vui lòng thêm vào HTML.");
+            return;
+        }
+        
+        container.innerHTML = '';
+
+        // Nếu chỉ có 1 trang hoặc không có dữ liệu thì không cần hiện phân trang
+        if (pageData.totalPages <= 1) return;
+
+        // Nút Trước (Previous)
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-secondary'; 
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.disabled = pageData.first;
+        prevBtn.onclick = () => loadMovies(pageData.number - 1);
+        container.appendChild(prevBtn);
+
+        // Hiển thị số trang (Trang hiện tại / Tổng trang)
+        const infoSpan = document.createElement('span');
+        // Sửa lại màu chữ cho dễ nhìn trên nền tối
+        infoSpan.style.cssText = "color: #b3b3b3; font-size: 0.9rem; font-weight: 500; margin: 0 10px;";
+        infoSpan.innerText = `Trang ${pageData.number + 1} / ${pageData.totalPages}`;
+        container.appendChild(infoSpan);
+
+        // Nút Sau (Next)
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-secondary';
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.disabled = pageData.last;
+        nextBtn.onclick = () => loadMovies(pageData.number + 1);
+        container.appendChild(nextBtn);
+    }
+
+    function createPageBtn(html, onClick, disabled) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-secondary'; // Tận dụng class có sẵn
+        btn.innerHTML = html;
+        btn.disabled = disabled;
+        if(!disabled) btn.onclick = onClick;
+        return btn;
     }
     </script>
   </body>

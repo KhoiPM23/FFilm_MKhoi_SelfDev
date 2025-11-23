@@ -15,7 +15,13 @@ import com.example.project.dto.MovieSearchFilters;
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Join;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable; 
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils; // [Fix lỗi hasText]
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.text.NumberFormat;
@@ -1516,5 +1522,40 @@ public class MovieService {
         movie.setUrl(request.getUrl());
         movie.setPosterPath(request.getPosterPath());
         movie.setBackdropPath(request.getBackdropPath());
+    }
+    /**
+     * [MỚI] Hàm lọc phim nâng cao cho trang quản lý
+     * Hỗ trợ: Tìm kiếm (ID/Tên), Lọc (Free/Paid), Phân trang
+     */
+    public Page<Movie> getAdminMovies(String keyword, Boolean isFree, Pageable pageable) {
+        return movieRepository.findAll((Specification<Movie>) (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 1. Tìm theo từ khóa (Tên hoặc ID)
+            if (StringUtils.hasText(keyword)) {
+                String likePattern = "%" + keyword.trim() + "%";
+                Predicate titleLike = cb.like(root.get("title"), likePattern);
+                
+                // Thử parse ID nếu keyword là số
+                Predicate idEqual = null;
+                try {
+                    int id = Integer.parseInt(keyword.trim());
+                    idEqual = cb.equal(root.get("movieID"), id);
+                } catch (NumberFormatException e) {}
+
+                if (idEqual != null) {
+                    predicates.add(cb.or(titleLike, idEqual));
+                } else {
+                    predicates.add(titleLike);
+                }
+            }
+
+            // 2. Lọc theo trạng thái Free/Paid
+            if (isFree != null) {
+                predicates.add(cb.equal(root.get("isFree"), isFree));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
     }
 }

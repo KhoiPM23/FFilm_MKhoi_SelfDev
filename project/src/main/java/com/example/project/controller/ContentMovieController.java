@@ -7,10 +7,14 @@ import com.example.project.service.TmdbSyncService;
 
 import jakarta.validation.Valid; // <-- THÊM IMPORT NÀY
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Map;
 
@@ -155,5 +159,32 @@ public class ContentMovieController {
     public ResponseEntity<?> stopScan() {
         tmdbSyncService.stopScan();
         return ResponseEntity.ok(Map.of("message", "Đã gửi lệnh dừng quét."));
+    }
+    @GetMapping("/search")
+    public ResponseEntity<List<Movie>> searchMovies(@RequestParam String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.ok(movieService.getAllMovies());
+        }
+        // Hàm searchMoviesByTitle đã có sẵn trong MovieService (dùng LIKE %query%)
+        List<Movie> results = movieService.searchMoviesByTitle(query.trim());
+        return ResponseEntity.ok(results);
+    }
+    /**
+     * [API CHÍNH] Tìm kiếm + Lọc + Phân trang
+     */
+    @GetMapping("/manage")
+    public ResponseEntity<Page<Movie>> getMoviesForManagement(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean isFree,
+            @RequestParam(defaultValue = "movieID") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+        
+        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        PageRequest pageable = PageRequest.of(page, size, sort);
+        
+        Page<Movie> moviePage = movieService.getAdminMovies(keyword, isFree, pageable);
+        return ResponseEntity.ok(moviePage);
     }
 }
