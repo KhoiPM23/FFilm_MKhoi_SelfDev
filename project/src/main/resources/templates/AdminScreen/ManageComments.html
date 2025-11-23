@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản Lý Bình Luận</title>
+    <link rel="stylesheet" href="/css/ManageAccount.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom styles for comment management */
+        .comment-content {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .comment-content.expanded {
+            white-space: normal;
+            overflow: visible;
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--color-red);
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .expand-btn:hover {
+            text-decoration: underline;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-approved {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-deleted {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .movie-title {
+            color: var(--color-red);
+            font-weight: 500;
+        }
+
+        .user-name {
+            color: #60a5fa;
+            font-weight: 500;
+        }
+
+        .comment-date {
+            color: var(--color-light-gray);
+            font-size: 13px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .btn-delete {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .btn-delete:hover {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-restore {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .btn-restore:hover {
+            background-color: #10b981;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{fragments/admin-sidebar :: sidebar}"></div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1>Quản lý bình luận</h1>
+            <div class="header-actions">
+                <div class="search-box">
+                    <input type="text" placeholder="Tìm kiếm bình luận..." id="searchInput">
+                    <i class="fas fa-search"></i>
+                </div>
+                <button class="btn btn-secondary" onclick="exportComments()">
+                    <i class="fas fa-file-export"></i>
+                    <span>Xuất dữ liệu</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tổng bình luận</span>
+                    <div class="stat-icon red">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="totalComments">0</div>
+                <div class="stat-change">
+                    <i class="fas fa-info-circle"></i> Tất cả bình luận
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Đang hoạt động</span>
+                    <div class="stat-icon blue">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="approvedComments">0</div>
+                <div class="stat-change">
+                    <i class="fas fa-arrow-up"></i> Bình luận approved
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Đã xóa</span>
+                    <div class="stat-icon yellow">
+                        <i class="fas fa-trash-alt"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="deletedComments">0</div>
+                <div class="stat-change">
+                    <i class="fas fa-arrow-down"></i> Bình luận deleted
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container">
+            <div class="table-header">
+                <span class="table-title">Danh sách bình luận</span>
+                <div class="filter-group">
+                    <select class="filter-select" id="statusFilter">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="approved">Đang hoạt động</option>
+                        <option value="deleted">Đã xóa</option>
+                    </select>
+                    <select class="filter-select" id="movieFilter">
+                        <option value="">Tất cả phim</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="refreshComments()">
+                        <i class="fas fa-sync-alt"></i> Làm mới
+                    </button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 60px">ID</th>
+                        <th style="width: 150px">Người dùng</th>
+                        <th style="width: 200px">Phim</th>
+                        <th>Nội dung</th>
+                        <th style="width: 120px">Ngày tạo</th>
+                        <th style="width: 100px">Trạng thái</th>
+                        <th style="width: 120px">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="commentsTableBody">
+                    <!-- Comments will be loaded here by JavaScript -->
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: var(--color-light-gray);">
+                            <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <!-- Pagination will be generated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmModal" style="display: none;">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="modalTitle">Xác nhận</h2>
+                <button class="close-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-primary" id="confirmBtn" onclick="confirmAction()">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/admin/admin-comments.js"></script>
+</body>
+
+</html>

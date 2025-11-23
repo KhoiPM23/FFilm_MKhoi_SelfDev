@@ -25,6 +25,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // === BỔ SUNG CÁC RULE BẢO VỆ ADMIN ===
                 .requestMatchers("/api/admin/**", "/admin/**", "/manage-account").hasRole("ADMIN")
+                .requestMatchers("/api/comments/admin/**").hasRole("ADMIN")  // Thêm dòng này
                 .requestMatchers("/api/content/**", "/manage-movies", "/ContentManagerScreen/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")
                 .requestMatchers("/ModeratorScreen/**").hasAnyRole("ADMIN", "MODERATOR")
                 // ======================================

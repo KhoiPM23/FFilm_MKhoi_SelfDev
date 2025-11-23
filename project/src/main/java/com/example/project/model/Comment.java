@@ -3,6 +3,7 @@ package com.example.project.model;
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,7 +16,6 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-
 @Entity
 @Table(name = "Comment")
 public class Comment {
@@ -23,21 +23,25 @@ public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int commentID;
-    
+
     @NotBlank(message = "content is required")
     private String content;
 
     @NotNull(message = "CreateAt is required")
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    @Column(name ="create_at")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
+    @Column(name = "create_at")
     private Date createAt;
     private String status;
 
     @ManyToOne
+    @JsonIgnoreProperties({ "comments", "reviews", "reports", "subscriptions", "payments", "watchHistories",
+            "password" })
     @JoinColumn(name = "userID")
     private User user;
 
     @ManyToOne
+    @JsonIgnoreProperties({ "comments", "reviews", "reports", "seasons", "persons", "genres", "categories",
+            "watchHistories" })
     @JoinColumn(name = "movieID")
     private Movie movie;
 
@@ -47,8 +51,7 @@ public class Comment {
 
     public Comment() {
     }
-    
-    
+
     public Comment(String content, Date createAt, String status, User user, Movie movie, Comment parentComment) {
         this.content = content;
         this.createAt = createAt;
@@ -57,7 +60,6 @@ public class Comment {
         this.movie = movie;
         this.parentComment = parentComment;
     }
-
 
     public int getCommentID() {
         return commentID;
@@ -115,5 +117,4 @@ public class Comment {
         this.parentComment = parentComment;
     }
 
-    
 }
