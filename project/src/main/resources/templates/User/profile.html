@@ -364,6 +364,68 @@
                 margin-top: 5px;
             }
         }
+        .avatar-img.premium {
+            border-color: #FFD700; /* Vàng kim */
+            color: #FFD700;
+            background: linear-gradient(135deg, #1a1a1a 0%, #332b00 100%);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            position: relative;
+        }
+
+        /* 2. Badge Premium lấp lánh */
+        .membership-badge.premium {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #000;
+            border: none;
+            font-weight: 800;
+            padding: 5px 15px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+            animation: glow 2s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.2); }
+            to { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+        }
+
+        /* 3. Badge thường (Basic) */
+        .membership-badge.free {
+            background: rgba(255, 255, 255, 0.1);
+            color: #b3b3b3;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 4. Icon vương miện */
+        .crown-icon {
+            position: absolute;
+            top: -18px;
+            right: -12px;
+            font-size: 28px;
+            color: #FFD700;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+            transform: rotate(20deg);
+            z-index: 10;
+            animation: floatCrown 3s ease-in-out infinite;
+        }
+
+        @keyframes floatCrown {
+            0%, 100% { transform: rotate(20deg) translateY(0); }
+            50% { transform: rotate(20deg) translateY(-3px); }
+        }
+        
+        /* Link nâng cấp */
+        .upgrade-link {
+            font-size: 13px; 
+            color: #e50914; 
+            margin-left: 10px; 
+            text-decoration: none; 
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .upgrade-link:hover {
+            color: #ff4d4d;
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -371,18 +433,35 @@
 
     <div class="profile-card">
         <div class="profile-header">
-            <div class="avatar-container">
-                <div class="avatar-img">
-                    <i class="fas fa-user"></i>
-                </div>
-            </div>
-            <div class="profile-title">
-                <h2>Xin chào, <span th:text="${userProfile.userName}"
-                        style="display:inline; color:inherit; font-size:inherit;">User</span>!</h2>
-                <span>Quản lý thông tin cá nhân và bảo mật</span>
-                <span class="membership-badge"><i class="fas fa-check-circle"></i> Tài khoản FFlix</span>
-            </div>
+    <div class="avatar-container">
+        <div class="avatar-img" th:classappend="${isVip} ? 'premium' : ''">
+            <i class="fas fa-user"></i>
         </div>
+        
+        <i class="fas fa-crown crown-icon" th:if="${isVip}"></i>
+    </div>
+    
+    <div class="profile-title">
+        <h2>Xin chào, <span th:text="${userProfile.userName}">User</span></h2>
+        
+        <div th:if="${isVip}">
+            <span style="color: #FFD700; font-weight: 500;">Thành viên Thượng hạng</span>
+            <span class="membership-badge premium">
+                <i class="fas fa-crown"></i> PREMIUM
+            </span>
+        </div>
+        
+        <div th:unless="${isVip}">
+            <span>Thành viên Thường</span>
+            <span class="membership-badge free">
+                <i class="fas fa-user"></i> BASIC
+            </span>
+            <a th:href="@{/subscriptionPlan}" class="upgrade-link">
+                Nâng cấp ngay <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
 
         <div style="margin-top: 20px;">
             <div th:if="${message}" class="alert alert-success">
@@ -419,9 +498,8 @@
             <a th:href="@{/}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Quay lại
             </a>
-            <a th:href="@{/payment/history}" class="action-btn"
-                style="background: #2a2a2a; color: white; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fas fa-receipt"></i> Lịch sử Giao dịch
+            <a th:href="@{/payment/history}" class="btn btn-secondary">
+                <i class="fas fa-receipt"></i> Giao dịch
             </a>
             <button onclick="toggleEditForm()" class="btn btn-primary">
                 <i class="fas fa-pen-to-square"></i> Chỉnh sửa hồ sơ

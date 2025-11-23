@@ -152,14 +152,7 @@ public class ContentMovieController {
         ));
     }
 
-    /**
-     * API MỚI: Dừng quét khẩn cấp
-     */
-    @PostMapping("/stop-scan")
-    public ResponseEntity<?> stopScan() {
-        tmdbSyncService.stopScan();
-        return ResponseEntity.ok(Map.of("message", "Đã gửi lệnh dừng quét."));
-    }
+    
     @GetMapping("/search")
     public ResponseEntity<List<Movie>> searchMovies(@RequestParam String query) {
         if (query == null || query.trim().isEmpty()) {
@@ -186,5 +179,32 @@ public class ContentMovieController {
         
         Page<Movie> moviePage = movieService.getAdminMovies(keyword, isFree, pageable);
         return ResponseEntity.ok(moviePage);
+    }
+    /** API MỚI: Kích hoạt Quét Thông Minh */
+    @PostMapping("/scan-smart")
+    public ResponseEntity<?> triggerSmartScan() {
+        tmdbSyncService.startSmartScan();
+        return ResponseEntity.ok(Map.of("message", "Đã khởi động Quét Thông Minh (Mục tiêu 5000 phim)..."));
+    }
+
+    /** API MỚI: Kích hoạt Quét Nông (Daily) */
+    @PostMapping("/scan-daily")
+    public ResponseEntity<?> triggerDailyScan() {
+        tmdbSyncService.scanDailyUpdate();
+        return ResponseEntity.ok(Map.of("message", "Đã khởi động Cập nhật Hàng Ngày..."));
+    }
+
+    /** API MỚI: Dừng quét */
+    @PostMapping("/stop-scan")
+    public ResponseEntity<?> stopScan() {
+        tmdbSyncService.stopScan();
+        return ResponseEntity.ok(Map.of("message", "Đã gửi lệnh DỪNG quét."));
+    }
+
+    // [THÊM MỚI] API để giao diện hỏi server: "Đang chạy không?"
+    @GetMapping("/scan-status")
+    public ResponseEntity<?> getScanStatus() {
+        boolean running = tmdbSyncService.isScanning(); // Gọi hàm vừa thêm ở bước 1
+        return ResponseEntity.ok(Map.of("isRunning", running));
     }
 }

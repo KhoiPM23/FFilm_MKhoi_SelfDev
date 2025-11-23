@@ -218,52 +218,71 @@ public class MovieService {
         return fetchAndSaveMovieDetail(tmdbId, null);
     }
 
-    // Đồng bộ phim từ API List (LAZY): Chỉ lưu bản "cụt" (partial).
-    // Dùng cho Trang Danh Sách/Search/Carousel.
+    /**
+     * [CORE] Hàm xử lý phim từ danh sách TMDB
+     * Logic: Lọc Rác -> Kiểm tra tồn tại -> Ghi đè (Update) hoặc Tạo mới (Create)
+     */
     @Transactional
     public Movie syncMovieFromList(JSONObject jsonItem) {
         int tmdbId = jsonItem.optInt("id");
-        if (tmdbId <= 0)
+        if (tmdbId <= 0) return null;
+
+        // --- BỘ LỌC CHẤT LƯỢNG ---
+        // --- BỘ LỌC CHẤT LƯỢNG (CẬP NHẬT) ---
+        String posterPath = jsonItem.optString("poster_path", null);
+        String backdropPath = jsonItem.optString("backdrop_path", null);
+
+        // [LOGIC MỚI] Bắt buộc phải có cả Poster VÀ Backdrop
+        // Nếu thiếu 1 trong 2 thì bỏ qua luôn (return null)
+        if (!isValidImage(posterPath) || !isValidImage(backdropPath)) {
+            // System.out.println("⚠️ Bỏ qua phim ID " + tmdbId + " vì thiếu ảnh.");
             return null;
+        }
 
-        // ----- Lọc phim spam/18+
-        // if (jsonItem.optBoolean("adult", false)) return null;
-        // if (jsonItem.optDouble("vote_average", 0) < 0.1) return null;
-        // if (jsonItem.optInt("vote_count", 0) < 5) return null;
+        // 2. Lọc theo Vote & Adult
+        boolean isAdult = jsonItem.optBoolean("adult", false);
+        int voteCount = jsonItem.optInt("vote_count", 0);
+        double voteAverage = jsonItem.optDouble("vote_average", 0.0);
 
-        // ----- Kiểm tra DB: Nếu đã có, trả về ngay (KHÔNG GHI ĐÈ)
+        // Phim 18+ cần >50 vote để tránh clip rác. Phim thường cần >5 vote.
+        if (isAdult && voteCount < 50) return null;
+        if (!isAdult && voteCount < 5) return null;
+        // -------------------------
+
+        // --- XỬ LÝ GHI ĐÈ / TẠO MỚI ---
+        Movie movie;
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
+
         if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        // ----- Tạo mới bản "cụt"
-        System.out.println("✳️ [Movie LAZY] Tạo mới bản cụt cho ID: " + tmdbId);
-        Movie movie = new Movie();
-        movie.setTmdbId(tmdbId);
-
-        // Lấy các trường cơ bản
-        movie.setTitle(jsonItem.optString("title", jsonItem.optString("name", "N/A")));
-        movie.setDescription(jsonItem.optString("overview", null));
-        movie.setPosterPath(jsonItem.optString("poster_path", null));
-        movie.setBackdropPath(jsonItem.optString("backdrop_path", null));
-        movie.setRating((float) jsonItem.optDouble("vote_average", 0.0));
-        movie.setReleaseDate(parseDate(jsonItem.optString("release_date", jsonItem.optString("first_air_date"))));
-
-        // Lấy Duration + Country
-        movie.setDuration(jsonItem.optInt("runtime", 0));
-        JSONArray countries = jsonItem.optJSONArray("production_countries");
-        if (countries != null && countries.length() > 0) {
-            movie.setCountry(countries.getJSONObject(0).optString("name"));
+            movie = existing.get();
+            // System.out.println("🔄 [UPDATE] ID: " + tmdbId + " | Rating cũ: " + movie.getRating() + " -> Mới: " + voteAverage);
         } else {
-            movie.setCountry(null);
+            movie = new Movie();
+            movie.setTmdbId(tmdbId);
+            // System.out.println("✳️ [NEW] ID: " + tmdbId);
         }
 
-        // Đặt cờ "N/A" (Chờ Eager lấp đầy)
-        movie.setDirector("N/A");
-        movie.setLanguage("N/A");
+        // --- CẬP NHẬT THÔNG TIN (Cho cả mới và cũ) ---
+        movie.setTitle(jsonItem.optString("title", jsonItem.optString("name", "N/A")));
+        movie.setDescription(jsonItem.optString("overview", ""));
+        movie.setPosterPath(posterPath);
+        movie.setBackdropPath(jsonItem.optString("backdrop_path", null));
+        
+        // Cập nhật Rating mới nhất (QUAN TRỌNG: Ghi đè rating cũ)
+        movie.setRating((float) voteAverage);
+        // movie.setVoteCount(voteCount); // Nếu Entity Movie có field này thì bỏ comment
 
-        // Thể loại
+        // Xử lý ngày phát hành
+        String dateStr = jsonItem.optString("release_date", jsonItem.optString("first_air_date"));
+        if (dateStr != null && !dateStr.isEmpty()) {
+            try {
+                // Giả sử bạn có hàm parseDate hoặc dùng SimpleDateFormat
+                // movie.setReleaseDate(...); 
+                movie.setReleaseDate(java.sql.Date.valueOf(dateStr)); // Cách đơn giản nếu chuỗi chuẩn yyyy-MM-dd
+            } catch (Exception e) { }
+        }
+
+        // Xử lý Thể loại (Map lại nếu TMDB thay đổi)
         JSONArray genreIdsJson = jsonItem.optJSONArray("genre_ids");
         if (genreIdsJson != null && genreIdsJson.length() > 0) {
             List<Integer> genreIds = new ArrayList<>();
@@ -273,6 +292,10 @@ public class MovieService {
             List<Genre> genres = genreRepository.findByTmdbGenreIdIn(genreIds);
             movie.setGenres(new HashSet<>(genres));
         }
+        
+        // Mặc định cho các trường bắt buộc khác nếu tạo mới
+        if (movie.getDirector() == null) movie.setDirector("Updating...");
+        if (movie.getCountry() == null) movie.setCountry("N/A");
 
         return movieRepository.save(movie);
     }
@@ -353,12 +376,23 @@ public class MovieService {
     public Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
         try {
             // [QUAN TRỌNG] Thêm "release_dates" vào append_to_response
+            // [QUAN TRỌNG] Đổi include_adult=true để lấy dữ liệu gốc nếu phim đó đã qua vòng lọc ở trên
             String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY
                     + "&language=vi-VN&append_to_response=credits,videos,images,keywords,release_dates"
-                    + "&include_image_language=vi,en,null&include_video_language=vi,en,null&include_adult=false";
+                    + "&include_image_language=vi,en,null&include_video_language=vi,en,null&include_adult=true";
 
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
+
+            // --- [LOGIC MỚI] KIỂM TRA ẢNH NGAY SAU KHI GỌI API ---
+            String poster = json.optString("poster_path", null);
+            String backdrop = json.optString("backdrop_path", null);
+
+            // Nếu thiếu 1 trong 2 ảnh -> KHÔNG LƯU, return null ngay lập tức
+            if (!isValidImage(poster) || !isValidImage(backdrop)) {
+                System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thiếu Poster hoặc Banner.");
+                return null; 
+            }
 
             Movie movie = (movieToUpdate != null) ? movieToUpdate : new Movie();
 
@@ -473,6 +507,11 @@ public class MovieService {
             System.err.println("❌ Lỗi Sync Movie ID " + tmdbId + ": " + e.getMessage());
             return null;
         }
+    }
+
+    // Helper check ảnh hợp lệ
+    private boolean isValidImage(String path) {
+        return path != null && !path.isEmpty() && !"null".equals(path) && path.length() > 4;
     }
 
     @Transactional

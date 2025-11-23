@@ -747,9 +747,19 @@
             <input type="text" id="localSearchInput" placeholder="Tìm phim trong kho..." onkeyup="handleLocalSearch()">
             <i class="fas fa-search"></i>
           </div>
-          <button class="btn btn-edit" onclick="openScanModal()"
-            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-            <i class="fas fa-satellite-dish"></i> Quét Data
+          <button id="btnSmart" class="btn" onclick="handleScan('scan-smart')"
+            style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none;">
+            <i class="fas fa-brain"></i> Quét Thông Minh
+          </button>
+          
+          <button id="btnDaily" class="btn" onclick="handleScan('scan-daily')"
+            style="background: linear-gradient(135deg, #f6d365, #fda085); color: #333; border: none;">
+            <i class="fas fa-sun"></i> Cập Nhật (Daily)
+          </button>
+          
+          <button id="btnStop" class="btn" onclick="handleScan('stop-scan')"
+            style="background: #dc3545; color: white; border: none; display: none;">
+            <i class="fas fa-stop-circle"></i> Dừng Quét
           </button>
           <div class="import-group">
             <input
@@ -1463,7 +1473,14 @@ async function loadMovies(page = 0) {
    
 
     // --- KHỞI TẠO ---
-    document.addEventListener('DOMContentLoaded', () => loadMovies(0));
+document.addEventListener('DOMContentLoaded', () => {
+    loadMovies(0);     // Tải danh sách phim
+    checkScanStatus(); // Kiểm tra ngay xem server có đang quét không
+    
+    // [QUAN TRỌNG] Tạo nhịp tim: Kiểm tra trạng thái mỗi 3 giây
+    // Giúp nút tự động bật/tắt mà không cần reload trang
+    setInterval(checkScanStatus, 3000); 
+});
 
     // --- HÀM RESET VÀ LOAD (Dùng khi đổi filter/search) ---
     function resetAndLoad() {
@@ -1552,6 +1569,86 @@ async function loadMovies(page = 0) {
         if(!disabled) btn.onclick = onClick;
         return btn;
     }
+
+    // Hàm xử lý gọi API Scan
+    async function handleScan(type) {
+        const btnSmart = document.getElementById('btnSmart');
+        const btnDaily = document.getElementById('btnDaily');
+        const btnStop = document.getElementById('btnStop');
+        let confirmMsg = "";
+
+        if (type === 'scan-smart') confirmMsg = "Quét thông minh sẽ tìm phim Việt, Collection và cân bằng 5000 phim. Tiếp tục?";
+        if (type === 'scan-daily') confirmMsg = "Cập nhật phim Trending & Mới ra hôm nay. Tiếp tục?";
+        if (type === 'stop-scan') confirmMsg = "Bạn muốn dừng tiến trình quét ngay lập tức?";
+
+        if (!confirm(confirmMsg)) return;
+
+        // UI Logic: Bấm quét -> Hiện nút Stop, Ẩn nút Quét
+        if (type !== 'stop-scan') {
+            btnSmart.disabled = true;
+            btnDaily.disabled = true;
+            btnStop.style.display = 'inline-block';
+            showToast('info', 'Đang gửi lệnh...');
+        } else {
+            // Bấm Stop -> Hiện lại nút Quét
+            btnSmart.disabled = false;
+            btnDaily.disabled = false;
+            btnStop.style.display = 'none';
+        }
+
+        try {
+            const response = await fetch(`/api/content/movies/${type}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                showToast('success', data.message);
+                // Nếu là lệnh stop thì reload bảng sau 1s để thấy kết quả dừng
+                if (type === 'stop-scan') setTimeout(() => loadMovies(0), 1000);
+            } else {
+                showToast('error', 'Lỗi: ' + data.message);
+                // Reset nút nếu lỗi
+                if (type !== 'stop-scan') {
+                    btnSmart.disabled = false;
+                    btnDaily.disabled = false;
+                    btnStop.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Lỗi kết nối server!');
+            btnSmart.disabled = false;
+            btnDaily.disabled = false;
+            btnStop.style.display = 'none';
+        }
+    }
+    // [HÀM MỚI] Kiểm tra trạng thái quét từ server
+async function checkScanStatus() {
+    try {
+        const res = await fetch('/api/content/movies/scan-status');
+        const data = await res.json();
+        
+        const btnSmart = document.getElementById('btnSmart');
+        const btnDaily = document.getElementById('btnDaily');
+        const btnStop = document.getElementById('btnStop');
+
+        if (data.isRunning) {
+            // Nếu Server bảo ĐANG CHẠY -> Hiện nút Dừng, Khóa nút Quét
+            if(btnSmart) btnSmart.disabled = true;
+            if(btnDaily) btnDaily.disabled = true;
+            if(btnStop) btnStop.style.display = 'inline-block';
+        } else {
+            // Nếu Server bảo ĐÃ DỪNG -> Ẩn nút Dừng, Mở nút Quét
+            if(btnSmart) btnSmart.disabled = false;
+            if(btnDaily) btnDaily.disabled = false;
+            if(btnStop) btnStop.style.display = 'none';
+        }
+    } catch (e) {
+        console.error("Lỗi kiểm tra trạng thái:", e);
+    }
+}
     </script>
   </body>
 </html>

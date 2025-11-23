@@ -8,6 +8,7 @@ import com.example.project.dto.UserSessionDto; // <-- IMPORT QUAN TRỌNG
 import com.example.project.model.PasswordResetToken;
 import com.example.project.model.User;
 import com.example.project.service.UserService;
+import com.example.project.service.SubscriptionService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserAuthenticationController {
 
     private final UserService userService;
+    private final SubscriptionService subscriptionService;
 
     // Giữ lại các mapping @GetMapping cho admin, moderator nếu bạn có
     // (Trong file bạn gửi không có, nhưng file zip có)
@@ -259,15 +261,17 @@ public class UserAuthenticationController {
         // 1. LẤY DTO TỪ SESSION
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
         if (userSession == null) {
-            // Nếu không có "user" trong session, thử tìm "admin" hoặc các role khác
-            // (Tùy logic của bạn, ở đây giả định chỉ "user" mới vào /profile)
             return "redirect:/login";
         }
 
-        // 2. LẤY ENTITY MỚI TỪ DB (Cách này luôn an toàn)
+        // 2. LẤY ENTITY MỚI TỪ DB
         User currentUser = userService.getUserById(userSession.getId());
 
-        // 3. Tạo DTO cho form
+        // 3. Kiểm tra trạng thái VIP (Premium)
+        boolean isVip = subscriptionService.checkActiveSubscription(currentUser.getUserID()); // <--- 3. Kiểm tra VIP
+        model.addAttribute("isVip", isVip); // <--- 4. Truyền vào Model
+
+        // 4. Tạo DTO cho form
         UserProfileUpdateDto updateDto = new UserProfileUpdateDto(
                 currentUser.getUserID(),
                 currentUser.getUserName(),
