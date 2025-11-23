@@ -20,8 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils; // [Fix lỗi hasText]
 import jakarta.persistence.criteria.Predicate;
-import java.util.ArrayList;
-import java.util.List;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.text.NumberFormat;
@@ -1251,6 +1250,21 @@ public class MovieService {
     public Movie createMovie(MovieRequest request) {
         Movie movie = new Movie();
         mapRequestToMovie(request, movie);
+        
+        // --- [FIX LOGIC] ---
+        // Tạo tmdbId giả định (số âm) dựa trên timestamp để đảm bảo unique và không null
+        int generatedId = (int) (System.currentTimeMillis() / 1000) * -1;
+        movie.setTmdbId(generatedId);
+        
+        // Thiết lập các giá trị mặc định khác để tránh lỗi null
+        if (movie.getDirector() == null) movie.setDirector("N/A");
+        if (movie.getLanguage() == null) movie.setLanguage("Việt Nam"); // Hoặc N/A
+        if (movie.getCountry() == null) movie.setCountry("Việt Nam");   // Mặc định phim thủ công
+        if (movie.getVoteCount() == null) movie.setVoteCount(0);
+        if (movie.getPopularity() == null) movie.setPopularity(0.0);
+        if (movie.getBudget() == null) movie.setBudget(0L);
+        if (movie.getRevenue() == null) movie.setRevenue(0L);
+        
         return movieRepository.save(movie);
     }
 

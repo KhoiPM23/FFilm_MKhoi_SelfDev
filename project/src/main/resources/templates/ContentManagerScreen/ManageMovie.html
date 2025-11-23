@@ -849,15 +849,7 @@
               </div>
               <div class="form-group">
                 <label for="rating">Rating (0-10) *</label>
-                <input
-                  type="number"
-                  id="rating"
-                  step="0.1"
-                  value="0.0"
-                  min="0"
-                  max="10"
-                  required
-                />
+                <input type="number" id="rating" step="any" value="0.0" min="0" max="10" required />
               </div>
 
               <div class="form-group full-width">
@@ -967,121 +959,163 @@
       let currentId = null;
 
       document.addEventListener('DOMContentLoaded', () => loadMovies(0));
-      async function loadMovies(page) {
-        // [CHỐT CHẶN AN TOÀN]
-        // Nếu page không phải là số (ví dụ: là Event, null, undefined...) -> Ép về 0 ngay lập tức
-        if (typeof page !== 'number' || isNaN(page)) {
-            page = 0;
+      // Khai báo biến controller ở phạm vi ngoài hàm (Global variable)
+let currentRequestController = null;
+
+async function loadMovies(page = 0) {
+    // 1. [XỬ LÝ THAM SỐ AN TOÀN] 
+    // Nếu page không được truyền vào (undefined/null) hoặc không phải số -> Gán mặc định về 0 (trang đầu)
+    if (page === undefined || page === null || isNaN(page)) {
+        page = 0;
+    }
+
+    // 2. [HỦY REQUEST CŨ] (Debounce/Cancel previous request)
+    // Nếu đang có một request loadMovies khác đang chạy, hủy nó ngay lập tức
+    if (currentRequestController) {
+        currentRequestController.abort();
+    }
+    // Tạo controller mới cho request lần này
+    currentRequestController = new AbortController();
+    const signal = currentRequestController.signal;
+
+    // Cập nhật biến toàn cục currentPage để dùng cho phân trang
+    currentPage = page;
+
+    const keyword = document.getElementById('localSearchInput').value.trim();
+    const isFree = document.getElementById('filterFree').value;
+    const tbody = document.getElementById('movieTableBody');
+    
+    // Hiệu ứng mờ bảng để người dùng biết đang tải
+    if (tbody) tbody.style.opacity = '0.5';
+
+    // Xây dựng URL
+    let url = `/api/content/movies/manage?page=${page}&size=${pageSize}&sortBy=movieID&direction=desc`;
+    if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+    if (isFree) url += `&isFree=${isFree}`;
+
+    try {
+        // Truyền 'signal' vào fetch để có thể hủy nếu cần
+        const res = await fetch(url, { signal });
+        
+        if (!res.ok) throw new Error('Load failed'); 
+        
+        const data = await res.json();
+        
+        // Render dữ liệu
+        renderTable(data.content);
+        
+        // Render phân trang
+        if (typeof renderPagination === 'function') {
+            renderPagination(data);
         }
-
-        currentPage = page;
-        const keyword = document.getElementById('localSearchInput').value.trim();
-        const isFree = document.getElementById('filterFree').value;
-        const tbody = document.getElementById('movieTableBody');
         
-        if (tbody) tbody.style.opacity = '0.5';
-
-        // URL bây giờ sẽ luôn sạch đẹp: page=0, page=1...
-        let url = `/api/content/movies/manage?page=${page}&size=${pageSize}&sortBy=movieID&direction=desc`;
+    } catch (error) {
+        // [QUAN TRỌNG] Nếu lỗi do mình chủ động hủy (AbortError) thì bỏ qua, không báo lỗi đỏ
+        if (error.name === 'AbortError') {
+            console.log('Hủy request cũ để ưu tiên request mới.');
+            return; 
+        }
         
-        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
-        if (isFree) url += `&isFree=${isFree}`;
-
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('Load failed'); // Nếu lỗi server -> nhảy xuống catch
-            
-            const data = await res.json();
-            
-            renderTable(data.content);
-            
-            // Kiểm tra hàm renderPagination có tồn tại không trước khi gọi
-            if (typeof renderPagination === 'function') {
-                renderPagination(data);
-            }
-            
-        } catch (error) {
-            console.error("Chi tiết lỗi:", error);
-            // Chỉ hiện Toast nếu không phải lỗi do người dùng hủy request (AbortError)
-            if (error.name !== 'AbortError') {
-                showToast('error', 'Lỗi tải dữ liệu: ' + error.message);
-            }
-        } finally {
+        console.error("Chi tiết lỗi:", error);
+        // Chỉ hiện thông báo lỗi nếu không phải do hủy request
+        if (typeof showToast === 'function') {
+            showToast('error', 'Lỗi tải dữ liệu: ' + error.message);
+        }
+    } finally {
+        // Chỉ tắt hiệu ứng loading nếu request này KHÔNG bị hủy
+        if (!signal.aborted) {
             if (tbody) tbody.style.opacity = '1';
+            currentRequestController = null; // Reset controller
         }
     }
+}
       /**
        * Đây là hàm đã được sửa lỗi logic hiển thị poster
        */
       function renderTable(movies) {
-        const tbody = document.getElementById("movieTableBody");
-        const emptyState = document.getElementById("emptyState");
-        tbody.innerHTML = "";
+    const tbody = document.getElementById("movieTableBody");
+    const emptyState = document.getElementById("emptyState");
+    tbody.innerHTML = "";
 
-        if (!movies || movies.length === 0) {
-          emptyState.style.display = "table-row"; // Hiển thị empty state
-          return;
-        }
-        emptyState.style.display = "none";
+    // 1. Kiểm tra dữ liệu đầu vào
+    if (!movies || movies.length === 0) {
+        emptyState.style.display = "block"; // Sửa thành 'block' hoặc 'table-row' tùy CSS của bạn, thường là 'block' cho div
+        return;
+    }
+    emptyState.style.display = "none";
 
-        movies.sort((a, b) => b.movieID - a.movieID); // Sắp xếp ID mới nhất lên đầu
+    // 2. Sắp xếp ID mới nhất lên đầu
+    movies.sort((a, b) => b.movieID - a.movieID);
 
-        movies.forEach((movie) => {
-          const tr = document.createElement("tr");
-          const deleteAction = `openDeleteModal(${movie.movieID}, '${escapeHtml(
-            movie.title
-          )}')`;
+    // 3. Render từng hàng
+    movies.forEach((movie) => {
+        const tr = document.createElement("tr");
+        const deleteAction = `openDeleteModal(${movie.movieID}, '${escapeHtml(movie.title)}')`;
 
-          // === LOGIC SỬA LỖI HIỂN THỊ POSTER (BẮT ĐẦU) ===
-          let posterUrl =
-            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; // Ảnh placeholder
-
-          if (movie.posterPath) {
-            // Loại bỏ khoảng trắng (trim) ở đầu và cuối
+        // === XỬ LÝ LOGIC POSTER (GIỮ NGUYÊN) ===
+        let posterUrl = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; // Placeholder
+        if (movie.posterPath) {
             const path = movie.posterPath.trim();
-
             if (path.startsWith("http://") || path.startsWith("https://")) {
-              // 1. Nếu đã là URL đầy đủ (do thêm thủ công, vd: https://.../anh.jpg) -> dùng luôn
-              posterUrl = path;
+                posterUrl = path;
             } else {
-              // 2. Nếu chỉ là path (do import từ TMDB, vd: /abc.jpg) -> ghép với base URL
-              // Đảm bảo path bắt đầu bằng /
-              const tmdbPath = path.startsWith("/") ? path : "/" + path;
-              posterUrl = `https://image.tmdb.org/t/p/w92${tmdbPath}`;
+                const tmdbPath = path.startsWith("/") ? path : "/" + path;
+                posterUrl = `https://image.tmdb.org/t/p/w92${tmdbPath}`;
             }
-          }
-          // === KẾT THÚC LOGIC SỬA LỖI ===
+        }
 
-          tr.innerHTML = `
-                    <td>${movie.movieID}</td>
-                    <td title="${escapeHtml(movie.title)}">${escapeHtml(
-            movie.title
-          )}</td>
-                    <td><img src="${posterUrl}" alt="Poster" class="table-poster" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; this.style.opacity=0.3;"></td>
-                    <td>${movie.duration} phút</td>
-                    <td>${
-                      movie.free
-                        ? '<span class="badge badge-active">Miễn phí</span>'
-                        : '<span class="badge badge-inactive">Trả phí</span>'
-                    }</td>
-                    <td>${movie.tmdbId || "N/A"}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-edit" onclick="openModal('edit', ${
-                              movie.movieID
-                            })">
-                                <i class="fas fa-edit"></i> Sửa
-                            </button>
-                            <button class="btn btn-danger" onclick="${deleteAction}">
-                                <i class="fas fa-trash"></i> Xóa
-                            </button>
-                        </div>
-                    </td>
-                `;
-          tbody.appendChild(tr);
-        });
-      }
+        // === [MỚI] XỬ LÝ HIỂN THỊ TMDB ID ===
+        // Nếu ID > 0: Hiển thị số ID kèm link sang trang TMDB (tiện lợi cho việc tra cứu)
+        // Nếu ID <= 0 hoặc null: Hiển thị badge "Thủ công"
+        let tmdbDisplay = "";
+        if (movie.tmdbId && movie.tmdbId > 0) {
+            tmdbDisplay = `<a href="https://www.themoviedb.org/movie/${movie.tmdbId}" target="_blank" 
+                              style="color: #e50914; text-decoration: none; font-weight: 500;" title="Xem trên TMDB">
+                              ${movie.tmdbId} <i class="fas fa-external-link-alt" style="font-size: 10px; margin-left: 3px;"></i>
+                           </a>`;
+        } else {
+            tmdbDisplay = `<span class="badge" style="background: #444; color: #ccc; border: 1px solid #666;">Thủ công</span>`;
+        }
 
+        // === RENDER HTML CỦA HÀNG ===
+        tr.innerHTML = `
+            <td style="text-align: center;">${movie.movieID}</td>
+            
+            <td title="${escapeHtml(movie.title)}" style="font-weight: 500;">
+                ${escapeHtml(movie.title)}
+            </td>
+            
+            <td style="text-align: center;">
+                <img src="${posterUrl}" alt="Poster" class="table-poster" 
+                     style="width: 45px; height: 65px; object-fit: cover; border-radius: 4px; background: #222;"
+                     onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; this.style.opacity=0.3;">
+            </td>
+            
+            <td style="text-align: center;">${movie.duration} phút</td>
+            
+            <td style="text-align: center;">
+                ${movie.free 
+                    ? '<span class="badge badge-active">Miễn phí</span>' 
+                    : '<span class="badge badge-inactive">Trả phí</span>'}
+            </td>
+            
+            <td style="text-align: center;">
+                ${tmdbDisplay} </td>
+            
+            <td style="text-align: center;">
+                <div class="action-buttons" style="justify-content: center;">
+                    <button class="btn btn-edit" onclick="openModal('edit', ${movie.movieID})">
+                        <i class="fas fa-edit"></i> Sửa
+                    </button>
+                    <button class="btn btn-danger" onclick="${deleteAction}">
+                        <i class="fas fa-trash"></i> Xóa
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
       function openModal(mode, id = null) {
         currentMode = mode;
         currentId = id;
@@ -1226,7 +1260,7 @@
               : "Cập nhật phim thành công!"
           );
           closeModal();
-          loadMovies();
+          loadMovies(currentPage);
         } catch (error) {
           console.error("Save error:", error);
           showToast("error", error.message);
@@ -1260,7 +1294,7 @@
           const newMovie = await response.json();
           showToast("success", `Import phim '${newMovie.title}' thành công!`);
           tmdbIdInput.value = "";
-          loadMovies();
+          loadMovies(0);
         } catch (error) {
           console.error("Import error:", error);
           showToast("error", error.message);
@@ -1306,7 +1340,7 @@
 
           closeDeleteModal();
           showToast("success", "Xóa phim thành công!");
-          loadMovies();
+          loadMovies(currentPage);
         } catch (error) {
           console.error("Delete error:", error);
           closeDeleteModal();
