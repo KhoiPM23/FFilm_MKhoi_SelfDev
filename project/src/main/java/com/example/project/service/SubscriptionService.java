@@ -37,11 +37,13 @@ public class SubscriptionService {
         if (plan == null)
             return false;
 
+        int duration = planRepository.getDurationByPlanID(req.getPlanID());
         Date startDate = new Date();
         Calendar cal = Calendar.getInstance();
         cal.setTime(startDate);
-        cal.add(Calendar.DAY_OF_MONTH, 30);
+        cal.add(Calendar.DAY_OF_MONTH, duration);
         Date endDate = cal.getTime();
+        System.out.println("endDate: " + endDate);
 
         Subscription sub = new Subscription(startDate, endDate, true, user, plan);
         subscriptionRepository.save(sub);
@@ -66,12 +68,16 @@ public class SubscriptionService {
         if (!pendingSubs.isEmpty()) {
             subscriptionRepository.deleteAll(pendingSubs);
         }
-
+        int duration = planRepository.getDurationByPlanID(req.getPlanID());
         Date startDate = new Date();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(startDate);
+        cal.add(Calendar.DAY_OF_MONTH, duration);
+        Date endDate = cal.getTime();
 
         Subscription sub = new Subscription(
                 startDate,
-                startDate,
+                endDate,
                 false,
                 user,
                 plan);
@@ -99,10 +105,7 @@ public class SubscriptionService {
         }
 
         Date startDate = new Date();
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(startDate);
-        cal.add(Calendar.DAY_OF_MONTH, 30);
-        Date endDate = cal.getTime();
+        Date endDate = sub.getEndDate();
 
         // Cập nhật thông tin
         sub.setStartDate(startDate);
