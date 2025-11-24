@@ -304,6 +304,7 @@ public class MovieService {
         return movieRepository.save(movie);
     }
 
+
     // ---- 4. CORE SYNC LOGIC (PERSON) ----
 
     // Lấy Person theo personID (PK), tự động sync đầy đủ (EAGER) nếu cần.
@@ -388,20 +389,6 @@ public class MovieService {
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
 
-            // --- [CẬP NHẬT] BỘ LỌC CHI TIẾT (Ảnh & Thời lượng) ---
-            
-            // 1. Kiểm tra Thời lượng (Runtime)
-            // Phim phải có thời lượng > 0 phút. (Trừ phim sắp chiếu chưa có thông tin)
-            int runtime = json.optInt("runtime", 0);
-            String status = json.optString("status", "");
-            
-            // Lưu ý: Phim "Planned" hoặc "Rumored" có thể chưa có runtime, nhưng phim "Released" bắt buộc phải có.
-            // Ở đây ta chặn cứng runtime <= 0 để đảm bảo chất lượng xem.
-            if (runtime <= 0) {
-                // System.out.println("❌ Bỏ qua ID " + tmdbId + " - Thời lượng 0 phút.");
-                return null;
-            }
-
             // --- [LOGIC MỚI] KIỂM TRA ẢNH NGAY SAU KHI GỌI API ---
             String poster = json.optString("poster_path", null);
             String backdrop = json.optString("backdrop_path", null);
@@ -410,6 +397,14 @@ public class MovieService {
             if (!isValidImage(poster) || !isValidImage(backdrop)) {
                 System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thiếu Poster hoặc Banner.");
                 return null; 
+            }
+            // --- [LOGIC MỚI 2]: CHECK THỜI LƯỢNG (Duration Check) ---
+            int runtime = json.optInt("runtime", 0); // Lấy runtime, mặc định 0
+            
+            // Nếu thời lượng <= 0 -> BỎ QUA (Không lưu vào DB)
+            if (runtime <= 0) {
+                System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thời lượng bằng 0.");
+                return null;
             }
 
             Movie movie = (movieToUpdate != null) ? movieToUpdate : new Movie();
@@ -537,6 +532,7 @@ public class MovieService {
         PageRequest pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "releaseDate"));
         return movieRepository.findByIsFreeTrue(pageable);
     }
+
 
     @Transactional
     public void forceUpdateMovie(int tmdbId) {

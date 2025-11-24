@@ -36,44 +36,48 @@ public class ChatMessageService {
     }
 
     public String assignModeratorForUser(String userEmail) {
+        // 1. Tìm người cũ
         String lastMod = chatMessageRepository.findLastModeratorChattedWith(userEmail);
 
+        // 2. Check Sticky Session
         if (lastMod != null && !lastMod.equals("WAITING_QUEUE") && !lastMod.equals("SYSTEM_BOT")) {
             if (onlineModerators.contains(lastMod)) {
                 System.out.println("🔄 [ROUTING] Sticky Session (Gặp lại người cũ): " + lastMod);
                 return lastMod;
+            } else {
+                // [QUAN TRỌNG] Người cũ đã Offline -> Log ra và để nó trôi xuống thuật toán tìm
+                // người mới
+                System.out.println("⚠️ [ROUTING] Mod cũ (" + lastMod + ") đã Offline -> Tìm Mod mới...");
             }
         }
+
+        // 3. Nếu không còn ai online -> Vào Queue
         if (onlineModerators.isEmpty()) {
             System.out.println("⚠️ [ROUTING] Không có Moderator online. Vào hàng chờ.");
-            return null;
+            return null; // Controller sẽ gán WAITING_QUEUE
         }
 
-        // THUẬT TOÁN LEAST CONNECTIONS
+        // 4. THUẬT TOÁN LEAST CONNECTIONS (Tìm người mới rảnh nhất)
         String bestMod = null;
-        int minLoad = Integer.MAX_VALUE;
-        // Định nghĩa "đang hoạt động" là có chat trong 30 phút qua
+        long minLoad = Long.MAX_VALUE; // Dùng Long cho chuẩn
         LocalDateTime activeThreshold = LocalDateTime.now().minusMinutes(30);
 
-        // Duyệt qua danh sách Mod đang online để tìm người rảnh nhất
         for (String modEmail : onlineModerators) {
-            // Gọi Repository đếm xem ông này đang gánh bao nhiêu khách
-            int currentLoad = chatMessageRepository.countActiveClientsForModerator(modEmail, activeThreshold);
+            long currentLoad = chatMessageRepository.countActiveClientsForModerator(modEmail, activeThreshold);
 
-            System.out.println("🔍 Check load: " + modEmail + " đang tiếp " + currentLoad + " khách.");
-
+            // Ưu tiên người ít việc hơn
             if (currentLoad < minLoad) {
                 minLoad = currentLoad;
                 bestMod = modEmail;
             }
         }
 
-        // Fallback: Nếu loop lỗi (hiếm), lấy người đầu tiên
+        // Fallback an toàn
         if (bestMod == null && !onlineModerators.isEmpty()) {
             bestMod = onlineModerators.get(0);
         }
 
-        System.out.println("🆕 [ROUTING] Assigned to (Least Connections): " + bestMod + " (Load: " + minLoad + ")");
+        System.out.println("🆕 [ROUTING] Assigned to New Mod: " + bestMod + " (Load: " + minLoad + ")");
         return bestMod;
     }
 
@@ -110,24 +114,28 @@ public class ChatMessageService {
         return new java.util.ArrayList<>(latestMessagesMap.values());
     }
 
-    
     @Transactional
     public void markMessagesAsSeen(String senderEmail, String recipientEmail) {
-        chatMessageRepository.updateStatusToSeen(senderEmail, recipientEmail);
+        // 1. Cập nhật trạng thái SEEN (cho cả tin WAITING_QUEUE)
+        chatMessageRepository.markAllAsSeenAndClaim(senderEmail, recipientEmail);
+        // chatMessageRepository.claimMessagesFromQueue(senderEmail, recipientEmail);
 
+        // 3. Gửi thông báo realtime (SEEN_ACK)
         ChatMessage seenAck = new ChatMessage();
-        seenAck.setSenderEmail(recipientEmail); 
+        seenAck.setSenderEmail(recipientEmail);
         seenAck.setRecipientEmail(senderEmail);
-        seenAck.setType(ChatMessage.MessageType.CHAT); 
+        seenAck.setType(ChatMessage.MessageType.CHAT);
         seenAck.setContent("SEEN_ACK");
         seenAck.setStatus("SEEN");
 
-        // Gửi tín hiệu này qua WebSocket cho senderEmail
-        // (Logic routing tương tự như lúc chat)
-        if (senderEmail.equals("WAITING_QUEUE")) return; 
-
+        if (senderEmail.equals("WAITING_QUEUE"))
+            return;
 
         messagingTemplate.convertAndSendToUser(senderEmail, "/queue/messages", seenAck);
         messagingTemplate.convertAndSend("/topic/moderator/" + senderEmail, seenAck);
+    }
+
+    public long getUnreadCount(String senderEmail, String recipientEmail) {
+        return chatMessageRepository.countUnreadMessages(senderEmail, recipientEmail);
     }
 }

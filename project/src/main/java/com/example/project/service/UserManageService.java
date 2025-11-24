@@ -28,10 +28,10 @@ public class UserManageService {
       return userRepository.findAll(pageable).map(UserManageDTO::new);
    }
 
-    public Page<UserManageDTO> getStaffUsers(Pageable pageable) {
-        List<String> roles = Arrays.asList("moderator", "content_manager");
-        return userRepository.findByRoleIn(roles, pageable).map(UserManageDTO::new);
-    }
+   public Page<UserManageDTO> getStaffUsers(Pageable pageable) {
+      List<String> roles = Arrays.asList("moderator", "content_manager");
+      return userRepository.findByRoleIn(roles, pageable).map(UserManageDTO::new);
+   }
 
    public List<UserManageDTO> getUserByRole(String role) {
       return userRepository.findByRole(role).stream().map(UserManageDTO::new).collect(Collectors.toList());
@@ -50,7 +50,8 @@ public class UserManageService {
    }
 
    public Page<UserManageDTO> getUserByStatus(boolean status, Pageable pageable) {
-      return userRepository.findByStatus(status, pageable).map(UserManageDTO::new);
+      List<String> roles = Arrays.asList("moderator", "content_manager");
+      return userRepository.findByStatusAndRoleIn(status, roles, pageable).map(UserManageDTO::new);
    }
 
    public UserManageDTO createUser(User user) {
@@ -69,7 +70,7 @@ public class UserManageService {
          throw new IllegalArgumentException("Phone Number must be 10 numbers");
       }
       if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-         throw new IllegalArgumentException( "Password is required");
+         throw new IllegalArgumentException("Password is required");
       }
       if (user.getPassword().length() < 6) {
          throw new IllegalArgumentException("Password must be have length >= 6");

@@ -88,7 +88,7 @@ public class ChatController {
                 System.out.println("📥 [DEBUG 5] Lưu vào WAITING_QUEUE");
 
                 ChatMessage saved = chatMessageService.saveChatMessage(chatMessage);
-                System.out.println("💾 [DEBUG 6] Đã lưu DB thành công! ID: " + saved.getId()); 
+                System.out.println("💾 [DEBUG 6] Đã lưu DB thành công! ID: " + saved.getId());
                 messagingTemplate.convertAndSendToUser(senderName, "/queue/messages", saved);
                 messagingTemplate.convertAndSend("/topic/admin/queue", saved);
             } else {
@@ -165,7 +165,7 @@ public class ChatController {
     public ResponseEntity<String> markAsSeen(@PathVariable String senderEmail, HttpSession session) {
         // 1. Xác định ai là người đang xem (CurrentUser)
         String viewerEmail = null;
-        
+
         // Check xem là Mod hay User đang gọi
         Object modSession = session.getAttribute("moderator");
         Object userSession = session.getAttribute("user");
@@ -183,5 +183,22 @@ public class ChatController {
         chatMessageService.markMessagesAsSeen(senderEmail, viewerEmail);
 
         return ResponseEntity.ok("Marked as seen");
+    }
+
+    @GetMapping("/api/chat/unread/{senderEmail}")
+    @ResponseBody
+    public ResponseEntity<Long> getUnreadCount(@PathVariable String senderEmail, HttpSession session) {
+        // 1. Kiểm tra xem người đang gọi API có phải là Moderator không
+        Object sessionObj = session.getAttribute("moderator");
+        if (!(sessionObj instanceof UserSessionDto)) {
+            return ResponseEntity.ok(0L); // Không phải Mod thì trả về 0
+        }
+
+        String modEmail = ((UserSessionDto) sessionObj).getUserName();
+
+        // 2. Gọi SERVICE (Chuẩn luồng)
+        long count = chatMessageService.getUnreadCount(senderEmail, modEmail);
+
+        return ResponseEntity.ok(count);
     }
 }

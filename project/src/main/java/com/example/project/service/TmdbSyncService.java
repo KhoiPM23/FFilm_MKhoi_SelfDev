@@ -14,6 +14,8 @@ import com.example.project.model.Movie;
 import com.example.project.repository.GenreRepository;
 import com.example.project.repository.MovieRepository;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -206,6 +208,8 @@ public class TmdbSyncService {
             JSONObject json = new JSONObject(resp);
             JSONArray results = json.optJSONArray("results");
             if (results == null) return 0;
+            // Lấy ngày hiện tại để so sánh
+            LocalDate today = LocalDate.now();
 
             for (int i = 0; i < results.length(); i++) {
                 if (stopRequested.get()) break; // Dừng ngay trong vòng lặp item
@@ -214,6 +218,27 @@ public class TmdbSyncService {
                 int tmdbId = item.optInt("id");
 
                 if (processedIds.contains(tmdbId)) continue;
+                // --- [LOGIC MỚI 1]: LỌC NGÀY PHÁT HÀNH (Release Date Check) ---
+                String releaseDateStr = item.optString("release_date", null);
+                
+                // Nếu không có ngày phát hành hoặc chuỗi rỗng -> Bỏ qua (hoặc giữ lại tùy policy, ở đây mình chọn bỏ qua cho sạch)
+                if (releaseDateStr == null || releaseDateStr.isEmpty()) {
+                    continue; 
+                }
+
+                try {
+                    // Parse chuỗi "yyyy-MM-dd" của TMDB
+                    LocalDate releaseDate = LocalDate.parse(releaseDateStr);
+                    
+                    // Nếu ngày phát hành > ngày hiện tại (Tương lai) -> SKIP
+                    if (releaseDate.isAfter(today)) {
+                        // System.out.println("⏳ Bỏ qua phim chưa chiếu (Future): " + tmdbId + " - Date: " + releaseDateStr);
+                        continue;
+                    }
+                } catch (DateTimeParseException e) {
+                    // Nếu lỗi format ngày -> Bỏ qua cho an toàn
+                    continue;
+                }
 
                 boolean isAdult = item.optBoolean("adult", false);
                 int voteCount = item.optInt("vote_count", 0);
@@ -270,6 +295,7 @@ public class TmdbSyncService {
         }
         return count;
     }
+
     
     private CompletableFuture<String> stopResult() {
         isRunning.set(false);
@@ -305,4 +331,5 @@ public class TmdbSyncService {
     public boolean isScanning() {
         return isRunning.get();
     }
+  
 }

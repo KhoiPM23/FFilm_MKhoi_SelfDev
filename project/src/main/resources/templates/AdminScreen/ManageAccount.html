@@ -87,9 +87,6 @@
                         <option value="true">Hoạt động</option>
                         <option value="false">Không hoạt động</option>
                     </select>
-                    <button class="btn btn-secondary" onclick="exportData()">
-                        <i class="fas fa-file-export"></i> Xuất dữ liệu
-                    </button>
                 </div>
             </div>
             <table>
@@ -180,7 +177,7 @@
         let currentMode = 'add';
         let currentId = null;
         let currentPage = 0;
-        let pageSize = 5; 
+        let pageSize = 5;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
@@ -211,7 +208,7 @@
 
                 // Render table
                 const tbody = document.getElementById('accountTable');
-                tbody.innerHTML = ''; 
+                tbody.innerHTML = '';
 
                 data.content.forEach(user => {
                     const tr = document.createElement('tr');
@@ -310,6 +307,7 @@
             } else {
                 title.textContent = 'Sửa tài khoản';
                 document.getElementById('password').required = false;
+                document.getElementById('password').value = '';
                 fetch(`/api/users/${id}`).then(r => {
                     if (!r.ok) throw new Error('Không tìm thấy người dùng');
                     return r.json();
@@ -317,8 +315,9 @@
                     document.getElementById('username').value = user.userName || '';
                     document.getElementById('email').value = user.email || '';
                     document.getElementById('phoneNumber').value = user.phoneNumber || '';
-                    document.getElementById('role').value = user.role || '';
-                    document.getElementById('status').value = user.status ? 'true' : 'false';
+                    let userRole = user.role || '';
+                    document.getElementById('role').value = userRole.toLowerCase();
+                    document.getElementById('status').value = user.status ? 'active' : 'inactive';
                 }).catch(err => {
                     showToast('error', 'Không thể tải thông tin người dùng');
                     console.error(err);
@@ -386,10 +385,10 @@
             if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) return;
             try {
                 const res = await fetch(`http://localhost:8080/api/users/${id}`, { method: 'DELETE' });
-                if (!res.ok){
-                    const errorText = await rest.test(); 
+                if (!res.ok) {
+                    const errorText = await rest.test();
                     throw new Error('Delete failed');
-                } 
+                }
                 showToast('success', 'Tài khoản đã được xóa!');
                 if (currentPage > 0 && document.getElementById('accountTable').children.length <= 1) currentPage--;
                 loadUsers();
@@ -425,10 +424,7 @@
             });
             document.getElementById('emptyState').style.display = hasResults ? 'none' : 'block';
         }
-        function exportData() {
-            showToast('info', 'Chức năng xuất dữ liệu đang phát triển!');
-        }
     </script>
 </body>
 
-</html>     
+</html>
