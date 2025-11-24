@@ -78,11 +78,11 @@ public class UserAuthenticationController {
                     .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại"));
 
             if (!userService.isPasswordValid(dto.getPassword(), user.getPassword())) {
-                throw new IllegalArgumentException("Mật khẩu không đúng");
+                throw new IllegalArgumentException("Sai mật khẩu");
             }
 
             if (!user.isStatus()) {
-                throw new IllegalArgumentException("Tài khoản chưa được kích hoạt.");
+                throw new IllegalArgumentException("Tài khoản đã bị khóa");
             }
 
             // 2. TẠO DTO & XÁC ĐỊNH VAI TRÒ
@@ -162,14 +162,14 @@ public class UserAuthenticationController {
                     .map(FieldError::getDefaultMessage)
                     .findFirst()
                     .orElse("Dữ liệu không hợp lệ");
-            return ResponseEntity.badRequest().body(errorMsg);
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
 
         try {
             userService.createUser(dto);
             return ResponseEntity.ok(Map.of("message", "Đăng ký thành công!"));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

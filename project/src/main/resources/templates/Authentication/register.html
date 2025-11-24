@@ -112,11 +112,11 @@ a:hover {
 <body>
 <div class="box">
     <h2>ĐĂNG KÝ</h2>
-    <form id="registerForm">
-        <input type="text" id="userName" placeholder="Tên người dùng" required>
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Mật khẩu" required>
-        <input type="text" id="phoneNumber" placeholder="Số điện thoại" required>
+    <form id="registerForm" autocomplete="off">
+        <input type="text" id="userName" placeholder="Tên người dùng" required autocomplete="off">
+        <input type="email" id="email" placeholder="Email" required autocomplete="off">
+        <input type="password" id="password" placeholder="Mật khẩu" required autocomplete="new-password">
+        <input type="text" id="phoneNumber" placeholder="Số điện thoại" required autocomplete="off">
         <button type="submit">Đăng ký</button>
     </form>
     <p id="message"></p>
@@ -150,14 +150,15 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         const result = await response.json();
 
         if (response.ok) {
-            messageEl.textContent = 'Đăng ký thành công!';
+            messageEl.textContent = result.message || 'Đăng ký thành công!';
             messageEl.className = 'success';
             setTimeout(() => window.location.href = '/login', 1500);
         } else {
-            messageEl.textContent = result || 'Lỗi đăng ký';
+            messageEl.textContent = result.error || 'Lỗi đăng ký';
             messageEl.className = 'error';
         }
     } catch (err) {
+        console.error('Error:', err);
         messageEl.textContent = 'Lỗi kết nối server';
         messageEl.className = 'error';
     }

@@ -72,7 +72,11 @@ public class UserService {
 
     public User createUser(UserRegisterDto dto) {
         if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Email already exists");
+            throw new IllegalArgumentException("Email đã được sử dụng");
+        }
+
+        if (userRepository.findByPhoneNumber(dto.getPhoneNumber()).isPresent()) {
+            throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
         }
 
         User user = new User();

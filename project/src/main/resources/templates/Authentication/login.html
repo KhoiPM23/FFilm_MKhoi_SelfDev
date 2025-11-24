@@ -129,17 +129,17 @@
   <body>
     <div class="box">
       <h2>ĐĂNG NHẬP</h2>
-      <form th:action="@{/login}" th:object="${user}" method="post">
-        <input type="email" th:field="*{email}" placeholder="Email" required />
+      <form th:action="@{/login}" th:object="${user}" method="post" autocomplete="off">
+        <input type="email" th:field="*{email}" placeholder="Email" required autocomplete="off" />
         <input
           type="password"
           th:field="*{password}"
           placeholder="Mật khẩu"
           required
+          autocomplete="off"
         />
         <button type="submit">Đăng nhập</button>
         <div class="extra">
-          Chưa có tài khoản? <a th:href="@{/register}">Đăng ký ngay</a>
           <br /><br />
           <a th:href="@{/auth/forgot-password}" style="color: #e50914"
             >Quên mật khẩu?</a

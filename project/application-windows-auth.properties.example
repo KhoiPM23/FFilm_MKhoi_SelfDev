@@ -1,0 +1,7 @@
+# Alternative configuration using Windows Authentication
+# Replace the existing datasource settings with these:
+
+spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=FFilm11;integratedSecurity=true;encrypt=true;trustServerCertificate=true;
+# Remove or comment out username and password
+# spring.datasource.username=sa
+# spring.datasource.password=123
