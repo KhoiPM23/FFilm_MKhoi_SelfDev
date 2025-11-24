@@ -144,7 +144,11 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
                     const headerWrapper = titleEl.closest('.section-header');
                     if(headerWrapper) {
                         headerWrapper.classList.add('collection-mode');
-                        headerWrapper.style.backgroundImage = `url('${headerImage}')`;
+                        // Code mới: Dùng biến CSS để không ghi đè lớp Gradient trong CSS
+                        headerWrapper.style.setProperty('--banner-url', `url('${headerImage}')`);
+
+                        // Đánh dấu section cha để CSS biết mà vẽ đường phân cách
+                        if(sectionId) document.getElementById(sectionId).classList.add('has-collection-divider');
                         
                         titleEl.innerHTML = `
                             <div class="collection-overlay">

@@ -172,6 +172,50 @@ body { background: #0c0c0c; }
 .trending-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; line-height: 1.4; color: #f0f0f0; }
 .trending-meta { font-size: 0.9rem; color: #aaa; font-weight: 500; }
 
+/* ================================================================= */
+/* ---- 7. TRENDING LIST BOTTOM FADE (Gradient Đáy cho Trending) ---- */
+/* ================================================================= */
+
+/* Tạo vùng chứa tương đối để định vị lớp phủ */
+.content-sidebar {
+    position: sticky; /* Giữ nguyên thuộc tính cũ */
+    top: 100px;
+    height: fit-content;
+    
+    /* [QUAN TRỌNG] Để lớp phủ nằm gọn trong sidebar */
+    overflow: hidden; 
+    /* Thêm padding-bottom để nội dung cuối không bị che mất hoàn toàn */
+    padding-bottom: 20px; 
+}
+
+/* Lớp phủ Gradient đen mờ ảo ở cạnh dưới của Sidebar chứa Trending List */
+.content-sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0; /* Phủ kín chiều ngang */
+    height: 150px; /* Độ cao vùng mờ (tùy chỉnh 100px - 200px) */
+    
+    /* Gradient: Trong suốt ở trên -> Đen đặc ở dưới */
+    background: linear-gradient(
+        to bottom, 
+        transparent 0%, 
+        rgba(12, 12, 12, 0.4) 30%, 
+        #0c0c0c 100%
+    );
+    
+    /* Cho phép lăn chuột xuyên qua lớp phủ để scroll list */
+    pointer-events: none; 
+    z-index: 5; /* Nằm trên các item trending */
+}
+
+/* Tinh chỉnh lại Trending List để nó nằm dưới lớp phủ */
+.trending-list {
+    /* Thêm padding dưới để item cuối cùng có thể trồi lên khỏi vùng đen khi scroll hết cỡ */
+    padding-bottom: 100px; 
+}
+
 /*----- Comments Section */
 .comments-wrapper { background: #121212; border-radius: 16px; padding: 30px; border: 1px solid #222; margin-top: 50px; }
 .comments-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
@@ -406,6 +450,107 @@ body { background: #0c0c0c; }
     /* Chống chọn text */
     user-select: none;
 }
+
+/* ================================================================= */
+/* ---- 6. CINEMATIC DEPTH & SPOTLIGHT (FINAL V3) ---- */
+/* ================================================================= */
+
+/* 1. Setup không gian */
+.movie-list-section.has-collection-divider {
+    margin-top: 60px !important; /* Giảm khoảng cách trên để gọn hơn */
+    padding-top: 0 !important;
+    position: relative;
+    overflow: visible; /* Cho phép các phần tử layer đè lên nhau */
+}
+
+/* 2. BANNER ĐIỆN ẢNH (Xử lý Ánh sáng & Spotlight) */
+.movie-list-section.has-collection-divider .section-header {
+    position: relative;
+    height: 600px; /* Tăng chiều cao để nới rộng phổ sáng */
+    border: none;
+    box-shadow: none;
+
+    /* KỸ THUẬT MULTI-GRADIENT CAO CẤP (Đã Fix Shade trái): */
+    background-image: 
+        /* Lớp 1: SHADE BÊN TRÁI (Rất nhẹ, chỉ để làm nền cho tiêu đề) */
+        linear-gradient(to right, 
+            rgba(0,0,0, 0.9) 0%,      /* Đen 90% ở sát mép trái */
+            rgba(0,0,0, 0.5) 15%,     /* Giảm nhanh xuống 50% */
+            rgba(0,0,0, 0.1) 30%,     /* Gần như trong suốt */
+            transparent 45%           /* Trong suốt hoàn toàn từ đây */
+        ),
+        
+        /* Lớp 2: SHADE DƯỚI CHÂN (Để hòa vào nền web) 
+           - Chỉ làm đen phần chân, giữ phần giữa sáng rõ */
+        linear-gradient(to top, 
+            #0c0c0c 0%, 
+            rgba(12,12,12,0.8) 15%, 
+            transparent 50% 
+        ),
+
+        /* Lớp 3: SHADE TRÊN CÙNG (Nhẹ nhàng) */
+        linear-gradient(to bottom, 
+            rgba(12,12,12,0.8) 0%, 
+            transparent 20%
+        ),
+        
+        /* Ảnh Banner */
+        var(--banner-url); 
+
+    /* CĂN CHỈNH SPOTLIGHT */
+    background-size: cover;
+    /* Dịch tâm ảnh sang phải một chút (40%) để chủ thể lọt vào vùng sáng nhất 
+       Dịch tâm dọc lên trên (20%) để lấy phần mặt diễn viên */
+    background-position: 60% 20%; 
+    
+    z-index: 0; /* Nằm dưới cùng */
+}
+
+/* 3. CHỮ NỀN (Typography) - Mờ hơn & Đúng chính tả */
+.movie-list-section.has-collection-divider::before {
+    /* Đã sửa chính tả và thêm khoảng cách */
+    content: 'COLLECTION\00a0\00a0\00a0 COLLECTION\00a0\00a0\00a0 COLLECTION\00a0\00a0\00a0 COLLECTION';
+    
+    position: absolute;
+    /* Vị trí: Nằm lửng lơ ở phần dưới banner */
+    bottom: 120px;  
+    left: 0%;    
+    
+    white-space: nowrap;
+    width: 150%;
+    
+    font-family: 'Impact', sans-serif;
+    font-size: 11rem; 
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 4px;
+    
+    /* Style: Làm mờ hơn nữa (opacity cực thấp) để tinh tế */
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.09); /* Giảm độ đậm viền xuống 0.04 */
+    
+    /* Hòa trộn vào nền tối bên trái */
+    mix-blend-mode: screen; 
+    
+    /* Mask: Mờ dần phần chân chữ */
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 80%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0) 80%);
+    
+    z-index: 1; /* Nằm trên Banner (0) nhưng dưới Cards (2) */
+    pointer-events: none;
+}
+
+/* 4. KÉO DANH SÁCH PHIM LÊN (Overlap Layout) */
+/* Class này tác động vào slider chứa các thẻ phim */
+.movie-list-section.has-collection-divider .movie-carousel {
+    position: relative;
+    /* Kéo ngược lên 150px để đè lên phần dưới của banner và chữ */
+    margin-top: -150px; 
+    z-index: 2; /* Nằm trên cùng */
+}
+
+/* Ẩn các phần tử thừa */
+.movie-list-section.has-collection-divider::after { content: none; }
 
 /*==========================================================*/
 /*---- 5. RESPONSIVE & UTILS ----*/
