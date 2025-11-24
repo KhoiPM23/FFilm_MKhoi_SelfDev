@@ -68,4 +68,6 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
       @Param("watchedMovieIDs") Set<Integer> watchedMovieIDs,
       Pageable pageable);
 
+      // [MỚI] Tìm phim miễn phí có phân trang, sắp xếp mặc định (ví dụ theo độ phổ biến hoặc ngày)
+    Page<Movie> findByIsFreeTrue(Pageable pageable);
 }

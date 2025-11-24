@@ -54,7 +54,7 @@ public class SubscriptionPlanService {
         mapDtoToEntity(dto, plan); // Gọi hàm helper
         return planRepository.save(plan);
     }
-    
+
     /**
      * [MỚI] Hàm cập nhật
      */
@@ -64,13 +64,13 @@ public class SubscriptionPlanService {
         // Kiểm tra tên trùng (nếu đổi tên)
         Optional<SubscriptionPlan> existing = planRepository.findByPlanName(dto.getPlanName());
         if (existing.isPresent() && existing.get().getPlanID() != id) {
-             throw new RuntimeException("Tên gói này đã thuộc về một gói khác");
+            throw new RuntimeException("Tên gói này đã thuộc về một gói khác");
         }
 
         mapDtoToEntity(dto, plan); // Cập nhật thông tin
         return planRepository.save(plan);
     }
-    
+
     /**
      * [MỚI] Hàm Vô hiệu hóa (Soft Delete)
      */
@@ -79,7 +79,7 @@ public class SubscriptionPlanService {
         plan.setStatus(false); // Chỉ cần đổi trạng thái
         planRepository.save(plan);
     }
-    
+
     // [MỚI] Hàm helper để map DTO -> Entity
     private void mapDtoToEntity(AdminPlanRequest dto, SubscriptionPlan plan) {
         plan.setPlanName(dto.getPlanName());
@@ -90,7 +90,7 @@ public class SubscriptionPlanService {
     }
 
     /**
-     * [GIỮ LẠI HÀM CŨ] 
+     * [GIỮ LẠI HÀM CŨ]
      * Hàm này có thể đang được dùng ở đâu đó, ta giữ lại
      * nhưng nên chuyển sang dùng createPlan(AdminPlanRequest dto)
      */
@@ -100,7 +100,7 @@ public class SubscriptionPlanService {
         }
         SubscriptionPlan subscriptionPlan = new SubscriptionPlan();
         subscriptionPlan.setPlanName(dto.getPlanName());
-        subscriptionPlan.setPrice(dto.getPrice()); // Entity bây giờ dùng BigDecimal
+        subscriptionPlan.setPrice(dto.getPrice());
         subscriptionPlan.setDescription(dto.getDescription());
         subscriptionPlan.setFeatured(false);
         subscriptionPlan.setStatus(true);

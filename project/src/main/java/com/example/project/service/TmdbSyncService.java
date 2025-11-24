@@ -214,6 +214,29 @@ public class TmdbSyncService {
                 int tmdbId = item.optInt("id");
 
                 if (processedIds.contains(tmdbId)) continue;
+
+                boolean isAdult = item.optBoolean("adult", false);
+                int voteCount = item.optInt("vote_count", 0);
+                String lang = item.optString("original_language", "en");
+
+                // 1. ƯU TIÊN 1 (AN TOÀN): Phim 18+ (Adult) -> Bắt buộc Vote >= 50
+                // (Bất kể là phim nước nào, để chặn nội dung rác/nhạy cảm)
+                if (isAdult && voteCount < 50) {
+                    // System.out.println("⛔ Bỏ qua ID " + tmdbId + ": Phim 18+ ít vote");
+                    continue;
+                }
+
+                // 2. ƯU TIÊN 2 (HÀNG NỘI ĐỊA): Phim Việt Nam (vi) -> CHO PHÉP (Vote >= 0)
+                // (Để ủng hộ phim Việt mới ra chưa kịp có vote)
+                boolean isVietnamese = "vi".equalsIgnoreCase(lang);
+
+                // 3. ƯU TIÊN 3 (MẶC ĐỊNH): Các phim còn lại -> Bắt buộc Vote >= 5
+                // (Chặn phim rác nước ngoài)
+                if (!isAdult && !isVietnamese && voteCount < 5) {
+                    // System.out.println("⛔ Bỏ qua ID " + tmdbId + ": Phim quốc tế rác (< 5
+                    // vote)");
+                    continue;
+                }
                 
                 // Gọi MovieService để Upsert (Ghi đè hoặc Tạo mới)
                 // Hàm syncMovieFromList bên MovieService đã có logic ghi đè

@@ -31,11 +31,7 @@
                 <span>Báo cáo doanh thu</span>
             </a>
 
-            <a th:href="@{/manage-movie}" class="nav-item"
-               th:classappend="${currentPage == 'movie'} ? 'active'">
-                <i class="fas fa-film"></i>
-                <span>Quản lý phim</span>
-            </a>
+            
 
             <a href="/admin/manage-comments" class="nav-item"
                th:classappend="${currentPage == 'comments'} ? 'active'">

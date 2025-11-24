@@ -8,7 +8,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    
+
+    <link rel="stylesheet" href="/css/footer.css">
     <style>
       /* ... (Toàn bộ CSS của bạn giữ nguyên ở đây) ... */
       /* Subscription Page Styles */
@@ -172,7 +173,7 @@
         box-shadow: 0 5px 15px rgba(229, 9, 20, 0.4);
         background: linear-gradient(135deg, #ff4444 0%, #e50914 100%);
       }
-      
+
       /* ... (Phần CSS cho .comparison-section VÀ .modal VẪN GIỮ NGUYÊN trong thẻ <style>) ... */
       .comparison-section {
         padding: 80px 50px;
@@ -187,16 +188,25 @@
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       }
       /* ... (v.v...) ... */
-      
     </style>
   </head>
   <body>
     <div th:replace="fragments/header :: header"></div>
-    <div th:if="${error}" class="alert-error" 
-     style="background: #e50914; color: white; padding: 15px; text-align: center; margin-top: 70px; font-weight: bold;">
-    <i class="fas fa-exclamation-circle"></i> 
-    <span th:text="${error}"></span>
-</div>
+    <div
+      th:if="${error}"
+      class="alert-error"
+      style="
+        background: #e50914;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        margin-top: 70px;
+        font-weight: bold;
+      "
+    >
+      <i class="fas fa-exclamation-circle"></i>
+      <span th:text="${error}"></span>
+    </div>
     <section class="subscription-hero">
       <h1>Chọn gói dịch vụ phù hợp với bạn</h1>
       <p>
@@ -223,8 +233,7 @@
                 th:text="${#numbers.formatDecimal(plan.price, 0, 'POINT', 0, 'COMMA')}"
               ></span
               >đ
-              </div>
-            <div class="plan-period">/tháng</div>
+            </div>
           </div>
 
           <ul class="plan-features">
@@ -251,7 +260,7 @@
     </section>
 
     <footer>
-      <p>© 2025 FPTPlay Clone</p>
+      <div th:replace="~{fragments/footer :: footer}"></div>
     </footer>
 
     <script></script>

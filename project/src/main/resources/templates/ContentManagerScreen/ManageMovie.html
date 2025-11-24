@@ -37,49 +37,10 @@
         line-height: 1.5;
       }
 
-      /* Sidebar */
-      .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 260px;
-        height: 100vh;
-        background: linear-gradient(
-          180deg,
-          var(--background-light) 0%,
-          var(--background-dark) 100%
-        );
-        padding: 20px;
-        border-right: 1px solid var(--border-color);
-        z-index: 100;
-        display: flex;
-        flex-direction: column;
-      }
-      .sidebar-footer {
-    margin-top: auto; /* Đẩy xuống dưới cùng */
-    border-top: 1px solid var(--border-color);
-    padding-top: 20px;
-}
+      
 
-.logout-btn {
-    color: #ff6b6b !important; /* Màu đỏ nhạt */
-    transition: all 0.3s;
-}
-.logout-btn:hover {
-    background: rgba(220, 53, 69, 0.1) !important;
-    color: #dc3545 !important;
-}
 
-      .logo {
-        color: var(--primary-color);
-        font-size: 28px;
-        font-weight: bold;
-        margin-bottom: 40px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px;
-      }
+      
 
       .nav-item {
         display: flex;
@@ -132,12 +93,11 @@
       }
 
       /* Main Content */
-      .main-content {
-        margin-left: 260px;
-        padding: 30px;
-        min-height: 100vh;
-      }
-
+      /* Thêm vào thẻ style của ManageMovie.html nếu chưa có */
+.main-content {
+    margin-left: 260px; /* Bằng width của sidebar */
+    padding: 20px;
+}
       .header {
         display: flex;
         justify-content: space-between;
@@ -706,32 +666,7 @@
     </style>
   </head>
   <body>
-    <div class="sidebar" id="sidebar">
-      <div class="logo">
-        <i class="fas fa-film"></i>
-        <span>Content Panel</span>
-      </div>
-      <nav>
-        <a href="/manage-movies" class="nav-item active">
-          <i class="fas fa-video"></i>
-          <span>Quản lý Phim</span>
-        </a>
-        <a href="#" class="nav-item">
-          <i class="fas fa-images"></i>
-          <span>Quản lý Banner</span>
-        </a>
-        <a href="#" class="nav-item">
-          <i class="fas fa-comments"></i>
-          <span>Quản lý Feedback</span>
-        </a>
-      </nav>
-      <div class="sidebar-footer">
-        <a href="/logout" class="nav-item logout-btn">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Đăng xuất</span>
-        </a>
-    </div>
-    </div>
+    <div th:replace="~{fragments/manager-sidebar :: sidebar('content')}"></div>
 
     <div class="main-content">
       <div class="header">

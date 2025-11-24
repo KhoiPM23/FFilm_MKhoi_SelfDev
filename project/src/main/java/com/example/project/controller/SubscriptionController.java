@@ -32,27 +32,18 @@ public class SubscriptionController {
             return "login";
         }
         Integer userId = userDto.getId();
-        System.out.println("User ID: " + userId);
-        System.out.println("Plan ID: " + planId);
-
         SubscriptionPlanRegisterRequest planRegisterRequest = new SubscriptionPlanRegisterRequest(userId, planId);
-        
         try {
-            // Gọi hàm đăng ký Pending mới
-            Integer subId = subscriptionService.registerPendingSubscription(planRegisterRequest); 
-
+            Integer subId = subscriptionService.registerPendingSubscription(planRegisterRequest);
             if (subId == null) {
                 redirectAttributes.addFlashAttribute("error", "Đăng ký thất bại! Không tìm thấy user hoặc gói.");
                 return "redirect:/subscriptionPlan";
             }
-            
-            // Chuyển hướng đến trang xác nhận thanh toán (điểm tiếp nối)
-            return "redirect:/payment/confirm/" + subId; 
-            
+            return "redirect:/payment/confirm/" + subId;
         } catch (RuntimeException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/subscriptionPlan";
         }
     }
 
-} 
+}

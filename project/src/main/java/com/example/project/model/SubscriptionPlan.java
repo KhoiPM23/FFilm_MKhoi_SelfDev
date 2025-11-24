@@ -39,6 +39,10 @@ public class SubscriptionPlan {
     private boolean isFeatured;
     private boolean status;
 
+    @NotNull(message = "duration is required")
+    @Column(columnDefinition = "INT")
+    private int duration;
+
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL)
     @JsonIgnore // THÊM ANNOTATION NÀY ĐỂ TRÁNH VÒNG LẶP
     private List<Subscription> subscriptions;
@@ -47,14 +51,17 @@ public class SubscriptionPlan {
     public SubscriptionPlan() {
     }
 
-    public SubscriptionPlan(int planID, String planName, BigDecimal price, String description, boolean isFeatured,
-            boolean status, List<Subscription> subscriptions) {
+    public SubscriptionPlan(int planID, @NotBlank(message = "planName is not null") String planName,
+            @NotNull(message = "price is required") BigDecimal price,
+            @NotBlank(message = "description  is not null") String description, boolean isFeatured, boolean status,
+            @NotNull(message = "duration is required") int duration, List<Subscription> subscriptions) {
         this.planID = planID;
         this.planName = planName;
         this.price = price;
         this.description = description;
         this.isFeatured = isFeatured;
         this.status = status;
+        this.duration = duration;
         this.subscriptions = subscriptions;
     }
 
@@ -112,5 +119,13 @@ public class SubscriptionPlan {
 
     public void setSubscriptions(List<Subscription> subscriptions) {
         this.subscriptions = subscriptions;
+    }
+
+    public int getDuration() {
+        return duration;
+    }
+
+    public void setDuration(int duration) {
+        this.duration = duration;
     }
 }

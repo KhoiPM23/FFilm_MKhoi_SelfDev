@@ -247,7 +247,8 @@
                  th:attr="data-current-page=${currentPage}, 
                           data-total-pages=${totalPages},
                           data-genres=${genres},
-                          data-quick-filter=${quickFilter}">
+                          data-quick-filter=${quickFilter},
+                          data-is-free=${isFree}">
             </div>
         </div>
 
@@ -315,12 +316,14 @@
             const totalPages = parseInt(container.dataset.totalPages || '1');
             const genres = container.dataset.genres || '';
             const quickFilter = container.dataset.quickFilter || '';
+            const isFree = container.dataset.isFree || '';
 
             if (totalPages <= 1) return;
 
             let params = new URLSearchParams();
             if (genres) params.set('genres', genres);
             if (quickFilter) params.set('quickFilter', quickFilter);
+            if (isFree === 'true') params.set('isFree', 'true');
 
             let html = '';
             const maxPagesToShow = 5;

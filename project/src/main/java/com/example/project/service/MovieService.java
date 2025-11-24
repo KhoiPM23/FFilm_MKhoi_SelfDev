@@ -239,14 +239,18 @@ public class MovieService {
             return null;
         }
 
-        // 2. Lọc theo Vote & Adult
+        // --- [CẬP NHẬT] ĐỒNG BỘ LOGIC BỘ LỌC ---
         boolean isAdult = jsonItem.optBoolean("adult", false);
         int voteCount = jsonItem.optInt("vote_count", 0);
+        String lang = jsonItem.optString("original_language", "en");
         double voteAverage = jsonItem.optDouble("vote_average", 0.0);
 
-        // Phim 18+ cần >50 vote để tránh clip rác. Phim thường cần >5 vote.
+        // 1. Rule 18+
         if (isAdult && voteCount < 50) return null;
-        if (!isAdult && voteCount < 5) return null;
+
+        // 2. Rule Việt Nam & Quốc tế
+        boolean isVietnamese = "vi".equalsIgnoreCase(lang);
+        if (!isAdult && !isVietnamese && voteCount < 5) return null;
         // -------------------------
 
         // --- XỬ LÝ GHI ĐÈ / TẠO MỚI ---
@@ -384,6 +388,20 @@ public class MovieService {
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
 
+            // --- [CẬP NHẬT] BỘ LỌC CHI TIẾT (Ảnh & Thời lượng) ---
+            
+            // 1. Kiểm tra Thời lượng (Runtime)
+            // Phim phải có thời lượng > 0 phút. (Trừ phim sắp chiếu chưa có thông tin)
+            int runtime = json.optInt("runtime", 0);
+            String status = json.optString("status", "");
+            
+            // Lưu ý: Phim "Planned" hoặc "Rumored" có thể chưa có runtime, nhưng phim "Released" bắt buộc phải có.
+            // Ở đây ta chặn cứng runtime <= 0 để đảm bảo chất lượng xem.
+            if (runtime <= 0) {
+                // System.out.println("❌ Bỏ qua ID " + tmdbId + " - Thời lượng 0 phút.");
+                return null;
+            }
+
             // --- [LOGIC MỚI] KIỂM TRA ẢNH NGAY SAU KHI GỌI API ---
             String poster = json.optString("poster_path", null);
             String backdrop = json.optString("backdrop_path", null);
@@ -512,6 +530,12 @@ public class MovieService {
     // Helper check ảnh hợp lệ
     private boolean isValidImage(String path) {
         return path != null && !path.isEmpty() && !"null".equals(path) && path.length() > 4;
+    }
+    // [MỚI] Lấy danh sách phim miễn phí từ DB
+    public Page<Movie> getFreeMoviesFromDB(int limit, int page) {
+        // Sắp xếp theo ngày phát hành giảm dần (phim mới nhất lên đầu) hoặc rating
+        PageRequest pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "releaseDate"));
+        return movieRepository.findByIsFreeTrue(pageable);
     }
 
     @Transactional

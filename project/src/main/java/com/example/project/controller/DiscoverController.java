@@ -26,6 +26,7 @@ public class DiscoverController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(required = false) String genres, // Đây là tmdbGenreId
             @RequestParam(required = false) String quickFilter,
+            @RequestParam(required = false) Boolean isFree,
             Model model) {
 
         try {
@@ -34,7 +35,7 @@ public class DiscoverController {
             if (dbPage < 0) dbPage = 0;
 
             // [THAY ĐỔI QUAN TRỌNG] Thay vì buildDiscoverUrl (API), ta gọi hàm xử lý DB
-            Page<Movie> moviePage = getMoviesFromDbByFilter(dbPage, pageSize, genres, quickFilter);
+            Page<Movie> moviePage = getMoviesFromDbByFilter(dbPage, pageSize, genres, quickFilter, isFree);
             
             List<Map<String, Object>> movies = moviePage.getContent().stream()
                 .map(movieService::convertToMap)
@@ -65,7 +66,8 @@ public class DiscoverController {
             // Giữ trạng thái filter trên UI
             model.addAttribute("genres", genres);
             model.addAttribute("quickFilter", quickFilter);
-            model.addAttribute("pageTitle", getPageTitle(genres, quickFilter));
+            model.addAttribute("isFree", isFree);
+            model.addAttribute("pageTitle", getPageTitle(genres, quickFilter, isFree));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -76,7 +78,11 @@ public class DiscoverController {
     
     // [HÀM MỚI THAY THẾ buildDiscoverUrl] 
     // Logic lọc giữ nguyên nhưng áp dụng cho DB
-    private Page<Movie> getMoviesFromDbByFilter(int page, int size, String genres, String quickFilter) {
+    private Page<Movie> getMoviesFromDbByFilter(int page, int size, String genres, String quickFilter, Boolean isFree) {
+        // 1. Ưu tiên lọc phim miễn phí nếu có tham số
+        if (Boolean.TRUE.equals(isFree)) {
+            return movieService.getFreeMoviesFromDB(size, page);
+        }
         // 1. Lọc theo Thể loại
         if (genres != null && !genres.isEmpty()) {
             try {
@@ -104,7 +110,8 @@ public class DiscoverController {
         return movieService.getHotMoviesFromDB(size);
     }
 
-    private String getPageTitle(String genres, String quickFilter) {
+    private String getPageTitle(String genres, String quickFilter, Boolean isFree) {
+        if (Boolean.TRUE.equals(isFree)) return "Phim Miễn Phí";
         if ("trending".equals(quickFilter)) return "Phim Hot Nhất";
         if ("new".equals(quickFilter)) return "Phim Mới Ra Mắt";
         if ("top-rated".equals(quickFilter)) return "Phim Đánh Giá Cao";

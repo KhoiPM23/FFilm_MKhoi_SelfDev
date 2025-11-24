@@ -31,20 +31,14 @@ public class UserAuthenticationController {
 
     // Giữ lại các mapping @GetMapping cho admin, moderator nếu bạn có
     // (Trong file bạn gửi không có, nhưng file zip có)
-    @GetMapping("/ModeratorScreen/homeModeratorManage")
-    public String showModeratorHome() {
-        return "ModeratorScreen/homeModeratorManage";
-    }
+
 
     @GetMapping("/AdminScreen/homeAdminManager")
     public String showAdminManager() {
         return "AdminScreen/homeAdminManager";
     }
 
-    @GetMapping("/ContentManagerScreen/homeContentManager")
-    public String showContentManagement() {
-        return "ContentManagerScreen/homeContentManager";
-    }
+
 
     @GetMapping("/register")
     public String showRegisterForm() {
@@ -125,9 +119,9 @@ public class UserAuthenticationController {
             } else if ("admin".equals(userRole)) {
                 return "redirect:/AdminScreen/homeAdminManager";
             } else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole)) {
-                return "redirect:/ContentManagerScreen/homeContentManager";
+                return "redirect:/manage-movies";
             } else if ("moderator".equals(userRole)) {
-                return "redirect:/ModeratorScreen/homeModeratorManage";
+                return "redirect:/moderator/chat";
             } else {
                 throw new IllegalArgumentException("Vai trò không hợp lệ: " + userRole);
             }
