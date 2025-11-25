@@ -201,6 +201,7 @@ public class TmdbSyncService {
     }
 
     // Hàm xử lý từng trang
+    // [QUAN TRỌNG] ĐÃ SỬA LOGIC PROCESS PAGE ĐỂ ƯU TIÊN UPDATE
     private int processPage(String url, Set<Integer> processedIds) {
         int count = 0;
         try {
@@ -210,87 +211,64 @@ public class TmdbSyncService {
             JSONObject json = new JSONObject(resp);
             JSONArray results = json.optJSONArray("results");
             if (results == null) return 0;
-            // Lấy ngày hiện tại để so sánh
+            
             LocalDate today = LocalDate.now();
 
             for (int i = 0; i < results.length(); i++) {
-                if (stopRequested.get()) break; // Dừng ngay trong vòng lặp item
+                if (stopRequested.get()) break;
 
                 JSONObject item = results.getJSONObject(i);
                 int tmdbId = item.optInt("id");
 
+                // 1. Bỏ qua nếu đã xử lý trong phiên này
                 if (processedIds.contains(tmdbId)) continue;
-                // --- [LOGIC MỚI 1]: LỌC NGÀY PHÁT HÀNH (Release Date Check) ---
+
+                // 2. Kiểm tra DB trước (QUAN TRỌNG)
+                Movie existingMovie = movieRepository.findByTmdbId(tmdbId).orElse(null);
+                boolean isUpdate = (existingMovie != null);
+
+                // 3. Lọc ngày phát hành (Tương lai -> Bỏ qua, trừ khi muốn pre-order)
+                // (Giữ logic này để tránh phim chưa ra mắt)
                 String releaseDateStr = item.optString("release_date", null);
-                
-                // Nếu không có ngày phát hành hoặc chuỗi rỗng -> Bỏ qua (hoặc giữ lại tùy policy, ở đây mình chọn bỏ qua cho sạch)
-                if (releaseDateStr == null || releaseDateStr.isEmpty()) {
-                    continue; 
+                if (releaseDateStr != null && !releaseDateStr.isEmpty()) {
+                    try {
+                        LocalDate releaseDate = LocalDate.parse(releaseDateStr);
+                        if (releaseDate.isAfter(today)) continue; 
+                    } catch (DateTimeParseException e) { continue; }
                 }
 
+                // 4. LOGIC BỘ LỌC (FILTER)
+                // Nếu là UPDATE (đã có trong DB) -> BỎ QUA BỘ LỌC (Luôn cho phép update)
+                // Nếu là INSERT (chưa có) -> ÁP DỤNG BỘ LỌC NGHIÊM NGẶT
+                if (!isUpdate) {
+                    boolean isAdult = item.optBoolean("adult", false);
+                    int voteCount = item.optInt("vote_count", 0);
+                    String lang = item.optString("original_language", "en");
+                    boolean isVietnamese = "vi".equalsIgnoreCase(lang);
+
+                    // Phim 18+ rác -> Chặn
+                    if (isAdult && voteCount < 50) continue;
+
+                    // Phim thường rác -> Chặn (trừ phim Việt)
+                    if (!isAdult && !isVietnamese && voteCount < 5) continue;
+                }
+
+                // 5. Thực hiện Sync (Upsert)
                 try {
-                    // Parse chuỗi "yyyy-MM-dd" của TMDB
-                    LocalDate releaseDate = LocalDate.parse(releaseDateStr);
-                    
-                    // Nếu ngày phát hành > ngày hiện tại (Tương lai) -> SKIP
-                    if (releaseDate.isAfter(today)) {
-                        // System.out.println("⏳ Bỏ qua phim chưa chiếu (Future): " + tmdbId + " - Date: " + releaseDateStr);
-                        continue;
-                    }
-                } catch (DateTimeParseException e) {
-                    // Nếu lỗi format ngày -> Bỏ qua cho an toàn
-                    continue;
-                }
-
-                boolean isAdult = item.optBoolean("adult", false);
-                int voteCount = item.optInt("vote_count", 0);
-                String lang = item.optString("original_language", "en");
-
-                // 1. ƯU TIÊN 1 (AN TOÀN): Phim 18+ (Adult) -> Bắt buộc Vote >= 50
-                // (Bất kể là phim nước nào, để chặn nội dung rác/nhạy cảm)
-                if (isAdult && voteCount < 50) {
-                    // System.out.println("⛔ Bỏ qua ID " + tmdbId + ": Phim 18+ ít vote");
-                    continue;
-                }
-
-                // 2. ƯU TIÊN 2 (HÀNG NỘI ĐỊA): Phim Việt Nam (vi) -> CHO PHÉP (Vote >= 0)
-                // (Để ủng hộ phim Việt mới ra chưa kịp có vote)
-                boolean isVietnamese = "vi".equalsIgnoreCase(lang);
-
-                // 3. ƯU TIÊN 3 (MẶC ĐỊNH): Các phim còn lại -> Bắt buộc Vote >= 5
-                // (Chặn phim rác nước ngoài)
-                if (!isAdult && !isVietnamese && voteCount < 5) {
-                    // System.out.println("⛔ Bỏ qua ID " + tmdbId + ": Phim quốc tế rác (< 5
-                    // vote)");
-                    continue;
-                }
-                
-                // Gọi MovieService để Upsert (Ghi đè hoặc Tạo mới)
-                // Hàm syncMovieFromList bên MovieService đã có logic ghi đè
-                try {
-                    // [FIX] BƯỚC 1: Tìm xem phim này đã có trong DB chưa?
-                    Movie existingMovie = movieRepository.findByTmdbId(tmdbId).orElse(null);
-
-                    // [FIX] BƯỚC 2: Truyền phim cũ vào (nếu có) để hàm này thực hiện UPDATE thay vì
-                    // INSERT
-                    // Nếu existingMovie != null -> Hệ thống sẽ update đè rating, duration,
-                    // poster...
-                    // Nếu existingMovie == null -> Hệ thống tạo mới bình thường.
+                    // Nếu isUpdate=true, existingMovie sẽ được truyền vào để cập nhật
                     Movie savedMovie = movieService.fetchAndSaveMovieDetail(tmdbId, existingMovie);
 
-                    // [Logic đếm và check ảnh null hôm trước đã thêm]
                     if (savedMovie != null) {
                         processedIds.add(tmdbId);
                         count++;
+                        String action = isUpdate ? "🔄 Updated" : "✅ Inserted";
+                        // System.out.println(action + ": " + savedMovie.getTitle());
                     }
-
-                    Thread.sleep(400);
+                    
+                    Thread.sleep(250); // Giảm tải server
                 } catch (Exception e) {
                     System.err.println("Lỗi xử lý ID " + tmdbId + ": " + e.getMessage());
                 }
-
-                processedIds.add(tmdbId);
-                count++;
             }
         } catch (Exception e) { 
             System.err.println("Lỗi processPage: " + e.getMessage());

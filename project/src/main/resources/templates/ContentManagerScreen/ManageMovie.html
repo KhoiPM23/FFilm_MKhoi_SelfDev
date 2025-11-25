@@ -775,6 +775,45 @@
         grid-template-columns: 1fr; /* Về 1 cột duy nhất */
     }
 }
+/* Badge trạng thái hệ thống */
+.scan-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    margin-right: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #666;
+    transition: all 0.3s ease;
+}
+
+/* Hiệu ứng khi đang chạy */
+.status-dot.running {
+    background-color: #28a745; /* Màu xanh */
+    box-shadow: 0 0 8px #28a745;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+/* Ẩn hiện nút mượt mà */
+.btn-scan {
+    transition: all 0.3s ease;
+}
     </style>
   </head>
   <body>
@@ -784,43 +823,48 @@
       <div class="header">
         <h1>Quản lý phim</h1>
         <div class="header-actions">
-          <select id="filterFree" class="filter-select" onchange="resetAndLoad()"
-            style="padding: 10px; border-radius: 8px; background: #1a1a1a; color: white; border: 1px solid #333; margin-right: 10px;">
-            <option value="">Tất cả loại</option>
-            <option value="true">Miễn phí</option>
-            <option value="false">Trả phí (VIP)</option>
-          </select>
-          <div class="search-box">
-            <input type="text" id="localSearchInput" placeholder="Tìm phim trong kho..." onkeyup="handleLocalSearch()">
-            <i class="fas fa-search"></i>
+        
+          <div class="scan-status-badge">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText">Hệ thống nghỉ</span>
           </div>
-          <button id="btnSmart" class="btn" onclick="handleScan('scan-smart')"
-            style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none;">
-            <i class="fas fa-brain"></i> Quét Thông Minh
+        
+          <button id="btnSmart" class="btn btn-scan" onclick="confirmScanAction('scan-smart')"
+            style="background: linear-gradient(135deg, #0061ff, #60efff); color: white; border: none;">
+            <i class="fas fa-brain"></i> <span class="hide-on-mobile">Quét 5000 Phim</span>
           </button>
-          
-          <button id="btnDaily" class="btn" onclick="handleScan('scan-daily')"
-            style="background: linear-gradient(135deg, #f6d365, #fda085); color: #333; border: none;">
-            <i class="fas fa-sun"></i> Cập Nhật (Daily)
+        
+          <button id="btnDaily" class="btn btn-scan" onclick="confirmScanAction('scan-daily')"
+            style="background: linear-gradient(135deg, #ff9966, #ff5e62); color: white; border: none;">
+            <i class="fas fa-sync-alt"></i> <span class="hide-on-mobile">Update Daily</span>
           </button>
-          
-          <button id="btnStop" class="btn" onclick="handleScan('stop-scan')"
+        
+          <button id="btnStop" class="btn btn-scan" onclick="confirmScanAction('stop-scan')"
             style="background: #dc3545; color: white; border: none; display: none;">
-            <i class="fas fa-stop-circle"></i> Dừng Quét
+            <i class="fas fa-ban"></i> Dừng Quét
           </button>
+        
           <div class="import-group">
-            <input
-              type="number"
-              id="tmdbIdInput"
-              placeholder="Nhập TMDB ID..."
-            />
+            <input type="text" id="tmdbIdInput" placeholder="TMDB ID..." style="min-width: 100px;">
             <button class="btn btn-secondary" onclick="importFromTmdb()">
-              <i class="fas fa-download"></i> Import
+              <i class="fas fa-cloud-download-alt"></i>
             </button>
           </div>
+        
+          <select id="filterFree" class="filter-select" onchange="resetAndLoad()"
+            style="padding: 10px; border-radius: 8px; background: #1a1a1a; color: white; border: 1px solid #333;">
+            <option value="">Tất cả</option>
+            <option value="true">Miễn phí</option>
+            <option value="false">VIP</option>
+          </select>
+        
+          <div class="search-box">
+            <input type="text" id="localSearchInput" placeholder="Tìm kiếm..." onkeyup="handleLocalSearch()">
+            <i class="fas fa-search"></i>
+          </div>
+        
           <button class="btn btn-primary" onclick="openModal('add')">
-            <i class="fas fa-plus"></i>
-            <span>Thêm thủ công</span>
+            <i class="fas fa-plus"></i> Thêm
           </button>
         </div>
       </div>
@@ -833,7 +877,7 @@
               <th>Tiêu đề</th>
               <th>Poster</th>
               <th>Thời lượng</th>
-              <th>Miễn phí?</th>
+              <th>Miễn phí</th>
               <th>TMDB ID</th>
               <th>Hành động</th>
             </tr>
@@ -1000,6 +1044,23 @@
             onclick="confirmDelete()"
           >
             <i class="fas fa-trash"></i> Xóa vĩnh viễn
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="scanConfirmModal">
+      <div class="modal-content" style="max-width: 450px; background: #1a1a1a; border: 1px solid #333;">
+        <div class="modal-header" style="border-bottom: 1px solid #333;">
+          <span class="modal-title"><i class="fas fa-robot" style="color: #0061ff;"></i> Xác nhận tác vụ</span>
+          <button class="close-modal" onclick="closeScanConfirmModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <p id="scanConfirmMessage" style="font-size: 15px; color: #ddd; line-height: 1.6;"></p>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid #333; background: transparent;">
+          <button class="btn btn-secondary" onclick="closeScanConfirmModal()">Hủy bỏ</button>
+          <button class="btn btn-primary" id="btnExecuteScan">
+            <i class="fas fa-check"></i> Xác nhận chạy
           </button>
         </div>
       </div>
@@ -1714,85 +1775,158 @@ function renderPagination(pageData) {
         return btn;
     }
 
-    // Hàm xử lý gọi API Scan
-    async function handleScan(type) {
-        const btnSmart = document.getElementById('btnSmart');
-        const btnDaily = document.getElementById('btnDaily');
-        const btnStop = document.getElementById('btnStop');
-        let confirmMsg = "";
+    // 1. Hàm gọi API (Không load lại trang)
+async function handleScan(type) {
+    const btnSmart = document.getElementById('btnSmart');
+    const btnDaily = document.getElementById('btnDaily');
+    const btnStop = document.getElementById('btnStop');
+    
+    // Xác nhận trước khi chạy
+    let msg = "Bạn có chắc chắn muốn thực hiện hành động này?";
+    if (type === 'scan-smart') msg = "Hệ thống sẽ quét và lấp đầy kho phim (Mục tiêu 5000 phim). Tiếp tục?";
+    if (type === 'scan-daily') msg = "Cập nhật phim mới và xu hướng trong ngày. Tiếp tục?";
+    
+    if (!confirm(msg)) return;
 
-        if (type === 'scan-smart') confirmMsg = "Quét thông minh sẽ tìm phim Việt, Collection và cân bằng 5000 phim. Tiếp tục?";
-        if (type === 'scan-daily') confirmMsg = "Cập nhật phim Trending & Mới ra hôm nay. Tiếp tục?";
-        if (type === 'stop-scan') confirmMsg = "Bạn muốn dừng tiến trình quét ngay lập tức?";
+    // Hiển thị trạng thái "Đang gửi..."
+    showToast('info', 'Đang gửi lệnh đến server...');
 
-        if (!confirm(confirmMsg)) return;
+    try {
+        // Gọi API bằng fetch (Thay vì form submit hay thẻ a)
+        const response = await fetch(`/api/content/movies/${type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
 
-        // UI Logic: Bấm quét -> Hiện nút Stop, Ẩn nút Quét
-        if (type !== 'stop-scan') {
-            btnSmart.disabled = true;
-            btnDaily.disabled = true;
-            btnStop.style.display = 'inline-block';
-            showToast('info', 'Đang gửi lệnh...');
+        if (response.ok) {
+            showToast('success', data.message);
+            // Cập nhật ngay trạng thái giao diện
+            checkScanStatus(); 
         } else {
-            // Bấm Stop -> Hiện lại nút Quét
-            btnSmart.disabled = false;
-            btnDaily.disabled = false;
-            btnStop.style.display = 'none';
+            showToast('error', 'Lỗi: ' + data.message);
         }
-
-        try {
-            const response = await fetch(`/api/content/movies/${type}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await response.json();
-            
-            if (response.ok) {
-                showToast('success', data.message);
-                // Nếu là lệnh stop thì reload bảng sau 1s để thấy kết quả dừng
-                if (type === 'stop-scan') setTimeout(() => loadMovies(0), 1000);
-            } else {
-                showToast('error', 'Lỗi: ' + data.message);
-                // Reset nút nếu lỗi
-                if (type !== 'stop-scan') {
-                    btnSmart.disabled = false;
-                    btnDaily.disabled = false;
-                    btnStop.style.display = 'none';
-                }
-            }
-        } catch (error) {
-            console.error(error);
-            showToast('error', 'Lỗi kết nối server!');
-            btnSmart.disabled = false;
-            btnDaily.disabled = false;
-            btnStop.style.display = 'none';
-        }
+    } catch (error) {
+        console.error(error);
+        showToast('error', 'Không thể kết nối đến Server!');
     }
-    // [HÀM MỚI] Kiểm tra trạng thái quét từ server
+}
+    // 2. Hàm kiểm tra trạng thái Server (Polling)
 async function checkScanStatus() {
     try {
         const res = await fetch('/api/content/movies/scan-status');
         const data = await res.json();
         
+        const isRunning = data.isRunning;
+        
+        // DOM Elements
         const btnSmart = document.getElementById('btnSmart');
         const btnDaily = document.getElementById('btnDaily');
         const btnStop = document.getElementById('btnStop');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
 
-        if (data.isRunning) {
-            // Nếu Server bảo ĐANG CHẠY -> Hiện nút Dừng, Khóa nút Quét
-            if(btnSmart) btnSmart.disabled = true;
-            if(btnDaily) btnDaily.disabled = true;
-            if(btnStop) btnStop.style.display = 'inline-block';
+        if (isRunning) {
+            // TRẠNG THÁI: ĐANG CHẠY
+            if(btnSmart) btnSmart.style.display = 'none'; // Ẩn nút quét
+            if(btnDaily) btnDaily.style.display = 'none';
+            if(btnStop) btnStop.style.display = 'inline-flex'; // Hiện nút dừng
+            
+            if(statusDot) {
+                statusDot.classList.add('running');
+                statusText.innerText = "Đang xử lý...";
+                statusText.style.color = "#28a745";
+            }
         } else {
-            // Nếu Server bảo ĐÃ DỪNG -> Ẩn nút Dừng, Mở nút Quét
-            if(btnSmart) btnSmart.disabled = false;
-            if(btnDaily) btnDaily.disabled = false;
-            if(btnStop) btnStop.style.display = 'none';
+            // TRẠNG THÁI: NGHỈ
+            if(btnSmart) btnSmart.style.display = 'inline-flex'; // Hiện lại nút quét
+            if(btnDaily) btnDaily.style.display = 'inline-flex';
+            if(btnStop) btnStop.style.display = 'none'; // Ẩn nút dừng
+            
+            if(statusDot) {
+                statusDot.classList.remove('running');
+                statusText.innerText = "Hệ thống nghỉ";
+                statusText.style.color = "#aaa";
+            }
         }
     } catch (e) {
-        console.error("Lỗi kiểm tra trạng thái:", e);
+        console.warn("Không thể lấy trạng thái scan");
     }
 }
+// 3. Kích hoạt tự động kiểm tra mỗi 3 giây
+document.addEventListener('DOMContentLoaded', () => {
+    loadMovies(0);     
+    checkScanStatus(); // Kiểm tra ngay khi vào trang
+    setInterval(checkScanStatus, 3000); // Lặp lại mỗi 3s
+});
+// --- BIẾN TOÀN CỤC CHO SCAN ---
+let pendingScanType = null; // Lưu loại hành động đang chờ xác nhận
+
+// 1. Mở Modal xác nhận (Thay thế confirm() mặc định)
+function confirmScanAction(type) {
+    pendingScanType = type;
+    const modal = document.getElementById('scanConfirmModal');
+    const msgElement = document.getElementById('scanConfirmMessage');
+    const btnExecute = document.getElementById('btnExecuteScan');
+    
+    let message = "";
+    let btnColor = "";
+
+    if (type === 'scan-smart') {
+        message = "Hệ thống sẽ <b>quét sâu</b> để lấp đầy kho phim (Mục tiêu 5000 phim).<br><br>Tiến trình này chạy ngầm trên server, bạn có thể tắt trình duyệt.";
+        btnColor = "linear-gradient(135deg, #0061ff, #60efff)";
+    } else if (type === 'scan-daily') {
+        message = "Cập nhật danh sách <b>Phim Mới</b> và <b>Trending</b> trong 24h qua.<br><br>Nên chạy tính năng này mỗi ngày một lần.";
+        btnColor = "linear-gradient(135deg, #ff9966, #ff5e62)";
+    } else if (type === 'stop-scan') {
+        message = "<span style='color:#ff4d4d'>Dừng ngay lập tức?</span><br>Hệ thống sẽ dừng sau khi xử lý xong phim hiện tại.";
+        btnColor = "#dc3545";
+    }
+
+    msgElement.innerHTML = message;
+    btnExecute.style.background = btnColor;
+    btnExecute.style.border = "none";
+    
+    // Mở modal
+    modal.classList.add('active');
+}
+
+// 2. Đóng Modal
+function closeScanConfirmModal() {
+    document.getElementById('scanConfirmModal').classList.remove('active');
+    pendingScanType = null;
+}
+
+// 3. Sự kiện bấm nút "Xác nhận" trong Modal
+document.getElementById('btnExecuteScan').onclick = async function() {
+    if (!pendingScanType) return;
+    
+    const type = pendingScanType;
+    closeScanConfirmModal(); // Đóng modal trước
+    
+    // Hiển thị loading toast
+    showToast('info', 'Đang gửi lệnh đến server...');
+
+    try {
+        const response = await fetch(`/api/content/movies/${type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('success', data.message || 'Thao tác thành công!');
+            checkScanStatus(); // Cập nhật UI ngay lập tức
+        } else {
+            showToast('error', 'Lỗi: ' + data.message);
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('error', 'Không thể kết nối đến Server!');
+    }
+};
     </script>
   </body>
 </html>
