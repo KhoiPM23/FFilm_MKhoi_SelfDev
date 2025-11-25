@@ -158,22 +158,9 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="featureDuration">Thời hạn (Phần 1 mô tả)</label>
-                        <input type="text" id="featureDuration" required placeholder="Vd: Gói xem phim 1 tháng">
-                    </div>
-                     <div class="form-group">
-                        <label for="featureAds">Quảng cáo (Phần 2 mô tả)</label>
-                        <select id="featureAds" required>
-                            <option value="không quảng cáo">Không quảng cáo</option>
-                            <option value="có quảng cáo">Có quảng cáo</option>
-                        </select>
-                    </div>
-                     <div class="form-group">
-                        <label for="featureLibrary">Thư viện (Phần 3 mô tả)</label>
-                        <select id="featureLibrary" required>
-                            <option value="thư viện đầy đủ">Thư viện đầy đủ</option>
-                            <option value="thư viện giới hạn">Thư viện giới hạn</option>
-                        </select>
+                        <label for="duration">Thời hạn (Tháng)</label>
+                        <input type="number" id="duration" required min="1" placeholder="Ví dụ: 1 (cho 1 tháng), 12 (cho 1 năm)">
+                        <small style="color: #aaa; font-style: italic;">*Hệ thống sẽ tự động thêm quyền lợi: Không quảng cáo, Thư viện đầy đủ.</small>
                     </div>
 
                     <div class="form-group">
@@ -328,72 +315,66 @@
         }
 
         function openModal(mode, id = null) {
-            currentMode = mode;
-            currentId = id;
-            const modal = document.getElementById('planModal');
-            const title = document.getElementById('modalTitle');
-            document.getElementById('planForm').reset();
+    currentMode = mode;
+    currentId = id;
+    const modal = document.getElementById('planModal');
+    const title = document.getElementById('modalTitle');
+    document.getElementById('planForm').reset();
 
-            if (mode === 'add') {
-                title.textContent = 'Thêm gói mới';
-                document.getElementById('featureAds').value = 'không quảng cáo';
-                document.getElementById('featureLibrary').value = 'thư viện đầy đủ';
-                document.getElementById('isFeatured').value = 'false';
-                document.getElementById('status').value = 'true';
-            } else {
-                title.textContent = 'Cập nhật gói';
+    if (mode === 'add') {
+        title.textContent = 'Thêm gói mới';
+        document.getElementById('isFeatured').value = 'false';
+        document.getElementById('status').value = 'true';
+        document.getElementById('duration').value = '30'; // Mặc định 30 ngày
+    } else {
+        title.textContent = 'Cập nhật gói';
+        
+        fetch(`/api/admin/plans/${id}`)
+            .then(r => {
+                if (!r.ok) throw new Error('Không tìm thấy gói');
+                return r.json();
+            })
+            .then(plan => {
+                document.getElementById('planId').value = plan.planID;
+                document.getElementById('planName').value = plan.planName;
+                document.getElementById('price').value = plan.price;
                 
-                // Tìm plan trong danh sách đã tải (tránh gọi lại API nếu không cần thiết, hoặc gọi API chi tiết nếu muốn)
-                // Ở đây giữ nguyên logic cũ là gọi API chi tiết
-                fetch(`/api/admin/plans/${id}`)
-                    .then(r => {
-                        if (!r.ok) throw new Error('Không tìm thấy gói');
-                        return r.json();
-                    })
-                    .then(plan => {
-                        document.getElementById('planId').value = plan.planID;
-                        document.getElementById('planName').value = plan.planName;
-                        document.getElementById('price').value = plan.price;
-                        
-                        // Logic tách chuỗi description
-                        const parts = (plan.description || '').split(',').map(s => s.trim());
-                        document.getElementById('featureDuration').value = parts[0] || '';
-                        document.getElementById('featureAds').value = parts[1] || 'không quảng cáo';
-                        document.getElementById('featureLibrary').value = parts[2] || 'thư viện đầy đủ';
+                // LOAD DURATION TRỰC TIẾP TỪ DB (Không parse string nữa)
+                document.getElementById('duration').value = plan.duration;
 
-                        document.getElementById('isFeatured').value = String(plan.featured);
-                        document.getElementById('status').value = String(plan.status);
-                    })
-                    .catch(err => {
-                        showToast('error', 'Không thể tải thông tin gói');
-                        console.error(err);
-                    });
-            }
-            modal.classList.add('active');
-        }
+                document.getElementById('isFeatured').value = String(plan.featured);
+                document.getElementById('status').value = String(plan.status);
+            })
+            .catch(err => {
+                showToast('error', 'Không thể tải thông tin gói');
+                console.error(err);
+            });
+    }
+    modal.classList.add('active');
+}
 
         function closeModal() {
             document.getElementById('planModal').classList.remove('active');
         }
 
         async function savePlan() {
-            // Logic gộp chuỗi description
-            const desc1 = document.getElementById('featureDuration').value.trim();
-            const desc2 = document.getElementById('featureAds').value;
-            const desc3 = document.getElementById('featureLibrary').value;
-            
-            // Validate sơ bộ
-            if (!document.getElementById('planName').value.trim() || !desc1) {
+            // Validate
+            const name = document.getElementById('planName').value.trim();
+            const dur = document.getElementById('duration').value;
+
+            if (!name || !dur) {
                 showToast('error', 'Vui lòng điền tên gói và thời hạn');
                 return;
             }
 
-            const constructedDescription = [desc1, desc2, desc3].join(', ');
             
+            
+            // Payload mới gọn gàng hơn
             const payload = {
-                planName: document.getElementById('planName').value.trim(),
+                planName: name,
                 price: parseFloat(document.getElementById('price').value),
-                description: constructedDescription,
+                duration: parseInt(dur), // Gửi số nguyên
+                // description: KHÔNG CẦN GỬI, BACKEND TỰ SINH
                 featured: document.getElementById('isFeatured').value === 'true',
                 status: document.getElementById('status').value === 'true'
             };

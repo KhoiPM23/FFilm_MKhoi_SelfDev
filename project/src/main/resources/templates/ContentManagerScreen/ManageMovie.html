@@ -709,6 +709,65 @@
     /* th:nth-child(4), td:nth-child(4), */ /* Thời lượng */
     /* th:nth-child(6), td:nth-child(6) { display: none; } */ /* TMDB ID */
 }
+/* Container phân trang */
+#pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 0;
+    flex-wrap: wrap;
+}
+
+/* Các nút trang số */
+.page-link {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--background-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.page-link:hover:not(:disabled):not(.active) {
+    background: #333;
+    color: var(--text-primary);
+    border-color: #555;
+}
+/* Nút trang hiện tại */
+.page-link.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    pointer-events: none; /* Không click lại trang đang đứng */
+}
+/* Dấu ... */
+.page-ellipsis {
+    color: var(--text-secondary);
+    padding: 0 4px;
+}
+/* Input nhảy trang nhanh */
+.page-jump-input {
+    width: 50px;
+    height: 36px;
+    background: var(--background-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: white;
+    text-align: center;
+    margin-left: 10px;
+    outline: none;
+}
+.page-jump-input:focus {
+    border-color: var(--primary-color);
+}
 
 @media (max-width: 480px) {
     /* Mobile nhỏ (iPhone SE...) */
@@ -1529,43 +1588,122 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderPagination(pageData) {
-        const container = document.getElementById('pagination');
-        
-        // [THÊM ĐOẠN CHECK NÀY] Nếu không tìm thấy thẻ div, dừng lại ngay để không báo lỗi
-        if (!container) {
-            console.warn("Không tìm thấy thẻ div có id='pagination'. Vui lòng thêm vào HTML.");
-            return;
+    // Thay thế hàm renderPagination cũ bằng hàm này
+function renderPagination(pageData) {
+    const container = document.getElementById('pagination');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Nếu chỉ có 1 trang thì ẩn luôn cho gọn
+    if (pageData.totalPages <= 1) return;
+
+    const currentPage = pageData.number; // Bắt đầu từ 0
+    const totalPages = pageData.totalPages;
+
+    // --- Helper tạo nút ---
+    const createBtn = (label, page, isActive = false, isDisabled = false, icon = null) => {
+        const btn = document.createElement('button');
+        btn.className = `page-link ${isActive ? 'active' : ''}`;
+        if (icon) {
+            btn.innerHTML = icon;
+        } else {
+            btn.innerText = label;
         }
         
-        container.innerHTML = '';
+        if (isDisabled) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+        } else {
+            btn.onclick = () => loadMovies(page);
+        }
+        return btn;
+    };
 
-        // Nếu chỉ có 1 trang hoặc không có dữ liệu thì không cần hiện phân trang
-        if (pageData.totalPages <= 1) return;
+    // 1. Nút First (<<)
+    container.appendChild(createBtn(null, 0, false, pageData.first, '<i class="fas fa-angle-double-left"></i>'));
 
-        // Nút Trước (Previous)
-        const prevBtn = document.createElement('button');
-        prevBtn.className = 'btn btn-secondary'; 
-        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
-        prevBtn.disabled = pageData.first;
-        prevBtn.onclick = () => loadMovies(pageData.number - 1);
-        container.appendChild(prevBtn);
+    // 2. Nút Prev (<)
+    container.appendChild(createBtn(null, currentPage - 1, false, pageData.first, '<i class="fas fa-angle-left"></i>'));
 
-        // Hiển thị số trang (Trang hiện tại / Tổng trang)
-        const infoSpan = document.createElement('span');
-        // Sửa lại màu chữ cho dễ nhìn trên nền tối
-        infoSpan.style.cssText = "color: #b3b3b3; font-size: 0.9rem; font-weight: 500; margin: 0 10px;";
-        infoSpan.innerText = `Trang ${pageData.number + 1} / ${pageData.totalPages}`;
-        container.appendChild(infoSpan);
+    // 3. Logic hiển thị các số trang (Window Sliding)
+    // Hiển thị tối đa 5 trang xung quanh trang hiện tại
+    // Ví dụ: 1 ... 4 5 [6] 7 8 ... 20
+    
+    const delta = 2; // Số trang hiển thị 2 bên trang hiện tại
+    const range = [];
+    const rangeWithDots = [];
+    let l;
 
-        // Nút Sau (Next)
-        const nextBtn = document.createElement('button');
-        nextBtn.className = 'btn btn-secondary';
-        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-        nextBtn.disabled = pageData.last;
-        nextBtn.onclick = () => loadMovies(pageData.number + 1);
-        container.appendChild(nextBtn);
+    range.push(1); // Luôn thêm trang 1
+    
+    for (let i = currentPage - delta; i <= currentPage + delta; i++) {
+        // Cộng 1 vì pageData.number từ 0, hiển thị từ 1
+        if (i < totalPages && i > 0) {
+            range.push(i + 1);
+        }
     }
+    
+    range.push(totalPages); // Luôn thêm trang cuối
+
+    // Lọc trùng và sắp xếp
+    const uniqueRange = [...new Set(range)].sort((a, b) => a - b);
+
+    // Thêm dấu ...
+    for (let i of uniqueRange) {
+        if (l) {
+            if (i - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (i - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+
+    // Render dãy số
+    rangeWithDots.forEach(p => {
+        if (p === '...') {
+            const span = document.createElement('span');
+            span.className = 'page-ellipsis';
+            span.innerText = '...';
+            container.appendChild(span);
+        } else {
+            // p là số trang hiển thị (bắt đầu từ 1), cần -1 để gọi API
+            container.appendChild(createBtn(p, p - 1, (p - 1) === currentPage));
+        }
+    });
+
+    // 4. Nút Next (>)
+    container.appendChild(createBtn(null, currentPage + 1, false, pageData.last, '<i class="fas fa-angle-right"></i>'));
+
+    // 5. Nút Last (>>)
+    container.appendChild(createBtn(null, totalPages - 1, false, pageData.last, '<i class="fas fa-angle-double-right"></i>'));
+
+    // 6. [Tính năng mới] Input Go to page
+    const jumpInput = document.createElement('input');
+    jumpInput.type = 'number';
+    jumpInput.className = 'page-jump-input';
+    jumpInput.min = 1;
+    jumpInput.max = totalPages;
+    jumpInput.placeholder = 'Trang...';
+    jumpInput.title = 'Nhập số trang và nhấn Enter';
+    
+    jumpInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            let p = parseInt(this.value);
+            if (!isNaN(p) && p >= 1 && p <= totalPages) {
+                loadMovies(p - 1); // API dùng index 0
+            } else {
+                showToast('error', `Vui lòng nhập trang từ 1 đến ${totalPages}`);
+            }
+        }
+    });
+    
+    container.appendChild(jumpInput);
+}
 
     function createPageBtn(html, onClick, disabled) {
         const btn = document.createElement('button');

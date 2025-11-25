@@ -80,13 +80,21 @@ public class SubscriptionPlanService {
         planRepository.save(plan);
     }
 
-    // [MỚI] Hàm helper để map DTO -> Entity
+    // SỬA LẠI HÀM NÀY
     private void mapDtoToEntity(AdminPlanRequest dto, SubscriptionPlan plan) {
         plan.setPlanName(dto.getPlanName());
-        plan.setPrice(dto.getPrice()); // Entity bây giờ dùng BigDecimal
-        plan.setDescription(dto.getDescription());
+        plan.setPrice(dto.getPrice());
         plan.setFeatured(dto.isFeatured());
         plan.setStatus(dto.isStatus());
+        
+        // 1. Cập nhật Duration (quan trọng cho logic tính hạn)
+        plan.setDuration(dto.getDuration());
+
+        // 2. Tự động tạo Description chuẩn
+        // Format: "Hạn sử dụng {số} ngày, Không quảng cáo, Thư viện đầy đủ"
+        // Điều này đảm bảo hiển thị đồng nhất trên Mobile/Web cũ
+        String autoDescription = String.format("Hạn sử dụng %d tháng, Không quảng cáo, Thư viện đầy đủ", dto.getDuration());
+        plan.setDescription(autoDescription);
     }
 
     /**
