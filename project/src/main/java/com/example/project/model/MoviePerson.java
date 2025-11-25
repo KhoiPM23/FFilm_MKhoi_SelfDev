@@ -1,15 +1,10 @@
-// src/main/java/com/example/project/model/MoviePerson.java
 package com.example.project.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
-@Table(name = "MoviePerson")
-@IdClass(MoviePersonId.class) // Dùng composite key
+@Table(name = "Movie_Person") 
+@IdClass(MoviePersonId.class)
 public class MoviePerson {
 
     @Id
@@ -20,9 +15,14 @@ public class MoviePerson {
     @Column(name = "personID")
     private int personID;
 
-    // Constructors
-    public MoviePerson() {
-    }
+    // [MỚI] Thêm 2 trường lưu role
+    @Column(name = "character_name", columnDefinition = "NVARCHAR(255)")
+    private String characterName;
+
+    @Column(name = "job", columnDefinition = "NVARCHAR(255)")
+    private String job; // Vd: Director, Acting
+
+    public MoviePerson() {}
 
     public MoviePerson(int movieID, int personID) {
         this.movieID = movieID;
@@ -30,19 +30,15 @@ public class MoviePerson {
     }
 
     // Getters & Setters
-    public int getMovieID() {
-        return movieID;
-    }
+    public int getMovieID() { return movieID; }
+    public void setMovieID(int movieID) { this.movieID = movieID; }
 
-    public void setMovieID(int movieID) {
-        this.movieID = movieID;
-    }
+    public int getPersonID() { return personID; }
+    public void setPersonID(int personID) { this.personID = personID; }
 
-    public int getPersonID() {
-        return personID;
-    }
+    public String getCharacterName() { return characterName; }
+    public void setCharacterName(String characterName) { this.characterName = characterName; }
 
-    public void setPersonID(int personID) {
-        this.personID = personID;
-    }
+    public String getJob() { return job; }
+    public void setJob(String job) { this.job = job; }
 }

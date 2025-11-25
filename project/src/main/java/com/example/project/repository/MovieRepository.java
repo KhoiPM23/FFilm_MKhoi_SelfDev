@@ -72,4 +72,12 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
     Page<Movie> findByIsFreeTrue(Pageable pageable);
 
     boolean existsByTmdbId(Long tmdbId);
+    // [FIX QUAN TRỌNG] Thêm JOIN FETCH để lấy luôn Genres và Collection
+    // Dùng cho trang Chi tiết phim (Detail)
+    @Query("SELECT m FROM Movie m " +
+           "LEFT JOIN FETCH m.genres " +
+           "LEFT JOIN FETCH m.collection " +
+           "WHERE m.movieID = :movieID")
+    Optional<Movie> findByIdWithDetails(@Param("movieID") Integer movieID);
+
 }

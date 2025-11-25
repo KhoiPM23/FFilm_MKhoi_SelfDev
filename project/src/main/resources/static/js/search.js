@@ -412,60 +412,55 @@
          */
         function renderSuggestionsChunk(chunk, append = false) {
             const html = chunk.map(item => {
-                const isFromDB = item.hasOwnProperty('poster'); 
+                // Xác định dữ liệu từ DB hay API
+                const isFromDB = item.hasOwnProperty('tmdbId') || item.hasOwnProperty('role_info'); 
                 
-                let id, title, year, rating, poster, roleInfo, tmdbId;
+                let id = item.id;
+                let tmdbId = item.tmdbId || item.id;
+                let title = escapeHtml(item.title || item.name || 'Unknown');
+                let year = (item.year || item.release_date || '').substring(0, 4) || '—';
+                let rating = item.rating || (item.vote_average ? item.vote_average.toFixed(1) : '—');
+                let poster = item.poster || (item.poster_path ? `${IMG_BASE}/w92${item.poster_path}` : '/images/placeholder.jpg');
                 
-                if (isFromDB) {
-                    id = item.id; // movieID (PK)
-                    tmdbId = item.tmdbId; // tmdbId (nếu có)
-                    title = escapeHtml(item.title || 'Unknown');
-                    year = item.year || '—';
-                    rating = item.rating || '—';
-                    poster = item.poster || '/images/placeholder.jpg';
-                    roleInfo = item._personRole || item.role_info || null; 
-                } else {
-                    id = item.id; // tmdbId
-                    tmdbId = item.id;
-                    title = escapeHtml(item.title || item.name || 'Unknown');
-                    year = (item.release_date || item.first_air_date || '').substring(0, 4);
-                    rating = item.vote_average ? item.vote_average.toFixed(1) : '—';
-                    poster = item.poster_path 
-                        ? `${IMG_BASE}/w92${item.poster_path}` 
-                        : '/images/placeholder.jpg';
-                    roleInfo = item._personRole || null; 
-                }
-                
-                // [FIX VĐ 3] Logic gán onclick TỐI ƯU HÓA
-                let dataAttrs = `data-id="${id}"`; // Dùng cho cả DB PK và TMDB ID
+                // [QUAN TRỌNG] Lấy Role Info từ API mới (ưu tiên role_info từ searchMoviesCombined)
+                let roleInfo = item.role_info || item._personRole || null; 
 
+                // Data attribute cho sự kiện click
+                let dataAttrs = `data-id="${id}"`;
                 if (isFromDB) {
                     dataAttrs += ` data-type="db" data-tmdb-id="${tmdbId}"`;
                 } else {
-                    dataAttrs += ` data-type="api" data-tmdb-id="${tmdbId}" data-title="${escapeHtml(title)}"`;
+                    dataAttrs += ` data-type="api" data-tmdb-id="${tmdbId}" data-title="${title}"`;
                 }
 
-                // [SỬA VĐ 5] Logic hiển thị role
+                // [SỬA VĐ 5] Logic hiển thị role (Màu vàng/cam nổi bật)
                 let roleHtml = '';
                 if (roleInfo) {
-                    roleHtml = `<span style="color: #ffc107; font-size: 0.8rem; margin-left: 6px; font-style: italic; line-height: 1.2; white-space: normal;">
-                                    (${escapeHtml(roleInfo)})
-                                </span>`;
+                    roleHtml = `<div style="color: #ffc107; font-size: 0.85rem; margin-top: 3px; font-weight: 500; display: flex; align-items: center;">
+                                    <i class="fas fa-user-tag" style="font-size: 0.75rem; margin-right: 5px;"></i>
+                                    ${escapeHtml(roleInfo)}
+                                </div>`;
                 }
 
-                const meta = `${year} ${year !== '—' ? '•' : ''} ⭐ ${rating} ${roleHtml}`;
+                const meta = `
+                    <div style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.6);">
+                        <span>${year}</span>
+                        <span>•</span>
+                        <span style="color:#ffd700">★ ${rating}</span>
+                    </div>
+                `;
                 
-                // Gán onclick="goToDetail(this)" trực tiếp
                 return `
                     <div class="suggestion-item" onclick="goToDetail(this)" ${dataAttrs} 
-                        style="display:flex;gap:10px;padding:8px;align-items:center;cursor:pointer;border-radius:8px;transition:background 0.2s;">
+                        style="display:flex;gap:12px;padding:10px;align-items:start;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;">
                         <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'" 
-                            style="width:46px;height:64px;object-fit:cover;border-radius:4px;">
+                            style="width:45px;height:68px;object-fit:cover;border-radius:4px;flex-shrink:0;">
                         <div class="suggestion-info" style="flex:1;min-width:0;">
-                            <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-                            <div class="suggestion-meta" style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-top:4px; display: flex; align-items: center; flex-wrap: wrap; line-height: 1.3;">
+                            <div class="suggestion-title" style="font-weight:600;font-size:0.95rem;color:#fff;margin-bottom:2px;">${title}</div>
+                            <div class="suggestion-meta" style="font-size:0.8rem;">
                                 ${meta}
                             </div>
+                            ${roleHtml}
                         </div>
                     </div>
                 `;
@@ -479,9 +474,9 @@
             
             liveSuggestions.style.display = 'block';
             
-            // Hover effect (giữ nguyên)
+            // Hover effect
             liveSuggestions.querySelectorAll('.suggestion-item').forEach(item => {
-                item.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.05)'; });
+                item.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.1)'; });
                 item.addEventListener('mouseleave', function() { this.style.background = ''; });
             });
         }
@@ -549,6 +544,8 @@
                 if (yearTo) yearTo.value = '';
                 if (minRatingSlider) minRatingSlider.value = 0;
                 if (ratingValue) ratingValue.textContent = '0.0';
+                // Trong hàm resetFilters()
+                document.getElementById('filter-isFree').value = "";
             });
             
             // Apply filters
@@ -658,6 +655,13 @@
                 if (valueDisplay) valueDisplay.textContent = parseFloat(minRating).toFixed(1);
                 filterState.minRating = parseFloat(minRating);
             }
+
+            // 5. [MỚI] Restore Is Free/Paid
+            const isFree = urlParams.get('isFree');
+            if (isFree !== null) {
+                const isFreeSelect = document.getElementById('filter-isFree');
+                if (isFreeSelect) isFreeSelect.value = isFree;
+            }
         }
         
         /**
@@ -679,15 +683,24 @@
             const genreIds = filterState.genres.join(',');
             const quickFilter = filterState.quickFilter || '';
             
+            // Lấy giá trị dropdown Free/Paid
+            const isFreeVal = document.getElementById('filter-isFree')?.value;
+            
             // Tạo URL với params
             const params = new URLSearchParams();
             params.set('query', query);
-            params.set('page', '1'); // [FIX CUỐI] Luôn về trang 1 khi filter
+            params.set('page', '1'); // Luôn về trang 1 khi filter
+            
             if (genreIds) params.set('genres', genreIds);
             if (yearFrom) params.set('yearFrom', yearFrom);
             if (yearTo) params.set('yearTo', yearTo);
             if (minRating !== '0') params.set('minRating', minRating);
             if (quickFilter) params.set('quickFilter', quickFilter);
+            
+            // [FIX] Gửi tham số đúng chuẩn
+            if (isFreeVal && isFreeVal !== "") {
+                params.set('isFree', isFreeVal);
+            }
 
             // ✅ RELOAD trang với filter params
             window.location.href = `/search?${params.toString()}`;
@@ -799,13 +812,19 @@
                 const contentRating = movie.contentRating || 'T';
                 const country = movie.country || 'Quốc tế';
                 
-                // Logic Genre + Tooltip
+                // [FIX LỖI HIỂN THỊ] Logic Genre + Tooltip
                 let genresHtml = '<span class="genre-tag">Không có</span>';
                 if (movie.genres && movie.genres.length > 0) {
-                    genresHtml = movie.genres.slice(0, 2).map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('');
+                    const getName = (g) => (typeof g === 'object' && g.name) ? g.name : g;
+
+                    genresHtml = movie.genres.slice(0, 2)
+                        .map(g => `<span class="genre-tag">${escapeHtml(getName(g))}</span>`)
+                        .join('');
                     if (movie.genres.length > 2) {
                         const remaining = movie.genres.slice(2);
-                        const tooltipHtml = remaining.map(g => `<div class="genre-bubble">${escapeHtml(g)}</div>`).join('');
+                        const tooltipHtml = remaining
+                            .map(g => `<div class="genre-bubble">${escapeHtml(getName(g))}</div>`)
+                            .join('');
                         genresHtml += `
                             <span class="genre-tag genre-tag-more" 
                                   onmouseenter="if(window.showGenreTooltip) window.showGenreTooltip(this)" 

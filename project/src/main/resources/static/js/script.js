@@ -611,7 +611,7 @@
   /**
    * Cập nhật giao diện Hover Card với dữ liệu đã tải.
    * @param {HTMLElement} hoverCard - Phần tử Hover Card.
-   * @param {object} data - Dữ liệu đã tải.
+   * @param {object} data - Dữ liệu đã tải (bao gồm genres dạng List Map).
    */
   function updateHoverCardUI(hoverCard, data) {
     const ratingEl = hoverCard.querySelector(".meta-extra-rating");
@@ -619,47 +619,58 @@
     const countryEl = hoverCard.querySelector(".meta-extra-country");
 
     if (ratingEl) {
-      ratingEl.textContent = data.contentRating;
+      ratingEl.textContent = data.contentRating || "T";
       ratingEl.classList.remove("loading-meta");
     }
     if (runtimeEl) {
-      runtimeEl.textContent = data.runtime;
+      runtimeEl.textContent = data.runtime || "—";
       runtimeEl.classList.remove("loading-meta");
       runtimeEl.style.whiteSpace = "nowrap";
     }
     if (countryEl) {
-      countryEl.textContent = data.country;
+      countryEl.textContent = data.country || "Quốc tế";
       countryEl.classList.remove("loading-meta");
     }
 
-    // Xử lý render Genre
+    // --- [FIX LOGIC GENRE] ---
     const genresContainer = hoverCard.querySelector(".hover-card-genres");
-    if (!genresContainer) return;
+    if (genresContainer) {
+        // Helper an toàn để lấy tên thể loại (dù là String hay Object)
+        const getGenreName = (g) => {
+            if (!g) return "";
+            return (typeof g === 'object' && g.name) ? g.name : g;
+        };
 
-    const maxGenresToShow = 2;
+        if (data.genres && Array.isArray(data.genres) && data.genres.length > 0) {
+            const maxGenresToShow = 2;
+            
+            // 1. Render 2 thẻ đầu tiên
+            let html = data.genres.slice(0, maxGenresToShow)
+                .map(g => `<span class="genre-tag">${getGenreName(g)}</span>`)
+                .join('');
 
-    if (data.genres && data.genres.length > 0) {
-      // 1. Render 2 thẻ tag đầu tiên
-      genresContainer.innerHTML = data.genres
-        .slice(0, maxGenresToShow)
-        .map((name) => `<span class="genre-tag">${name}</span>`)
-        .join("");
-
-      // 2. Kiểm tra xem CÓ CÒN THỪA không
-      if (data.genres.length > maxGenresToShow) {
-        const remainingGenres = data.genres.slice(maxGenresToShow);
-
-        // 3. Thêm nút +N (với tooltip)
-        genresContainer.innerHTML += `<span class="genre-tag genre-tag-more" onmouseenter="showGenreTooltip(this)" onmouseleave="hideGenreTooltip(this)">
-                        +${remainingGenres.length}
-                        <div class="custom-genre-tooltip">${remainingGenres
-                          .map((g) => `<div class="genre-bubble">${g}</div>`)
-                          .join("")}</div>
-                    </span>`;
-      }
-    } else {
-      genresContainer.innerHTML = `<span class="genre-tag">Không có</span>`;
+            // 2. Xử lý phần còn thừa (+N)
+            if (data.genres.length > maxGenresToShow) {
+                const remaining = data.genres.slice(maxGenresToShow);
+                const tooltipHtml = remaining
+                    .map(g => `<div class="genre-bubble">${getGenreName(g)}</div>`)
+                    .join('');
+                
+                html += `
+                    <span class="genre-tag genre-tag-more" 
+                          onmouseenter="window.showGenreTooltip && window.showGenreTooltip(this)" 
+                          onmouseleave="window.hideGenreTooltip && window.hideGenreTooltip(this)">
+                        +${remaining.length}
+                        <div class="custom-genre-tooltip">${tooltipHtml}</div>
+                    </span>
+                `;
+            }
+            genresContainer.innerHTML = html;
+        } else {
+            genresContainer.innerHTML = `<span class="genre-tag">Không có</span>`;
+        }
     }
+
     // Bắt đầu phát video (nếu có trailer)
     if (data.trailerKey) {
       if (hoverVideoTimer) clearTimeout(hoverVideoTimer);

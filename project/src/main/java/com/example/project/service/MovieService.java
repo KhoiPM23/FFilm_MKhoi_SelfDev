@@ -50,6 +50,9 @@ public class MovieService {
     private ProductionCompanyRepository companyRepository;
     @Autowired
     private CollectionRepository collectionRepository;
+    @Autowired
+    private MoviePersonRepository moviePersonRepository;
+
 
     @Autowired
     private RestTemplate restTemplate;
@@ -389,6 +392,20 @@ public class MovieService {
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
 
+            // --- [CẬP NHẬT] BỘ LỌC CHI TIẾT (Ảnh & Thời lượng) ---
+            
+            // 1. Kiểm tra Thời lượng (Runtime)
+            // Phim phải có thời lượng > 0 phút. (Trừ phim sắp chiếu chưa có thông tin)
+            int runtime = json.optInt("runtime", 0);
+            String status = json.optString("status", "");
+            
+            // Lưu ý: Phim "Planned" hoặc "Rumored" có thể chưa có runtime, nhưng phim "Released" bắt buộc phải có.
+            // Ở đây ta chặn cứng runtime <= 0 để đảm bảo chất lượng xem.
+            if (runtime <= 0) {
+                // System.out.println("❌ Bỏ qua ID " + tmdbId + " - Thời lượng 0 phút.");
+                return null;
+            }
+
             // --- [LOGIC MỚI] KIỂM TRA ẢNH NGAY SAU KHI GỌI API ---
             String poster = json.optString("poster_path", null);
             String backdrop = json.optString("backdrop_path", null);
@@ -397,14 +414,6 @@ public class MovieService {
             if (!isValidImage(poster) || !isValidImage(backdrop)) {
                 System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thiếu Poster hoặc Banner.");
                 return null; 
-            }
-            // --- [LOGIC MỚI 2]: CHECK THỜI LƯỢNG (Duration Check) ---
-            int runtime = json.optInt("runtime", 0); // Lấy runtime, mặc định 0
-            
-            // Nếu thời lượng <= 0 -> BỎ QUA (Không lưu vào DB)
-            if (runtime <= 0) {
-                System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thời lượng bằng 0.");
-                return null;
             }
 
             Movie movie = (movieToUpdate != null) ? movieToUpdate : new Movie();
@@ -493,25 +502,38 @@ public class MovieService {
             // Credits
             JSONObject credits = json.optJSONObject("credits");
             if (credits != null) {
-                Set<Person> persons = new HashSet<>();
+                Movie savedMovie = movieRepository.save(movie); 
+                
+                // 1. Xử lý Crew (Đạo diễn)
                 JSONArray crew = credits.optJSONArray("crew");
                 if (crew != null) {
                     for (int i = 0; i < crew.length(); i++) {
-                        JSONObject p = crew.getJSONObject(i);
-                        if ("Director".equals(p.optString("job"))) {
-                            movie.setDirector(p.optString("name"));
-                            persons.add(getPersonPartialOrSync(p));
-                            break;
+                        JSONObject pJson = crew.getJSONObject(i);
+                        if ("Director".equals(pJson.optString("job"))) {
+                            Person p = getPersonPartialOrSync(pJson);
+                            if(p != null) {
+                                savedMovie.setDirector(p.getFullName());
+                                saveMoviePersonRole(savedMovie.getMovieID(), p.getPersonID(), "Director", "Director");
+                            }
                         }
                     }
                 }
+
+                // 2. Xử lý Cast (Diễn viên)
                 JSONArray cast = credits.optJSONArray("cast");
                 if (cast != null) {
-                    for (int i = 0; i < Math.min(cast.length(), 12); i++) {
-                        persons.add(getPersonPartialOrSync(cast.getJSONObject(i)));
+                    for (int i = 0; i < Math.min(cast.length(), 20); i++) {
+                        JSONObject pJson = cast.getJSONObject(i);
+                        Person p = getPersonPartialOrSync(pJson);
+                        if (p != null) {
+                            // [ĐÃ XÓA] persons.add(p);
+                            String character = pJson.optString("character");
+                            saveMoviePersonRole(savedMovie.getMovieID(), p.getPersonID(), character, "Acting");
+                        }
                     }
                 }
-                movie.setPersons(persons);
+                // [ĐÃ XÓA] savedMovie.setPersons(persons);
+                return movieRepository.save(savedMovie);
             }
 
             return movieRepository.save(movie);
@@ -521,6 +543,7 @@ public class MovieService {
             return null;
         }
     }
+
 
     // Helper check ảnh hợp lệ
     private boolean isValidImage(String path) {
@@ -1551,7 +1574,7 @@ public class MovieService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> getMovieDetailMap(int movieId) {
-        Movie movie = movieRepository.findById(movieId)
+        Movie movie = movieRepository.findByIdWithDetails(movieId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phim ID: " + movieId));
 
         // 1. Ép tải dữ liệu Lazy (chạm vào collection để Hibernate fetch)
@@ -1567,22 +1590,50 @@ public class MovieService {
         map.put("trailerKey", findBestTrailerKey(movieId));
         map.put("logoPath", findBestLogoPath(movieId));
 
-        // 4. Xử lý danh sách diễn viên (Cast) riêng để trả về cùng lúc
+        // 4. Lấy Cast kèm Role chuẩn từ bảng MoviePerson (SỬA ĐỔI: Lấy cả Đạo diễn)
         List<Map<String, Object>> castList = new ArrayList<>();
-        if (movie.getPersons() != null) {
-            castList = movie.getPersons().stream()
-                    .limit(14)
-                    .map(p -> {
-                        Map<String, Object> pMap = convertToMap(p);
-                        pMap.put("role", "Diễn viên");
-                        return pMap;
-                    })
-                    .collect(Collectors.toList());
-        }
-        map.put("castList", castList); // Nhét luôn cast vào map chính
+        List<MoviePerson> moviePersons = moviePersonRepository.findByMovieID(movieId);
+        
+        if (!moviePersons.isEmpty()) {
+            // Tạo 2 list tạm để gom nhóm
+            List<Map<String, Object>> directors = new ArrayList<>();
+            List<Map<String, Object>> actors = new ArrayList<>();
 
+            for (MoviePerson mp : moviePersons) {
+                Person p = personRepository.findById(mp.getPersonID()).orElse(null);
+                if (p != null) {
+                    Map<String, Object> pMap = convertToMap(p);
+                    String job = mp.getJob();
+
+                    if ("Director".equalsIgnoreCase(job)) {
+                        pMap.put("role", "Đạo diễn"); // Gán cứng role Đạo diễn
+                        directors.add(pMap);
+                    } else if ("Acting".equalsIgnoreCase(job)) {
+                        pMap.put("role", mp.getCharacterName() != null ? mp.getCharacterName() : "Diễn viên");
+                        actors.add(pMap);
+                    }
+                }
+            }
+            
+            // Ưu tiên: Đưa Đạo diễn lên đầu danh sách
+            castList.addAll(directors);
+            castList.addAll(actors);
+            
+        } else {
+            // Fallback: Nếu chưa có dữ liệu trong bảng mới, dùng logic cũ (giữ nguyên fallback)
+            if (movie.getPersons() != null) {
+                castList = movie.getPersons().stream().limit(12).map(p -> {
+                    Map<String, Object> m = convertToMap(p);
+                    m.put("role", "Diễn viên");
+                    return m;
+                }).collect(Collectors.toList());
+            }
+        }
+        map.put("castList", castList);
+        
         return map;
     }
+
 
     // ----- Helper: Map DTO sang Entity (cho CRUD)
     private void mapRequestToMovie(MovieRequest request, Movie movie) {
@@ -1631,4 +1682,97 @@ public class MovieService {
             return cb.and(predicates.toArray(new Predicate[0]));
         }, pageable);
     }
+    @Transactional
+    public ProductionCompany getCompanyByIdOrSync(int id) {
+        return companyRepository.findById(id).orElse(null);
+    }
+
+    @Transactional
+    public ProductionCompany getCompanyOrSync(int tmdbId) {
+        return companyRepository.findByTmdbId(tmdbId).orElseGet(() -> fetchAndSaveCompany(tmdbId));
+    }
+
+    // Helper: Tải thông tin Studio từ TMDB
+    private ProductionCompany fetchAndSaveCompany(int tmdbId) {
+        try {
+            String url = BASE_URL + "/company/" + tmdbId + "?api_key=" + API_KEY;
+            String resp = restTemplate.getForObject(url, String.class);
+            JSONObject json = new JSONObject(resp);
+
+            ProductionCompany comp = new ProductionCompany();
+            comp.setTmdbId(tmdbId);
+            comp.setName(json.optString("name"));
+            comp.setLogoPath(json.optString("logo_path"));
+            comp.setOriginCountry(json.optString("origin_country"));
+
+            return companyRepository.save(comp);
+        } catch (Exception e) {
+            System.err.println("Lỗi sync Company ID " + tmdbId + ": " + e.getMessage());
+            return null;
+        }
+    }
+    // [PHASE 5 - SEARCH FIX] Tìm kiếm tổng hợp (Title + Person Role)
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> searchMoviesCombined(String query) {
+        Map<Integer, Map<String, Object>> resultMap = new LinkedHashMap<>(); // Dùng LinkedHashMap để giữ thứ tự
+
+        // 1. Tìm theo Tên Phim
+        List<Movie> byTitle = searchMoviesByTitle(query);
+        for (Movie m : byTitle) {
+            resultMap.put(m.getMovieID(), convertToMap(m));
+        }
+
+        // 2. Tìm theo Tên Người
+        List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(query);
+        for (Person p : persons) {
+            List<MoviePerson> mps = moviePersonRepository.findByPersonID(p.getPersonID());
+
+            for (MoviePerson mp : mps) {
+                int mid = mp.getMovieID();
+                
+                // [LOGIC MỚI] Xác định role ưu tiên
+                String currentJob = mp.getJob(); // Director, Acting...
+                String roleDisplay;
+                
+                if ("Director".equalsIgnoreCase(currentJob)) {
+                    roleDisplay = "Đạo diễn: " + p.getFullName();
+                } else {
+                    String charName = mp.getCharacterName();
+                    roleDisplay = "Diễn viên" + (charName != null ? ": " + charName : "") + " (" + p.getFullName() + ")";
+                }
+
+                if (resultMap.containsKey(mid)) {
+                    // Nếu phim đã có trong list:
+                    // Kiểm tra nếu role cũ là Diễn viên mà role mới là Đạo diễn -> Ghi đè (Ưu tiên Đạo diễn)
+                    Map<String, Object> existingMap = resultMap.get(mid);
+                    String oldRole = (String) existingMap.get("role_info");
+                    
+                    if (oldRole == null || (!oldRole.contains("Đạo diễn") && roleDisplay.contains("Đạo diễn"))) {
+                        existingMap.put("role_info", roleDisplay);
+                    }
+                } else {
+                    // Nếu chưa có -> Thêm mới
+                    movieRepository.findByIdWithDetails(mid).ifPresent(m -> { // Dùng hàm mới đã JOIN FETCH
+                        Map<String, Object> map = convertToMap(m);
+                        map.put("role_info", roleDisplay);
+                        resultMap.put(mid, map);
+                    });
+                }
+            }
+        }
+        return new ArrayList<>(resultMap.values());
+    }
+    @Transactional
+    public void saveMoviePersonRole(int movieId, int personId, String character, String job) {
+        try {
+            MoviePerson mp = moviePersonRepository.findByMovieIDAndPersonID(movieId, personId)
+                    .orElse(new MoviePerson(movieId, personId));
+            if (character != null && !character.isEmpty()) mp.setCharacterName(character);
+            if (job != null && !job.isEmpty()) mp.setJob(job);
+            moviePersonRepository.save(mp);
+        } catch (Exception e) { /* Ignore duplicate */ }
+    }
+
+
+
 }

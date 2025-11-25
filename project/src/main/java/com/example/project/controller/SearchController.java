@@ -54,6 +54,7 @@ public class SearchController {
             @RequestParam(required = false) String yearTo,
             @RequestParam(required = false) String minRating,
             @RequestParam(required = false) String quickFilter,
+            @RequestParam(required = false) Boolean isFree,
             HttpServletRequest request,
             Model model) {
 
@@ -76,41 +77,30 @@ public class SearchController {
             fullSearchResults = new ArrayList<>();
             Set<Integer> addedTmdbIds = new HashSet<>();
 
-            //----- Bước 1: Kết quả từ DB (LUÔN CHẠY - KHÔNG PHỤ THUỘC MẠNG)
+            //----- Bước 1: Kết quả từ DB (SỬ DỤNG LOGIC MỚI - TỐI ƯU HÓA)
             try {
                 String cleanQuery = query.trim();
                 
-                // 1.1 Tìm theo Tên phim
-                List<Movie> dbResults = movieService.searchMoviesByTitle(cleanQuery);
-                for (Movie movie : dbResults) {
-                    // Check trùng lặp
-                    boolean exists = fullSearchResults.stream()
-                        .anyMatch(m -> m.get("id").equals(movie.getMovieID()));
-                    
-                    if (!exists) {
-                        fullSearchResults.add(movieService.convertToMap(movie));
-                        if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
-                    }
-                }
-
-                // 1.2 [ĐÃ SỬA] Tìm theo Tên Người & Hiển thị Role cụ thể
-                List<Person> persons = movieService.searchPersons(cleanQuery);
-                for (Person p : persons) {
-                    for (Movie movie : p.getMovies()) {
-                        // Check trùng lặp
-                        boolean exists = fullSearchResults.stream()
-                            .anyMatch(m -> m.get("id").equals(movie.getMovieID()));
-
-                        if (!exists) {
-                            // Logic xác định Role
-                            String roleInfo = "Diễn viên: " + p.getFullName();
-                            if (movie.getDirector() != null && movie.getDirector().equalsIgnoreCase(p.getFullName())) {
-                                roleInfo = "Đạo diễn: " + p.getFullName();
-                            }
-
-                            // Thêm phim vào danh sách với Role cụ thể
-                            fullSearchResults.add(movieService.convertToMap(movie, roleInfo));
-                            if (movie.getTmdbId() != null) addedTmdbIds.add(movie.getTmdbId());
+                // [FIX] Gọi hàm searchMoviesCombined từ Service 
+                // Hàm này đã bao gồm: 
+                // 1. Tìm theo tên phim
+                // 2. Tìm theo tên diễn viên (tự động lấy Role chuẩn từ bảng MoviePerson: "Tony Stark" thay vì "Diễn viên")
+                List<Map<String, Object>> dbResults = movieService.searchMoviesCombined(cleanQuery);
+                
+                // Add vào danh sách kết quả chung
+                fullSearchResults.addAll(dbResults);
+                
+                // Lưu TMDB ID để tránh trùng lặp khi gọi API ở Bước 2 & 3 (Fallback)
+                for (Map<String, Object> item : dbResults) {
+                    Object tmdbIdObj = item.get("tmdbId");
+                    if (tmdbIdObj != null) {
+                        // Xử lý an toàn cho kiểu dữ liệu Integer/String
+                        if (tmdbIdObj instanceof Integer) {
+                            addedTmdbIds.add((Integer) tmdbIdObj);
+                        } else {
+                            try {
+                                addedTmdbIds.add(Integer.parseInt(tmdbIdObj.toString()));
+                            } catch (NumberFormatException e) { /* Ignore */ }
                         }
                     }
                 }
@@ -119,91 +109,91 @@ public class SearchController {
                 System.err.println("Lỗi truy vấn DB: " + e.getMessage());
             }
 
-            //----- Bước 2: Kết quả từ Person Search (Credits) - CÓ FALLBACK
-            try {
-                String personSearchUrl = BASE_URL + "/search/person?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
-                String personResponse = restTemplate.getForObject(personSearchUrl, String.class);
-                JSONArray personResults = new JSONObject(personResponse).optJSONArray("results");
+            // //----- Bước 2: Kết quả từ Person Search (Credits) - CÓ FALLBACK
+            // try {
+            //     String personSearchUrl = BASE_URL + "/search/person?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=1";
+            //     String personResponse = restTemplate.getForObject(personSearchUrl, String.class);
+            //     JSONArray personResults = new JSONObject(personResponse).optJSONArray("results");
 
-                if (personResults != null) {
-                    for (int i = 0; i < Math.min(personResults.length(), 10); i++) {
-                        JSONObject person = personResults.getJSONObject(i);
-                        int personId = person.optInt("id");
-                        if (personId <= 0) continue;
+            //     if (personResults != null) {
+            //         for (int i = 0; i < Math.min(personResults.length(), 10); i++) {
+            //             JSONObject person = personResults.getJSONObject(i);
+            //             int personId = person.optInt("id");
+            //             if (personId <= 0) continue;
 
-                        String creditsUrl = BASE_URL + "/person/" + personId + "/movie_credits?api_key=" + API_KEY + "&language=vi-VN";
-                        String creditsResponse = restTemplate.getForObject(creditsUrl, String.class);
-                        JSONObject creditsJson = new JSONObject(creditsResponse);
-                        String personName = person.optString("name");
+            //             String creditsUrl = BASE_URL + "/person/" + personId + "/movie_credits?api_key=" + API_KEY + "&language=vi-VN";
+            //             String creditsResponse = restTemplate.getForObject(creditsUrl, String.class);
+            //             JSONObject creditsJson = new JSONObject(creditsResponse);
+            //             String personName = person.optString("name");
                         
-                        // Lấy Cast
-                        JSONArray castMovies = creditsJson.optJSONArray("cast");
-                        if (castMovies != null) {
-                            for (int j = 0; j < Math.min(castMovies.length(), 10); j++) {
-                                JSONObject movieCredit = castMovies.getJSONObject(j);
-                                int movieTmdbId = movieCredit.optInt("id");
-                                if (movieTmdbId > 0 && !addedTmdbIds.contains(movieTmdbId)) {
-                                    Movie movie = movieService.syncMovieFromList(movieCredit);
-                                    if (movie != null) {
-                                        fullSearchResults.add(movieService.convertToMap(movie, "Diễn viên: " + personName));
-                                        addedTmdbIds.add(movieTmdbId);
-                                    }
-                                }
-                            }
-                        }
-                        // Lấy Crew (Director)
-                        JSONArray crewMovies = creditsJson.optJSONArray("crew");
-                        if (crewMovies != null) {
-                            int directorCount = 0;
-                            for (int j = 0; j < crewMovies.length() && directorCount < 10; j++) {
-                                JSONObject movieCredit = crewMovies.getJSONObject(j);
-                                if (!"Director".equals(movieCredit.optString("job"))) continue;
+            //             // Lấy Cast
+            //             JSONArray castMovies = creditsJson.optJSONArray("cast");
+            //             if (castMovies != null) {
+            //                 for (int j = 0; j < Math.min(castMovies.length(), 10); j++) {
+            //                     JSONObject movieCredit = castMovies.getJSONObject(j);
+            //                     int movieTmdbId = movieCredit.optInt("id");
+            //                     if (movieTmdbId > 0 && !addedTmdbIds.contains(movieTmdbId)) {
+            //                         Movie movie = movieService.syncMovieFromList(movieCredit);
+            //                         if (movie != null) {
+            //                             fullSearchResults.add(movieService.convertToMap(movie, "Diễn viên: " + personName));
+            //                             addedTmdbIds.add(movieTmdbId);
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //             // Lấy Crew (Director)
+            //             JSONArray crewMovies = creditsJson.optJSONArray("crew");
+            //             if (crewMovies != null) {
+            //                 int directorCount = 0;
+            //                 for (int j = 0; j < crewMovies.length() && directorCount < 10; j++) {
+            //                     JSONObject movieCredit = crewMovies.getJSONObject(j);
+            //                     if (!"Director".equals(movieCredit.optString("job"))) continue;
 
-                                int movieTmdbId = movieCredit.optInt("id");
-                                if (movieTmdbId > 0 && !addedTmdbIds.contains(movieTmdbId)) {
-                                    Movie movie = movieService.syncMovieFromList(movieCredit);
-                                    if (movie != null) {
-                                        fullSearchResults.add(movieService.convertToMap(movie, "Đạo diễn: " + personName));
-                                        addedTmdbIds.add(movieTmdbId);
-                                        directorCount++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi để app không sập
-                System.err.println("⚠️ Lỗi Person Search (API có thể mất kết nối): " + e.getMessage());
-            }
+            //                     int movieTmdbId = movieCredit.optInt("id");
+            //                     if (movieTmdbId > 0 && !addedTmdbIds.contains(movieTmdbId)) {
+            //                         Movie movie = movieService.syncMovieFromList(movieCredit);
+            //                         if (movie != null) {
+            //                             fullSearchResults.add(movieService.convertToMap(movie, "Đạo diễn: " + personName));
+            //                             addedTmdbIds.add(movieTmdbId);
+            //                             directorCount++;
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // } catch (Exception e) {
+            //     // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi để app không sập
+            //     System.err.println("⚠️ Lỗi Person Search (API có thể mất kết nối): " + e.getMessage());
+            // }
 
-            //----- Bước 3: Kết quả từ API Movie (3 trang) - CÓ FALLBACK
-            try {
-                for (int apiPage = 1; apiPage <= 3; apiPage++) {
-                    String movieSearchUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=" + apiPage + "&include_adult=false";
-                    String movieResponse = restTemplate.getForObject(movieSearchUrl, String.class);
-                    JSONObject paginationJson = new JSONObject(movieResponse);
-                    JSONArray movieResults = paginationJson.optJSONArray("results");
+            // //----- Bước 3: Kết quả từ API Movie (3 trang) - CÓ FALLBACK
+            // try {
+            //     for (int apiPage = 1; apiPage <= 3; apiPage++) {
+            //         String movieSearchUrl = BASE_URL + "/search/movie?api_key=" + API_KEY + "&language=vi-VN&query=" + encodedQuery + "&page=" + apiPage + "&include_adult=false";
+            //         String movieResponse = restTemplate.getForObject(movieSearchUrl, String.class);
+            //         JSONObject paginationJson = new JSONObject(movieResponse);
+            //         JSONArray movieResults = paginationJson.optJSONArray("results");
 
-                    if (movieResults != null && movieResults.length() > 0) {
-                        for (int i = 0; i < movieResults.length(); i++) {
-                            JSONObject item = movieResults.getJSONObject(i);
-                            int tmdbId = item.optInt("id", -1);
+            //         if (movieResults != null && movieResults.length() > 0) {
+            //             for (int i = 0; i < movieResults.length(); i++) {
+            //                 JSONObject item = movieResults.getJSONObject(i);
+            //                 int tmdbId = item.optInt("id", -1);
 
-                            if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
-                                Movie movie = movieService.syncMovieFromList(item);
-                                if (movie != null) {
-                                    fullSearchResults.add(movieService.convertToMap(movie));
-                                    addedTmdbIds.add(tmdbId);
-                                }
-                            }
-                        }
-                    } else break;
-                }
-            } catch (Exception e) {
-                // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi
-                System.err.println("⚠️ Lỗi Movie Search API (API có thể mất kết nối): " + e.getMessage());
-            }
+            //                 if (tmdbId > 0 && !addedTmdbIds.contains(tmdbId)) {
+            //                     Movie movie = movieService.syncMovieFromList(item);
+            //                     if (movie != null) {
+            //                         fullSearchResults.add(movieService.convertToMap(movie));
+            //                         addedTmdbIds.add(tmdbId);
+            //                     }
+            //                 }
+            //             }
+            //         } else break;
+            //     }
+            // } catch (Exception e) {
+            //     // [QUAN TRỌNG] Chỉ ghi log, KHÔNG throw lỗi
+            //     System.err.println("⚠️ Lỗi Movie Search API (API có thể mất kết nối): " + e.getMessage());
+            // }
 
             session.setAttribute(sessionKey, fullSearchResults);
         } else {
@@ -235,6 +225,15 @@ public class SearchController {
             if (min > 0) {
                 filteredResults.removeIf(m -> m.get("rating") == null || Double.parseDouble((String)m.get("rating")) < min);
             }
+        }
+
+        // [MỚI] Lọc theo Free/Paid
+        if (isFree != null) {
+            filteredResults.removeIf(m -> {
+                Object freeVal = m.get("isFree");
+                if (freeVal == null) return true; // Bỏ qua nếu null
+                return !freeVal.equals(isFree);
+            });
         }
 
         //----- Bước 4.5: Sắp xếp (Sorting) theo Quick Filter
@@ -347,7 +346,7 @@ public class SearchController {
         model.addAttribute("yearTo", yearTo != null ? yearTo : "");
         model.addAttribute("minRating", minRating != null ? minRating : "0");
         model.addAttribute("quickFilter", quickFilter != null ? quickFilter : "");
-        
+        model.addAttribute("isFree", isFree);
         return "search";
     }
 

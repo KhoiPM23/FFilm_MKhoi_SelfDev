@@ -417,70 +417,40 @@ public class AIAgentService {
 
                     case "LOOKUP":
                         String subject = brain.optString("q_subject");
-                        String contextName = brain.optString("q_context");
-                        String qType = brain.optString("q_type");
-
-                        Movie targetMovie = movieService.findMovieByTitleAndContext(subject, contextName);
-
-                        if (targetMovie != null) {
-                            context = new ConversationContext(); // Reset
-                            recommendedMovies.add(movieService.convertToMap(targetMovie));
-
-                            if ("director".equals(qType)) {
-                                String d = targetMovie.getDirector();
-                                if (d != null && !d.isEmpty()) {
-                                    aiResponseText = "Đây là phim **" + targetMovie.getTitle() + "**, đạo diễn là **"
-                                            + d + "**.\nBạn có muốn xem thêm phim của đạo diễn này không?";
-                                    updateContext(context, "Person", d, "ask_director_movies");
-                                } else {
-                                    aiResponseText = "Đây là thông tin phim **" + targetMovie.getTitle()
-                                            + "** (Chưa có thông tin đạo diễn).";
-                                }
-                            } else if ("actor".equals(qType) || "cast".equals(qType)) {
-                                aiResponseText = "Thông tin diễn viên phim **" + targetMovie.getTitle() + "**:\n";
-                                if (!targetMovie.getPersons().isEmpty()) {
-                                    String cast = targetMovie.getPersons().stream().limit(5).map(Person::getFullName)
-                                            .collect(Collectors.joining(", "));
-                                    aiResponseText += "Diễn viên chính: " + cast + ".";
-                                    // Set context theo diễn viên đầu tiên
-                                    Person first = targetMovie.getPersons().iterator().next();
-                                    updateContext(context, "Person", first.getFullName(), "ask_person_movies"); // Lưu
-                                                                                                                // tên
-                                                                                                                // String
-                                                                                                                // cho
-                                                                                                                // dễ
-                                                                                                                // query
-                                    aiResponseText += "\nBạn muốn xem thêm phim của " + first.getFullName() + " không?";
-                                }
-                            } else {
-                                aiResponseText = formatMovieDetail(targetMovie, context);
+                        
+                        // 1. Ưu tiên: Tìm theo Tên Phim
+                        List<Movie> foundMovies = movieService.searchMoviesByTitle(subject);
+                        
+                        if (!foundMovies.isEmpty()) {
+                            // Nếu tìm thấy phim -> Hiển thị danh sách phim (Top 10)
+                            int count = Math.min(foundMovies.size(), 10);
+                            List<Movie> topMovies = foundMovies.subList(0, count);
+                            
+                            aiResponseText = "Tìm thấy **" + foundMovies.size() + "** phim liên quan đến \"" + subject + "\". Dưới đây là các kết quả nổi bật:";
+                            
+                            for (Movie m : topMovies) {
+                                recommendedMovies.add(movieService.convertToMap(m));
                             }
+                            
+                            context.setLastSubjectType("Movie");
+                            context.setLastSubjectId(topMovies.get(0).getTmdbId());
                         } else {
-                            // Tìm người
-                            List<Person> persons = personRepository.findByFullNameContainingIgnoreCase(subject);
-                            if (!persons.isEmpty()) {
-                                context = new ConversationContext();
-                                // [MỚI] Tự động tìm phim của người này luôn
-                                Person p = persons.get(0);
-                                MovieSearchFilters f = new MovieSearchFilters();
-                                f.setActor(p.getFullName()); // Hoặc director tùy logic
-
-                                List<Movie> mList = movieService.findMoviesByFilters(f);
-                                if (!mList.isEmpty()) {
-                                    aiResponseText = "Tìm thấy diễn viên/đạo diễn **" + p.getFullName()
-                                            + "**. Dưới đây là các phim có sự tham gia của họ:";
-                                    for (Movie m : mList.stream().limit(10).toList())
-                                        recommendedMovies.add(movieService.convertToMap(m));
-
-                                    // Set context để xem thêm
-                                    context.setLastSubjectType("Filter");
-                                    context.setLastSubjectId(f);
-                                    context.setLastQuestionAsked("ask_more_filter");
-                                } else {
-                                    aiResponseText = "Tìm thấy **" + p.getFullName()
-                                            + "** nhưng chưa có phim nào của họ trong hệ thống.";
-                                }
+                            // 2. [FIX AI] Fallback: Tìm theo Tên Người (Sử dụng searchMoviesCombined)
+                            // Hàm này sẽ tự động tìm người -> lấy phim từ bảng MoviePerson -> trả về Map có "role_info"
+                            List<Map<String, Object>> mixedResults = movieService.searchMoviesCombined(subject);
+                            
+                            if (!mixedResults.isEmpty()) {
+                                // Vì step 1 đã tìm title và rỗng, nên kết quả ở đây chắc chắn là tìm theo Person
+                                aiResponseText = "Tôi không tìm thấy phim nào tên \"" + subject + "\", nhưng tìm thấy nghệ sĩ có tên tương tự. Dưới đây là các phim của họ:";
+                                
+                                // Lấy Top 10 phim của diễn viên/đạo diễn đó
+                                int count = Math.min(mixedResults.size(), 10);
+                                recommendedMovies.addAll(mixedResults.subList(0, count));
+                                
+                                context.setLastSubjectType("Person");
+                                context.setLastSubjectId(subject);
                             } else {
+                                // 3. Fallback cuối cùng: Gemini chém gió (Keyword Search)
                                 Map<String, Object> fallback = runKeywordFallback(subject, context);
                                 aiResponseText = (String) fallback.get("message");
                                 recommendedMovies = (List<Map<String, Object>>) fallback.get("movies");
@@ -767,7 +737,7 @@ public class AIAgentService {
 
                     for (SubscriptionPlan plan : plans) {
                         response.append("✨ **").append(plan.getPlanName()).append("**\n");
-                        response.append("💰 Giá: ").append(formatPrice(plan.getPrice())).append("/tháng\n");
+                        response.append("💰 Giá: ").append(formatPrice(plan.getPrice())).append("\n");
 
                         if (plan.getDescription() != null && !plan.getDescription().isEmpty()) {
                             response.append("📝 ").append(plan.getDescription()).append("\n");
@@ -777,41 +747,28 @@ public class AIAgentService {
                     }
 
                     response.append("💡 **Lưu ý**: \n");
-                    response.append("• Hoàn tiền 100% trong 14 ngày đầu\n");
-                    response.append("• Hủy đăng ký bất cứ lúc nào\n");
+                    response.append("• Không hỗ trợ hoàn tiền với bất cứ hình thức nào\n");
                     response.append("• Hỗ trợ 24/7 qua chat hoặc hotline 1900-xxxx\n\n");
                     response.append("Bạn muốn biết thêm chi tiết về gói nào không? 😊");
                     break;
 
                 case "cancel":
                     response.append("🔄 **CHÍNH SÁCH HỦY ĐĂNG KÝ**\n\n");
-                    response.append("Bạn có thể hủy đăng ký bất cứ lúc nào mà không mất phí. ");
+                    response.append("Bạn không thể hủy đăng ký sau khi đã thanh toán. ");
                     response.append("Tài khoản sẽ còn hoạt động đến hết chu kỳ thanh toán hiện tại.\n\n");
-                    response.append("✅ Cách hủy:\n");
-                    response.append("1. Vào Tài khoản > Cài đặt\n");
-                    response.append("2. Chọn 'Quản lý đăng ký'\n");
-                    response.append("3. Nhấn 'Hủy đăng ký'\n\n");
-                    response.append("💰 Hoàn tiền 100% nếu hủy trong 14 ngày đầu!");
                     break;
 
                 case "payment":
                     response.append("💳 **PHƯƠNG THỨC THANH TOÁN**\n\n");
                     response.append("Chúng tôi hỗ trợ:\n");
-                    response.append("• 🏦 Thẻ ngân hàng (Visa, Mastercard, JCB)\n");
-                    response.append("• 📱 Ví điện tử (MoMo, ZaloPay, VNPay)\n");
                     response.append("• 💵 Chuyển khoản ngân hàng\n");
-                    response.append("• 🎴 Thẻ cào điện thoại\n\n");
-                    response.append("🔒 Bảo mật: Mã hóa SSL 256-bit, tuân thủ chuẩn PCI DSS");
                     break;
 
                 case "features":
                     response.append("🎬 **TÍNH NĂNG FFILM**\n\n");
-                    response.append("• 📚 Thư viện 15,000+ phim & series\n");
+                    response.append("• 📚 Thư viện 5,000+ phim & series\n");
                     response.append("• 🎥 Chất lượng HD, Full HD, 4K\n");
                     response.append("• 📱 Xem trên mọi thiết bị\n");
-                    response.append("• ⬇️ Tải phim offline\n");
-                    response.append("• 🌐 Phụ đề đa ngôn ngữ\n");
-                    response.append("• 👨‍👩‍👧‍👦 Tối đa 5 profile/tài khoản\n");
                     response.append("• 🚫 Không quảng cáo (gói trả phí)\n\n");
                     response.append("Bạn muốn xem các gói đăng ký không?");
                     break;

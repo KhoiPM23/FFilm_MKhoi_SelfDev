@@ -104,6 +104,16 @@
                   <span class="rating-value" id="ratingValue">0.0</span>
                 </div>
               </div>
+
+              <!-- isFree Filter -->
+              <div class="filter-group">
+                    <label for="filter-isFree" class="filter-title">Loại phim</label>
+                    <select id="filter-isFree" class="filter-select" onchange="this.blur()">
+                        <option value="">Tất cả phim</option>
+                        <option value="true">Phim Miễn phí</option>
+                        <option value="false">Phim Gói (Trả phí)</option>
+                    </select>
+                </div>
             </div>
             
             <div class="filters-footer">
@@ -348,9 +358,7 @@
     </div>
 
     <div th:replace="fragments/footer :: footer"></div>
-    
     <script src="https://www.youtube.com/iframe_api"></script>
-    
     <script src="/js/movie/share-modal.js"></script>
     <script src="/js/script.js"></script>
     <script src="/js/search.js"></script>

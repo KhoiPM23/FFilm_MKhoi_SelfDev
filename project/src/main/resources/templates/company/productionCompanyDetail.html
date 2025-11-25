@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${company.name} + ' - FFilm Studio'">Studio Detail - FFilm</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" th:href="@{/css/hover-card.css}">
+    <link rel="stylesheet" th:href="@{/css/ai-agent.css}">
+
+    <style>
+        /* --- GLOBAL & RESET --- */
+        body { 
+            background-color: #080808; 
+            color: #e5e5e5;
+            overflow-x: hidden;
+        }
+
+        /* --- HERO SECTION (CINEMATIC STYLE) --- */
+        .company-hero {
+            position: relative;
+            padding-top: 120px;
+            padding-bottom: 80px;
+            /* Background gradient tối, sang trọng */
+            background: radial-gradient(circle at 20% 50%, #1a1a1a 0%, #000000 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        /* Hiệu ứng nền trang trí (Glow effect) */
+        .company-hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -20%;
+            width: 80%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(229, 9, 20, 0.08) 0%, transparent 60%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .company-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 50px;
+            display: flex;
+            align-items: center;
+            gap: 60px;
+        }
+
+        /* --- LOGO BOX --- */
+        .company-logo-box {
+            width: 280px;
+            height: 280px;
+            background: rgba(255, 255, 255, 0.95); /* Nền trắng để logo nổi bật */
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+
+        .company-logo-box:hover {
+            transform: scale(1.02) translateY(-5px);
+        }
+
+        .company-logo-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        /* --- INFO SECTION --- */
+        .company-info {
+            flex: 1;
+        }
+
+        .company-type {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #e50914; /* Màu đỏ thương hiệu */
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .company-name {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            line-height: 1.1;
+            background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .company-meta {
+            display: inline-flex;
+            gap: 40px;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .meta-icon {
+            color: #999;
+            font-size: 1.1rem;
+        }
+
+        .meta-text {
+            font-size: 1.1rem;
+            color: #ddd;
+            font-weight: 500;
+        }
+
+        /* --- MOVIES GRID SECTION --- */
+        .content-section {
+            padding: 80px 50px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-title i {
+            color: #e50914;
+        }
+
+        .movie-count {
+            background: #333;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* Grid Layout */
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 30px 20px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 1024px) {
+            .company-container { flex-direction: column; text-align: center; gap: 40px; }
+            .company-meta { justify-content: center; width: 100%; border-radius: 12px; }
+            .company-name { font-size: 3rem; }
+        }
+
+        @media (max-width: 768px) {
+            .company-hero { padding-top: 100px; }
+            .company-container { padding: 0 20px; }
+            .company-logo-box { width: 180px; height: 180px; padding: 20px; }
+            .company-name { font-size: 2.2rem; }
+            .company-meta { flex-direction: column; gap: 15px; padding: 20px; }
+            .content-section { padding: 50px 20px; }
+            .movies-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div th:replace="~{fragments/header :: header}"></div>
+
+    <section class="company-hero">
+        <div class="company-container">
+            <div class="company-logo-box">
+                <img th:src="${company.logo}" 
+                     th:alt="${company.name}" 
+                     onerror="this.src='/images/placeholder.jpg'">
+            </div>
+
+            <div class="company-info">
+                <span class="company-type">Production Studio</span>
+                <h1 class="company-name" th:text="${company.name}">Marvel Studios</h1>
+                
+                <div class="company-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-globe-americas meta-icon"></i>
+                        <span class="meta-text" 
+                              th:text="${company.originCountry != null && company.originCountry != '' ? company.originCountry : 'Quốc tế'}">
+                            US
+                        </span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-film meta-icon"></i>
+                        <span class="meta-text">
+                            <span th:text="${movies.size()}">0</span> Phim đã phát hành
+                        </span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-check-circle meta-icon" style="color: #46d369;"></i>
+                        <span class="meta-text">Đối tác chính thức</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-clapperboard"></i> 
+                Danh sách phim
+            </h2>
+            <span class="movie-count" th:text="${movies.size()} + ' phim'"></span>
+        </div>
+
+        <div class="movies-grid">
+            <div th:each="movie : ${movies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}">
+                
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" 
+                         th:alt="${movie.title}" 
+                         loading="lazy"
+                         onerror="this.src='/images/placeholder.jpg'">
+                </div>
+                
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Tên phim</h3>
+                    <p class="movie-rating">
+                        ⭐ <span th:text="${movie.rating}">0.0</span>
+                    </p>
+                </div>
+
+                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+            </div>
+            
+            <div th:if="${movies.isEmpty()}" style="grid-column: 1/-1; text-align: center; padding: 50px; color: #666;">
+                <i class="fas fa-film" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                <p>Chưa có dữ liệu phim cho Studio này.</p>
+            </div>
+        </div>
+    </section>
+
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    <div th:replace="~{fragments/share-modal :: shareModal}"></div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
+
+</body>
+</html>

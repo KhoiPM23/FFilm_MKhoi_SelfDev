@@ -59,4 +59,9 @@ public class MovieSearchFilters {
                (director != null && !director.isEmpty()) ||
                (actor != null && !actor.isEmpty());
     }
+    // Thêm field này vào cuối class
+    private Boolean isFree;        // Lọc phim miễn phí/trả phí
+
+    public Boolean getIsFree() { return isFree; }
+    public void setIsFree(Boolean isFree) { this.isFree = isFree; }
 }

@@ -325,6 +325,64 @@
             color: #e50914;
         }
 
+        /* ============ FILTER SELECT STYLING (NEW) ============ */
+        .filter-select {
+            width: 100%;
+            padding: 12px 16px;
+            padding-right: 40px; /* Chừa chỗ cho icon mũi tên */
+            
+            /* Màu nền trong suốt nhẹ giống các input khác */
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Xóa mũi tên mặc định xấu xí của trình duyệt */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            
+            /* Thêm mũi tên custom màu đỏ FFilm */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e50914' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        /* Hiệu ứng khi di chuột vào */
+        .filter-select:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Hiệu ứng khi đang chọn */
+        .filter-select:focus {
+            border-color: #e50914; /* Viền đỏ */
+            background-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.15); /* Glow nhẹ màu đỏ */
+        }
+
+        /* Style cho các tùy chọn bên trong (Dropdown list) */
+        .filter-select option {
+            background-color: #141414; /* Nền đen chuẩn */
+            color: #fff;
+            padding: 12px;
+        }
+
+        /* Tăng khoảng cách giữa chữ "Loại phim" và ô chọn */
+        .filter-group label.filter-label {
+            display: block;          /* Đảm bảo label nằm trên một dòng riêng */
+            margin-bottom: 15px !important; /* Cách xa 15px (bạn có thể tăng giảm số này) */
+            font-size: 0.95rem;      /* Chỉnh lại cỡ chữ cho đẹp nếu cần */
+            color: #b3b3b3;          /* Màu xám nhẹ cho đỡ gắt */
+        }
+
 
         /* Action Buttons */
         .search-actions {
