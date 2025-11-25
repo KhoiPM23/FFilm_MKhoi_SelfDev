@@ -46,69 +46,63 @@ public class MovieDetailController {
             Model model, HttpSession session) {
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
 
+        // Logic chuyển hướng login giữ nguyên
         if (userSession == null) {
             session.setAttribute("PREV_URL", "/movie/detail/" + ((id != null) ? id : ("?movieId=" + movieId)));
             return "redirect:/login";
         }
 
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
-        if (finalIdStr == null || finalIdStr.isEmpty())
-            return "redirect:/";
+        if (finalIdStr == null || finalIdStr.isEmpty()) return "redirect:/";
 
         try {
             int movieID = Integer.parseInt(finalIdStr);
 
-            // [FIX] Gọi hàm Service an toàn (đã bao gồm @Transactional và convert)
-            // Map này đã chứa đầy đủ: info, trailer, logo, castList
+            // [QUAN TRỌNG] Gọi hàm Service mới để lấy Map chi tiết (Đã bao gồm castList chuẩn Role)
             Map<String, Object> movieMap = movieService.getMovieDetailMap(movieID);
 
-            // 1. Xử lý Cast List (đã được Service nhét vào key 'castList')
-            List<?> castList = (List<?>) movieMap.get("castList");
+            // 1. Bóc tách Cast List (Service đã xử lý Role/Character từ DB)
+            List<?> castList = new ArrayList<>();
+            if (movieMap.containsKey("castList")) {
+                castList = (List<?>) movieMap.get("castList");
+            }
             model.addAttribute("castList", castList);
 
-            // 2. Xử lý Trailer (đã được Service nhét vào key 'trailerKey')
+            // 2. Xử lý Trailer (Service đã xử lý)
             List<Map<String, Object>> trailers = new ArrayList<>();
-
-            boolean isFavorite = false;
-            boolean isVip = false;
-            if (userSession != null) {
-                // Kiểm tra xem phim đã tồn tại trong danh sách yêu thích của người dùng này
-                // chưa
-                isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
-                isVip = subscriptionService.checkActiveSubscription(userSession.getId());
-            }
-            model.addAttribute("isFavorite", isFavorite); // <-- TRUYỀN isFavorite vào Model
-            model.addAttribute("isVip", isVip);
-
             String tKey = (String) movieMap.get("trailerKey");
-
             if (tKey != null && !tKey.isEmpty()) {
                 Map<String, Object> t = new HashMap<>();
                 t.put("key", tKey);
                 t.put("name", "Trailer Chính Thức");
                 trailers.add(t);
-
             }
             model.addAttribute("trailers", trailers);
 
-            // 3. Các Attributes khác
+            // 3. Xử lý User Status (Yêu thích / VIP)
+            boolean isFavorite = false;
+            boolean isVip = false;
+            if (userSession != null) {
+                isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
+                isVip = subscriptionService.checkActiveSubscription(userSession.getId());
+            }
+            model.addAttribute("isFavorite", isFavorite);
+            model.addAttribute("isVip", isVip);
+
+            // 4. Gán các Attribute còn lại
             model.addAttribute("movie", movieMap);
             model.addAttribute("movieId", String.valueOf(movieID));
             model.addAttribute("tmdbId", String.valueOf(movieMap.get("tmdbId")));
-            model.addAttribute("recommendTitle", "Có Thể Bạn Thích");
+            model.addAttribute("recommendTitle", "Có Thể Bạn Thích"); // Tiêu đề cho Carousel Gợi ý
             model.addAttribute("clientSideLoad", false);
-            if (!model.containsAttribute("isFavorite"))
-                model.addAttribute("isFavorite", false);
 
             return "movie/movie-detail";
 
         } catch (Exception e) {
-            System.err.println("❌ Error MovieDetail: " + e.getMessage());
             e.printStackTrace();
+            // Fallback nếu lỗi
+            return createClientSideFallback(finalIdStr, model);
         }
-
-        // Fallback an toàn
-        return createClientSideFallback(finalIdStr, model);
     }
 
     // [FIX QUAN TRỌNG] Fallback đầy đủ trường để Thymeleaf không chết

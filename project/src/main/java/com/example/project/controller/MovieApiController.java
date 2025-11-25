@@ -25,31 +25,20 @@ public class MovieApiController {
     public ResponseEntity<List<Map<String, Object>>> liveSearchDb(@RequestParam("query") String query) {
         if (query == null || query.trim().length() < 2) return ResponseEntity.ok(List.of());
         
-        String cleanQuery = query.trim();
-        Map<Integer, Map<String, Object>> resultMap = new LinkedHashMap<>();
-
-        // 1. Tìm theo Tên phim
-        List<Movie> dbTitleResults = movieService.searchMoviesByTitle(cleanQuery);
-        for (Movie m : dbTitleResults) {
-            resultMap.put(m.getMovieID(), movieService.convertToMap(m));
-        }
-        
-        // 2. Tìm theo Tên Người
-        List<Person> persons = movieService.searchPersons(cleanQuery);
-        for (Person p : persons) {
-            for (Movie m : p.getMovies()) {
-                if (!resultMap.containsKey(m.getMovieID())) {
-                    Map<String, Object> map = movieService.convertToMap(m);
-                    String roleInfo = "Diễn viên: " + p.getFullName();
-                    if (m.getDirector() != null && m.getDirector().equalsIgnoreCase(p.getFullName())) {
-                        roleInfo = "Đạo diễn: " + p.getFullName();
-                    }
-                    map.put("role_info", roleInfo);
-                    resultMap.put(m.getMovieID(), map);
-                }
+        try {
+            List<Map<String, Object>> results = movieService.searchMoviesCombined(query.trim());
+            
+            // [DEBUG] In ra console
+            System.out.println("🔍 Search '" + query + "' → Found: " + results.size() + " movies");
+            
+            if (results.size() > 10) {
+                return ResponseEntity.ok(results.subList(0, 10));
             }
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            System.err.println("Live Search Error: " + e.getMessage());
+            return ResponseEntity.ok(new ArrayList<>());
         }
-        return ResponseEntity.ok(new ArrayList<>(resultMap.values()));
     }
 
     //---- 2. API UTILITY (Banner/Hover) - Offline ----

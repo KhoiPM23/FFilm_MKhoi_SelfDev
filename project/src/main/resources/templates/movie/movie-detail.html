@@ -75,14 +75,11 @@
           </div>
 
           <div class="hero-genres">
-            <a
-              th:each="g : ${movie.genres}"
-              th:text="${g}"
-              href="#"
-              class="hero-genre-tag"
-              >Thể loại</a
-            >
-          </div>
+            <a th:each="g : ${movie.genres}" 
+            th:text="${g.name}" 
+            th:href="@{/discover(genres=${g.id})}" 
+            class="hero-genre-tag">Thể loại</a>
+        </div>
 
           <div class="hero-actions">
             <a
@@ -287,13 +284,19 @@
           </button>
         </div>
 
+        <div
+          class="comments-wrapper"
+          style="
+            background: #121212;
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #222;
+            margin-top: 50px;
+          "
+        ></div>
+
         
 
-       
-
-        
-
-        
       </div>
 
       <div class="content-sidebar">
@@ -301,31 +304,6 @@
         <div class="trending-list" id="trendingSidebar"></div>
       </div>
     </div>
-
-    <section
-      class="movies movie-list-section full-width-section"
-      style="margin-top: 0; display: none"
-      id="similarSection"
-    >
-      <div class="section-header" style="padding: 0; margin-bottom: 20px">
-        <div class="section-title-wrapper">
-          <h2 class="section-title" style="font-size: 1.6rem">
-            🔥 Phim tương tự
-          </h2>
-        </div>
-        <div class="carousel-nav">
-          <button class="nav-btn prev-btn" id="similarPrevBtn">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <button class="nav-btn next-btn" id="similarNextBtn">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
-      </div>
-      <div class="movie-carousel">
-        <div class="movie-slider" id="similarSlider"></div>
-      </div>
-    </section>
 
     <section
       class="movies movie-list-section full-width-section"
@@ -357,8 +335,32 @@
       </div>
     </section>
 
+    <section
+      class="movies movie-list-section full-width-section"
+      style="margin-top: 0; display: none"
+      id="similarSection"
+    >
+      <div class="section-header" style="padding: 0; margin-bottom: 20px">
+        <div class="section-title-wrapper">
+          <h2 class="section-title" style="font-size: 1.6rem">
+            🔥 Phim tương tự
+          </h2>
+        </div>
+        <div class="carousel-nav">
+          <button class="nav-btn prev-btn" id="similarPrevBtn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="nav-btn next-btn" id="similarNextBtn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="movie-carousel">
+        <div class="movie-slider" id="similarSlider"></div>
+      </div>
+    </section>
+
     <div th:replace="~{fragments/footer :: footer}"></div>
-    
     <div th:replace="~{fragments/share-modal :: shareModal}"></div>
 
     <div
@@ -411,7 +413,6 @@
     </div>
 
     <script src="https://www.youtube.com/iframe_api"></script>
-
     <script src="/js/movie/share-modal.js"></script>
     <script src="/js/script.js"></script>
     <script src="/js/movie/movie-detail.js"></script>

@@ -314,20 +314,24 @@ public class MovieService {
     @Transactional
     public Person getPersonByIdOrSync(int personID) {
         Optional<Person> existing = personRepository.findById(personID);
-        if (existing.isEmpty())
-            return null;
+        if (existing.isEmpty()) return null;
 
         Person person = existing.get();
-        if (person.getTmdbId() == null)
-            return person;
-
-        // Kiểm tra cờ "N/A" -> EAGER load
-        if ("N/A".equals(person.getBio())) {
-            System.out.println("♻️ [Person EAGER] Nâng cấp chi tiết cho person ID: " + personID);
-            return fetchAndSavePersonDetail(person.getTmdbId(), person);
+        
+        // ✅ LUÔN TRẢ VỀ PERSON (Dù có N/A hay không)
+        // Nếu có tmdbId và Bio = "N/A" thì thử fetch (nhưng không crash nếu API off)
+        if (person.getTmdbId() != null && "N/A".equals(person.getBio())) {
+            try {
+                Person updated = fetchAndSavePersonDetail(person.getTmdbId(), person);
+                return updated != null ? updated : person; // ← Fallback về person cũ nếu API lỗi
+            } catch (Exception e) {
+                System.err.println("⚠️ API off, dùng data cũ cho Person ID: " + personID);
+                return person; // ← Trả về person "cụt" thay vì null
+            }
         }
         return person;
     }
+
 
     // Lấy Person theo tmdbId (TMDB ID), tự động sync đầy đủ (EAGER) nếu cần.
     @Transactional
@@ -350,32 +354,17 @@ public class MovieService {
     @Transactional
     public Person getPersonPartialOrSync(JSONObject json) {
         int tmdbId = json.optInt("id");
-        if (tmdbId <= 0)
-            return null;
+        if (tmdbId <= 0) return null;
 
         Optional<Person> existing = personRepository.findByTmdbId(tmdbId);
-        if (existing.isPresent())
-            return existing.get();
+        if (existing.isPresent()) return existing.get();
 
-        // ----- Tạo mới bản "cụt"
-        System.out.println("✳️ [Person LAZY] Tạo mới bản cụt cho ID: " + tmdbId);
-        Person p = new Person();
-        p.setTmdbId(tmdbId);
-
-        // Lazy load CHỈ lấy Tên và Ảnh
-        p.setFullName(json.optString("name"));
-        p.setProfilePath(json.optString("profile_path", null));
-
-        // Đặt cờ "N/A" (Chờ Eager lấp đầy)
-        p.setKnownForDepartment("N/A");
-        p.setBio("N/A");
-
-        // Các trường SET NULL (Chờ Eager lấp đầy)
-        p.setBirthday(null);
-        p.setPlaceOfBirth(null);
-        p.setPopularity(null);
-
-        return personRepository.save(p);
+        // [SỬA ĐỔI]: Thay vì tạo bản cụt, gọi ngay hàm lấy chi tiết để lưu full data
+        System.out.println("⬇️ [Person EAGER] Tải chi tiết ngay lập tức cho ID: " + tmdbId);
+        
+        // Gọi hàm fetchAndSavePersonDetail (đã có sẵn bên dưới trong file này)
+        // Hàm này sẽ gọi API /person/{id} lấy bio, birthday, place_of_birth...
+        return fetchAndSavePersonDetail(tmdbId, null);
     }
 
     // ---- 5. CORE SYNC HELPERS (PRIVATE) ----
@@ -647,9 +636,10 @@ public class MovieService {
             return personRepository.save(p);
         } catch (Exception e) {
             System.err.println("Lỗi API fetchAndSavePersonDetail (ID: " + tmdbId + "): " + e.getMessage());
-            return null;
+            return personToUpdate;
         }
     }
+
 
     // ---- 6. CAROUSEL / MERGE LOGIC ----
 
@@ -817,7 +807,7 @@ public class MovieService {
             if (movie.getProductionCompanies() != null && !movie.getProductionCompanies().isEmpty()) {
                 // Lấy hãng đầu tiên
                 ProductionCompany studio = movie.getProductionCompanies().iterator().next();
-                Set<Movie> studioMovies = studio.getMovies();
+                Set<Movie> studioMovies = studio.getMovies(); // Lấy từ DB (Lazy ok)
 
                 if (studioMovies != null) {
                     for (Movie m : studioMovies) {
@@ -830,15 +820,22 @@ public class MovieService {
 
                 if (finalRecommendations.size() >= 4) { // Cần ít nhất 4 phim để tạo list
                     response.put("title", "Từ Studio: " + studio.getName());
-                    // Trả về Logo Studio
+                    
+                    // [QUAN TRỌNG] Gửi thêm thông tin để Frontend tạo link
+                    response.put("recoType", "Studio");
+                    response.put("recoName", studio.getName());
+                    // Logo Studio để hiển thị đẹp
                     if (studio.getLogoPath() != null)
-                        response.put("headerLogo", "https://image.tmdb.org/t/p/w200" + studio.getLogoPath());
+                        response.put("recoLogo", studio.getLogoPath()); 
+                    // ID Studio để tạo link
+                    response.put("sourceId", studio.getId()); 
 
                     return finalRecommendations.stream().limit(limit).collect(Collectors.toList());
                 }
             }
         } catch (Exception e) {
-            /* Ignore */ }
+            /* Ignore */ 
+        }
 
         finalRecommendations.clear();
 
@@ -895,6 +892,7 @@ public class MovieService {
         response.put("title", "Có thể bạn sẽ thích");
         return loadRecommendedFallback(movie.getTmdbId(), addedIds, limit);
     }
+
 
     /**
      * [SMART FALLBACK V2] Gợi ý AI: Hot Movies -> New Movies.
@@ -1195,13 +1193,22 @@ public class MovieService {
         map.put("language", movie.getLanguage() != null ? movie.getLanguage() : "Đang cập nhật");
         map.put("popularity", movie.getPopularity() != null ? movie.getPopularity() : 0.0);
 
-        List<String> genres = new ArrayList<>();
-        if (movie.getGenres() != null)
-            movie.getGenres().forEach(g -> genres.add(g.getName()));
+        // [FIX VĐ 5] Trả về List Map để lấy được cả ID và Name
+        List<Map<String, Object>> genres = new ArrayList<>();
+        if (movie.getGenres() != null) {
+            movie.getGenres().forEach(g -> {
+                Map<String, Object> gMap = new HashMap<>();
+                gMap.put("id", g.getTmdbGenreId()); // ID dùng để link sang Discover
+                gMap.put("name", g.getName());      // Tên để hiển thị
+                genres.add(gMap);
+            });
+        }
         map.put("genres", genres);
 
         return map;
     }
+
+
 
     public Map<String, Object> convertToMap(Movie movie, String role) {
         Map<String, Object> map = convertToMap(movie);

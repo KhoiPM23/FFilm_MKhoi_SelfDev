@@ -80,7 +80,8 @@ async function loadAsyncCarousels() {
 }
 
 /**
- * [MỚI - VĐ 9] Hàm helper tải và render 1 carousel
+ * [QUAN TRỌNG] Hàm helper tải và render 1 carousel
+ * Đã cập nhật logic hiển thị Link Studio Detail.
  */
 async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, nextBtnId, sectionId, titleId) {
     try {
@@ -91,17 +92,25 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
         
         let movies = [];
         let title = null;
-        // [MỚI] Lấy thêm dữ liệu ảnh
-        let headerImage = null;
-        let headerLogo = null;
+        // Lấy dữ liệu Metadata (Studio, Collection...)
+        let headerImage = null; // Cho Collection
+        let recoType = null;    // "Studio", "Collection"...
+        let sourceId = null;    // ID của Studio/Collection
+        let recoLogo = null;    // Logo của Studio (path)
+        let recoName = null;    // Tên Studio/Collection
         
         if (Array.isArray(data)) {
             movies = data;
         } else { 
             movies = data.movies || [];
             title = data.title || null;
+            
+            // Extract dữ liệu nâng cao từ Backend
             headerImage = data.headerImage;
-            headerLogo = data.headerLogo;
+            recoType = data.recoType;
+            sourceId = data.sourceId;
+            recoLogo = data.recoLogo;
+            recoName = data.recoName;
         }
 
         const container = document.getElementById(targetId);
@@ -115,39 +124,42 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
         //----- Hiển thị section
         if(sectionId) document.getElementById(sectionId).style.display = 'block';
         
-        //----- [LOGIC MỚI - UI/UX CAO CẤP] Hiển thị Tiêu đề + Ảnh
+        //----- [LOGIC XỬ LÝ TIÊU ĐỀ & LINK STUDIO]
         if(titleId) {
             const titleEl = document.getElementById(titleId);
             if (titleEl) {
-                // Reset nội dung cũ
                 titleEl.innerHTML = ''; 
                 
-                // TRƯỜNG HỢP 1: STUDIO (Phiên bản Tinh Tế - Logo là nhân vật chính)
-                if (headerLogo) {
-                    const rawName = title.includes(':') ? title.split(':')[1].trim() : title;
+                // --- TRƯỜNG HỢP 1: STUDIO (CÓ LINK CLICK) ---
+                if (recoType === 'Studio' && sourceId) {
+                    let logoHtml = '';
+                    if (recoLogo) {
+                        // Logo Studio từ TMDB (thêm filter trắng)
+                        logoHtml = `<img src="https://image.tmdb.org/t/p/w200${recoLogo}" alt="${recoName}" style="height: 32px; margin-right: 12px; filter: brightness(0) invert(1); vertical-align: middle;">`;
+                    }
                     
                     titleEl.innerHTML = `
-                        <div class="studio-header-container">
-                            <span class="section-label">TỪ STUDIO</span>
-                            <div class="studio-logo-wrapper">
-                                <img src="${headerLogo}" alt="${rawName}">
-                            </div>
-                        </div>`;
+                        <div class="section-title-wrapper" style="display: flex; align-items: center;">
+                            <span class="section-title" style="margin-right: 10px; color: #fff; font-size: 1.6rem; font-weight: 700;">Từ Studio:</span>
+                            <a href="/company/detail/${sourceId}" class="studio-link-badge" title="Xem chi tiết Studio ${recoName}" 
+                               style="display: inline-flex; align-items: center; text-decoration: none; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 30px; transition: all 0.3s; border: 1px solid rgba(255,255,255,0.1);">
+                                ${logoHtml}
+                                <span style="${recoLogo ? 'display:none' : 'color: #fff; font-weight: 600;'}">${recoName}</span>
+                                <i class="fas fa-chevron-right" style="font-size: 0.8rem; margin-left: 10px; color: #e50914;"></i>
+                            </a>
+                        </div>
+                        <style>
+                            .studio-link-badge:hover { background: rgba(229, 9, 20, 0.15); border-color: #e50914; transform: translateX(5px); }
+                        </style>
+                    `;
                 }
-                // TRƯỜNG HỢP 2: COLLECTION (Cinematic Header - Siêu ngầu)
+                // --- TRƯỜNG HỢP 2: COLLECTION (BANNER HEADER) ---
                 else if (headerImage) {
-                    // Lấy tên Collection sạch
                     const colName = title.includes(':') ? title.split(':')[1].trim() : title;
-                    
-                    // Thay thế toàn bộ section header bằng một banner lớn
-                    // Chúng ta cần can thiệp vào cha của titleEl để style full width
                     const headerWrapper = titleEl.closest('.section-header');
                     if(headerWrapper) {
                         headerWrapper.classList.add('collection-mode');
-                        // Code mới: Dùng biến CSS để không ghi đè lớp Gradient trong CSS
                         headerWrapper.style.setProperty('--banner-url', `url('${headerImage}')`);
-
-                        // Đánh dấu section cha để CSS biết mà vẽ đường phân cách
                         if(sectionId) document.getElementById(sectionId).classList.add('has-collection-divider');
                         
                         titleEl.innerHTML = `
@@ -158,21 +170,21 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
                         `;
                     }
                 } 
-                // TRƯỜNG HỢP 3: Text thường (Đạo diễn, Thể loại...)
+                // --- TRƯỜNG HỢP 3: TEXT THƯỜNG ---
                 else {
-                    titleEl.innerHTML = `<h2 class="section-title"><i class="fas fa-star" style="color:#e50914; margin-right:10px"></i> ${title}</h2>`;
+                    titleEl.innerHTML = `<h2 class="section-title"><i class="fas fa-magic" style="color:#e50914; margin-right:10px"></i> ${title}</h2>`;
                 }
             }
         }
 
-        //----- Render HTML (Giữ nguyên)
+        //----- Render HTML Cards
         if (renderType === 'trending') {
             container.innerHTML = movies.map((m, i) => renderTrendingCard(m, i)).join('');
         } else {
             container.innerHTML = movies.map(m => renderMovieCard(m)).join('');
         }
         
-        // ... (Phần init hover giữ nguyên) ...
+        // Init lại hiệu ứng hover
         if (typeof initHoverCards === 'function') initHoverCards();
         if (typeof initializeAllCarousels === 'function') initializeAllCarousels();
 
@@ -183,12 +195,11 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
 }
 
 //==============================================================
-/*---- 3. HÀM RENDER HTML (JS) ----*/
+/*---- 4. HÀM RENDER HTML (CARD) ----*/
 //==============================================================
 
 /**
- * [ĐÃ SỬA LỖI] Hàm render HTML cho Card (Đồng bộ với script.js)
- * Thêm đầy đủ sự kiện onclick cho các nút.
+ * [ĐÃ SỬA LỖI & FIX VĐ 5] Hàm render HTML cho Card
  */
 function renderMovieCard(movie) {
     const escapeHtml = (str) => (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
@@ -199,29 +210,27 @@ function renderMovieCard(movie) {
     const rating = movie.rating || '—';
     const year = movie.year || '—';
     const overview = escapeHtml(movie.overview || 'Đang tải mô tả...');
-    
-    // [MỚI] Dữ liệu đầy đủ
     const runtime = movie.runtime || '—';
     const contentRating = movie.contentRating || 'T';
     const country = movie.country || 'Quốc tế';
     
-    // [CODE MỚI] Logic Genre Tooltip
+    // [FIX VĐ 5] Hiển thị Role (nếu có)
+    let roleHtml = '';
+    if (movie.role_info) {
+        roleHtml = `<div class="movie-role-badge" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: #ffc107; font-size: 0.75rem; padding: 4px 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${escapeHtml(movie.role_info)}
+                    </div>`;
+    }
+
+    // Logic Genre Tooltip (Giữ nguyên)
     let genresHtml = '<span class="genre-tag">Không có</span>';
     if (movie.genres && movie.genres.length > 0) {
-        genresHtml = movie.genres.slice(0, 2).map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('');
-        
+        const getName = (g) => (typeof g === 'object' && g.name) ? g.name : g;
+        genresHtml = movie.genres.slice(0, 2).map(g => `<span class="genre-tag">${escapeHtml(getName(g))}</span>`).join('');
         if (movie.genres.length > 2) {
             const remaining = movie.genres.slice(2);
-            const tooltipHtml = remaining.map(g => `<div class="genre-bubble">${escapeHtml(g)}</div>`).join('');
-            
-            genresHtml += `
-                <span class="genre-tag genre-tag-more" 
-                      onmouseenter="if(window.showGenreTooltip) window.showGenreTooltip(this)" 
-                      onmouseleave="if(window.hideGenreTooltip) window.hideGenreTooltip(this)">
-                    +${remaining.length}
-                    <div class="custom-genre-tooltip">${tooltipHtml}</div>
-                </span>
-            `;
+            const tooltipHtml = remaining.map(g => `<div class="genre-bubble">${escapeHtml(getName(g))}</div>`).join('');
+            genresHtml += `<span class="genre-tag genre-tag-more">+${remaining.length}<div class="custom-genre-tooltip">${tooltipHtml}</div></span>`;
         }
     }
 
@@ -229,8 +238,9 @@ function renderMovieCard(movie) {
 
     return `
         <div class="movie-card" data-movie-id="${movie.id}">
-            <div class="movie-poster">
+            <div class="movie-poster" style="position: relative;">
                 <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
+                ${roleHtml} 
             </div>
             <div class="movie-info">
                 <h3>${title}</h3>
@@ -267,9 +277,6 @@ function renderMovieCard(movie) {
     `;
 }
 
-/**
- * [MỚI - VĐ 9] Hàm render HTML cho Trending Sidebar (Cần cho loadAsyncCarousels)
- */
 function renderTrendingCard(m, i) {
     const rankClass = 'rank-' + ((i % 5) + 1);
     const backdrop = m.backdrop || '/images/placeholder.jpg';
@@ -288,7 +295,7 @@ function renderTrendingCard(m, i) {
 }
 
 //==============================================================
-/*---- 4. LOGIC XỬ LÝ UI TÙY CHỈNH (GLOBAL) ----*/
+/*---- 5. UTILS (GLOBAL) ----*/
 //==============================================================
 
 window.openGlobalTrailer = function(videoId) {
