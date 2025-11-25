@@ -21,7 +21,7 @@ public class MovieRequest {
     private String description;
 
     @NotNull(message = "Ngày phát hành không được để trống")
-    @PastOrPresent(message = "Ngày phát hành không được ở tương lai")
+    @PastOrPresent(message = "Ngày phát hành không được lớn hơn ngày hiện tại")
     private Date releaseDate;
 
     @NotNull(message = "Trường 'isFree' là bắt buộc")

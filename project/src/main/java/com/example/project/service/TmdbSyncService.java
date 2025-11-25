@@ -7,8 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import com.example.project.dto.TmdbMovieDto;
 import com.example.project.model.Genre;
 import com.example.project.model.Movie;
 import com.example.project.repository.GenreRepository;
@@ -330,6 +332,30 @@ public class TmdbSyncService {
     // [THÊM MỚI] Hàm này để Controller hỏi trạng thái
     public boolean isScanning() {
         return isRunning.get();
+    }
+   // [FIX] Hàm import phim thủ công
+    public void importMovieFromTmdb(Long tmdbId) {
+        // 1. KIỂM TRA ĐÃ TỒN TẠI TRONG DB CHƯA
+        if (movieRepository.existsByTmdbId(tmdbId)) {
+            throw new RuntimeException("Phim này đã tồn tại trong hệ thống (TMDB ID: " + tmdbId + ")");
+        }
+
+        try {
+            // 2. GỌI LOGIC TẢI VÀ LƯU PHIM CỦA MOVIESERVICE
+            // Lưu ý: tmdbId đang là Long, cần ép kiểu về int vì MovieService nhận int
+            // Tham số thứ 2 là null vì đây là tạo mới, không phải update phim cũ
+            Movie savedMovie = movieService.fetchAndSaveMovieDetail(tmdbId.intValue(), null);
+            
+            if (savedMovie == null) {
+                 throw new RuntimeException("Không tìm thấy phim trên TMDB hoặc lỗi khi lưu dữ liệu.");
+            }
+
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new RuntimeException("TMDB ID " + tmdbId + " không tồn tại trên hệ thống TMDB!");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Lỗi import: " + e.getMessage());
+        }
     }
   
 }

@@ -7,6 +7,44 @@
     <title>Admin - Quản Lý Gói Dịch Vụ</title>
     <link rel="stylesheet" href="/css/ManageAccount.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Tinh chỉnh cột hành động để nút bấm đẹp hơn */
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px; /* Khoảng cách giữa 2 nút */
+        }
+        
+        .table-container table td button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 12px;
+            white-space: nowrap; /* Không cho chữ xuống dòng */
+        }
+
+        .table-container table td button i {
+            margin-right: 5px;
+        }
+
+        /* Badge riêng cho gói nổi bật */
+        .badge-featured {
+            background-color: #8e44ad; /* Màu tím cho nổi bật */
+            color: white;
+        }
+
+        /* Responsive: Ẩn chữ trên nút khi màn hình nhỏ */
+        @media (max-width: 1300px) {
+            .table-container table td button span {
+                display: none;
+            }
+            .table-container table td button i {
+                margin-right: 0;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -17,7 +55,7 @@
             <h1>Quản lý Gói Dịch Vụ</h1>
             <div class="header-actions">
                 <div class="search-box">
-                    <input type="text" placeholder="Tìm kiếm gói..." id="searchInput">
+                    <input type="text" placeholder="Tìm kiếm gói (tên, mô tả)..." id="searchInput">
                     <i class="fas fa-search"></i>
                 </div>
                 <button class="btn btn-primary" onclick="openModal('add')">
@@ -27,11 +65,51 @@
             </div>
         </div>
 
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Tổng số gói</span>
+                    <div class="stat-icon blue">
+                        <i class="fas fa-box-open"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-change">
+                    <span style="font-size: 0.9rem; color: #aaa;">Gói hiện có trong hệ thống</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Đang hoạt động</span>
+                    <div class="stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="statActive">0</div>
+                <div class="stat-change">
+                    <span style="font-size: 0.9rem; color: #aaa;">Gói khả dụng đăng ký</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Gói Nổi Bật</span>
+                    <div class="stat-icon red"> <i class="fas fa-star"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="statFeatured">0</div>
+                <div class="stat-change">
+                    <span style="font-size: 0.9rem; color: #aaa;">Gói được ghim trang chủ</span>
+                </div>
+            </div>
+        </div>
+
         <div class="table-container">
             <div class="table-header">
                 <span class="table-title">Danh sách gói dịch vụ</span>
                 <div class="filter-group">
-                    <select class="filter-select" id="statusFilter" onchange="loadPlans()">
+                    <select class="filter-select" id="statusFilter" onchange="applySearch()">
                         <option value="">Tất cả trạng thái</option>
                         <option value="true">Hoạt động</option>
                         <option value="false">Không hoạt động</option>
@@ -41,21 +119,24 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 20%;">Tên Gói</th>
-                        <th style="width: 15%;">Giá (VND)</th>
-                        <th style="width: 35%;">Mô Tả</th>
-                        <th style="width: 10%;">Nổi Bật?</th>
-                        <th style="width: 10%;">Trạng Thái</th>
-                        <th style="width: 10%;">Hành động</th>
+                        <th style="width: 18%;">Tên Gói</th>
+                        <th style="width: 12%;">Giá (VND)</th>
+                        <th style="width: 32%;">Mô Tả Chi Tiết</th>
+                        <th style="width: 10%;">Nổi Bật</th>
+                        <th style="width: 12%;">Trạng Thái</th>
+                        <th style="width: 16%; text-align: center;">Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="planTableBody">
                     </tbody>
             </table>
+            
             <div id="emptyState" class="empty-state" style="display: none;">
-                </div>
+                <i class="fas fa-box-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3>Không tìm thấy gói dịch vụ nào</h3>
+                <p>Thử thay đổi bộ lọc hoặc thêm gói mới.</p>
+            </div>
         </div>
-        
     </div>
 
     <div class="modal" id="planModal">
@@ -69,40 +150,41 @@
                     <input type="hidden" id="planId">
                     <div class="form-group">
                         <label for="planName">Tên Gói</label>
-                        <input type="text" id="planName" required>
+                        <input type="text" id="planName" required placeholder="Ví dụ: Gói Cơ Bản">
                     </div>
                     <div class="form-group">
                         <label for="price">Giá (VND)</label>
-                        <input type="number" id="price" required min="0">
+                        <input type="number" id="price" required min="0" placeholder="Ví dụ: 70000">
                     </div>
                     
                     <div class="form-group">
-                        <label for="featureDuration">Mô tả thời hạn (Vd: Gói xem phim 1 tháng)</label>
-                        <input type="text" id="featureDuration" required placeholder="Gói xem phim 1 tháng">
+                        <label for="featureDuration">Thời hạn (Phần 1 mô tả)</label>
+                        <input type="text" id="featureDuration" required placeholder="Vd: Gói xem phim 1 tháng">
                     </div>
                      <div class="form-group">
-                        <label for="featureAds">Tùy chọn quảng cáo</label>
+                        <label for="featureAds">Quảng cáo (Phần 2 mô tả)</label>
                         <select id="featureAds" required>
                             <option value="không quảng cáo">Không quảng cáo</option>
                             <option value="có quảng cáo">Có quảng cáo</option>
                         </select>
                     </div>
                      <div class="form-group">
-                        <label for="featureLibrary">Tùy chọn thư viện</label>
+                        <label for="featureLibrary">Thư viện (Phần 3 mô tả)</label>
                         <select id="featureLibrary" required>
                             <option value="thư viện đầy đủ">Thư viện đầy đủ</option>
                             <option value="thư viện giới hạn">Thư viện giới hạn</option>
                         </select>
                     </div>
+
                     <div class="form-group">
-                        <label for="isFeatured">Nổi Bật (Hiển thị tag 'Phổ biến')</label>
+                        <label for="isFeatured">Đánh dấu Nổi Bật</label>
                         <select id="isFeatured" required>
                             <option value="false">Không</option>
-                            <option value="true">Có</option>
+                            <option value="true">Có (Hiện 'Phổ biến')</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="status">Trạng Thái (Cho phép đăng ký)</label>
+                        <label for="status">Trạng Thái</label>
                         <select id="status" required>
                             <option value="true">Hoạt động</option>
                             <option value="false">Không hoạt động</option>
@@ -113,7 +195,7 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
                 <button class="btn btn-primary" onclick="savePlan()">
-                    <i class="fas fa-save"></i> Lưu
+                    <i class="fas fa-save"></i> Lưu dữ liệu
                 </button>
             </div>
         </div>
@@ -122,19 +204,21 @@
     <div class="modal" id="deleteConfirmModal">
         <div class="modal-content" style="max-width: 450px;">
             <div class="modal-header">
-                <span class="modal-title" style="color: #dc3545;">Xác nhận Vô Hiệu Hóa</span>
+                <span class="modal-title" style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Xác nhận Vô Hiệu Hóa</span>
                 <button class="close-modal" onclick="closeDeleteModal()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <p>Bạn có chắc muốn vô hiệu hóa gói <strong id="planNameToDelete"></strong>?</p>
-                <p style="color: #b3b3b3; font-size: 14px; margin-top: 10px;">
-                    Hành động này sẽ ẩn gói khỏi trang đăng ký của người dùng, nhưng vẫn giữ lại dữ liệu cho các hóa đơn cũ.
-                </p>
+                <p>Bạn có chắc muốn vô hiệu hóa gói <strong id="planNameToDelete" style="color: #fff;"></strong>?</p>
+                <div style="background: rgba(220, 53, 69, 0.1); padding: 10px; border-radius: 6px; margin-top: 15px; border-left: 3px solid #dc3545;">
+                    <p style="color: #e0e0e0; font-size: 13px; margin: 0;">
+                        <i class="fas fa-info-circle"></i> Hành động này sẽ ẩn gói khỏi trang đăng ký, nhưng giữ lại lịch sử giao dịch cũ.
+                    </p>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeDeleteModal()">Hủy</button>
                 <button class="btn btn-danger" onclick="confirmDelete()">
-                    <i class="fas fa-trash"></i> Vô hiệu hóa
+                    <i class="fas fa-ban"></i> Vô hiệu hóa ngay
                 </button>
             </div>
         </div>
@@ -149,7 +233,7 @@
         let currentMode = 'add';
         let currentId = null;
         let allPlans = [];
-        let idToDelete = null; // [MỚI] Biến tạm để xóa
+        let idToDelete = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadPlans();
@@ -161,6 +245,10 @@
                 const res = await fetch('/api/admin/plans');
                 if (!res.ok) throw new Error('Failed to load plans');
                 allPlans = await res.json();
+                
+                // Cập nhật thống kê (Stats Cards)
+                updateStats(allPlans);
+                
                 applySearch();
             } catch (err) {
                 console.error('Load plans error:', err);
@@ -168,6 +256,17 @@
             }
         }
         
+        function updateStats(plans) {
+            // Tính toán số liệu để hiển thị lên Dashboard
+            const total = plans.length;
+            const active = plans.filter(p => p.status === true).length;
+            const featured = plans.filter(p => p.featured === true).length;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statFeatured').textContent = featured;
+        }
+
         function applySearch() {
             const statusFilter = document.getElementById('statusFilter').value;
             const searchFilter = document.getElementById('searchInput').value.toLowerCase();
@@ -181,7 +280,6 @@
             renderTable(filteredPlans);
         }
 
-        // [SỬA ĐỔI] Thêm nút Xóa
         function renderTable(plans) {
             const tbody = document.getElementById('planTableBody');
             tbody.innerHTML = ''; 
@@ -191,22 +289,19 @@
             plans.forEach(plan => {
                 const tr = document.createElement('tr');
                 
-                // [SỬA ĐỔI] Thêm nút "Xóa"
-                // Nút "Sửa" dùng `plan.planID`
-                // Nút "Xóa" dùng `plan.planID` và `plan.planName`
                 tr.innerHTML = `
-                    <td>${escapeHtml(plan.planName)}</td>
-                    <td>${new Intl.NumberFormat('vi-VN').format(plan.price)}</td>
-                    <td title="${escapeHtml(plan.description)}">${escapeHtml(plan.description)}</td>
+                    <td><strong>${escapeHtml(plan.planName)}</strong></td>
+                    <td style="color: #4cd137;">${new Intl.NumberFormat('vi-VN').format(plan.price)} ₫</td>
+                    <td style="color: #aaa;" title="${escapeHtml(plan.description)}">${escapeHtml(plan.description)}</td>
                     <td>${renderFeaturedBadge(plan.featured)}</td>
                     <td>${renderStatusBadge(plan.status)}</td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-edit" onclick="openModal('edit', ${plan.planID})">
-                                <i class="fas fa-edit"></i> Sửa
+                            <button class="btn btn-edit" onclick="openModal('edit', ${plan.planID})" title="Chỉnh sửa">
+                                <i class="fas fa-edit"></i> <span>Sửa</span>
                             </button>
-                            <button class="btn btn-danger" onclick="openDeleteModal(${plan.planID}, '${escapeHtml(plan.planName)}')">
-                                <i class="fas fa-trash"></i> Xóa
+                            <button class="btn btn-danger" onclick="openDeleteModal(${plan.planID}, '${escapeHtml(plan.planName)}')" title="Vô hiệu hóa">
+                                <i class="fas fa-trash"></i> <span>Xóa</span>
                             </button>
                         </div>
                     </td>
@@ -215,24 +310,23 @@
             });
         }
         
-        // (Hàm renderStatusBadge, renderFeaturedBadge, escapeHtml giữ nguyên)
-        function renderStatusBadge(status) { /* ... (giữ nguyên) ... */ 
+        function renderStatusBadge(status) {
              return status 
                 ? '<span class="badge badge-active">Hoạt động</span>' 
-                : '<span class="badge badge-inactive">Không hoạt động</span>';
+                : '<span class="badge badge-inactive">Ngừng KD</span>';
         }
-        function renderFeaturedBadge(isFeatured) { /* ... (giữ nguyên) ... */ 
+
+        function renderFeaturedBadge(isFeatured) {
              return isFeatured 
-                ? '<span class="badge badge-admin">Nổi bật</span>'
+                ? '<span class="badge badge-featured"><i class="fas fa-star" style="font-size:10px; margin-right:3px;"></i> Nổi bật</span>'
                 : '<span class="badge">-</span>';
         }
-        function escapeHtml(s) { /* ... (giữ nguyên) ... */ 
+
+        function escapeHtml(s) {
             if (!s) return '';
             return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
-
-        // [SỬA ĐỔI] Thay đổi logic để deconstruct (tách) description
         function openModal(mode, id = null) {
             currentMode = mode;
             currentId = id;
@@ -242,13 +336,15 @@
 
             if (mode === 'add') {
                 title.textContent = 'Thêm gói mới';
-                // Set giá trị mặc định cho các select
                 document.getElementById('featureAds').value = 'không quảng cáo';
                 document.getElementById('featureLibrary').value = 'thư viện đầy đủ';
                 document.getElementById('isFeatured').value = 'false';
                 document.getElementById('status').value = 'true';
             } else {
-                title.textContent = 'Sửa gói dịch vụ';
+                title.textContent = 'Cập nhật gói';
+                
+                // Tìm plan trong danh sách đã tải (tránh gọi lại API nếu không cần thiết, hoặc gọi API chi tiết nếu muốn)
+                // Ở đây giữ nguyên logic cũ là gọi API chi tiết
                 fetch(`/api/admin/plans/${id}`)
                     .then(r => {
                         if (!r.ok) throw new Error('Không tìm thấy gói');
@@ -259,12 +355,11 @@
                         document.getElementById('planName').value = plan.planName;
                         document.getElementById('price').value = plan.price;
                         
-                        // === LOGIC TÁCH DESCRIPTION ===
+                        // Logic tách chuỗi description
                         const parts = (plan.description || '').split(',').map(s => s.trim());
                         document.getElementById('featureDuration').value = parts[0] || '';
                         document.getElementById('featureAds').value = parts[1] || 'không quảng cáo';
                         document.getElementById('featureLibrary').value = parts[2] || 'thư viện đầy đủ';
-                        // =============================
 
                         document.getElementById('isFeatured').value = String(plan.featured);
                         document.getElementById('status').value = String(plan.status);
@@ -281,28 +376,27 @@
             document.getElementById('planModal').classList.remove('active');
         }
 
-        // [SỬA ĐỔI] Thay đổi logic để construct (tạo) description
         async function savePlan() {
-            // === LOGIC TẠO DESCRIPTION ===
+            // Logic gộp chuỗi description
             const desc1 = document.getElementById('featureDuration').value.trim();
             const desc2 = document.getElementById('featureAds').value;
             const desc3 = document.getElementById('featureLibrary').value;
+            
+            // Validate sơ bộ
+            if (!document.getElementById('planName').value.trim() || !desc1) {
+                showToast('error', 'Vui lòng điền tên gói và thời hạn');
+                return;
+            }
+
             const constructedDescription = [desc1, desc2, desc3].join(', ');
-            // =============================
             
             const payload = {
                 planName: document.getElementById('planName').value.trim(),
                 price: parseFloat(document.getElementById('price').value),
-                description: constructedDescription, // Gửi description đã tạo
+                description: constructedDescription,
                 featured: document.getElementById('isFeatured').value === 'true',
                 status: document.getElementById('status').value === 'true'
             };
-
-            // Validation
-            if (!payload.planName || !desc1 || isNaN(payload.price)) {
-                showToast('error', 'Vui lòng điền Tên Gói, Giá và Mô tả thời hạn.');
-                return;
-            }
 
             try {
                 let url = '/api/admin/plans';
@@ -320,20 +414,19 @@
                 });
 
                 if (!res.ok) {
-                    const errorData = await res.json();
+                    const errorData = await res.json().catch(() => ({}));
                     throw new Error(errorData.message || 'Lỗi server');
                 }
 
-                showToast('success', currentMode === 'add' ? 'Thêm gói thành công!' : 'Cập nhật gói thành công!');
+                showToast('success', currentMode === 'add' ? 'Thêm gói thành công!' : 'Đã cập nhật gói!');
                 closeModal();
-                loadPlans(); // Tải lại danh sách
+                loadPlans(); 
             } catch (err) {
                 console.error(err);
                 showToast('error', 'Lưu thất bại: ' + (err.message || ''));
             }
         }
         
-        // [MỚI] Các hàm cho Modal Xóa
         function openDeleteModal(id, name) {
             idToDelete = id;
             document.getElementById('planNameToDelete').textContent = name;
@@ -349,18 +442,16 @@
             if (idToDelete === null) return;
 
             try {
-                // Chúng ta sẽ gọi API mới: /deactivate
+                // Gọi API deactivate như yêu cầu
                 const res = await fetch(`/api/admin/plans/${idToDelete}/deactivate`, {
-                    method: 'PUT' // Dùng PUT hoặc PATCH cho việc cập nhật
+                    method: 'PUT'
                 });
 
-                if (!res.ok) {
-                    throw new Error('Không thể vô hiệu hóa gói');
-                }
+                if (!res.ok) throw new Error('Không thể vô hiệu hóa gói');
                 
                 showToast('success', 'Đã vô hiệu hóa gói thành công!');
                 closeDeleteModal();
-                loadPlans(); // Tải lại danh sách
+                loadPlans();
                 
             } catch (err) {
                 console.error(err);
@@ -369,8 +460,7 @@
             }
         }
 
-        // (Hàm showToast giữ nguyên)
-        function showToast(type, message) { /* ... (giữ nguyên) ... */ 
+        function showToast(type, message) {
             const toast = document.getElementById('toast');
             const icon = toast.querySelector('.toast-icon');
             const msg = document.getElementById('toastMessage');

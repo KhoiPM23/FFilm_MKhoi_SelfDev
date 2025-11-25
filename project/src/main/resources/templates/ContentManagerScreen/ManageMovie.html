@@ -121,10 +121,13 @@
       }
 
       .header-actions {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-      }
+    display: flex;
+    gap: 10px; /* Giảm gap một chút để tiết kiệm diện tích */
+    align-items: center;
+    flex-wrap: wrap; /* [QUAN TRỌNG] Cho phép xuống dòng */
+    width: 100%; /* Chiếm hết chiều rộng phần còn lại */
+    justify-content: flex-end; /* Đẩy về bên phải trên màn hình to */
+}
 
       .import-group {
         display: flex;
@@ -338,21 +341,33 @@
         gap: 8px;
         justify-content: center;
       }
-      /* [MỚI] Style cho ô tìm kiếm local */
 .search-box {
     position: relative;
-    margin-right: 10px;
+    /* Không set margin-right cứng nữa, dùng gap của flex cha */
+    flex-grow: 1; /* Tự động giãn nở */
+    max-width: 300px; /* Giới hạn độ rộng tối đa */
+    min-width: 200px; /* Giới hạn độ rộng tối thiểu */
 }
 
 .search-box input {
     background: var(--background-surface);
     border: 1px solid var(--border-color);
-    padding: 10px 40px 10px 16px; /* Padding phải lớn để tránh icon */
+    padding: 10px 40px 10px 16px;
     border-radius: 8px;
     color: var(--text-primary);
-    width: 250px; /* Độ rộng vừa phải */
+    width: 100%; /* [QUAN TRỌNG] Ăn theo thẻ cha search-box */
     outline: none;
     transition: all 0.3s;
+}
+/* Style lại Select box cho đồng bộ chiều cao */
+.filter-select {
+    padding: 10px; 
+    border-radius: 8px; 
+    background: #1a1a1a; 
+    color: white; 
+    border: 1px solid #333;
+    /* margin-right xóa đi vì đã dùng gap */
+    height: 42px; /* Fix chiều cao bằng với input để thẳng hàng */
 }
 
 .search-box input:focus {
@@ -620,49 +635,87 @@
         margin-bottom: 10px;
       }
 
-      /* Responsive */
-      @media (max-width: 900px) {
-        .form-grid {
-          grid-template-columns: 1fr;
-        }
-        .form-group.full-width {
-          grid-column: 1;
-        }
-      }
+      @media (max-width: 992px) {
+    /* Khi màn hình bắt đầu hơi nhỏ (Tablet ngang) */
+    .header {
+        flex-direction: column;
+        align-items: stretch; /* Kéo giãn full chiều ngang */
+        gap: 15px;
+    }
+    
+    .header-actions {
+        justify-content: flex-start; /* Canh trái khi xuống dòng */
+    }
+}
+     @media (max-width: 768px) {
+    /* Mobile và Tablet dọc */
+    .sidebar {
+        transform: translateX(-100%); /* Ẩn sidebar */
+        position: fixed;
+        z-index: 1000;
+        height: 100%;
+    }
+    
+    .main-content {
+        margin-left: 0;
+        padding: 15px; /* Giảm padding một chút */
+    }
 
-      @media (max-width: 768px) {
-        .sidebar {
-          transform: translateX(-100%);
-        }
-        .main-content {
-          margin-left: 0;
-          padding: 20px;
-        }
-        .header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .header-actions {
-          width: 100%;
-          flex-direction: column;
-          align-items: stretch;
-        }
-        .import-group {
-          display: grid;
-          grid-template-columns: 1fr auto;
-        }
-        .import-group input {
-          width: 100%;
-        }
+    /* Header biến thành dạng Stack (xếp chồng) */
+    .header h1 {
+        font-size: 24px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
 
-        /* Table responsive */
-        .table-container {
-          overflow-x: auto;
-        }
-        table {
-          min-width: 700px;
-        }
-      }
+    .header-actions {
+        display: grid; /* Chuyển sang Grid để dễ chia cột */
+        grid-template-columns: 1fr 1fr; /* Chia 2 cột cho các nút */
+        gap: 10px;
+    }
+
+    /* Các phần tử chiếm trọn 1 hàng (full-width) */
+    .search-box, 
+    .import-group,
+    #filterFree { 
+        grid-column: 1 / -1; /* Chiếm hết 2 cột */
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    .import-group input {
+        width: 100%; /* Input import giãn ra */
+        flex: 1;
+    }
+
+    /* Button Import chỉnh lại cho đẹp */
+    .import-group .btn-secondary {
+        white-space: nowrap;
+    }
+    
+    /* Các nút chức năng (Smart, Daily, Add...) sẽ tự chia 2 cột */
+    .btn {
+        width: 100%; /* Nút giãn full ô grid */
+        justify-content: center;
+    }
+
+    /* Table responsive */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* Mượt mà trên iOS */
+    }
+    
+    /* Ẩn bớt cột không quan trọng trên mobile nếu cần (tùy chọn) */
+    /* th:nth-child(4), td:nth-child(4), */ /* Thời lượng */
+    /* th:nth-child(6), td:nth-child(6) { display: none; } */ /* TMDB ID */
+}
+
+@media (max-width: 480px) {
+    /* Mobile nhỏ (iPhone SE...) */
+    .header-actions {
+        grid-template-columns: 1fr; /* Về 1 cột duy nhất */
+    }
+}
     </style>
   </head>
   <body>
@@ -1212,39 +1265,57 @@ async function loadMovies(page = 0) {
         }
       }
 
-      async function importFromTmdb() {
-        const tmdbIdInput = document.getElementById("tmdbIdInput");
-        const tmdbId = tmdbIdInput.value;
-        if (!tmdbId) {
-          showToast("error", "Vui lòng nhập TMDB ID");
-          return;
-        }
+    async function importFromTmdb() {
+    const tmdbIdInput = document.getElementById('tmdbIdInput').value; 
+    
+    if (!tmdbIdInput) {
+        alert("Vui lòng nhập TMDB ID");
+        return;
+    }
 
-        try {
-          const response = await fetch(`${API_URL}/import/${tmdbId}`, {
-            method: "POST",
-          });
+    const verifyBtn = document.querySelector('.import-group .btn-secondary'); // Selector chính xác hơn
+    const originalText = verifyBtn.innerHTML;
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
 
-          if (!response.ok) {
-            let errorMsg = "Lỗi import";
-            try {
-              const errorData = await response.json();
-              errorMsg = errorData.message || "Lỗi không xác định";
-            } catch (e) {
-              errorMsg = await response.text();
+    try {
+        // [FIX QUAN TRỌNG] Sửa đường dẫn từ /content-manager... thành /api/content...
+        const response = await fetch(`/api/content/movies/import-tmdb?tmdbId=${tmdbIdInput}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             }
-            throw new Error(errorMsg);
-          }
+        });
 
-          const newMovie = await response.json();
-          showToast("success", `Import phim '${newMovie.title}' thành công!`);
-          tmdbIdInput.value = "";
-          loadMovies(0);
-        } catch (error) {
-          console.error("Import error:", error);
-          showToast("error", error.message);
+        // Đọc JSON an toàn
+        let data;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            data = await response.json();
+        } else {
+            // Nếu server trả về lỗi HTML (ví dụ 404, 500 trang mặc định)
+            throw new Error("Server trả về phản hồi không hợp lệ (không phải JSON). Kiểm tra đường dẫn API.");
         }
-      }
+
+        if (response.ok) {
+            showToast("success", data.message || "Import thành công!");
+            // Đợi 1s rồi load lại bảng
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            // Hiển thị lỗi từ Backend (ví dụ: Phim đã tồn tại)
+            showToast("error", data.error || "Có lỗi xảy ra");
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        showToast("error", "Lỗi: " + error.message);
+    } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = originalText;
+    }
+}
 
       // --- Delete Modal Functions ---
       function openDeleteModal(id, title) {

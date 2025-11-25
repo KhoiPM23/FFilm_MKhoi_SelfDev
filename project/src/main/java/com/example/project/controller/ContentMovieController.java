@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Pageable;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -55,16 +57,24 @@ public class ContentMovieController {
      * Kịch bản 1: Import phim từ TMDB
      * Endpoint: POST /api/content/movies/import/{tmdbId}
      */
-    @PostMapping("/import/{tmdbId}")
-    public ResponseEntity<?> importMovie(@PathVariable int tmdbId) {
-        try {
-            Movie importedMovie = movieService.importFromTmdb(tmdbId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(importedMovie);
-        } catch (Exception e) {
-            // Lỗi RuntimeException từ service (vd: Phim đã tồn tại) sẽ được GlobalExceptionHandler xử lý
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
-        }
+    @PostMapping("/import-tmdb") // Đường dẫn API của bạn
+@ResponseBody // Đảm bảo trả về dữ liệu body
+public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
+    try {
+        tmdbSyncService.importMovieFromTmdb(tmdbId);
+        
+        // QUAN TRỌNG: Trả về JSON thành công rõ ràng
+        return ResponseEntity.ok(Collections.singletonMap("message", "Import phim thành công!"));
+        
+    } catch (RuntimeException e) {
+        // Trả về lỗi 400 Bad Request kèm message JSON
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Collections.singletonMap("error", e.getMessage()));
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Collections.singletonMap("error", "Lỗi hệ thống: " + e.getMessage()));
     }
+}
 
     /**
      * Kịch bản 2: Thêm phim thủ công
