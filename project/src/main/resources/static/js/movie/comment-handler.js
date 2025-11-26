@@ -32,6 +32,9 @@ class CommentHandler {
                     this.submitComment();
                 }
             });
+            this.submitBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+            });
 
             // Submit comment khi click button
             this.submitBtn.addEventListener('click', () => {
