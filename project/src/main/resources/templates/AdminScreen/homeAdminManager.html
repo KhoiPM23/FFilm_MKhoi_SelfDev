@@ -140,6 +140,32 @@
             font-size: 14px;
             margin-top: 10px;
         }
+        /* Style cho nút Đăng xuất */
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Khoảng cách giữa icon và chữ */
+    background-color: transparent;
+    color: var(--color-white);
+    padding: 8px 16px;
+    border: 1px solid var(--color-red);
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background-color: var(--color-red);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(229, 9, 20, 0.4);
+}
+
+.logout-btn i {
+    font-size: 16px;
+}
 
         /* --- Responsive Design --- */
         @media (max-width: 1024px) {
@@ -184,12 +210,11 @@
         <div class="logo">FFilm</div>
         <div class="header-controls">
             <!-- Nút Home -->
-            <a href="index.html" class="nav-item home-link" aria-label="Trang chủ">
-                <i class="fas fa-home"></i> Home
-            </a>
-            <!-- Thông tin người dùng (Đã đổi thành Admin) -->
-            <div class="user-info">
-                <i class="fas fa-user-shield"></i> System Admin
+            <div class="header-actions">
+                <a href="/logout" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Đăng xuất</span>
+                </a>
             </div>
         </div>
     </header>

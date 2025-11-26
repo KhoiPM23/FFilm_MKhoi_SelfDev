@@ -207,15 +207,28 @@ class AdminCommentManager {
 
     /**
      * Create table row
+     * ĐÃ CẬP NHẬT: Logic hiển thị trạng thái đẹp hơn
      */
     createTableRow(comment) {
         const userName = comment.user?.userName || 'Ẩn danh';
         const movieTitle = comment.movie?.title || 'N/A';
         const content = this.escapeHtml(comment.content || '');
         const createAt = this.formatDate(comment.createAt);
-        const status = comment.status || 'approved';
-        const statusClass = status === 'approved' ? 'status-approved' : 'status-deleted';
-        const statusText = status === 'approved' ? 'Hoạt động' : 'Đã xóa';
+        
+        // --- CẬP NHẬT LOGIC STATUS ---
+        const rawStatus = comment.status || 'approved';
+        let statusClass = 'status-pending';
+        let statusText = rawStatus;
+
+        // Map status sang class CSS mới
+        if (rawStatus === 'approved' || rawStatus === 'Active' || rawStatus === 'true') {
+            statusClass = 'status-active'; // Class xanh (Active)
+            statusText = 'Hoạt động';
+        } else if (rawStatus === 'deleted' || rawStatus === 'Deleted' || rawStatus === 'Hidden') {
+            statusClass = 'status-inactive'; // Class đỏ (Inactive)
+            statusText = 'Đã xóa';
+        }
+        // ------------------------------
 
         // Truncate content if too long
         const maxLength = 100;
@@ -243,7 +256,7 @@ class AdminCommentManager {
                     <span class="status-badge ${statusClass}">${statusText}</span>
                 </td>
                 <td>
-                    ${status === 'approved' 
+                    ${rawStatus === 'approved' 
                         ? `<button class="action-btn btn-delete" onclick="adminCommentManager.confirmDelete(${comment.commentID})">
                                <i class="fas fa-trash"></i> Xóa
                            </button>`

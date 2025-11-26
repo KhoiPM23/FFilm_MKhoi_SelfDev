@@ -21,7 +21,9 @@ public interface FavoriteRepository extends JpaRepository<UserFavorite, UserFavo
 
     @Query(value = "SELECT m.movieID, m.title, m.posterPath FROM movie m " +
             "JOIN UserFavorite uf ON m.movieID = uf.movieID " +
-            "WHERE uf.userID = :userID", nativeQuery = true)
+            "WHERE uf.userID = :userID " +
+            "ORDER BY uf.createAt DESC", // <-- THÊM DÒNG NÀY
+            nativeQuery = true)
     Page<MovieFavorite> findMoviesByUserID(@Param("userID") Integer userID, Pageable pageable);
 
     @Query("SELECT uf.movieID FROM UserFavorite uf WHERE uf.userID = :userId")

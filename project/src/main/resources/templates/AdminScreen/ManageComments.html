@@ -35,11 +35,33 @@
         }
 
         .status-badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-        }
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 50px; /* Bo tròn dạng viên thuốc */
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase; /* Chữ in hoa cho chuyên nghiệp */
+        letter-spacing: 0.5px;
+        text-align: center;
+        min-width: 80px; /* Đảm bảo độ rộng đồng đều */
+    }
+    /* Màu cho trạng thái "Hoạt động" - Xanh lá */
+    .status-active {
+        background-color: rgba(34, 197, 94, 0.1); /* Nền xanh nhạt */
+        color: #16a34a; /* Chữ xanh đậm */
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .status-inactive {
+        background-color: rgba(239, 68, 68, 0.1); /* Nền đỏ nhạt */
+        color: #dc2626; /* Chữ đỏ đậm */
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    /* Màu mặc định hoặc Chờ duyệt - Vàng cam */
+    .status-pending {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
 
         .status-approved {
             background-color: rgba(16, 185, 129, 0.2);
@@ -111,10 +133,7 @@
                     <input type="text" placeholder="Tìm kiếm bình luận..." id="searchInput">
                     <i class="fas fa-search"></i>
                 </div>
-                <button class="btn btn-secondary" onclick="exportComments()">
-                    <i class="fas fa-file-export"></i>
-                    <span>Xuất dữ liệu</span>
-                </button>
+                
             </div>
         </div>
 

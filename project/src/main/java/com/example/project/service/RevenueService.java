@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,5 +80,57 @@ public class RevenueService {
             logger.severe("Lỗi chart data: " + e.getMessage());
         }
         return data;
+    }
+    /**
+     * [MỚI] Logic xuất báo cáo CSV tối ưu
+     * Sử dụng PrintWriter để stream dữ liệu trực tiếp ra response
+     */
+    @Transactional(readOnly = true)
+    public void exportToCSV(PrintWriter writer) {
+        List<Payment> payments = paymentRepository.findAllByOrderByPaymentDateDesc();
+        
+        // Header của file CSV
+        writer.println("Mã GD,Khách Hàng,Email,Gói Cước,Số Tiền (VNĐ),Phương Thức,Ngày GD,Trạng Thái");
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+
+        for (Payment p : payments) {
+            try {
+                // Xử lý dữ liệu null an toàn
+                String id = String.valueOf(p.getPaymentID());
+                String userName = (p.getUser() != null) ? escapeCSV(p.getUser().getUserName()) : "Khách vãng lai";
+                String email = (p.getUser() != null) ? escapeCSV(p.getUser().getEmail()) : "";
+                String plan = (p.getSubscription() != null && p.getSubscription().getPlan() != null) 
+                              ? escapeCSV(p.getSubscription().getPlan().getPlanName()) : "N/A";
+                String amount = String.format("%.0f", p.getAmount());
+                String method = escapeCSV(p.getMethod());
+                String date = (p.getPaymentDate() != null) ? dateFormat.format(p.getPaymentDate()) : "";
+                String status = parseStatus(p.getStatus());
+
+                // Ghi dòng dữ liệu
+                writer.println(String.join(",", id, userName, email, plan, amount, method, date, status));
+            } catch (Exception e) {
+                logger.warning("Lỗi khi ghi dòng CSV cho payment ID " + p.getPaymentID() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    // Helper: Xử lý ký tự đặc biệt trong CSV (dấu phẩy, xuống dòng)
+    private String escapeCSV(String data) {
+        if (data == null) return "";
+        String escapedData = data.replaceAll("\\R", " "); // Xóa xuống dòng
+        if (data.contains(",") || data.contains("\"") || data.contains("'")) {
+            data = data.replace("\"", "\"\"");
+            escapedData = "\"" + data + "\"";
+        }
+        return escapedData;
+    }
+
+    // Helper: Dịch trạng thái sang tiếng Việt
+    private String parseStatus(String status) {
+        if (status == null) return "Không rõ";
+        if (status.equalsIgnoreCase("SUCCESS") || status.equals("00")) return "Thành công";
+        if (status.equalsIgnoreCase("FAILED")) return "Thất bại";
+        return status;
     }
 }

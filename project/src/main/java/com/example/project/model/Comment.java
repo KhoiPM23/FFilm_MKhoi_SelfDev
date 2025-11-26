@@ -25,6 +25,7 @@ public class Comment {
     private int commentID;
 
     @NotBlank(message = "content is required")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String content;
 
     @NotNull(message = "CreateAt is required")

@@ -16,6 +16,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     // Không cần @Query Native cho cái này, tránh lỗi mapping cột
     List<Payment> findTop10ByOrderByPaymentDateDesc();
 
+    // [MỚI] Lấy TẤT CẢ giao dịch sắp xếp theo ngày mới nhất để xuất báo cáo
+    List<Payment> findAllByOrderByPaymentDateDesc();
     // ✅ FIXED: Thống kê tổng doanh thu
     @Query(value = "SELECT COALESCE(CAST(SUM(amount) AS FLOAT), 0.0) FROM Payment WHERE status IN ('SUCCESS', '00')", 
            nativeQuery = true)
