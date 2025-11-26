@@ -1141,13 +1141,44 @@
                 }
             }
 
+            // 1. Thêm hàm render tin chào mừng
+            function renderWelcomeMessage() {
+                const welcomeHtml = `
+                    <div class="ai-message bot">
+                        <div class="ai-message-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="ai-message-content">
+                            <p>Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
+                            <p>Tôi có thể giúp bạn:</p>
+                            <ul>
+                                <li>🎬 Tìm kiếm và gợi ý phim</li>
+                                <li>💰 Thông tin về gói đăng ký</li>
+                                <li>📋 Chính sách và câu hỏi thường gặp</li>
+                                <li>❓ Bất kỳ câu hỏi nào về FFilm</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="ai-suggestions" id="aiSuggestions">
+                        <p class="suggestions-title">Gợi ý câu hỏi:</p>
+                        <button class="suggestion-chip" data-question="FFilm có những gói đăng ký nào?">💰 Các gói đăng ký</button>
+                        <button class="suggestion-chip" data-question="Làm sao để xem phim chất lượng 4K?">🎥 Xem phim 4K</button>
+                        <button class="suggestion-chip" data-question="Tôi muốn tìm phim hành động hay">🎬 Phim hành động</button>
+                        <button class="suggestion-chip" data-question="Chính sách hoàn tiền như thế nào?">🔄 Chính sách hoàn tiền</button>
+                    </div>
+                `;
+                messagesContainer.innerHTML = welcomeHtml;
+                // Gán lại sự kiện click cho các chip vừa tạo
+                attachSuggestionHandlers(); 
+            }
+
             async function loadChatHistory() {
                 try {
                     const res = await fetch('/api/ai-agent/history');
                     if (res.ok) {
                         const history = await res.json();
-                        // Nếu có history, xóa nội dung mặc định (welcome)
-                        if (history.length > 0) messagesContainer.innerHTML = '';
+                        // LUÔN LUÔN Render lại tin chào mừng trước tiên
+                        renderWelcomeMessage();
                         
                         history.forEach(msg => {
                             if (msg.role === 'USER') addUserMessage(msg.message);

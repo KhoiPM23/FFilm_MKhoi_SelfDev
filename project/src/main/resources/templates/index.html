@@ -446,7 +446,7 @@
 
       /**
        * Hàm helper: Tạo HTML cho 1 movie card (dùng JSON)
-       * (Tái sử dụng logic từ hover-card.html và script.js)
+       * [FIX] Đã sửa lỗi xử lý Genre object
        */
       function createMovieCardHTML(movie) {
         const movieId = movie.id;
@@ -463,35 +463,40 @@
                 "'": "&#39;",
               }[m])
           );
-
+    
         const safeTitle = escapeHtml(movie.title || "Unknown");
         const safeOverview = escapeHtml(movie.overview || "Đang tải mô tả...");
         const poster = movie.poster || "/images/placeholder.jpg";
         const backdrop = movie.backdrop || "/images/placeholder.jpg";
         const rating = movie.rating || "—";
         const year = movie.year || "—";
-
-        // [MỚI] Lấy dữ liệu chi tiết ngay lập tức
+    
         const runtime = movie.runtime || "—";
         const contentRating = movie.contentRating || "T";
         const country = movie.country || "Quốc tế";
-
-        // [CODE MỚI] Xử lý Genre có Tooltip chuẩn
+    
+        // [FIX QUAN TRỌNG] Hàm lấy tên genre an toàn (xử lý cả String lẫn Object)
+        const getGenreName = (g) => {
+            if (!g) return "";
+            return (typeof g === 'object' && g.name) ? g.name : g;
+        };
+    
         let genresHtml = '<span class="genre-tag">Không có</span>';
-        if (movie.genres && movie.genres.length > 0) {
+        
+        if (movie.genres && Array.isArray(movie.genres) && movie.genres.length > 0) {
           // 1. Hai thẻ đầu tiên
           genresHtml = movie.genres
             .slice(0, 2)
-            .map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`)
+            .map((g) => `<span class="genre-tag">${escapeHtml(getGenreName(g))}</span>`)
             .join("");
-
+    
           // 2. Các thẻ còn lại (Tooltip)
           if (movie.genres.length > 2) {
             const remaining = movie.genres.slice(2);
             const tooltipHtml = remaining
-              .map((g) => `<div class="genre-bubble">${escapeHtml(g)}</div>`)
+              .map((g) => `<div class="genre-bubble">${escapeHtml(getGenreName(g))}</div>`)
               .join("");
-
+    
             genresHtml += `
                     <span class="genre-tag genre-tag-more" 
                         onmouseenter="if(window.showGenreTooltip) window.showGenreTooltip(this)" 
@@ -502,10 +507,9 @@
                 `;
           }
         }
-
+    
         const playerId = `hover-player-async-${movieId}`;
-
-        // [QUAN TRỌNG] onclick cho nút bấm đã được thêm đầy đủ
+    
         return `
         <div class="movie-card" data-movie-id="${movieId}">
             <div class="movie-poster">
@@ -530,9 +534,7 @@
                             <i class="fas fa-play"></i> Xem ngay
                         </button>
                         <button class="hover-action-icon hover-like-btn" type="button" 
-                                data-movie-id="${movieId}" data-tmdb-id="${
-          movie.tmdbId || movieId
-        }"
+                                data-movie-id="${movieId}" data-tmdb-id="${movie.tmdbId || movieId}"
                                 onclick="event.stopPropagation(); window.toggleHoverLike(this)" 
                                 title="Thêm vào danh sách">
                             <i class="far fa-heart"></i>

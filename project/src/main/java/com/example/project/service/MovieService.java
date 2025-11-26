@@ -863,29 +863,50 @@ public class MovieService {
 
         finalRecommendations.clear();
 
-        // ----- LỚP 4: GENRE + COUNTRY (Thể loại tương đồng)
+        // ----- LỚP 4: GENRE + COUNTRY (Thể loại tương đồng - NÂNG CẤP VÒNG LẶP)
         try {
             if (movie.getGenres() != null && !movie.getGenres().isEmpty()) {
-                MovieSearchFilters filter = new MovieSearchFilters();
-                List<String> gNames = new ArrayList<>();
-                gNames.add(movie.getGenres().iterator().next().getName()); // Lấy genre chính
-                filter.setGenres(gNames);
-                filter.setCountry(movie.getCountry()); // Cùng quốc gia
+                // [FIX] Duyệt qua TẤT CẢ các genre thay vì chỉ lấy cái đầu tiên
+                for (Genre genre : movie.getGenres()) {
+                    // Nếu đã đủ phim thì dừng lại
+                    if (finalRecommendations.size() >= limit) break;
 
-                List<Movie> similar = findMoviesByFilters(filter);
-                for (Movie m : similar) {
-                    if (!addedIds.contains(m.getMovieID())) {
-                        finalRecommendations.add(convertToMap(m));
-                        addedIds.add(m.getMovieID());
+                    MovieSearchFilters filter = new MovieSearchFilters();
+                    List<String> gNames = new ArrayList<>();
+                    gNames.add(genre.getName());
+                    filter.setGenres(gNames);
+                    filter.setCountry(movie.getCountry()); // Cùng quốc gia
+                    
+                    // Tìm kiếm (đã được tối ưu query ở Repository)
+                    List<Movie> similar = findMoviesByFilters(filter);
+                    
+                    for (Movie m : similar) {
+                        if (!addedIds.contains(m.getMovieID())) {
+                            finalRecommendations.add(convertToMap(m));
+                            addedIds.add(m.getMovieID());
+                        }
+                        // Lấy tối đa 5 phim mỗi thể loại để đa dạng
+                        if (finalRecommendations.size() >= 20) break; 
+                    }
+                    
+                    // Nếu tìm được phim ở Genre này, set tiêu đề và thoát vòng lặp Genre
+                    // (Hoặc có thể để chạy tiếp để gom nhiều genre nếu muốn)
+                    if (!finalRecommendations.isEmpty()) {
+                        response.put("title", "Phim " + genre.getName() + " tương tự");
+                        // Chỉ return nếu đã tìm thấy kha khá phim
+                        if (finalRecommendations.size() >= 4) {
+                            return finalRecommendations.stream().limit(limit).collect(Collectors.toList());
+                        }
                     }
                 }
-
-                if (finalRecommendations.size() >= 5) {
-                    response.put("title", "Phim " + gNames.get(0) + " tương tự");
-                    return finalRecommendations.stream().limit(limit).collect(Collectors.toList());
+                
+                // Nếu sau khi duyệt hết mà có ít nhất 1 phim thì trả về luôn
+                if (!finalRecommendations.isEmpty()) {
+                     return finalRecommendations.stream().limit(limit).collect(Collectors.toList());
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
         }
 
         // ----- LỚP 5: FALLBACK (Phim Hot - Cuối cùng)
