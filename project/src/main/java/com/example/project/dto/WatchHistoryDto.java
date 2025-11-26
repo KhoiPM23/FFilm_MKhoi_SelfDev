@@ -13,6 +13,8 @@ public class WatchHistoryDto {
     
     // Thêm URL để click vào xem lại được
     private String movieUrl; 
+    private Integer duration;    // Tổng thời lượng phim (phút)
+    private Double currentTime;  // Thời gian đã xem (giây)
 
     public WatchHistoryDto(WatchHistory history) {
         this.movieId = history.getMovie().getMovieID();
@@ -20,6 +22,8 @@ public class WatchHistoryDto {
         this.moviePosterPath = history.getMovie().getPosterPath();
         this.lastWatchedAt = history.getLastWatchedAt();
         this.movieUrl = "/movie/player/" + history.getMovie().getMovieID();
+        this.duration = history.getMovie().getDuration(); // Lấy từ bảng Movie
+        this.currentTime = history.getCurrentTime();      // Lấy từ bảng WatchHistory
     }
 
     // Getters and Setters
@@ -37,4 +41,9 @@ public class WatchHistoryDto {
 
     public String getMovieUrl() { return movieUrl; }
     public void setMovieUrl(String movieUrl) { this.movieUrl = movieUrl; }
+
+    public Integer getDuration() { return duration; }
+    public void setDuration(Integer duration) { this.duration = duration; }
+    public Double getCurrentTime() { return currentTime; }
+    public void setCurrentTime(Double currentTime) { this.currentTime = currentTime; }
 }

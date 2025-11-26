@@ -245,6 +245,55 @@
             border-radius: 10px;
             aspect-ratio: 2 / 3;
         }
+        /* ===== UPDATE: Giao diện Poster & Info ===== */
+        .poster-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .poster-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .movie-card:hover .poster-wrapper img {
+            transform: scale(1.05); /* Hiệu ứng zoom nhẹ khi di chuột */
+        }
+
+        /* ===== UPDATE: Dòng chữ thời gian đã xem ===== */
+        .watched-time {
+            font-size: 0.9rem;
+            color: #e50914; /* Màu đỏ nổi bật */
+            font-weight: 600;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .watched-time i {
+            font-size: 0.8rem; /* Icon nút play nhỏ hơn một chút */
+        }
+
+        .last-watched-date {
+            font-size: 0.8rem;
+            color: #aaa; /* Màu xám cho ngày tháng */
+        }
+
+        .movie-card-info h5 {
+            margin: 0;
+            font-size: 1.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
         @keyframes loading {
             0% { background-position: 200% 0; }

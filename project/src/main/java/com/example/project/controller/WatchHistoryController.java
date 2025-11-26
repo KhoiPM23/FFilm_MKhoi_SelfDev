@@ -10,10 +10,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.project.dto.UserSessionDto;
 import com.example.project.dto.WatchHistoryDto;
 import com.example.project.service.WatchHistoryService;
+
+import jakarta.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("/api/history") // API endpoint
@@ -50,5 +54,25 @@ public class WatchHistoryController {
         }
         Page<WatchHistoryDto> historyPage = watchHistoryService.getWatchHistory(userDetails.getUsername(), pageable);
         return ResponseEntity.ok(historyPage);
+    }
+
+    /**
+     * [CẬP NHẬT] API lưu tiến độ xem
+     * POST /api/history/update-progress?movieId=1&currentTime=150.5
+     */
+    @PostMapping("/update-progress")
+    public ResponseEntity<?> updateProgress(
+            @RequestParam int movieId,
+            @RequestParam Double currentTime,
+            HttpSession session) { // Dùng HttpSession để lấy user thống nhất với logic dự án
+        
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+        
+        if (userSession == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        watchHistoryService.updateWatchProgress(userSession.getId(), movieId, currentTime);
+        return ResponseEntity.ok().build();
     }
 }

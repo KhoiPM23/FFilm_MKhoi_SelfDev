@@ -467,12 +467,38 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Tìm thẻ div cha chứa data-movie-id
     const playerWrapper = document.getElementById('player-wrapper');
+    // Video Elements
+    const mainVideo = document.getElementById("defaultVideoPlayer");
     
     if (playerWrapper) {
         // Lấy movieId từ data attribute
         const movieId = playerWrapper.dataset.movieId;
+        // [THÊM] Lấy thời gian đã lưu từ Server
+        const savedTime = parseFloat(playerWrapper.dataset.startTime || "0");
         let hasRecorded = false; // Cờ để đảm bảo chỉ gọi 1 lần
 
+        // 1. [THÊM] Logic Tua Video khi bắt đầu (Resume)
+        // Chỉ tua nếu thời gian đã lưu > 5 giây (để tránh tua những cái mới tinh)
+        if (savedTime > 5) {
+            console.log("Resuming video at: " + savedTime);
+            mainVideo.currentTime = savedTime;
+        }
+
+        // 2. [THÊM] Logic Gửi thời gian về Server (Heartbeat)
+        // Gửi mỗi 10 giây một lần
+        setInterval(() => {
+            if (!mainVideo.paused && movieId) {
+                updateServerProgress(movieId, mainVideo.currentTime);
+            }
+        }, 10000);
+        // Gửi khi pause hoặc rời trang
+        mainVideo.addEventListener('pause', () => {
+            if(movieId) updateServerProgress(movieId, mainVideo.currentTime);
+        });
+        
+        window.addEventListener('beforeunload', () => {
+             if(movieId && !mainVideo.paused) updateServerProgress(movieId, mainVideo.currentTime);
+        });
         const recordHistory = async () => {
             // Nếu đã gọi rồi hoặc không có movieId thì không làm gì cả
             if (hasRecorded || !movieId) return; 
@@ -512,5 +538,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if(movieId) {
              recordHistory();
         }
+    }
+    // Hàm gửi API cập nhật
+    function updateServerProgress(mid, time) {
+        // Sử dụng fetch để gửi POST request
+        // Sử dụng URLSearchParams để gửi dạng form-data/query param vì controller dùng @RequestParam
+        fetch(`/api/history/update-progress?movieId=${mid}&currentTime=${time}`, {
+            method: 'POST'
+        }).catch(err => console.error("Lỗi lưu tiến độ:", err));
     }
 });

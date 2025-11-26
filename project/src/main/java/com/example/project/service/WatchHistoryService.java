@@ -71,4 +71,48 @@ public class WatchHistoryService {
         // Chuyển đổi (map) Page<WatchHistory> sang Page<WatchHistoryDto>
         return historyPage.map(WatchHistoryDto::new);
     }
+
+    /**
+     * [CẬP NHẬT] Ghi lại lịch sử kèm thời gian xem
+     */
+    @Transactional
+    public void updateWatchProgress(Integer userId, int movieId, Double currentTime) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Movie movie = movieRepository.findById(movieId)
+                .orElseThrow(() -> new RuntimeException("Movie not found"));
+
+        Optional<WatchHistory> existingHistory = watchHistoryRepository.findByUserAndMovie(user, movie);
+
+        if (existingHistory.isPresent()) {
+            WatchHistory history = existingHistory.get();
+            history.setLastWatchedAt(java.time.LocalDateTime.now());
+            // [THÊM] Cập nhật thời gian xem
+            if (currentTime != null) {
+                history.setCurrentTime(currentTime);
+            }
+            watchHistoryRepository.save(history);
+        } else {
+            WatchHistory newHistory = new WatchHistory(user, movie);
+            // [THÊM] Set thời gian ban đầu
+            if (currentTime != null) {
+                newHistory.setCurrentTime(currentTime);
+            }
+            watchHistoryRepository.save(newHistory);
+        }
+    }
+    
+    /**
+     * [THÊM MỚI] Lấy thời gian đã xem của user đối với 1 phim cụ thể
+     */
+    public Double getWatchedTime(Integer userId, int movieId) {
+        // Giả sử bạn đã viết phương thức findByUser_UserIDAndMovie_MovieID trong Repository
+        // Hoặc dùng cách thủ công này:
+        User user = new User(); user.setUserID(userId);
+        Movie movie = new Movie(); movie.setMovieID(movieId);
+        
+        return watchHistoryRepository.findByUserAndMovie(user, movie)
+                .map(WatchHistory::getCurrentTime)
+                .orElse(0.0);
+    }
 }

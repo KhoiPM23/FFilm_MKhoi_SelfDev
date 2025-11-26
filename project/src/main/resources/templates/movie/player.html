@@ -601,7 +601,7 @@
           <div
             class="video-container"
             id="player-wrapper"
-            th:attr="data-movie-id=${movie.movieID}, data-has-ad=${hasAd}, data-ad-url=${hasAd ? adUrl : ''}"
+            th:attr="data-movie-id=${movie.movieID}, data-has-ad=${hasAd}, data-ad-url=${hasAd ? adUrl : ''}, data-start-time=${startTime}"
           >
             <div
               th:if="${movie.url}"

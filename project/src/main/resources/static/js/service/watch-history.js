@@ -60,22 +60,56 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderMovies(movies) {
         movies.forEach(movie => {
             const movieCard = document.createElement('a');
-            movieCard.href = movie.movieUrl; // Link đến trang chi tiết
-            movieCard.className = 'movie-card'; // Đảm bảo class này có CSS
+            movieCard.href = movie.movieUrl;
+            movieCard.className = 'movie-card';
 
             const posterUrl = movie.moviePosterPath 
-                ? `${tmdbImageUrlPrefix}${movie.moviePosterPath}`
-                : '/images/placeholder.jpg'; // Ảnh placeholder của bạn
+                ? `https://image.tmdb.org/t/p/w500${movie.moviePosterPath}`
+                : '/images/placeholder.jpg';
 
             const lastWatched = new Date(movie.lastWatchedAt).toLocaleString('vi-VN');
 
+            // --- LOGIC MỚI: TÍNH THỜI GIAN ĐÃ XEM (TEXT) ---
+            let watchedTimeText = "Chưa xem";
+            let currentSec = movie.currentTime || 0;
+            const durationMin = movie.duration || 0;
+            const totalSeconds = durationMin * 60;
+
+            if (currentSec > 0) {
+                // 1. Xử lý vụ mili-giây (nếu số quá lớn so với tổng thời lượng)
+                if (durationMin > 0 && currentSec > totalSeconds) {
+                    currentSec = currentSec / 1000;
+                }
+
+                // 2. Format thời gian (Giờ : Phút : Giây)
+                const h = Math.floor(currentSec / 3600);
+                const m = Math.floor((currentSec % 3600) / 60);
+                const s = Math.floor(currentSec % 60);
+
+                // Logic hiển thị chuỗi
+                if (h > 0) {
+                    watchedTimeText = `Đã xem đến: ${h}g ${m}p ${s}s`;
+                } else {
+                    watchedTimeText = `Đã xem đến: ${m}p ${s}s`;
+                }
+            }
+            // ------------------------------------------------
+
             movieCard.innerHTML = `
-                <img src="${posterUrl}" alt="${movie.movieTitle}">
+                <div class="poster-wrapper">
+                    <img src="${posterUrl}" alt="${movie.movieTitle}" loading="lazy">
+                    </div>
                 <div class="movie-card-info">
                     <h5>${movie.movieTitle}</h5>
-                    <p>Xem lần cuối: ${lastWatched}</p>
+                    
+                    <p class="watched-time">
+                        <i class="fas fa-play-circle"></i> ${watchedTimeText}
+                    </p>
+                    
+                    <p class="last-watched-date">Ngày xem: ${lastWatched}</p>
                 </div>
             `;
+            
             if(historyListContainer) {
                  historyListContainer.appendChild(movieCard);
             }

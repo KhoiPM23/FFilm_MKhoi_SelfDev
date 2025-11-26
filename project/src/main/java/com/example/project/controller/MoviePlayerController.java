@@ -15,6 +15,7 @@ import com.example.project.dto.UserSessionDto;
 import com.example.project.model.Movie;
 import com.example.project.service.MoviePlayerService;
 import com.example.project.service.SubscriptionService;
+import com.example.project.service.WatchHistoryService;
 
 @Controller
 public class MoviePlayerController {
@@ -24,6 +25,9 @@ public class MoviePlayerController {
 
     @Autowired
     private SubscriptionService subscriptionService;
+
+    @Autowired
+    private WatchHistoryService watchHistoryService;
 
     @Value("${app.default.video.url:/video/movie1.mp4}")
     private String defaultVideoUrl;
@@ -59,6 +63,12 @@ public class MoviePlayerController {
                 hasAd = true;
                 model.addAttribute("adUrl", adVideoUrl);
             }
+            // [THÊM MỚI QUAN TRỌNG] Lấy thời gian đã xem để Resume
+            double startTime = 0.0;
+            if (sessionDto != null) {
+                startTime = watchHistoryService.getWatchedTime(sessionDto.getId(), id);
+            }
+            model.addAttribute("startTime", startTime); // Truyền xuống HTML
 
             model.addAttribute("hasAd", hasAd); // Truyền flag có quảng cáo
             model.addAttribute("isVip", isVip); // Truyền trạng thái VIP

@@ -41,6 +41,9 @@ public class WatchHistory {
     @Column(nullable = false)
     private LocalDateTime lastWatchedAt;
 
+    @Column(nullable = false, columnDefinition = "FLOAT DEFAULT 0")
+    private Double currentTime = 0.0;
+
     public WatchHistory() {
     }
 
@@ -64,4 +67,7 @@ public class WatchHistory {
 
     public LocalDateTime getLastWatchedAt() { return lastWatchedAt; }
     public void setLastWatchedAt(LocalDateTime lastWatchedAt) { this.lastWatchedAt = lastWatchedAt; }
+
+    public Double getCurrentTime() { return currentTime; }
+    public void setCurrentTime(Double currentTime) { this.currentTime = currentTime; }
 }
