@@ -69,6 +69,9 @@ public class UserManageService {
       if (user.getPhoneNumber().length() != 10) {
          throw new IllegalArgumentException("Phone Number must be 10 numbers");
       }
+      if (userRepository.findByPhoneNumber(user.getPhoneNumber()).isPresent()) {
+         throw new IllegalArgumentException("Phonenumber already exists");
+      }
       if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
          throw new IllegalArgumentException("Password is required");
       }
@@ -104,6 +107,9 @@ public class UserManageService {
 
       if (updateUser.getPhoneNumber() == null || updateUser.getPhoneNumber().isEmpty()) {
          throw new IllegalArgumentException("Phone number is required");
+      }
+      if (userRepository.findByPhoneNumber(user.getPhoneNumber()).isPresent()) {
+         throw new IllegalArgumentException("Phonenumber already exists");
       }
       user.setUserName(updateUser.getUserName());
       user.setEmail(updateUser.getEmail());

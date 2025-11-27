@@ -20,10 +20,11 @@ public class UserProfileUpdateDto {
     private String userName;
 
     @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
+    @Email(message = "Email không đúng định dạng")
+    @Pattern(regexp = "^[\\w-\\.]+@gmail\\.com$", message = "Email phải thuộc tên miền @gmail.com")
     private String email;
 
     @NotBlank(message = "Số điện thoại không được để trống")
-    @Pattern(regexp = "^[0-9]{10,15}$", message = "Số điện thoại không hợp lệ")
+    @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải bao gồm đúng 10 chữ số")
     private String phoneNumber;
 }

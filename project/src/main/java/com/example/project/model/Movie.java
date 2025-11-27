@@ -75,7 +75,7 @@ public class Movie {
     private boolean isFree = false;
     
     @Column(length = 1000)
-    private String url = "CHƯA CẬP NHẬT";
+    private String url = "/video/movie1.mp4";
 
     // --- QUAN HỆ ---
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})

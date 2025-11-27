@@ -114,9 +114,9 @@ a:hover {
     <h2>ĐĂNG KÝ</h2>
     <form id="registerForm" autocomplete="off">
         <input type="text" id="userName" placeholder="Tên người dùng" required autocomplete="off">
-        <input type="email" id="email" placeholder="Email" required autocomplete="off">
-        <input type="password" id="password" placeholder="Mật khẩu" required autocomplete="new-password">
-        <input type="text" id="phoneNumber" placeholder="Số điện thoại" required autocomplete="off">
+        <input type="email" id="email" placeholder="Email (@gmail.com)" required pattern="[A-Za-z0-9._%+\-]+@gmail\.com" autocomplete="off">
+        <input type="password" id="password" placeholder="Mật khẩu (tối thiểu 6 ký tự)" required minlength="6" autocomplete="new-password">
+        <input type="tel" id="phoneNumber" placeholder="Số điện thoại (10 chữ số)" required pattern="\d{10}" maxlength="10" autocomplete="off">
         <button type="submit">Đăng ký</button>
     </form>
     <p id="message"></p>
@@ -139,6 +139,27 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     const messageEl = document.getElementById('message');
     messageEl.textContent = '';
     messageEl.className = '';
+
+    // Validate email phải có đuôi @gmail.com
+    if (!/^[A-Za-z0-9._%+\-]+@gmail\.com$/.test(user.email)) {
+        messageEl.textContent = 'Email phải có đuôi @gmail.com';
+        messageEl.className = 'error';
+        return;
+    }
+
+    // Validate mật khẩu tối thiểu 6 ký tự
+    if (user.password.length < 6) {
+        messageEl.textContent = 'Mật khẩu ít nhất 6 ký tự';
+        messageEl.className = 'error';
+        return;
+    }
+
+    // Validate số điện thoại phải đúng 10 chữ số
+    if (!/^\d{10}$/.test(user.phoneNumber)) {
+        messageEl.textContent = 'Số điện thoại phải có 10 chữ số';
+        messageEl.className = 'error';
+        return;
+    }
 
     try {
         const response = await fetch('/api/register', { 
