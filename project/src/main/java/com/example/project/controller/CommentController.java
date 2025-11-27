@@ -297,4 +297,56 @@ public class CommentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    /**
+     * Cập nhật comment
+     * PUT /api/comments/{commentId}
+     * Body: { "content": "Nội dung mới" }
+     */
+    @PutMapping("/{commentId}")
+    public ResponseEntity<?> updateComment(
+            @PathVariable int commentId,
+            @RequestBody Map<String, String> payload,
+            HttpSession session) {
+
+        try {
+            // 1. Kiểm tra đăng nhập & lấy User ID (Tái sử dụng logic xác thực)
+            Object userObj = session.getAttribute("user");
+            if (userObj == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "Bạn cần đăng nhập để chỉnh sửa bình luận"));
+            }
+
+            int userId;
+            if (userObj instanceof UserSessionDto) {
+                userId = ((UserSessionDto) userObj).getId();
+            } else if (userObj instanceof com.example.project.model.User) {
+                userId = ((com.example.project.model.User) userObj).getUserID();
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            // 2. Lấy nội dung mới
+            String newContent = payload.get("content");
+            if (newContent == null || newContent.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Nội dung không được để trống"));
+            }
+
+            // 3. Gọi Service cập nhật
+            Comment updatedComment = commentService.updateComment(commentId, userId, newContent);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Cập nhật thành công",
+                    "comment", updatedComment
+            ));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Lỗi server: " + e.getMessage()));
+        }
+    }
 }

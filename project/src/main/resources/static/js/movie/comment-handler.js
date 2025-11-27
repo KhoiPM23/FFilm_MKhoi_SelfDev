@@ -7,7 +7,12 @@ class CommentHandler {
         this.submitBtn = document.getElementById('btn-submit-comment');
         this.commentList = document.getElementById('comment-list');
         this.commentCount = document.getElementById('comment-count');
+        this.pendingDeleteId = null;
 
+        // Lấy ID người dùng hiện tại từ input hidden trong player.html
+        const userIdEl = document.getElementById('currentUserId');
+        this.currentUserId = userIdEl ? parseInt(userIdEl.value) : null;
+        this.modalEl = document.getElementById('deleteConfirmModal');
         this.init();
     }
 
@@ -89,6 +94,8 @@ class CommentHandler {
         }
 
         this.commentList.innerHTML = comments.map(comment => this.createCommentHTML(comment)).join('');
+        // Gán sự kiện cho các nút Edit/Delete sau khi render
+        this.attachActionListeners();
     }
 
     /**
@@ -99,19 +106,204 @@ class CommentHandler {
         const userInitial = userName.charAt(0).toUpperCase();
         const createAt = this.formatDate(comment.createAt);
         const content = this.escapeHtml(comment.content);
+        const commentUserId = comment.user?.userID || comment.user?.id;
+
+        // Kiểm tra xem comment này có phải của user hiện tại không
+        const isOwner = this.currentUserId && (this.currentUserId === commentUserId);
+
+        let actionMenu = '';
+        if (isOwner) {
+            actionMenu = `
+                <div class="comment-actions-menu">
+                    <button class="btn-action-icon" onclick="window.commentHandler.toggleEdit(${comment.commentID})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action-icon delete" onclick="window.commentHandler.requestDelete(${comment.commentID})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }
 
         return `
-            <div class="comment-item" data-comment-id="${comment.commentID}">
+            <div class="comment-item" id="comment-${comment.commentID}">
                 <div class="user-avatar">${userInitial}</div>
-                <div class="comment-content">
-                    <div class="comment-author">
-                        <span>${userName}</span>
-                        <span class="comment-time">${createAt}</span>
+                <div class="comment-content-wrapper" style="flex: 1;">
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <div class="comment-author">
+                                <span>${userName}</span>
+                                <span class="comment-time">${createAt}</span>
+                            </div>
+                            ${actionMenu}
+                        </div>
+                        
+                        <div class="comment-body" id="body-${comment.commentID}">
+                            <p class="comment-text">${content}</p>
+                        </div>
+                        
+                        <div class="edit-box" id="edit-box-${comment.commentID}" style="display: none;">
+                            <textarea class="edit-input">${content}</textarea>
+                            <div class="edit-actions">
+                                <button class="btn-cancel-edit" onclick="window.commentHandler.cancelEdit(${comment.commentID})">Hủy</button>
+                                <button class="btn-save-edit" onclick="window.commentHandler.saveEdit(${comment.commentID})">Lưu</button>
+                            </div>
+                        </div>
                     </div>
-                    <p style="color: #ddd">${content}</p>
                 </div>
             </div>
         `;
+    }
+    /**
+     * 1. Người dùng bấm nút thùng rác -> Hiện Modal
+     */
+    requestDelete(commentId) {
+        this.pendingDeleteId = commentId; // Lưu ID lại
+        if(this.modalEl) {
+            this.modalEl.style.display = 'flex'; // Hiện modal
+        }
+    }
+
+    /**
+     * 2. Người dùng bấm "Hủy" trong Modal -> Ẩn Modal
+     */
+    closeConfirmModal() {
+        this.pendingDeleteId = null;
+        if(this.modalEl) {
+            this.modalEl.style.display = 'none';
+        }
+    }
+
+    /**
+     * 3. Người dùng bấm "Xóa ngay" trong Modal -> Gọi API xóa thật
+     */
+    async confirmDeleteAction() {
+        if (!this.pendingDeleteId) return;
+        
+        const commentId = this.pendingDeleteId;
+        
+        // Ẩn modal ngay cho mượt
+        this.closeConfirmModal();
+
+        // Gọi logic xóa cũ (nhưng bỏ confirm mặc định đi)
+        await this.executeDelete(commentId); 
+    }
+
+    /**
+     * Logic gọi API xóa (Tách ra từ hàm deleteComment cũ)
+     */
+    async executeDelete(commentId) {
+        try {
+            const response = await fetch(`/api/comments/${commentId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSuccess("Đã xóa bình luận");
+                const el = document.getElementById(`comment-${commentId}`);
+                if (el) el.remove();
+                
+                const currentCount = parseInt(this.commentCount.innerText || '0');
+                this.updateCommentCount(Math.max(0, currentCount - 1));
+            } else {
+                this.showError(data.message || "Không thể xóa");
+            }
+        } catch (e) {
+            console.error(e);
+            this.showError("Lỗi kết nối server");
+        }
+    }
+    attachActionListeners() {
+        // Vì onclick đã gọi trực tiếp window.commentHandler, ta cần expose instance ra global
+        window.commentHandler = this;
+    }
+    toggleEdit(commentId) {
+        const body = document.getElementById(`body-${commentId}`);
+        const editBox = document.getElementById(`edit-box-${commentId}`);
+        
+        if (body && editBox) {
+            body.style.display = 'none';
+            editBox.style.display = 'block';
+            
+            // Focus vào textarea và đặt con trỏ cuối dòng
+            const textarea = editBox.querySelector('textarea');
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
+    }
+
+    cancelEdit(commentId) {
+        const body = document.getElementById(`body-${commentId}`);
+        const editBox = document.getElementById(`edit-box-${commentId}`);
+        if (body && editBox) {
+            body.style.display = 'block';
+            editBox.style.display = 'none';
+            // Reset giá trị textarea về ban đầu
+            const originalText = body.querySelector('p').innerText;
+            editBox.querySelector('textarea').value = originalText;
+        }
+    }
+
+    async saveEdit(commentId) {
+        const editBox = document.getElementById(`edit-box-${commentId}`);
+        const newContent = editBox.querySelector('textarea').value.trim();
+
+        if (!newContent) {
+            this.showError("Nội dung không được để trống");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/comments/${commentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: newContent })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSuccess("Đã cập nhật bình luận");
+                this.loadComments(); // Reload lại danh sách để cập nhật UI
+            } else {
+                this.showError(data.message || "Lỗi khi cập nhật");
+            }
+        } catch (e) {
+            console.error(e);
+            this.showError("Lỗi kết nối server");
+        }
+    }
+
+    async deleteComment(commentId) {
+        if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+
+        try {
+            const response = await fetch(`/api/comments/${commentId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSuccess("Đã xóa bình luận");
+                // Xóa element khỏi DOM ngay lập tức cho mượt
+                const el = document.getElementById(`comment-${commentId}`);
+                if (el) el.remove();
+                
+                // Cập nhật lại số lượng
+                const currentCount = parseInt(this.commentCount.innerText || '0');
+                this.updateCommentCount(Math.max(0, currentCount - 1));
+            } else {
+                this.showError(data.message || "Không thể xóa");
+            }
+        } catch (e) {
+            console.error(e);
+            this.showError("Lỗi kết nối server");
+        }
     }
 
     /**

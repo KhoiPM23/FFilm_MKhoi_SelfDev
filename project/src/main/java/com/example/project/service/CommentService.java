@@ -114,4 +114,23 @@ public class CommentService {
         // Hoặc hard delete:
         // commentRepository.deleteById(commentId);
     }
+    /**
+     * Chỉnh sửa nội dung comment
+     */
+    @Transactional
+    public Comment updateComment(int commentId, int userId, String newContent) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment không tồn tại"));
+
+        // Kiểm tra quyền sở hữu
+        if (comment.getUser().getUserID() != userId) {
+            throw new RuntimeException("Bạn không có quyền chỉnh sửa comment này");
+        }
+
+        comment.setContent(newContent);
+        // Có thể cập nhật thêm createAt nếu muốn hiển thị "Đã chỉnh sửa lúc..."
+        // comment.setCreateAt(new Date()); 
+        
+        return commentRepository.save(comment);
+    }
 }
