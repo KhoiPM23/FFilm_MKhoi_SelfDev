@@ -19,16 +19,16 @@ public class AdminDataInitializer implements ApplicationRunner {
         System.out.println("🚀 ĐANG KHỞI TẠO DỮ LIỆU MẪU (DATA SEEDING)...");
 
         // 1. Tạo Admin
-        createAccountIfNotFound("admin@ffilm.com", "Admin@Ffilm2025!", "Admin FFilm", "ADMIN", "0900000001");
+        createAccountIfNotFound("admin@gmail.com", "Admin@2025!", "Admin", "ADMIN", "0900000001");
 
         // 2. Tạo Moderator (Kiểm duyệt viên)
-        createAccountIfNotFound("mod@ffilm.com", "Mod@Ffilm2025!", "Moderator User", "MODERATOR", "0900000002");
+        createAccountIfNotFound("mod@gmail.com", "Mod@2025!", "Moderator", "MODERATOR", "0900000002");
 
         // 3. Tạo Content Manager (Quản lý nội dung phim)
-        createAccountIfNotFound("content@ffilm.com", "Content@Ffilm2025!", "Content Manager", "CONTENT_MANAGER", "0900000003");
+        createAccountIfNotFound("content@gmail.com", "Content@2025!", "Content Manager", "CONTENT_MANAGER", "0900000003");
 
         // 4. Tạo User thường
-        createAccountIfNotFound("user@ffilm.com", "User@Ffilm2025!", "Normal User", "USER", "0900000004");
+        createAccountIfNotFound("user@gmail.com", "User@2025!", "User", "USER", "0900000004");
 
         System.out.println("✅ HOÀN TẤT KHỞI TẠO DỮ LIỆU.");
         System.out.println("---------------------------------------------");
