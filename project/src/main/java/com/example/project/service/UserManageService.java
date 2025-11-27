@@ -104,13 +104,7 @@ public class UserManageService {
             throw new IllegalArgumentException("Email already exits");
          }
       }
-
-      if (updateUser.getPhoneNumber() == null || updateUser.getPhoneNumber().isEmpty()) {
-         throw new IllegalArgumentException("Phone number is required");
-      }
-      if (userRepository.findByPhoneNumber(user.getPhoneNumber()).isPresent()) {
-         throw new IllegalArgumentException("Phonenumber already exists");
-      }
+      
       user.setUserName(updateUser.getUserName());
       user.setEmail(updateUser.getEmail());
       if (user.getEmail() == null || !user.getEmail().toLowerCase().endsWith("@gmail.com")) {
@@ -122,7 +116,20 @@ public class UserManageService {
       }
       user.setRole(updateUser.getRole());
       user.setStatus(updateUser.isStatus());
-      user.setPhoneNumber(updateUser.getPhoneNumber());
+      String newPhone = updateUser.getPhoneNumber();
+      if (newPhone == null || newPhone.trim().isEmpty()) {
+         throw new IllegalArgumentException("PhoneNumber is required");
+      }
+      newPhone = newPhone.trim();
+
+      String existingPhone = user.getPhoneNumber();
+      if (existingPhone == null || !newPhone.equals(existingPhone)) {
+         if (userRepository.findByPhoneNumber(newPhone).isPresent()) {
+            throw new IllegalArgumentException("Phonenumber already exists");
+         }
+      }
+
+      user.setPhoneNumber(newPhone);
       if (user.getPhoneNumber().length() != 10) {
          throw new IllegalArgumentException("Phone Number must be 10 numbers");
       }
