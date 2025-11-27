@@ -16,7 +16,7 @@ public class AdminDataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         System.out.println("---------------------------------------------");
-        System.out.println("🚀 ĐANG KHỞI TẠO DỮ LIỆU MẪU (DATA SEEDING)...");
+        System.out.println("ĐANG KHỞI TẠO DỮ LIỆU MẪU (DATA SEEDING)...");
 
         // 1. Tạo Admin
         createAccountIfNotFound("admin@gmail.com", "Admin@2025!", "Admin", "ADMIN", "0900000001");
@@ -30,7 +30,7 @@ public class AdminDataInitializer implements ApplicationRunner {
         // 4. Tạo User thường
         createAccountIfNotFound("user@gmail.com", "User@2025!", "User", "USER", "0900000004");
 
-        System.out.println("✅ HOÀN TẤT KHỞI TẠO DỮ LIỆU.");
+        System.out.println("HOÀN TẤT KHỞI TẠO DỮ LIỆU.");
         System.out.println("---------------------------------------------");
     }
 

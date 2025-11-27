@@ -5,24 +5,21 @@ import com.example.project.model.Movie;
 import com.example.project.service.MovieService;
 import com.example.project.service.TmdbSyncService;
 
-import jakarta.validation.Valid; // <-- THÊM IMPORT NÀY
+import jakarta.validation.Valid; 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.domain.Pageable;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/content/movies") // API dành riêng cho Content Manager
-@CrossOrigin(origins = "*") // Cho phép gọi từ bên ngoài
+@RequestMapping("/api/content/movies") 
+@CrossOrigin(origins = "*") 
 public class ContentMovieController {
 
     @Autowired
@@ -30,19 +27,12 @@ public class ContentMovieController {
 
     @Autowired
     private TmdbSyncService tmdbSyncService;
-    /**
-     * Lấy tất cả phim
-     * Endpoint: GET /api/content/movies
-     */
+
     @GetMapping
     public ResponseEntity<List<Movie>> getAllMovies() {
         return ResponseEntity.ok(movieService.getAllMovies());
     }
 
-    /**
-     * Lấy 1 phim bằng ID
-     * Endpoint: GET /api/content/movies/{id}
-     */
     @GetMapping("/{id}")
     public ResponseEntity<Movie> getMovieById(@PathVariable int id) {
         try {
@@ -53,21 +43,16 @@ public class ContentMovieController {
         }
     }
 
-    /**
-     * Kịch bản 1: Import phim từ TMDB
-     * Endpoint: POST /api/content/movies/import/{tmdbId}
-     */
-    @PostMapping("/import-tmdb") // Đường dẫn API của bạn
-@ResponseBody // Đảm bảo trả về dữ liệu body
+
+    @PostMapping("/import-tmdb") 
+@ResponseBody 
 public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
     try {
         tmdbSyncService.importMovieFromTmdb(tmdbId);
         
-        // QUAN TRỌNG: Trả về JSON thành công rõ ràng
         return ResponseEntity.ok(Collections.singletonMap("message", "Import phim thành công!"));
         
     } catch (RuntimeException e) {
-        // Trả về lỗi 400 Bad Request kèm message JSON
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Collections.singletonMap("error", e.getMessage()));
     } catch (Exception e) {
@@ -76,15 +61,9 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
     }
 }
 
-    /**
-     * Kịch bản 2: Thêm phim thủ công
-     * Endpoint: POST /api/content/movies
-     * Body: (Xem MovieRequest.java)
-     */
     @PostMapping
     public ResponseEntity<?> createMovie(@Valid @RequestBody MovieRequest movieRequest) {
-        // Annotation @Valid sẽ tự động kích hoạt validation
-        // Nếu thất bại, GlobalExceptionHandler sẽ bắt và trả về lỗi 400
+
         try {
             Movie createdMovie = movieService.createMovie(movieRequest);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdMovie);
@@ -93,14 +72,9 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         }
     }
 
-    /**
-     * Cập nhật phim (sửa banner, metadata, url, v.v.)
-     * Endpoint: PUT /api/content/movies/{id}
-     * Body: (Xem MovieRequest.java)
-     */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateMovie(@PathVariable int id, @Valid @RequestBody MovieRequest movieRequest) {
-        // @Valid cũng được áp dụng cho update
+ 
         try {
             Movie updatedMovie = movieService.updateMovie(id, movieRequest);
             return ResponseEntity.ok(updatedMovie);
@@ -109,27 +83,17 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         }
     }
 
-    /**
-     * Xóa phim
-     * Endpoint: DELETE /api/content/movies/{id}
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteMovie(@PathVariable int id) {
         try {
             movieService.deleteMovie(id);
-            return ResponseEntity.noContent().build(); // HTTP 204
+            return ResponseEntity.noContent().build(); 
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
-    // [THÊM HÀM NÀY VÀO ContentMovieController.java]
 
-    /**
-     * Endpoint cho client-side (Live Suggestion) yêu cầu đồng bộ nhanh 1 danh sách ID.
-     * Endpoint: POST /api/content/movies/sync
-     * Body: [123, 456, 789]
-     */
     @PostMapping("/sync")
     public ResponseEntity<?> syncMoviesByIds(@RequestBody List<Integer> tmdbIds) {
         try {
@@ -140,10 +104,7 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         }
     }
 
-    /**
-     * API MỚI: Admin Trigger Bulk Scan
-     * Gọi: POST /api/content/movies/scan-bulk?fromPage=1&toPage=50
-     */
+
     @PostMapping("/scan-bulk")
     public ResponseEntity<?> scanBulkMovies(
             @RequestParam(defaultValue = "1") int fromPage,
@@ -152,8 +113,7 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         if (toPage < fromPage) {
             return ResponseEntity.badRequest().body(Map.of("message", "Page kết thúc phải lớn hơn Page bắt đầu"));
         }
-        
-        // Gọi service chạy ngầm (Async)
+
         tmdbSyncService.startBulkScan(fromPage, toPage);
         
         return ResponseEntity.ok(Map.of(
@@ -168,13 +128,10 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         if (query == null || query.trim().isEmpty()) {
             return ResponseEntity.ok(movieService.getAllMovies());
         }
-        // Hàm searchMoviesByTitle đã có sẵn trong MovieService (dùng LIKE %query%)
         List<Movie> results = movieService.searchMoviesByTitle(query.trim());
         return ResponseEntity.ok(results);
     }
-    /**
-     * [API CHÍNH] Tìm kiếm + Lọc + Phân trang
-     */
+
     @GetMapping("/manage")
     public ResponseEntity<Page<Movie>> getMoviesForManagement(
             @RequestParam(defaultValue = "0") int page,
@@ -190,31 +147,28 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
         Page<Movie> moviePage = movieService.getAdminMovies(keyword, isFree, pageable);
         return ResponseEntity.ok(moviePage);
     }
-    /** API MỚI: Kích hoạt Quét Thông Minh */
+
     @PostMapping("/scan-smart")
     public ResponseEntity<?> triggerSmartScan() {
         tmdbSyncService.startSmartScan();
         return ResponseEntity.ok(Map.of("message", "Đã khởi động Quét Thông Minh (Mục tiêu 5000 phim)..."));
     }
 
-    /** API MỚI: Kích hoạt Quét Nông (Daily) */
     @PostMapping("/scan-daily")
     public ResponseEntity<?> triggerDailyScan() {
         tmdbSyncService.scanDailyUpdate();
         return ResponseEntity.ok(Map.of("message", "Đã khởi động Cập nhật Hàng Ngày..."));
     }
 
-    /** API MỚI: Dừng quét */
     @PostMapping("/stop-scan")
     public ResponseEntity<?> stopScan() {
         tmdbSyncService.stopScan();
         return ResponseEntity.ok(Map.of("message", "Đã gửi lệnh DỪNG quét."));
     }
 
-    // [THÊM MỚI] API để giao diện hỏi server: "Đang chạy không?"
     @GetMapping("/scan-status")
     public ResponseEntity<?> getScanStatus() {
-        boolean running = tmdbSyncService.isScanning(); // Gọi hàm vừa thêm ở bước 1
+        boolean running = tmdbSyncService.isScanning(); 
         return ResponseEntity.ok(Map.of("isRunning", running));
     }
 }

@@ -2,7 +2,6 @@ package com.example.project.service;
 
 import com.example.project.dto.MovieRequest;
 import com.example.project.model.*;
-// MỚI
 import com.example.project.repository.*;
 
 import org.json.JSONArray;
@@ -18,7 +17,7 @@ import jakarta.persistence.criteria.Join;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable; 
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.util.StringUtils; // [Fix lỗi hasText]
+import org.springframework.util.StringUtils;
 import jakarta.persistence.criteria.Predicate;
 
 import org.json.JSONArray;
@@ -221,71 +220,57 @@ public class MovieService {
         return fetchAndSaveMovieDetail(tmdbId, null);
     }
 
-    /**
-     * [CORE] Hàm xử lý phim từ danh sách TMDB
-     * Logic: Lọc Rác -> Kiểm tra tồn tại -> Ghi đè (Update) hoặc Tạo mới (Create)
-     */
+    
+    //[CORE] Hàm xử lý phim từ danh sách TMDB
+     
     @Transactional
     public Movie syncMovieFromList(JSONObject jsonItem) {
         int tmdbId = jsonItem.optInt("id");
         if (tmdbId <= 0) return null;
 
-        // --- BỘ LỌC CHẤT LƯỢNG ---
-        // --- BỘ LỌC CHẤT LƯỢNG (CẬP NHẬT) ---
         String posterPath = jsonItem.optString("poster_path", null);
         String backdropPath = jsonItem.optString("backdrop_path", null);
 
-        // [LOGIC MỚI] Bắt buộc phải có cả Poster VÀ Backdrop
-        // Nếu thiếu 1 trong 2 thì bỏ qua luôn (return null)
         if (!isValidImage(posterPath) || !isValidImage(backdropPath)) {
-            // System.out.println("⚠️ Bỏ qua phim ID " + tmdbId + " vì thiếu ảnh.");
+            // System.out.println("Bỏ qua phim ID " + tmdbId + " vì thiếu ảnh.");
             return null;
         }
 
-        // --- [CẬP NHẬT] ĐỒNG BỘ LOGIC BỘ LỌC ---
         boolean isAdult = jsonItem.optBoolean("adult", false);
         int voteCount = jsonItem.optInt("vote_count", 0);
         String lang = jsonItem.optString("original_language", "en");
         double voteAverage = jsonItem.optDouble("vote_average", 0.0);
 
-        // 1. Rule 18+
         if (isAdult && voteCount < 50) return null;
 
-        // 2. Rule Việt Nam & Quốc tế
         boolean isVietnamese = "vi".equalsIgnoreCase(lang);
         if (!isAdult && !isVietnamese && voteCount < 5) return null;
-        // -------------------------
 
-        // --- XỬ LÝ GHI ĐÈ / TẠO MỚI ---
         Movie movie;
         Optional<Movie> existing = movieRepository.findByTmdbId(tmdbId);
 
         if (existing.isPresent()) {
             movie = existing.get();
-            // System.out.println("🔄 [UPDATE] ID: " + tmdbId + " | Rating cũ: " + movie.getRating() + " -> Mới: " + voteAverage);
+            // System.out.println("[UPDATE] ID: " + tmdbId + " | Rating cũ: " + movie.getRating() + " -> Mới: " + voteAverage);
         } else {
             movie = new Movie();
             movie.setTmdbId(tmdbId);
-            // System.out.println("✳️ [NEW] ID: " + tmdbId);
+            // System.out.println("[NEW] ID: " + tmdbId);
         }
 
-        // --- CẬP NHẬT THÔNG TIN (Cho cả mới và cũ) ---
         movie.setTitle(jsonItem.optString("title", jsonItem.optString("name", "N/A")));
         movie.setDescription(jsonItem.optString("overview", ""));
         movie.setPosterPath(posterPath);
         movie.setBackdropPath(jsonItem.optString("backdrop_path", null));
-        
-        // Cập nhật Rating mới nhất (QUAN TRỌNG: Ghi đè rating cũ)
+
         movie.setRating((float) voteAverage);
         // movie.setVoteCount(voteCount); // Nếu Entity Movie có field này thì bỏ comment
 
-        // Xử lý ngày phát hành
         String dateStr = jsonItem.optString("release_date", jsonItem.optString("first_air_date"));
         if (dateStr != null && !dateStr.isEmpty()) {
             try {
-                // Giả sử bạn có hàm parseDate hoặc dùng SimpleDateFormat
-                // movie.setReleaseDate(...); 
-                movie.setReleaseDate(java.sql.Date.valueOf(dateStr)); // Cách đơn giản nếu chuỗi chuẩn yyyy-MM-dd
+
+                movie.setReleaseDate(java.sql.Date.valueOf(dateStr)); 
             } catch (Exception e) { }
         }
 
@@ -300,7 +285,6 @@ public class MovieService {
             movie.setGenres(new HashSet<>(genres));
         }
         
-        // Mặc định cho các trường bắt buộc khác nếu tạo mới
         if (movie.getDirector() == null) movie.setDirector("Updating...");
         if (movie.getCountry() == null) movie.setCountry("N/A");
 
@@ -372,42 +356,33 @@ public class MovieService {
     @Transactional
     public Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
         try {
-            // [QUAN TRỌNG] Thêm "release_dates" vào append_to_response
-            // [QUAN TRỌNG] Đổi include_adult=true để lấy dữ liệu gốc nếu phim đó đã qua vòng lọc ở trên
+
             String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY
                     + "&language=vi-VN&append_to_response=credits,videos,images,keywords,release_dates"
                     + "&include_image_language=vi,en,null&include_video_language=vi,en,null&include_adult=true";
 
             String resp = restTemplate.getForObject(url, String.class);
             JSONObject json = new JSONObject(resp);
-
-            // --- [CẬP NHẬT] BỘ LỌC CHI TIẾT (Ảnh & Thời lượng) ---
             
-            // 1. Kiểm tra Thời lượng (Runtime)
-            // Phim phải có thời lượng > 0 phút. (Trừ phim sắp chiếu chưa có thông tin)
+            // 1. Kiểm tra Thời lượng
             int runtime = json.optInt("runtime", 0);
             String status = json.optString("status", "");
-            
-            // Lưu ý: Phim "Planned" hoặc "Rumored" có thể chưa có runtime, nhưng phim "Released" bắt buộc phải có.
-            // Ở đây ta chặn cứng runtime <= 0 để đảm bảo chất lượng xem.
+
             if (runtime <= 0) {
-                // System.out.println("❌ Bỏ qua ID " + tmdbId + " - Thời lượng 0 phút.");
+                // System.out.println("Bỏ qua ID " + tmdbId + " - Thời lượng 0 phút.");
                 return null;
             }
 
-            // --- [LOGIC MỚI] KIỂM TRA ẢNH NGAY SAU KHI GỌI API ---
             String poster = json.optString("poster_path", null);
             String backdrop = json.optString("backdrop_path", null);
 
-            // Nếu thiếu 1 trong 2 ảnh -> KHÔNG LƯU, return null ngay lập tức
             if (!isValidImage(poster) || !isValidImage(backdrop)) {
-                System.out.println("❌ [Filter] Bỏ qua ID " + tmdbId + " - Thiếu Poster hoặc Banner.");
+                System.out.println("[Filter] Bỏ qua ID " + tmdbId + " - Thiếu Poster hoặc Banner.");
                 return null; 
             }
 
             Movie movie = (movieToUpdate != null) ? movieToUpdate : new Movie();
 
-            // Basic Info
             movie.setTmdbId(tmdbId);
             movie.setTitle(json.optString("title"));
             movie.setDescription(json.optString("overview"));
@@ -419,15 +394,12 @@ public class MovieService {
             movie.setBudget(json.optLong("budget", 0));
             movie.setRevenue(json.optLong("revenue", 0));
 
-            // Extra Info
             movie.setPopularity(json.optDouble("popularity", 0.0));
             movie.setVoteCount(json.optInt("vote_count", 0));
             movie.setLanguage(getLanguageName(json.optString("original_language")));
 
-            // [MỚI] Lấy Content Rating (T13, T16...)
             movie.setContentRating(extractContentRating(json));
 
-            // Media Cache
             String trailerKey = findBestTrailerKeyFromJSON(json);
             if (trailerKey != null)
                 movie.setTrailerKey(trailerKey);
@@ -436,7 +408,6 @@ public class MovieService {
             if (logoPath != null)
                 movie.setLogoPath(logoPath);
 
-            // Collection
             JSONObject colJson = json.optJSONObject("belongs_to_collection");
             if (colJson != null && colJson.optInt("id") > 0) {
                 int colId = colJson.optInt("id");
@@ -451,7 +422,6 @@ public class MovieService {
                 movie.setCollection(collection);
             }
 
-            // Companies
             JSONArray companiesJson = json.optJSONArray("production_companies");
             if (companiesJson != null) {
                 Set<ProductionCompany> companies = new HashSet<>();
@@ -473,13 +443,11 @@ public class MovieService {
                 movie.setProductionCompanies(companies);
             }
 
-            // Country
             JSONArray countries = json.optJSONArray("production_countries");
             if (countries != null && countries.length() > 0) {
                 movie.setCountry(countries.getJSONObject(0).optString("name"));
             }
 
-            // Genres
             JSONArray genresJson = json.optJSONArray("genres");
             if (genresJson != null) {
                 List<Integer> genreIds = new ArrayList<>();
@@ -488,12 +456,11 @@ public class MovieService {
                 movie.setGenres(new HashSet<>(genreRepository.findByTmdbGenreIdIn(genreIds)));
             }
 
-            // Credits
             JSONObject credits = json.optJSONObject("credits");
             if (credits != null) {
                 Movie savedMovie = movieRepository.save(movie); 
                 
-                // 1. Xử lý Crew (Đạo diễn)
+                // 1. Xử lý Crew
                 JSONArray crew = credits.optJSONArray("crew");
                 if (crew != null) {
                     for (int i = 0; i < crew.length(); i++) {
@@ -508,39 +475,34 @@ public class MovieService {
                     }
                 }
 
-                // 2. Xử lý Cast (Diễn viên)
+                // 2. Xử lý Cast
                 JSONArray cast = credits.optJSONArray("cast");
                 if (cast != null) {
                     for (int i = 0; i < Math.min(cast.length(), 20); i++) {
                         JSONObject pJson = cast.getJSONObject(i);
                         Person p = getPersonPartialOrSync(pJson);
                         if (p != null) {
-                            // [ĐÃ XÓA] persons.add(p);
                             String character = pJson.optString("character");
                             saveMoviePersonRole(savedMovie.getMovieID(), p.getPersonID(), character, "Acting");
                         }
                     }
                 }
-                // [ĐÃ XÓA] savedMovie.setPersons(persons);
                 return movieRepository.save(savedMovie);
             }
 
             return movieRepository.save(movie);
 
         } catch (Exception e) {
-            System.err.println("❌ Lỗi Sync Movie ID " + tmdbId + ": " + e.getMessage());
+            System.err.println("Lỗi Sync Movie ID " + tmdbId + ": " + e.getMessage());
             return null;
         }
     }
 
 
-    // Helper check ảnh hợp lệ
     private boolean isValidImage(String path) {
         return path != null && !path.isEmpty() && !"null".equals(path) && path.length() > 4;
     }
-    // [MỚI] Lấy danh sách phim miễn phí từ DB
     public Page<Movie> getFreeMoviesFromDB(int limit, int page) {
-        // Sắp xếp theo ngày phát hành giảm dần (phim mới nhất lên đầu) hoặc rating
         PageRequest pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "releaseDate"));
         return movieRepository.findByIsFreeTrue(pageable);
     }

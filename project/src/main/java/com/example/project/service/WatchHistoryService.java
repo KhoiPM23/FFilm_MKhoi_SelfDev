@@ -30,51 +30,40 @@ public class WatchHistoryService {
         this.movieRepository = movieRepository;
     }
 
-    /**
-     * Ghi lại hoặc cập nhật lịch sử xem.
-     */
     @Transactional
     public void recordWatchHistory(String userEmail, int movieId) {
-        // Lấy thông tin user và movie
+
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + userEmail));
         Movie movie = movieRepository.findById(movieId)
                 .orElseThrow(() -> new RuntimeException("Movie not found with ID: " + movieId));
 
-        // Kiểm tra xem đã có bản ghi nào chưa
         Optional<WatchHistory> existingHistory = watchHistoryRepository.findByUserAndMovie(user, movie);
 
         if (existingHistory.isPresent()) {
-            // Đã có: Chỉ cần save() để @UpdateTimestamp tự động cập nhật
             WatchHistory history = existingHistory.get();
-            // Thêm dòng này để đánh dấu entity là "dirty"
+
             history.setLastWatchedAt(java.time.LocalDateTime.now());
             watchHistoryRepository.save(history);
         } else {
-            // Chưa có: Tạo mới
+
             WatchHistory newHistory = new WatchHistory(user, movie);
             watchHistoryRepository.save(newHistory);
         }
     }
 
-    /**
-     * Lấy lịch sử xem (phân trang) của user và chuyển đổi sang DTO.
-     */
+
     @Transactional(readOnly = true)
     public Page<WatchHistoryDto> getWatchHistory(String userEmail, Pageable pageable) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + userEmail));
 
-        // Lấy dữ liệu Page<WatchHistory> từ repository
         Page<WatchHistory> historyPage = watchHistoryRepository.findByUserOrderByLastWatchedAtDesc(user, pageable);
 
-        // Chuyển đổi (map) Page<WatchHistory> sang Page<WatchHistoryDto>
         return historyPage.map(WatchHistoryDto::new);
     }
 
-    /**
-     * [CẬP NHẬT] Ghi lại lịch sử kèm thời gian xem
-     */
+
     @Transactional
     public void updateWatchProgress(Integer userId, int movieId, Double currentTime) {
         User user = userRepository.findById(userId)
@@ -87,27 +76,22 @@ public class WatchHistoryService {
         if (existingHistory.isPresent()) {
             WatchHistory history = existingHistory.get();
             history.setLastWatchedAt(java.time.LocalDateTime.now());
-            // [THÊM] Cập nhật thời gian xem
+
             if (currentTime != null) {
                 history.setCurrentTime(currentTime);
             }
             watchHistoryRepository.save(history);
         } else {
             WatchHistory newHistory = new WatchHistory(user, movie);
-            // [THÊM] Set thời gian ban đầu
             if (currentTime != null) {
                 newHistory.setCurrentTime(currentTime);
             }
             watchHistoryRepository.save(newHistory);
         }
     }
-    
-    /**
-     * [THÊM MỚI] Lấy thời gian đã xem của user đối với 1 phim cụ thể
-     */
+
     public Double getWatchedTime(Integer userId, int movieId) {
-        // Giả sử bạn đã viết phương thức findByUser_UserIDAndMovie_MovieID trong Repository
-        // Hoặc dùng cách thủ công này:
+
         User user = new User(); user.setUserID(userId);
         Movie movie = new Movie(); movie.setMovieID(movieId);
         

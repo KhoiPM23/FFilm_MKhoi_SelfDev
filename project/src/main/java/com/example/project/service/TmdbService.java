@@ -24,7 +24,6 @@ public class TmdbService {
         return restTemplate.getForObject(url, TmdbMovieDto.class);
     }
 
-    // [MỚI] Lấy List ID phim Hot
     public List<Integer> fetchPopularMovieIds(int page) {
         String url = String.format("%s/movie/popular?api_key=%s&language=vi-VN&page=%d", TMDB_BASE_URL, tmdbApiKey, page);
         try {
