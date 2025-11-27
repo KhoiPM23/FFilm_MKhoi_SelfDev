@@ -203,7 +203,7 @@ public class AIAgentService {
             "- f_director, f_actor: tên người (BẮT BUỘC nếu có 'phim của')\n" +
             "- q_subject: tên phim/người (LOOKUP - ƯU TIÊN CAO)\n" +
             "- q_type: movie|actor|director|cast\n" +
-            "- subscription_query: price|plans|features|cancel|payment\n\n" +
+            "- subscription_query: price|plans|features|cancel|payment|refund\n\n" +
 
             "# VÍ DỤ (30 CASES - CRITICAL):\n" +
             "// === MOVIE TITLE SEARCH (Ưu tiên cao nhất) ===\n" +
@@ -221,6 +221,8 @@ public class AIAgentService {
             "Q: 'bao nhiêu tiền' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"price\"}\n" +
             "Q: 'hủy đăng ký' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"cancel\"}\n" +
             "Q: 'thanh toán thế nào' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"payment\"}\n" +
+            "Q: 'hoàn tiền' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"refund\"}\n" +
+            "Q: 'chính sách hoàn tiền' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"refund\"}\n" +
             "Q: 'gói premium' → {\"intent\":\"SUBSCRIPTION_INFO\",\"subscription_query\":\"plans\"}\n\n" +
 
             "// === MULTI-FILTER (Kết hợp đồng bộ) ===\n" +
@@ -756,6 +758,13 @@ public class AIAgentService {
                     response.append("🔄 **CHÍNH SÁCH HỦY ĐĂNG KÝ**\n\n");
                     response.append("Bạn không thể hủy đăng ký sau khi đã thanh toán. ");
                     response.append("Tài khoản sẽ còn hoạt động đến hết chu kỳ thanh toán hiện tại.\n\n");
+                    break;
+
+                case "refund":  
+                    response.append("💸 **CHÍNH SÁCH HOÀN TIỀN**\n\n");
+                    response.append("• FFilm KHÔNG hỗ trợ hoàn tiền với bất cứ hình thức nào\n");
+                    response.append("• Vui lòng cân nhắc kỹ trước khi đăng ký\n");
+                    response.append("• Gói đã thanh toán vẫn có hiệu lực đến hết chu kỳ\n\n");
                     break;
 
                 case "payment":
