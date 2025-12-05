@@ -6,54 +6,65 @@
     <div th:replace="~{fragments/header :: header}"></div>
     <link rel="stylesheet" href="/css/footer.css">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/hover-card.css"> <style>
+    <link rel="stylesheet" href="/css/hover-card.css">
+    
+    <style>
         body { background-color: #141414; color: #fff; padding-top: 60px; }
-        .profile-cover {
-            height: 300px; background: linear-gradient(to bottom, #555, #111);
-            position: relative;
-        }
-        .profile-main { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; top: -50px; }
         
-        /* Header Info */
-        .profile-header { display: flex; align-items: flex-end; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid #333; }
+        /* COVER & HEADER */
+        .profile-cover {
+            height: 350px; background: linear-gradient(to bottom, #555, #111); position: relative;
+        }
+        .profile-main { max-width: 1200px; margin: 0 auto; padding: 0 20px; position: relative; top: -60px; }
+        
+        .profile-header { display: flex; align-items: flex-end; gap: 30px; padding-bottom: 20px; border-bottom: 1px solid #333; }
         .avatar-lg {
             width: 160px; height: 160px; border-radius: 50%; 
             border: 4px solid #141414; background: #333; object-fit: cover;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
         .info-col { flex: 1; padding-bottom: 10px; }
-        .user-name { font-size: 2rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; }
-        .stats-row { display: flex; gap: 20px; color: #bbb; margin-top: 5px; font-size: 0.95rem; }
+        .user-name { font-size: 2.2rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; }
+        .stats-row { display: flex; gap: 25px; color: #bbb; margin-top: 8px; font-size: 1rem; }
         .stats-row strong { color: #fff; }
 
-        /* Action Buttons */
+        /* BUTTONS */
         .btn-group-social { display: flex; gap: 10px; margin-bottom: 10px; }
         .btn-social {
-            padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; gap: 6px; font-size: 0.9rem; transition: 0.2s;
+            padding: 8px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; font-size: 0.95rem; transition: 0.2s; text-decoration: none;
         }
         .btn-blue { background: #0084ff; color: #fff; }
         .btn-blue:hover { background: #0073e6; }
-        .btn-dark-gray { background: #3a3b3c; color: #e4e6eb; }
-        .btn-dark-gray:hover { background: #4e4f50; }
+        .btn-dark { background: #3a3b3c; color: #e4e6eb; }
+        .btn-dark:hover { background: #4e4f50; }
 
-        /* Grid Layouts */
-        .section-title { font-size: 1.3rem; font-weight: 700; margin: 30px 0 15px 0; border-left: 4px solid #e50914; padding-left: 10px; }
+        /* SECTIONS */
+        .section-box { margin-top: 40px; }
+        .section-title { 
+            font-size: 1.5rem; font-weight: 700; margin-bottom: 20px; 
+            border-left: 4px solid #e50914; padding-left: 15px; 
+        }
         
-        .friend-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px;
-        }
+        /* FRIEND GRID */
+        .friend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; }
         .friend-card { text-align: center; cursor: pointer; }
-        .friend-card img { width: 100%; aspect-ratio: 1/1; border-radius: 8px; object-fit: cover; margin-bottom: 5px; }
-        .friend-card span { font-size: 0.85rem; font-weight: 500; display: block; line-height: 1.2; }
+        .friend-card:hover img { transform: scale(1.05); }
+        .friend-card img { width: 100%; aspect-ratio: 1/1; border-radius: 50%; object-fit: cover; transition: 0.2s; border: 2px solid #333; }
+        .friend-card span { font-size: 0.9rem; font-weight: 500; margin-top: 5px; display: block; }
 
-        /* Movie Grid (Hover Card Support) */
-        .movie-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px;
+        /* MOVIE GRID (Reuse Style Index) */
+        .movie-list-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding-bottom: 20px;
         }
-        /* Style này phải khớp với index.html để Hover Card hoạt động */
-        .movie-card { position: relative; transition: transform 0.3s; }
-        .movie-card:hover { z-index: 10; transform: scale(1.05); }
-        .movie-poster-img { width: 100%; border-radius: 6px; display: block; aspect-ratio: 2/3; object-fit: cover; }
+        
+        /* Ghi đè CSS Hover Card cho Profile để không bị vỡ */
+        .movie-card { width: 100%; }
+        .movie-poster { width: 100%; aspect-ratio: 2/3; }
+        .movie-poster img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -67,7 +78,7 @@
             <div class="info-col">
                 <h1 class="user-name">
                     <span th:text="${profile.name}">Name</span>
-                    <i class="fas fa-check-circle text-primary" style="font-size: 1rem;"></i>
+                    <i class="fas fa-check-circle text-primary" style="font-size: 1.2rem;" title="Xác minh"></i>
                 </h1>
                 <div class="stats-row">
                     <span><strong th:text="${profile.friendCount}">0</strong> Bạn bè</span>
@@ -78,102 +89,125 @@
 
             <div class="btn-group-social">
                 <th:block th:if="${profile.relationStatus == 'ME'}">
-                    <a href="/profile" class="btn-social btn-dark-gray"><i class="fas fa-pen"></i> Chỉnh sửa trang cá nhân</a>
+                    <a href="/profile" class="btn-social btn-dark"><i class="fas fa-pen"></i> Chỉnh sửa trang cá nhân</a>
                 </th:block>
 
                 <th:block th:if="${profile.relationStatus != 'ME'}">
-                    
-                    <button th:if="${profile.relationStatus == 'STRANGER'}" class="btn-social btn-blue" 
-                            th:onclick="'sendFriendRequest(' + ${profile.id} + ', this)'">
+                    <button th:if="${profile.relationStatus == 'STRANGER'}" class="btn-social btn-blue" th:onclick="'sendFriendRequest(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-plus"></i> Thêm bạn bè
                     </button>
-                    <button th:if="${profile.relationStatus == 'PENDING_SENT'}" class="btn-social btn-dark-gray">
-                        <i class="fas fa-user-clock"></i> Đã gửi lời mời
+                    <button th:if="${profile.relationStatus == 'PENDING_SENT'}" class="btn-social btn-dark">
+                        <i class="fas fa-user-clock"></i> Đã gửi
                     </button>
-                    <button th:if="${profile.relationStatus == 'PENDING_RECEIVED'}" class="btn-social btn-blue" 
-                            th:onclick="'acceptFriendRequest(' + ${profile.id} + ', this)'">
+                    <button th:if="${profile.relationStatus == 'PENDING_RECEIVED'}" class="btn-social btn-blue" th:onclick="'acceptFriendRequest(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-check"></i> Chấp nhận
                     </button>
-                    <button th:if="${profile.relationStatus == 'FRIEND'}" class="btn-social btn-dark-gray" 
-                            th:onclick="'if(confirm(\'Hủy kết bạn?\')) window.location.href=\'/social/unfriend/' + ${profile.id} + '\''">
+                    <button th:if="${profile.relationStatus == 'FRIEND'}" class="btn-social btn-dark" th:onclick="'unfriendUser(' + ${profile.id} + ')'">
                         <i class="fas fa-user-check"></i> Bạn bè
                     </button>
 
-                    <button class="btn-social btn-dark-gray" th:onclick="'openChat(' + ${profile.id} + ')'">
+                    <button class="btn-social btn-dark" th:onclick="'openChat(' + ${profile.id} + ')'">
                         <i class="fab fa-facebook-messenger"></i> Nhắn tin
                     </button>
 
-                    <button th:if="${!profile.following}" class="btn-social btn-blue" 
-                            th:onclick="'followUser(' + ${profile.id} + ', this)'">
+                    <button th:if="${!profile.following}" class="btn-social btn-blue" th:onclick="'followUser(' + ${profile.id} + ', this)'">
                         <i class="fas fa-rss"></i> Theo dõi
                     </button>
-                    <button th:if="${profile.following}" class="btn-social btn-dark-gray" 
-                            th:onclick="'unfollowUser(' + ${profile.id} + ', this)'">
+                    <button th:if="${profile.following}" class="btn-social btn-dark" th:onclick="'unfollowUser(' + ${profile.id} + ', this)'">
                         <i class="fas fa-check"></i> Đang theo dõi
                     </button>
-
-                    <button class="btn-social btn-dark-gray"><i class="fas fa-ellipsis-h"></i></button>
                 </th:block>
             </div>
         </div>
 
-        <div class="section-title">Bạn Bè</div>
-        <div class="friend-grid" th:if="${not #lists.isEmpty(profile.friends)}">
-            <div th:each="f : ${profile.friends}" class="friend-card" th:onclick="'window.location.href=\'/social/profile/' + ${f.id} + '\''">
-                <img th:src="${f.avatar}">
-                <span th:text="${f.name}">Name</span>
+        <div class="section-box">
+            <div class="section-title">Bạn Bè</div>
+            <div class="friend-grid" th:if="${not #lists.isEmpty(profile.friends)}">
+                <div th:each="f : ${profile.friends}" class="friend-card" th:onclick="'window.location.href=\'/social/profile/' + ${f.id} + '\''">
+                    <img th:src="${f.avatar}">
+                    <span th:text="${f.name}">User</span>
+                </div>
+            </div>
+            <div th:if="${#lists.isEmpty(profile.friends)}" class="text-muted p-3 bg-dark rounded">
+                <i class="fas fa-lock"></i> Danh sách bạn bè trống hoặc đã ẩn.
             </div>
         </div>
-        <div th:if="${#lists.isEmpty(profile.friends)}" class="text-muted p-3" style="background:#222; border-radius:8px;">
-            <i class="fas fa-lock"></i> Danh sách bạn bè trống hoặc người dùng đã ẩn.
-        </div>
 
+        <div class="section-box" th:if="${not #lists.isEmpty(profile.favoriteMovies)}">
         <div class="section-title">Phim Yêu Thích</div>
-        <div class="movie-grid" th:if="${not #lists.isEmpty(profile.favoriteMovies)}">
-            <div th:each="movie : ${profile.favoriteMovies}" class="movie-card">
-                <img th:src="${movie.poster}" class="movie-poster-img" onerror="this.src='/images/placeholder.jpg'">
+        
+        <div class="movie-list-container">
+            
+            <div th:each="movie : ${profile.favoriteMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}">
                 
-                <div class="movie-hover-card">
-                    <div class="hover-card-media">
-                        <img class="hover-card-image" th:src="${movie.backdrop}" onerror="this.src='/images/placeholder.jpg'">
-                    </div>
-                    <div class="hover-card-content">
-                        <div class="hover-card-actions">
-                            <a th:href="${movie.url}" class="hover-play-btn"><i class="fas fa-play"></i></a>
-                            <button class="hover-action-icon"><i class="fas fa-plus"></i></button>
-                        </div>
-                        <h3 class="hover-card-title" th:text="${movie.title}">Movie Title</h3>
-                        <div class="hover-card-meta">
-                            <span class="meta-rating" th:text="'⭐ ' + ${movie.rating}"></span>
-                            <span class="meta-year" th:text="${movie.year}">2023</span>
-                        </div>
-                        <p class="hover-card-description" th:text="${#strings.abbreviate(movie.overview, 60)}">Desc...</p>
-                    </div>
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" 
+                         th:alt="${movie.title}" 
+                         onerror="this.src='/images/placeholder.jpg'">
                 </div>
-            </div>
-        </div>
-        <div th:if="${#lists.isEmpty(profile.favoriteMovies)}" class="text-muted p-3" style="background:#222; border-radius:8px;">
-            Không có phim yêu thích nào.
-        </div>
 
-        <div class="section-title">Hoạt Động Gần Đây</div>
-        <div class="movie-grid" th:if="${not #lists.isEmpty(profile.recentWatchedMovies)}">
-            <div th:each="movie : ${profile.recentWatchedMovies}" class="movie-card">
-                <img th:src="${movie.poster}" class="movie-poster-img">
-                <div class="movie-hover-card">
-                    <div class="hover-card-media"><img class="hover-card-image" th:src="${movie.backdrop}"></div>
-                    <div class="hover-card-content">
-                        <h3 class="hover-card-title" th:text="${movie.title}"></h3>
-                        <a th:href="${movie.url}" class="hover-play-btn" style="width:100%; border-radius:4px;">
-                            <i class="fas fa-play"></i> Xem lại ngay
-                        </a>
-                    </div>
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">
+                        ⭐ <span th:text="${movie.rating}">0.0</span>
+                    </p>
                 </div>
+
+                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
             </div>
+
         </div>
+    </div>
+
+    <div class="section-box" th:if="${not #lists.isEmpty(profile.recentWatchedMovies)}">
+        <div class="section-title">Hoạt Động Gần Đây</div>
+        
+        <div class="movie-list-container">
+            
+            <div th:each="movie : ${profile.recentWatchedMovies}" 
+                 class="movie-card" 
+                 th:attr="data-movie-id=${movie.id}">
+                
+                <div class="movie-poster">
+                    <img th:src="${movie.poster}" 
+                         th:alt="${movie.title}" 
+                         onerror="this.src='/images/placeholder.jpg'">
+                </div>
+
+                <div class="movie-info">
+                    <h3 th:text="${movie.title}">Movie Title</h3>
+                    <p class="movie-rating">
+                        ⭐ <span th:text="${movie.rating}">0.0</span>
+                    </p>
+                </div>
+
+                <div th:replace="~{fragments/hover-card :: hoverCard(${movie})}"></div>
+            </div>
+
+        </div>
+    </div>
 
     </div>
 
     <div th:replace="~{fragments/footer :: footer}"></div>
-    <script src="/js/script.js"></script> </body>
+    
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // Logic unfriend tại trang
+        function unfriendUser(id) {
+            if(confirm("Hủy kết bạn?")) {
+                fetch('/social/unfriend/' + id, {method: 'POST'}).then(() => location.reload());
+            }
+        }
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof initHoverCards === "function") initHoverCards();
+        });
+    </script>
+    <script src="/js/movie/share-modal.js"></script>
+    <script src="/js/script.js"></script>
+
+    <div th:replace="fragments/share-modal :: shareModal"></div>
+</body>
 </html>

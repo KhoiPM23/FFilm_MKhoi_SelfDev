@@ -116,4 +116,15 @@ public class SocialController {
     private UserSessionDto getUserSession(HttpSession session) {
         return (UserSessionDto) session.getAttribute("user");
     }
+
+    // [NEW] API Hủy kết bạn
+    @PostMapping("/unfriend/{targetId}")
+    @ResponseBody
+    public ResponseEntity<?> unfriendUser(@PathVariable Integer targetId, HttpSession session) {
+        UserSessionDto currentUser = (UserSessionDto) session.getAttribute("user");
+        if (currentUser == null) return ResponseEntity.status(401).body("Unauthorized");
+
+        socialService.unfriendUser(currentUser.getId(), targetId);
+        return ResponseEntity.ok("Unfriended");
+    }
 }

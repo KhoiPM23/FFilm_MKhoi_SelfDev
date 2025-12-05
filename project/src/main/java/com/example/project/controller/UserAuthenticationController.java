@@ -251,35 +251,24 @@ public class UserAuthenticationController {
      */
     @GetMapping("/profile")
     public String showProfile(HttpSession session, Model model) {
-
-        // 1. LẤY DTO TỪ SESSION
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-        if (userSession == null) {
-            return "redirect:/login";
-        }
+        if (userSession == null) return "redirect:/login";
 
-        // 2. LẤY ENTITY MỚI TỪ DB
+        // [FIX] Lấy User Entity mới nhất từ DB để đảm bảo có các trường publicFriendList...
         User currentUser = userService.getUserById(userSession.getId());
+        
+        // Đẩy user vào model để Thymeleaf dùng (thay vì dùng session.user có thể thiếu field)
+        model.addAttribute("user", currentUser); 
 
-        // 3. Kiểm tra trạng thái VIP (Premium)
-        boolean isVip = subscriptionService.checkActiveSubscription(currentUser.getUserID()); // <--- 3. Kiểm tra VIP
-        model.addAttribute("isVip", isVip); // <--- 4. Truyền vào Model
+        boolean isVip = subscriptionService.checkActiveSubscription(currentUser.getUserID());
+        model.addAttribute("isVip", isVip);
 
-        // 4. Tạo DTO cho form
         UserProfileUpdateDto updateDto = new UserProfileUpdateDto(
                 currentUser.getUserID(),
                 currentUser.getUserName(),
                 currentUser.getEmail(),
                 currentUser.getPhoneNumber());
-
         model.addAttribute("userProfile", updateDto);
-
-        if (model.containsAttribute("message")) {
-            model.addAttribute("message", model.getAttribute("message"));
-        }
-        if (model.containsAttribute("error")) {
-            model.addAttribute("error", model.getAttribute("error"));
-        }
 
         return "User/profile";
     }

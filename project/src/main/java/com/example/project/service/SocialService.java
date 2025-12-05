@@ -11,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
 
 @Service
 public class SocialService {
@@ -94,20 +96,20 @@ public class SocialService {
             profile.setFriends(friendDtos);
         }
 
-        // --- LIST YÊU THÍCH (Code cũ đã đúng, giữ nguyên) ---
+        // List Yêu thích
         if (target.isPublicFavorites() || "ME".equals(profile.getRelationStatus())) {
             List<UserFavorite> favorites = favoriteRepository.findByUser(target);
-            List<PublicProfileDto.MovieCardDto> favDtos = new ArrayList<>();
+            List<Map<String, Object>> favList = new ArrayList<>();
             for (UserFavorite fav : favorites) {
-                if (fav.getMovie() != null) favDtos.add(mapToCardDto(fav.getMovie()));
+                if (fav.getMovie() != null) favList.add(mapToCardDto(fav.getMovie()));
             }
-            profile.setFavoriteMovies(favDtos);
+            profile.setFavoriteMovies(favList);
         }
 
-        // --- LIST LỊCH SỬ (Code cũ đã đúng, giữ nguyên) ---
+        // List Lịch sử
         if (target.isPublicWatchHistory() || "ME".equals(profile.getRelationStatus())) {
             var historyPage = historyRepository.findByUserOrderByLastWatchedAtDesc(target, PageRequest.of(0, 10));
-            List<PublicProfileDto.MovieCardDto> historyList = new ArrayList<>();
+            List<Map<String, Object>> historyList = new ArrayList<>();
             for (WatchHistory h : historyPage.getContent()) {
                 if (h.getMovie() != null) historyList.add(mapToCardDto(h.getMovie()));
             }
@@ -133,18 +135,80 @@ public class SocialService {
         return friends;
     }
 
-    // Helper map Card DTO (Giữ nguyên như cũ)
-    private PublicProfileDto.MovieCardDto mapToCardDto(Movie m) {
-        PublicProfileDto.MovieCardDto dto = new PublicProfileDto.MovieCardDto();
-        dto.setId(m.getMovieID());
-        dto.setTitle(m.getTitle());
-        dto.setPoster(m.getPosterPath());
-        dto.setBackdrop(m.getBackdropPath() != null ? m.getBackdropPath() : m.getPosterPath());
-        dto.setRating(String.format("%.1f", m.getRating()));
-        dto.setYear(m.getReleaseDate() != null ? m.getReleaseDate().toString().substring(0, 4) : "N/A");
-        dto.setUrl("/movie/" + m.getMovieID());
-        dto.setOverview(m.getDescription() != null ? m.getDescription() : "");
-        return dto;
+    // Hàm chuyển đổi Movie Entity sang Map (Dữ liệu chuẩn cho Hover Card)
+    private Map<String, Object> mapToCardDto(Movie m) {
+        Map<String, Object> map = new HashMap<>();
+        
+        // 1. ID & Cơ bản
+        map.put("id", m.getMovieID());
+        map.put("tmdbId", m.getTmdbId()); 
+        map.put("title", m.getTitle());
+        
+        // --- [FIX] XỬ LÝ ẢNH (POSTER & BACKDROP) ---
+        // Logic: Nếu path bắt đầu bằng "/", nối thêm domain TMDB. Nếu không, dùng nguyên gốc.
+        String tmdbBaseUrl = "https://image.tmdb.org/t/p/w500"; 
+        String tmdbBackdropUrl = "https://image.tmdb.org/t/p/original"; // Backdrop cần nét hơn
+
+        // Xử lý Poster
+        String rawPoster = m.getPosterPath();
+        String finalPoster = "/images/placeholder.jpg";
+        if (rawPoster != null && !rawPoster.isEmpty()) {
+            if (rawPoster.startsWith("/")) {
+                finalPoster = tmdbBaseUrl + rawPoster;
+            } else {
+                finalPoster = rawPoster; // Trường hợp là link http ảnh ngoài
+            }
+        }
+        map.put("poster", finalPoster);
+
+        // Xử lý Backdrop (Quan trọng cho Hover Card)
+        String rawBackdrop = m.getBackdropPath();
+        String finalBackdrop = finalPoster; // Fallback lấy poster nếu không có backdrop
+        if (rawBackdrop != null && !rawBackdrop.isEmpty()) {
+            if (rawBackdrop.startsWith("/")) {
+                finalBackdrop = tmdbBackdropUrl + rawBackdrop;
+            } else {
+                finalBackdrop = rawBackdrop;
+            }
+        }
+        map.put("backdrop", finalBackdrop);
+
+        // --- [FIX] TRAILER ---
+        // Đảm bảo key này có dữ liệu. Nếu null, hover card sẽ tự ẩn video.
+        map.put("trailerKey", m.getTrailerKey()); 
+
+        // 3. Meta Data & Date (Quan trọng cho substring trong HTML)
+        map.put("rating", m.getRating() > 0 ? String.format("%.1f", m.getRating()) : "N/A");
+        
+        // Chuyển Date sang String để HTML substring(0,4) không bị lỗi
+        if (m.getReleaseDate() != null) {
+            map.put("releaseDate", m.getReleaseDate().toString()); 
+            map.put("year", m.getReleaseDate().toString().substring(0, 4));
+        } else {
+            map.put("releaseDate", "");
+            map.put("year", "—");
+        }
+
+        // 4. Các thông tin phụ
+        map.put("url", "/movie/" + m.getMovieID());
+        map.put("overview", m.getDescription() != null ? m.getDescription() : "Chưa có mô tả.");
+        map.put("runtime", m.getDuration() > 0 ? m.getDuration() + " phút" : "N/A");
+        map.put("contentRating", m.getContentRating() != null ? m.getContentRating() : "G");
+        map.put("country", m.getCountry() != null ? m.getCountry() : "Quốc tế");
+
+        // 5. Thể loại (Genres) - Mapping sang List Map đơn giản để HTML dễ đọc
+        List<Map<String, Object>> genreList = new ArrayList<>();
+        if (m.getGenres() != null) {
+            for (Genre g : m.getGenres()) {
+                Map<String, Object> gMap = new HashMap<>();
+                gMap.put("id", g.getGenreID());
+                gMap.put("name", g.getName());
+                genreList.add(gMap);
+            }
+        }
+        map.put("genres", genreList);
+
+        return map;
     }
 
     @Transactional
@@ -233,5 +297,19 @@ public class SocialService {
             null,
             receiver // Truyền mình (receiver) làm sender của thông báo này
         );
+    }
+
+    // [NEW] Hàm Hủy Kết Bạn
+    @Transactional
+    public void unfriendUser(Integer userId1, Integer userId2) {
+        User u1 = userRepository.findById(userId1).orElseThrow();
+        User u2 = userRepository.findById(userId2).orElseThrow();
+
+        // Xóa request 2 chiều (bất kể ai gửi trước)
+        var req1 = friendRequestRepository.findBySenderAndReceiver(u1, u2);
+        req1.ifPresent(friendRequestRepository::delete);
+
+        var req2 = friendRequestRepository.findBySenderAndReceiver(u2, u1);
+        req2.ifPresent(friendRequestRepository::delete);
     }
 }

@@ -2,15 +2,15 @@ package com.example.project.dto;
 
 import lombok.Data;
 import java.util.List;
-import java.util.Date;
+import java.util.Map; // Nhớ import Map
 
 @Data
 public class PublicProfileDto {
     private Integer id;
     private String name;
-    private String email; // Có thể ẩn nếu cần
+    private String email;
     private String avatar;
-    private String bio; // Giới thiệu bản thân (nếu có)
+    private String bio;
 
     // Stats
     private long followerCount;
@@ -18,33 +18,37 @@ public class PublicProfileDto {
     private long friendCount;
 
     // Logic Quan hệ
-    private String relationStatus; // "ME", "FRIEND", "PENDING_SENT", "PENDING_RECEIVED", "STRANGER"
+    private String relationStatus; 
     private boolean isFollowing;
 
-    // Dữ liệu danh sách (Chỉ trả về nếu Public)
     private List<FriendDto> friends;
-    private List<MovieCardDto> favoriteMovies;
-    private List<MovieCardDto> recentWatchedMovies;
 
-    // Inner DTO rút gọn cho list bạn bè
+    // [QUAN TRỌNG] Đổi sang List<Map> để tương thích với hover-card.html sử dụng cú pháp movie['key']
+    private List<Map<String, Object>> favoriteMovies;
+    private List<Map<String, Object>> recentWatchedMovies;
+
     @Data
     public static class FriendDto {
         private Integer id;
         private String name;
         private String avatar;
-        private int mutualFriends; // Bạn chung (Nâng cao)
+        private int mutualFriends;
     }
 
-    // Inner DTO cho Movie Card (Để hiển thị Hover Card)
+    // Bạn có thể xóa class MovieCardDto nếu không dùng nữa, 
+    // hoặc giữ lại nếu dùng ở chỗ khác.
+    
     @Data
-    public static class MovieCardDto {
-        private Integer id;
-        private String title;
-        private String poster;
-        private String backdrop;
-        private String rating;
-        private String year;
-        private String url; // Link phim
-        private String overview;
+    public static class GenreDto {
+        private Long id;
+        private String name;
+        public GenreDto(Integer id, String name) {
+            this.id = (id == null) ? null : id.longValue();
+            this.name = name;
+        }
+        public GenreDto(Long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 }
