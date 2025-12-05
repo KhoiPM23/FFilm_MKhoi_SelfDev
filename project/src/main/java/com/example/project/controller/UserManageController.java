@@ -6,8 +6,13 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.example.project.dto.UserManageDTO;
+import com.example.project.dto.UserSessionDto;
 import com.example.project.model.User;
 import com.example.project.service.UserManageService;
+import com.example.project.repository.UserRepository;
+
+import jakarta.servlet.http.HttpSession;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +32,9 @@ import org.springframework.data.domain.PageRequest;
 public class UserManageController {
     @Autowired
     private UserManageService userService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @GetMapping
     public List<UserManageDTO> getAllUser() {
@@ -103,5 +111,29 @@ public class UserManageController {
     @GetMapping("/status/{status}")
     public List<UserManageDTO> getUserByStatus(@PathVariable boolean status) {
         return userService.getUserByStatus(status);
+    }
+
+    @PostMapping("/update-privacy")
+    public String updatePrivacy(@RequestParam(defaultValue = "false") boolean publicFriend,
+                                @RequestParam(defaultValue = "false") boolean publicFav,
+                                @RequestParam(defaultValue = "false") boolean publicHistory,
+                                HttpSession session) {
+        
+        UserSessionDto sessionUser = (UserSessionDto) session.getAttribute("user");
+        if (sessionUser == null) return "redirect:/login";
+
+        // [FIX] Lấy trực tiếp từ Repository để có Entity User (thay vì qua Service)
+        User user = userRepository.findById(sessionUser.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Cập nhật cài đặt
+        user.setPublicFriendList(publicFriend);
+        user.setPublicFavorites(publicFav);
+        user.setPublicWatchHistory(publicHistory);
+        
+        // Lưu lại
+        userRepository.save(user);
+
+        return "redirect:/profile?success=privacy_updated";
     }
 }

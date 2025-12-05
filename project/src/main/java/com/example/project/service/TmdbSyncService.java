@@ -56,7 +56,7 @@ public class TmdbSyncService {
         
         long startTime = System.currentTimeMillis();
         int totalImported = 0;
-        int TARGET_LIMIT = 5000;
+        int TARGET_LIMIT = 20000;
 
         try {
             System.out.println("[SMART SCAN] Bắt đầu. Mục tiêu: " + TARGET_LIMIT + " phim.");
@@ -66,13 +66,13 @@ public class TmdbSyncService {
             
             String vietUrl = BASE_URL + "/discover/movie?api_key=" + apiKey 
                            + "&language=vi-VN&with_original_language=vi&sort_by=release_date.desc";
-            totalImported += scanPages(vietUrl, 5, processedIds); 
+            totalImported += scanPages(vietUrl, 30, processedIds); 
             
             if (stopRequested.get()) return stopResult();
 
             String marvelUrl = BASE_URL + "/discover/movie?api_key=" + apiKey 
                              + "&language=vi-VN&with_companies=420&sort_by=revenue.desc";
-            totalImported += scanPages(marvelUrl, 3, processedIds); 
+            totalImported += scanPages(marvelUrl, 5, processedIds); 
             
             if (stopRequested.get()) return stopResult();
 
@@ -82,7 +82,7 @@ public class TmdbSyncService {
             for (Genre genre : allGenres) {
                 if (stopRequested.get()) break;
                 
-                int pages = (movieRepository.count() > TARGET_LIMIT) ? 1 : 15;
+                int pages = (movieRepository.count() > TARGET_LIMIT) ? 1 : 25;
                 
                 System.out.println("   -> Quét thể loại: " + genre.getName() + " (" + pages + " trang)");
                 
@@ -104,7 +104,7 @@ public class TmdbSyncService {
 
             int pagesNeeded = (int) (missingMovies / 20) + 20;
 
-            if (pagesNeeded > 300) pagesNeeded = 300;
+            if (pagesNeeded > 300) pagesNeeded = 600;
 
             System.out.println("   -> Hệ thống sẽ quét sâu " + pagesNeeded + " trang từ danh sách Popular...");
 
@@ -142,12 +142,12 @@ public class TmdbSyncService {
             Set<Integer> processedIds = new HashSet<>();
             
             String trendingUrl = BASE_URL + "/trending/movie/day?api_key=" + apiKey + "&language=vi-VN";
-            scanPages(trendingUrl, 5, processedIds);
+            scanPages(trendingUrl, 10, processedIds);
             
             if (stopRequested.get()) return stopResult();
 
             String nowPlayingUrl = BASE_URL + "/movie/now_playing?api_key=" + apiKey + "&language=vi-VN";
-            scanPages(nowPlayingUrl, 5, processedIds);
+            scanPages(nowPlayingUrl, 10, processedIds);
 
         } catch (Exception e) {
             System.err.println("[DAILY SCAN] Lỗi: " + e.getMessage());

@@ -138,4 +138,14 @@ public class ChatMessageService {
     public long getUnreadCount(String senderEmail, String recipientEmail) {
         return chatMessageRepository.countUnreadMessages(senderEmail, recipientEmail);
     }
+
+    // Lấy lịch sử chat giữa 2 người bất kỳ
+    public List<ChatMessage> getPrivateConversation(String user1, String user2) {
+        // Tìm tin nhắn chiều đi và chiều về
+        // Lưu ý: Cần đảm bảo ChatMessageRepository có hàm tìm kiếm OR tương ứng
+        // Nếu chưa có, hãy dùng @Query trong Repository
+        return chatMessageRepository.findBySenderEmailAndRecipientEmailOrSenderEmailAndRecipientEmailOrderByTimestampAsc(
+                user1, user2, user2, user1
+        );
+    }
 }

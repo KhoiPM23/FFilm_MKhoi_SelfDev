@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:text="${room.name}">Watch Party</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css"> <link rel="stylesheet" href="/css/hover-card.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    
+    <style>
+        /* --- CORE LAYOUT --- */
+        body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; }
+        
+        .cinema-area {
+            flex: 1; position: relative;
+            background: radial-gradient(circle, #1a1a1a 0%, #000 90%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar {
+            width: 360px; background: #121212; border-left: 1px solid #333;
+            display: flex; flex-direction: column; transition: width 0.3s ease;
+            position: relative; z-index: 100;
+        }
+        .sidebar.collapsed { width: 0; border: none; overflow: hidden; }
+
+        /* --- CHAT COMPONENTS --- */
+        .room-header { padding: 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; scrollbar-color: #444 #121212; }
+        
+        .msg-container { display: flex; gap: 10px; max-width: 85%; animation: fadeIn 0.2s ease; }
+        .msg-container.mine { align-self: flex-end; flex-direction: row-reverse; }
+        
+        .avatar { width: 35px; height: 35px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; border: 2px solid #555; flex-shrink: 0; }
+        .mine .avatar { border-color: #e50914; background: #500; }
+
+        .msg-bubble {
+            background: #2a2a2a; padding: 8px 12px; border-radius: 18px; position: relative;
+            font-size: 0.95rem; line-height: 1.4; color: #e0e0e0;
+        }
+        .mine .msg-bubble { background: #e50914; color: white; border-bottom-right-radius: 4px; }
+        .other .msg-bubble { border-bottom-left-radius: 4px; }
+        
+        .msg-meta { font-size: 0.7rem; color: #777; margin-top: 4px; display: block; }
+        .mine .msg-meta { text-align: right; color: rgba(255,255,255,0.7); }
+
+        .chat-input-area { padding: 15px; border-top: 1px solid #333; background: #1a1a1a; display: flex; gap: 10px; align-items: center; }
+        .chat-input { flex: 1; background: #333; border: none; padding: 10px 15px; color: white; border-radius: 20px; outline: none; }
+        .chat-btn { background: none; border: none; color: #888; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+        .chat-btn:hover { color: #e50914; transform: scale(1.1); }
+
+        /* --- FLOATING BUBBLES (Khi đóng sidebar) --- */
+        .floating-bubbles-area {
+            position: absolute; bottom: 100px; left: 20px; width: 300px;
+            pointer-events: none; display: flex; flex-direction: column; gap: 10px; z-index: 50;
+        }
+        .float-msg {
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            padding: 10px 15px; border-radius: 20px; color: #fff;
+            border-left: 3px solid #e50914; transform: translateX(-20px); opacity: 0;
+            animation: slideInFade 7s forwards; display: flex; align-items: center; gap: 10px;
+        }
+        .float-msg img { width: 25px; height: 25px; border-radius: 50%; }
+        @keyframes slideInFade { 
+            0% { transform: translateX(-20px); opacity: 0; } 
+            10% { transform: translateX(0); opacity: 1; } 
+            80% { opacity: 1; } 
+            100% { opacity: 0; transform: translateY(-20px); } 
+        }
+
+        /* --- CONTROL BAR & TOGGLE --- */
+        .controls-bar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(30,30,30,0.8); backdrop-filter: blur(10px);
+            padding: 10px 25px; border-radius: 50px; display: flex; gap: 20px;
+            border: 1px solid rgba(255,255,255,0.1); z-index: 60;
+        }
+        .btn-control {
+            width: 45px; height: 45px; border-radius: 50%; border: none;
+            background: rgba(255,255,255,0.1); color: #fff; font-size: 1.2rem;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .btn-control:hover { background: #e50914; transform: scale(1.1); box-shadow: 0 0 15px #e50914; }
+        .btn-control.active { background: #fff; color: #000; }
+
+        .sidebar-toggle {
+            position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+            background: #1a1a1a; width: 20px; height: 60px;
+            border-radius: 10px 0 0 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            z-index: 101; border: 1px solid #333; border-right: none;
+        }
+
+        /* --- ANIMATIONS --- */
+        #emojiContainer { position: absolute; bottom: 100px; right: 50px; width: 100px; height: 400px; pointer-events: none; }
+        .fly-emoji { position: absolute; font-size: 2.5rem; animation: flyUp 2s ease-out forwards; }
+        @keyframes flyUp { to { transform: translateY(-300px) scale(1.5); opacity: 0; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: 0; } }
+
+        /* MODAL SEARCH */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; backdrop-filter: blur(5px); }
+        .modal-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; width: 500px; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+    </style>
+
+    <style>
+        /* Fix xung đột CSS khi nhúng style.css vào room */
+        body { overflow: hidden; } /* Giữ room không bị scroll */
+        
+        /* CSS cho Search Results Grid trong Room */
+        .room-search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+        
+        /* Thu nhỏ Movie Card để vừa Modal */
+        .room-search-grid .movie-card {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .room-search-grid .movie-poster {
+            height: 240px; /* Điều chỉnh chiều cao poster */
+        }
+        
+        /* Modal Search rộng hơn để hiển thị Grid */
+        .modal-box {
+            width: 900px !important;
+            max-width: 95vw;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            background: #141414; /* Màu nền chuẩn Netflix */
+        }
+        
+        #searchResults {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        /* Hover Card đè lên tất cả */
+        .movie-hover-card {
+            z-index: 9999 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cinema-area" id="cinemaArea">
+        <div class="floating-bubbles-area" id="floatArea"></div>
+
+        <div th:if="${joinStatus == 'WAITING'}" style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999;">
+            <i class="fas fa-lock fa-4x mb-4" style="color:#e50914;"></i>
+            <h2 style="color:#fff;">Chờ chủ phòng duyệt...</h2>
+            <p style="color:#888;">Bạn đang ở trong hàng đợi</p>
+        </div>
+
+        <!-- Phần này CHỈ RENDER khi đã JOINED -->
+        <div th:if="${joinStatus != 'WAITING'}">
+            <!-- Cinema Area, Controls, Video Player... -->
+        </div>
+
+        <div id="noMovieState" th:if="${room.currentMovieId == null && joinStatus != 'WAITING'}" style="text-align: center;">
+            <h1 style="font-size: 4rem; margin-bottom: 20px;">🎬</h1>
+            <h3 style="color: #aaa;">Phòng chiếu đang trống</h3>
+            <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 0 20px; border-radius: 8px; margin-top: 20px;">
+                <i class="fas fa-search me-2"></i> Chọn Phim Ngay
+            </button>
+        </div>
+
+        <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8);"></video>
+
+        <!-- Waiting Notification (Host Only) -->
+        <div th:if="${isHost}" id="waitingNotif" style="position:fixed; top:80px; right:20px; background:#e50914; color:#fff; padding:15px 20px; border-radius:10px; display:none; z-index:1000; box-shadow:0 5px 20px rgba(0,0,0,0.5);">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-user-clock fa-2x"></i>
+                <div>
+                    <div style="font-weight:bold;">Có người chờ duyệt!</div>
+                    <button onclick="showWaitingList()" style="margin-top:5px; background:#fff; color:#e50914; border:none; padding:5px 15px; border-radius:5px; cursor:pointer;">
+                        Xem danh sách
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-bar" th:if="${joinStatus != 'WAITING'}">
+            <button class="btn-control" title="Bật/Tắt Mic" onclick="toggleBtn(this)"><i class="fas fa-microphone"></i></button>
+            <button class="btn-control" title="Bật/Tắt Cam" onclick="toggleBtn(this)"><i class="fas fa-video"></i></button>
+            <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
+            <button class="btn-control" onclick="sendReaction('❤️')">❤️</button>
+            <button class="btn-control" onclick="sendReaction('😂')">😂</button>
+            <button class="btn-control" onclick="sendReaction('😮')">😮</button>
+            <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
+            <button th:if="${isHost}" class="btn-control" title="Chọn Phim" onclick="openSearchModal()"><i class="fas fa-film"></i></button>
+            <button th:if="${isHost}" class="btn-control text-danger" title="Giải tán phòng"><i class="fas fa-power-off"></i></button>
+        </div>
+
+        <div id="emojiContainer"></div>
+
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+            <i class="fas fa-chevron-right" id="toggleIcon"></i>
+        </div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="room-header">
+            <div style="font-weight: bold; color: #e50914;">
+                <i class="fas fa-hashtag"></i> <span th:text="${room.name}">Room</span>
+            </div>
+            <a href="/my-rooms" class="text-secondary"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+
+        <div class="chat-box" id="chatBox">
+            <div class="text-center text-muted small mt-3">
+                Bắt đầu cuộc trò chuyện...
+            </div>
+        </div>
+
+        <div id="replyPreview" style="display:none; background:#222; padding:10px; border-top:1px solid #333; font-size:0.85rem; color:#aaa; position: relative;">
+            <div style="font-weight:bold; color:#e50914; margin-bottom:2px;">Đang trả lời <span id="replyTargetUser">...</span></div>
+            <div id="replyContent" class="text-truncate">...</div>
+            <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:#fff;"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="chat-input-area">
+            <label class="chat-btn" style="cursor: pointer;">
+                <i class="fas fa-image"></i>
+                <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="uploadImage()">
+            </label>
+            
+            <div class="dropdown">
+                <button class="chat-btn" data-bs-toggle="dropdown"><i class="fas fa-smile"></i></button>
+                <div class="dropdown-menu bg-dark p-2" style="width:300px; max-height:300px; overflow-y:auto;">
+                    <div class="d-flex flex-wrap gap-2" id="stickerList"></div>
+                </div>
+            </div>
+
+            <input type="text" id="msgInput" class="chat-input" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
+            <button class="chat-btn text-primary" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- <div class="modal-box">
+        <h4 class="mb-3">Tìm Phim</h4>
+        <input type="text" id="searchInput" class="chat-input" placeholder="Nhập tên phim..." 
+            oninput="debounceRoomSearch()" style="background:#333; margin-bottom:15px;">
+        
+        <div id="searchResults" style="max-height:350px; overflow-y:auto;">
+        </div>
+        
+        <button onclick="closeSearchModal()" class="btn-control mt-3" style="width:100%; background:#333;">Đóng</button>
+    </div> -->
+
+    <div id="searchModal" class="modal-overlay">
+        <div class="modal-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 class="mb-0">🎬 Chọn Phim Chiếu (Admin)</h3>
+                <button onclick="closeSearchModal()" style="background:none; border:none; color:#fff; font-size:1.5rem;"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <input type="text" id="searchInput" class="chat-input" placeholder="Nhập tên phim để tìm..." 
+                oninput="debounceRoomSearch()" style="background:#333; font-size: 1.1rem; padding: 12px 20px;">
+            
+            <div id="searchResults" class="room-search-grid custom-scrollbar mt-3">
+                <div style="text-align:center; color:#666; grid-column: 1/-1; margin-top: 50px;">
+                    <i class="fas fa-film fa-3x mb-3"></i><br>
+                    Nhập tên phim để bắt đầu tìm kiếm
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const roomId = /*[[${room.id}]]*/ '0';
+        const isHost = /*[[${isHost}]]*/ false;
+        const username = /*[[${user.userName}]]*/ 'User';
+        const sessionId = /*[[${session.id}]]*/ '';
+        const joinStatus = /*[[${joinStatus}]]*/ 'JOINED';
+        const currentMovieUrl = /*[[${room.currentMovieId}]]*/ null; // Logic cũ dùng ID, cần sửa Controller trả về URL nếu có
+    </script>
+    
+    <script src="/js/watch-party/watch-party.js"></script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>FFilm - Social Cinema Lobby</title>
+    <div th:replace="~{fragments/header :: header}"></div>
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/style.css">    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --neon-red: #e50914;
+            --dark-bg: #141414;
+            --card-bg: #1f1f1f;
+            --text-gray: #b3b3b3;
+            --online-green: #4cd137;
+        }
+        
+        body { background-color: var(--dark-bg); color: #fff; overflow-x: hidden; }
+
+        .lobby-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 90px 30px 30px 30px; /* Padding top để tránh header */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 30px 0 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title i { color: var(--neon-red); }
+
+        .room-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        /* --- VIPRO ROOM CARD --- */
+        .room-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+            position: relative;
+        }
+        .room-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-color: #333;
+        }
+        
+        .poster-wrapper {
+            height: 150px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        .poster-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(31,31,31,1), transparent);
+        }
+        
+        /* Badges */
+        .badge-live {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: rgba(229, 9, 20, 0.9);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: pulse 2s infinite;
+        }
+        .badge-access {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        
+        .card-body { padding: 15px; }
+        .room-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .movie-name {
+            font-size: 0.9rem; color: var(--text-gray);
+            margin-bottom: 15px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        
+        .room-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            border-top: 1px solid #333;
+            padding-top: 12px;
+        }
+        .host-info { display: flex; align-items: center; gap: 8px; }
+        .host-avatar { width: 28px; height: 28px; border-radius: 50%; }
+        .user-count { 
+            font-size: 0.85rem; color: #ddd; background: #333; 
+            padding: 3px 8px; border-radius: 10px; 
+        }
+
+        /* --- SOCIAL SIDEBAR --- */
+        .social-sidebar {
+            background: rgba(31, 31, 31, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            height: calc(100vh - 120px);
+            position: sticky;
+            top: 100px;
+            display: flex; flex-direction: column;
+        }
+        .sidebar-header {
+            font-size: 1.2rem; font-weight: bold; margin-bottom: 20px;
+            border-bottom: 1px solid #444; padding-bottom: 10px;
+        }
+        .user-list { overflow-y: auto; flex: 1; padding-right: 5px; }
+        
+        .social-user-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        .social-user-item:hover { background: rgba(255,255,255,0.05); }
+        
+        .avatar-container { position: relative; }
+        .social-avatar { width: 40px; height: 40px; border-radius: 50%; }
+        .status-dot {
+            position: absolute; bottom: 0; right: 0;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            border: 2px solid var(--card-bg);
+        }
+        .status-online { background: var(--online-green); }
+        .status-offline { background: #666; display: none; } /* Chỉ hiện online dot */
+        
+        .user-details { flex: 1; }
+        .user-name { font-weight: 500; font-size: 0.95rem; display: block; }
+        .user-status-text { font-size: 0.8rem; color: #888; }
+        
+        .social-actions { display: flex; gap: 5px; opacity: 0; transition: opacity 0.2s; }
+        .social-user-item:hover .social-actions { opacity: 1; }
+        .action-btn-mini {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #333; color: #fff;
+            border: none; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.8rem;
+        }
+        .action-btn-mini:hover { background: var(--neon-red); }
+
+        /* --- CREATE ROOM MODAL --- */
+        .modal-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.8);
+            display: none; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .modal-box {
+            background: #222; padding: 30px; border-radius: 12px;
+            width: 400px; position: relative;
+            box-shadow: 0 0 20px rgba(229,9,20,0.3);
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-control {
+            width: 100%; padding: 10px; background: #333; border: 1px solid #444;
+            color: #fff; border-radius: 6px;
+        }
+        .btn-submit {
+            width: 100%; padding: 12px; background: var(--neon-red);
+            color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+
+        @keyframes pulse { 0% {opacity: 1;} 50% {opacity: 0.7;} 100% {opacity: 1;} }
+        
+        /* Scrollbar custom */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="lobby-layout">
+    
+    <div class="main-lobby">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin: 0;">Sảnh Xem Chung 🍿</h1>
+            <button onclick="openCreateModal()" class="btn-submit" style="width: auto; padding: 10px 25px;">
+                <i class="fas fa-plus"></i> Tạo Phòng Ngay
+            </button>
+        </div>
+
+        <div th:if="${not #lists.isEmpty(recommendedRooms)}">
+            <div class="section-title"><i class="fas fa-magic"></i> Gợi Ý Cho Bạn</div>
+            <div class="room-row">
+                <div th:each="room : ${recommendedRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
+                    <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                        <div class="poster-overlay"></div>
+                        <div class="badge-live" th:if="${room.isLive}"><i class="fas fa-circle"></i> LIVE</div>
+                        <div class="badge-access">
+                            <i th:class="${room.accessType == 'PRIVATE' ? 'fas fa-lock' : 'fas fa-globe'}"></i>
+                            <span th:text="${room.accessType == 'PRIVATE' ? ' Riêng tư' : ' Công khai'}"></span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="room-name" th:text="${room.roomName}">Tên Phòng</div>
+                        <div class="movie-name"><i class="fas fa-film"></i> <span th:text="${room.currentMovie}">Phim</span></div>
+                        <div class="room-meta">
+                            <div class="host-info">
+                                <img th:src="${room.ownerAvatar}" class="host-avatar">
+                                <span style="font-size: 0.9rem;" th:text="${room.ownerName}">Owner</span>
+                            </div>
+                            <div class="user-count">
+                                <i class="fas fa-user-friends"></i> 
+                                <span th:text="${room.memberCount + '/' + room.maxUsers}">0/10</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${not #lists.isEmpty(hotRooms)}">
+            <div class="section-title"><i class="fas fa-fire"></i> Đang Hot & Sôi Động</div>
+            <div class="room-row">
+                <div th:each="room : ${hotRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
+                    <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                        <div class="poster-overlay"></div>
+                        <div class="badge-live"><i class="fas fa-circle"></i> LIVE</div>
+                        <div class="badge-access"><i class="fas fa-globe"></i> HOT</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="room-name" th:text="${room.roomName}">Room</div>
+                        <div class="movie-name"><i class="fas fa-film"></i> <span th:text="${room.currentMovie}">Phim</span></div>
+                        <div class="room-meta">
+                            <div class="host-info">
+                                <img th:src="${room.ownerAvatar}" class="host-avatar">
+                                <span style="font-size: 0.9rem;" th:text="${room.ownerName}">Owner</span>
+                            </div>
+                            <div class="user-count" style="color: var(--neon-red);">
+                                <i class="fas fa-users"></i> <span th:text="${room.memberCount}">100</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title"><i class="fas fa-layer-group"></i> Tất Cả Phòng</div>
+        <div class="room-row">
+            <div th:each="room : ${activeRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
+                <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                    <div class="poster-overlay"></div>
+                    <div class="badge-live" th:if="${room.isLive}"><i class="fas fa-circle"></i> LIVE</div>
+                    <div class="badge-access">
+                         <i th:class="${room.accessType == 'PRIVATE' ? 'fas fa-lock' : 'fas fa-globe'}"></i>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="room-name" th:text="${room.roomName}">Room Name</div>
+                    <div class="movie-name"><i class="fas fa-film"></i> <span th:text="${room.currentMovie}">Phim</span></div>
+                    <div class="room-meta">
+                        <div class="host-info">
+                            <img th:src="${room.ownerAvatar}" class="host-avatar">
+                            <span style="font-size: 0.9rem;" th:text="${room.ownerName}">Owner</span>
+                        </div>
+                        <div class="user-count">
+                            <span th:text="${room.memberCount + '/' + room.maxUsers}">0/10</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div th:if="${#lists.isEmpty(activeRooms)}" style="text-align: center; padding: 50px; color: #666;">
+            <i class="fas fa-satellite-dish fa-3x mb-3"></i>
+            <h3>Chưa có phòng nào. Hãy tạo phòng mới!</h3>
+        </div>
+    </div>
+
+    <div class="social-sidebar">
+        <div class="sidebar-header">
+            Cộng Đồng FFilm
+        </div>
+        
+        <div class="user-list custom-scrollbar">
+            <div th:each="user : ${socialUsers}" class="social-user-item">
+                <div class="avatar-container" th:onclick="'viewProfile(' + ${user.id} + ')'">
+                    <img th:src="${user.avatar}" class="social-avatar">
+                    <div th:if="${user.isOnline}" class="status-dot status-online"></div>
+                </div>
+                
+                <div class="user-details" th:onclick="'viewProfile(' + ${user.id} + ')'">
+                    <span class="user-name" th:text="${user.name}">Username</span>
+                    <span class="user-status-text" 
+                          th:text="${user.isOnline ? 'Đang online' : 'Active ' + user.lastActive}">
+                        1h trước
+                    </span>
+                </div>
+                
+                <div class="social-actions">
+                    <button class="action-btn-mini" th:onclick="'openChat(' + ${user.id} + ')'" title="Nhắn tin">
+                        <i class="fas fa-comment-dots"></i>
+                    </button>
+
+                    <button th:if="${user.relation == 'STRANGER'}" class="action-btn-mini" 
+                            th:onclick="'sendFriendRequest(' + ${user.id} + ', this)'" title="Kết bạn">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                    
+                    <button th:if="${user.relation == 'PENDING'}" class="action-btn-mini" title="Đã gửi" style="color: #e50914;">
+                        <i class="fas fa-user-clock"></i>
+                    </button>
+
+                    <button th:if="${user.relation == 'FRIEND'}" class="action-btn-mini" title="Bạn bè" style="color: #4cd137;">
+                        <i class="fas fa-user-check"></i>
+                    </button>
+
+                    <button class="action-btn-mini" th:onclick="'viewProfile(' + ${user.id} + ')'" title="Xem Profile">
+                        <i class="fas fa-id-card"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="createRoomModal" class="modal-overlay">
+    <div class="modal-box">
+        <h2 style="margin-bottom: 20px; text-align: center;">🎬 Tạo Phòng Chiếu</h2>
+        <form action="/watch-party/create" method="post">
+            <div class="form-group">
+                <label>Tên Phòng</label>
+                <input type="text" name="name" class="form-control" required placeholder="Ví dụ: Hội yêu phim kinh dị...">
+            </div>
+            <div class="form-group">
+                <label>Số lượng thành viên</label>
+                <select name="maxUsers" class="form-control">
+                    <option value="10">10 Người (Nhóm nhỏ)</option>
+                    <option value="25">25 Người (Lớp học)</option>
+                    <option value="100">100 Người (Rạp chiếu)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Loại Phòng</label>
+                <select name="accessType" class="form-control" onchange="togglePassword(this)">
+                    <option value="PUBLIC">Công Khai (Ai cũng vào được)</option>
+                    <option value="PRIVATE">Riêng Tư (Cần mật khẩu)</option>
+                </select>
+            </div>
+            <div class="form-group" id="passGroup" style="display:none;">
+                <label>Mật Khẩu</label>
+                <input type="password" name="password" class="form-control" placeholder="Nhập pass...">
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeCreateModal()" style="flex:1; background:#444; border:none; color:#fff; padding:12px; border-radius:6px; cursor:pointer;">Hủy</button>
+                <button type="submit" class="btn-submit" style="flex:2;">Tạo Ngay</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div th:replace="~{fragments/footer :: footer}"></div>
+
+<script>
+    // JS Logic Vipro
+    
+    function joinRoom(roomId) {
+        window.location.href = '/watch-party/room/' + roomId;
+    }
+    
+    function openCreateModal() {
+        document.getElementById('createRoomModal').style.display = 'flex';
+    }
+    
+    function closeCreateModal() {
+        document.getElementById('createRoomModal').style.display = 'none';
+    }
+    
+    function togglePassword(select) {
+        const passGroup = document.getElementById('passGroup');
+        passGroup.style.display = select.value === 'PRIVATE' ? 'block' : 'none';
+    }
+
+    // Social Functions
+    function openChat(userId) {
+        // Chuyển hướng sang Messenger
+        window.location.href = '/messenger?uid=' + userId;
+    }
+    
+    function viewProfile(userId) {
+        // Chuyển hướng đúng đến Controller vừa sửa
+        window.location.href = '/social/profile/' + userId; 
+    }
+    
+    function sendFriendRequest(userId) {
+        alert("Đã gửi lời mời kết bạn tới ID: " + userId);
+        // Gọi API add friend ở đây
+    }
+
+    // Đóng modal khi click ngoài
+    window.onclick = function(event) {
+        const modal = document.getElementById('createRoomModal');
+        if (event.target == modal) {
+            closeCreateModal();
+        }
+    }
+
+    // --- SOCIAL LOGIC ---
+    function sendFriendRequest(targetId, btnElement) {
+        // Hiệu ứng UX: Đổi nút ngay lập tức
+        if(btnElement) {
+            btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        fetch('/api/social/add-friend/' + targetId, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'SENT') {
+                    // Đổi trạng thái nút thành "Hủy lời mời"
+                    if(btnElement) {
+                        btnElement.innerHTML = '<i class="fas fa-user-times"></i>';
+                        btnElement.title = "Hủy lời mời";
+                        btnElement.setAttribute('onclick', 'cancelFriendRequest(' + targetId + ', this)');
+                        btnElement.classList.add('btn-pending'); // Thêm class CSS nếu muốn đổi màu
+                    }
+                    alert("Đã gửi lời mời thành công!");
+                }
+            });
+    }
+
+    function cancelFriendRequest(targetId, btnElement) {
+        // Logic hủy tương tự...
+        alert("Đã hủy lời mời.");
+        // Reset nút về ban đầu
+        btnElement.innerHTML = '<i class="fas fa-user-plus"></i>';
+        btnElement.setAttribute('onclick', 'sendFriendRequest(' + targetId + ', this)');
+    }
+
+    // --- NOTIFICATION SOCKET (Global Header) ---
+    // Đảm bảo đoạn này chạy sau khi StompClient connect
+    function onConnected() {
+        // Subscribe kênh thông báo riêng tư
+        stompClient.subscribe('/user/queue/notifications', function (msg) {
+            const notif = JSON.parse(msg.body);
+            showNotificationBadge(notif);
+        });
+    }
+
+    function showNotificationBadge(notif) {
+        const badge = document.getElementById('notif-badge'); // Cần ID này trên Header icon chuông
+        if (badge) {
+            badge.style.display = 'block';
+            let count = parseInt(badge.innerText || '0');
+            badge.innerText = count + 1;
+        }
+        
+        // (Optional) Toast message góc màn hình
+        const toast = document.createElement('div');
+        toast.className = 'vipro-toast';
+        toast.innerHTML = `<i class="fas fa-bell"></i> ${notif.content}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
+</script>
+
+</body>
+</html>

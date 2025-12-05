@@ -58,4 +58,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
        void claimMessagesFromQueue(@Param("senderEmail") String senderEmail,
                      @Param("modEmail") String modEmail);
 
+       // Thêm vào interface
+       List<ChatMessage> findBySenderEmailAndRecipientEmailOrSenderEmailAndRecipientEmailOrderByTimestampAsc(
+              String sender1, String recipient1, String sender2, String recipient2
+       );
 }

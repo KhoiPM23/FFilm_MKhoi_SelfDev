@@ -1320,3 +1320,46 @@
   window.initializeAllCarousels = initializeAllCarousels;
   window.enhanceHoverCard = enhanceHoverCard; // Phòng hờ nếu cần gọi trực tiếp
 })();
+
+
+/* --- SOCIAL GLOBAL FUNCTIONS (Dùng chung cho Lobby, Profile, Hover Card) --- */
+
+function sendFriendRequest(targetId, btnElement) {
+    if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    fetch('/social/add-friend/' + targetId, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'SENT') {
+                if(btnElement) {
+                    btnElement.innerHTML = '<i class="fas fa-user-times"></i> Hủy lời mời';
+                    btnElement.classList.replace('btn-primary-vipro', 'btn-secondary-vipro');
+                    btnElement.setAttribute('onclick', 'alert("Đã gửi lời mời!")');
+                }
+                alert("Đã gửi lời mời kết bạn!");
+            } else {
+                alert(data.message || "Lỗi gửi lời mời");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Lỗi kết nối");
+        });
+}
+
+function acceptFriendRequest(senderId, btnElement) {
+    if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch('/social/accept-friend/' + senderId, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'FRIEND') {
+                alert("Đã trở thành bạn bè!");
+                location.reload(); // Reload để cập nhật UI toàn bộ
+            }
+        });
+}
+
+function openChat(userId) {
+    window.location.href = '/messenger?uid=' + userId;
+}

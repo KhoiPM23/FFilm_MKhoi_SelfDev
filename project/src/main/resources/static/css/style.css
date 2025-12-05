@@ -1150,3 +1150,24 @@ footer {
     transform: translateY(0); 
   }
 }
+
+
+/* Thông báo nổi giống Facebook */
+.toast-notification {
+    background: rgba(30, 30, 30, 0.95);
+    border-left: 4px solid #e50914;
+    color: #fff;
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 4px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    min-width: 300px;
+    animation: slideInLeft 0.3s ease;
+}
+.toast-avatar img { width: 40px; height: 40px; border-radius: 50%; }
+.toast-content p { margin: 0; font-size: 0.95rem; font-weight: 500; }
+@keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
