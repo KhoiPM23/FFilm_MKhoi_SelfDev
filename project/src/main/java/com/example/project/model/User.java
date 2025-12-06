@@ -35,6 +35,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
     private String email;
 
     @NotBlank(message = "password is not null")
+    @JsonIgnore
     private String password;
 
     @NotBlank(message = "role is not null")
@@ -46,20 +47,24 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
     private String phoneNumber;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Comment> comments;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Review> reviews;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Report> reports;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Subscription> subscriptions;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Payment> payments;
-
     
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore // để tránh lỗi đệ quy khi serialize JSON

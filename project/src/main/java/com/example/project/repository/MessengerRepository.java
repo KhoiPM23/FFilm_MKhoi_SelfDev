@@ -13,21 +13,20 @@ import java.util.List;
 @Repository
 public interface MessengerRepository extends JpaRepository<MessengerMessage, Long> {
 
-    // Lấy toàn bộ lịch sử chat giữa 2 người, sắp xếp mới nhất ở cuối
+    // 1. Lấy lịch sử chat (Dùng Object User trực tiếp thì Hibernate tự hiểu ID)
     @Query("SELECT m FROM MessengerMessage m WHERE (m.sender = :user1 AND m.receiver = :user2) OR (m.sender = :user2 AND m.receiver = :user1) ORDER BY m.timestamp ASC")
     List<MessengerMessage> findConversation(@Param("user1") User user1, @Param("user2") User user2);
 
-    // Đếm số tin nhắn chưa đọc từ một người cụ thể gửi cho mình
-    @Query("SELECT COUNT(m) FROM MessengerMessage m WHERE m.sender = :sender AND m.receiver = :receiver AND m.status != 'READ'")
+    // 2. Đếm tin chưa đọc
+    @Query("SELECT COUNT(m) FROM MessengerMessage m WHERE m.sender = :sender AND m.receiver = :receiver AND m.status <> 'READ'")
     long countUnreadMessages(@Param("sender") User sender, @Param("receiver") User receiver);
 
-    // [VIPRO] Query lấy danh sách tin nhắn mới nhất để xây dựng Conversation List
-    // Lấy tất cả tin nhắn liên quan đến user, sắp xếp giảm dần theo thời gian
-    @Query("SELECT m FROM MessengerMessage m WHERE m.sender.id = :userId OR m.receiver.id = :userId ORDER BY m.timestamp DESC")
+    // 3. [FIX] Đổi sender.id thành sender.userID cho đúng với model User
+    @Query("SELECT m FROM MessengerMessage m WHERE m.sender.userID = :userId OR m.receiver.userID = :userId ORDER BY m.timestamp DESC")
     List<MessengerMessage> findAllMessagesByUser(@Param("userId") Integer userId);
 
-    // Update trạng thái đã xem
+    // 4. Update đã xem
     @Modifying
-    @Query("UPDATE MessengerMessage m SET m.status = 'READ' WHERE m.sender = :sender AND m.receiver = :receiver AND m.status != 'READ'")
+    @Query("UPDATE MessengerMessage m SET m.status = 'READ' WHERE m.sender = :sender AND m.receiver = :receiver AND m.status <> 'READ'")
     void markMessagesAsRead(@Param("sender") User sender, @Param("receiver") User receiver);
 }

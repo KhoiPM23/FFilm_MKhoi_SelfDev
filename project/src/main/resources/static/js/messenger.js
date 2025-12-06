@@ -68,48 +68,60 @@
 
     // --- 2. CORE LOGIC ---
     function loadConversations() {
+        console.log("Loading conversations..."); // Log start
         $.get('/api/v1/messenger/conversations', function(data) {
             const list = $('#conversationList');
-            list.empty(); // Xóa loading spinner
+            list.empty();
 
-            // [FIX] Xử lý khi không có dữ liệu
             if (!data || data.length === 0) {
                 list.html(`
                     <div class="text-center mt-5 text-muted">
-                        <i class="fas fa-comments fa-3x mb-3"></i><br>
-                        ưa có tin nhắn nào.<br>
-                        <small>Tìm kiếm bạn bè để bắt đầu!</small>
+                        <small>Chưa có cuộc trò chuyện nào.<br>Kết bạn để bắt đầu chat!</small>
                     </div>
                 `);
                 return;
             }
 
             data.forEach(c => {
-                let active = (c.partnerId === currentPartnerId) ? 'active' : '';
+                // Logic class CSS
+                let activeClass = (c.partnerId === currentPartnerId) ? 'active' : '';
                 let unreadClass = c.unreadCount > 0 ? 'unread' : '';
-                let lastMsg = c.lastMessage || 'Bắt đầu cuộc trò chuyện';
-                let prefix = c.lastMessageMine ? 'Bạn: ' : '';
                 
+                // Logic hiển thị nội dung
+                let prefix = c.lastMessageMine ? '<span class="prefix">Bạn: </span>' : '';
+                let content = c.lastMessage || 'Bắt đầu cuộc trò chuyện';
+                let timeHtml = c.timeAgo ? `<span class="conv-time">${c.timeAgo}</span>` : '';
+                let dotHtml = c.unreadCount > 0 ? `<div class="unread-badge-dot"></div>` : '';
+
                 let html = `
-                    <div class="conv-item ${active}" id="conv-${c.partnerId}" 
+                    <div class="conv-item ${activeClass} ${unreadClass}" id="conv-${c.partnerId}" 
                          onclick="selectConversation(${c.partnerId}, '${c.partnerName}', '${c.partnerAvatar}')">
+                        
                         <div class="avatar-wrapper">
-                            <img src="${c.partnerAvatar}" class="avatar-img" onerror="this.src='/images/placeholder-user.jpg'">
+                            <img src="${c.partnerAvatar}" class="avatar-img">
                             <div class="online-dot ${c.online ? 'is-online' : ''}"></div>
                         </div>
+
                         <div class="conv-info">
-                            <div class="conv-name">${c.partnerName}</div>
-                            <div class="conv-preview ${unreadClass}">
-                                ${prefix}${lastMsg}
+                            <div class="conv-top-row">
+                                <div class="conv-name">${c.partnerName}</div>
+                                ${timeHtml}
+                            </div>
+                            <div class="conv-preview">
+                                ${prefix}${content}
                             </div>
                         </div>
-                        ${c.unreadCount > 0 ? `<div class="unread-badge"></div>` : ''}
+                        
+                        ${dotHtml}
                     </div>
                 `;
                 list.append(html);
             });
-        }).fail(function() {
-            $('#conversationList').html('<div class="text-center text-danger mt-4">Lỗi tải dữ liệu.</div>');
+        }).fail(function(xhr, status, error) {
+            // [CẬP NHẬT] Log chi tiết lỗi ra console để debug
+            console.error("Lỗi tải hội thoại:", status, error);
+            console.error("Chi tiết phản hồi:", xhr.responseText);
+            $('#conversationList').html(`<div class="text-center text-danger mt-4">Lỗi tải dữ liệu: ${xhr.status}</div>`);
         });
     }
 

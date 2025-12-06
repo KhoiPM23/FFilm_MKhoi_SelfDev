@@ -1363,3 +1363,68 @@ function acceptFriendRequest(senderId, btnElement) {
 function openChat(userId) {
     window.location.href = '/messenger?uid=' + userId;
 }
+
+/* --- XỬ LÝ KẾT BẠN VIPRO --- */
+function handleFriendRequest(notiId, linkProfile, action, btnElement) {
+    // 1. Parse ID từ link (VD: /social/profile/5 -> lấy 5)
+    // Cách này hơi thủ công, tốt nhất DTO Notification nên có senderId. 
+    // Nhưng với dữ liệu hiện tại, ta tạm dùng cách này:
+    const senderId = linkProfile.split('/').pop(); 
+
+    if (action === 'REJECT') {
+        // Xóa âm thầm, không thông báo
+        // Gọi API Reject
+        fetch('/social/reject-friend/' + senderId, { method: 'POST' });
+        
+        // UI: Xóa noti hoặc hiện "Đã gỡ"
+        const container = btnElement.closest('.friend-request-actions');
+        container.innerHTML = '<span style="font-size:12px; color:#aaa;">Đã gỡ lời mời</span>';
+        
+        // Đánh dấu noti là đã đọc luôn
+        markAsRead(notiId);
+        
+    } else if (action === 'ACCEPT') {
+        // Gọi API Accept
+        fetch('/social/accept-friend/' + senderId, { method: 'POST' })
+            .then(res => {
+                if(res.ok) {
+                    const container = btnElement.closest('.friend-request-actions');
+                    container.innerHTML = '<span style="font-size:12px; color:#31a24c;">Đã chấp nhận</span>';
+                    markAsRead(notiId);
+                }
+            });
+    }
+}
+
+/* --- CINEMATIC POPUP (Dùng chung cho toàn web) --- */
+function showCinematicConfirm(msg, onConfirm) {
+    // Check xem đã có modal chưa, chưa thì tạo
+    if (!document.getElementById('cineModal')) {
+        const modalHtml = `
+        <div id="cineModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(5px);">
+            <div style="background:#1a1a1a; padding:30px; border-radius:12px; width:350px; text-align:center; border:1px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                <i class="fas fa-question-circle" style="font-size:40px; color:#ffd700; margin-bottom:15px;"></i>
+                <h3 style="color:#fff; margin-bottom:10px;">Xác nhận</h3>
+                <p id="cineMsg" style="color:#ccc; margin-bottom:25px; font-size:14px;"></p>
+                <div style="display:flex; justify-content:center; gap:15px;">
+                    <button id="cineCancel" style="padding:8px 20px; background:#333; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hủy</button>
+                    <button id="cineOk" style="padding:8px 20px; background:#ffd700; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Đồng ý</button>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    const modal = document.getElementById('cineModal');
+    document.getElementById('cineMsg').innerText = msg;
+    modal.style.display = 'flex';
+
+    // Bind event
+    document.getElementById('cineCancel').onclick = function() {
+        modal.style.display = 'none';
+    };
+    document.getElementById('cineOk').onclick = function() {
+        modal.style.display = 'none';
+        if (onConfirm) onConfirm();
+    };
+}

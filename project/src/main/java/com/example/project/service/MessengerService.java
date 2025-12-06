@@ -1,8 +1,10 @@
 package com.example.project.service;
 
 import com.example.project.dto.MessengerDto;
+import com.example.project.model.FriendRequest; // [MỚI] Thêm import này
 import com.example.project.model.MessengerMessage;
 import com.example.project.model.User;
+import com.example.project.repository.FriendRequestRepository;
 import com.example.project.repository.MessengerRepository;
 import com.example.project.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,67 +24,99 @@ public class MessengerService {
 
     @Autowired private MessengerRepository messengerRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private FriendRequestRepository friendRequestRepository;
 
-    // 1. Lấy danh sách hội thoại (Recent Conversations) - Logic khó nhất
+    // 1. Lấy danh sách hội thoại
     public List<MessengerDto.ConversationDto> getRecentConversations(Integer currentUserId) {
-        // Lấy tất cả tin nhắn liên quan
-        List<MessengerMessage> allMessages = messengerRepository.findAllMessagesByUser(currentUserId);
+        Map<Integer, MessengerDto.ConversationDto> map = new LinkedHashMap<>();
 
-        Map<Integer, MessengerDto.ConversationDto> conversationMap = new LinkedHashMap<>();
+        // Lấy User hiện tại
+        User me = userRepository.findById(currentUserId).orElse(null);
+        if (me == null) return new ArrayList<>(); 
 
-        for (MessengerMessage msg : allMessages) {
-            User partner = msg.getSender().getUserID() == currentUserId ? msg.getReceiver() : msg.getSender();
+        // BƯỚC 1: Lấy những người đã từng chat (Giữ nguyên logic cũ)
+        List<MessengerMessage> messages = messengerRepository.findAllMessagesByUser(currentUserId);
+        for (MessengerMessage msg : messages) {
+            boolean isSender = msg.getSender().getUserID() == currentUserId;
+            User partner = isSender ? msg.getReceiver() : msg.getSender();
             
-            // Chỉ lấy tin nhắn mới nhất cho mỗi partner
-            if (!conversationMap.containsKey(partner.getUserID())) {
+            if (!map.containsKey(partner.getUserID())) {
                 MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
                 dto.setPartnerId(partner.getUserID());
                 dto.setPartnerName(partner.getUserName());
                 dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
-                dto.setLastMessage(msg.getType() == MessengerMessage.MessageType.IMAGE ? "[Hình ảnh]" : msg.getContent());
+                
+                String preview = msg.getContent();
+                if (msg.getType() == MessengerMessage.MessageType.IMAGE) preview = "Đã gửi 1 ảnh";
+                if (msg.getType() == MessengerMessage.MessageType.FILE) preview = "Đã gửi 1 tệp đính kèm";
+                
+                dto.setLastMessage(preview);
                 dto.setLastMessageTime(msg.getTimestamp());
-                dto.setLastMessageMine(msg.getSender().getUserID() == currentUserId);
-                
-                // Tính số tin chưa đọc (Chỉ tính nếu mình là người nhận)
-                    User me = userRepository.findById(currentUserId).orElse(null);
-                    long unread = me != null ? messengerRepository.countUnreadMessages(partner, me) : 0;
-                    dto.setUnreadCount(unread);
-                
-                // TODO: Tích hợp trạng thái Online từ WebSocketService sau này
-                dto.setOnline(false); 
+                dto.setLastMessageMine(isSender);
+                dto.setTimeAgo(calculateTimeAgo(msg.getTimestamp()));
 
-                conversationMap.put(partner.getUserID(), dto);
+                if (!isSender) {
+                    long unread = messengerRepository.countUnreadMessages(partner, me);
+                    dto.setUnreadCount(unread);
+                    dto.setRead(unread == 0);
+                    dto.setStatusClass(unread > 0 ? "unread" : "");
+                } else {
+                    dto.setRead(true);
+                    dto.setStatusClass("");
+                }
+
+                map.put(partner.getUserID(), dto);
             }
         }
 
-        return new ArrayList<>(conversationMap.values());
+        // BƯỚC 2: [FIX QUAN TRỌNG] Merge thêm bạn bè chưa từng chat
+        // Thay vì để SQL xử lý logic chọn User (gây lỗi ClassCast), ta lấy List<FriendRequest> về Java xử lý
+        List<FriendRequest> friendRequests = friendRequestRepository.findAllAcceptedByUserId(currentUserId);
+        
+        // Tự lọc ra User là bạn bè
+        List<User> friends = new ArrayList<>();
+        for (FriendRequest fr : friendRequests) {
+            if (fr.getSender().getUserID() == currentUserId) {
+                friends.add(fr.getReceiver()); // Mình gửi -> Bạn là Receiver
+            } else {
+                friends.add(fr.getSender());   // Mình nhận -> Bạn là Sender
+            }
+        }
+
+        // Vòng lặp map vào danh sách chat (Giữ nguyên logic hiển thị)
+        for (User friend : friends) {
+            if (!map.containsKey(friend.getUserID())) {
+                MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
+                dto.setPartnerId(friend.getUserID());
+                dto.setPartnerName(friend.getUserName());
+                dto.setPartnerAvatar(generateAvatar(friend.getUserName()));
+                dto.setLastMessage("Các bạn đã là bạn bè trên FFilm");
+                dto.setLastMessageTime(LocalDateTime.now());
+                dto.setTimeAgo("");
+                dto.setUnreadCount(0);
+                dto.setRead(true);
+                dto.setStatusClass("");
+                
+                map.put(friend.getUserID(), dto);
+            }
+        }
+
+        return new ArrayList<>(map.values());
     }
 
-    // 2. Lấy nội dung chat chi tiết
+    // 2. Lấy Chat History
     @Transactional
     public List<MessengerDto.MessageDto> getChatHistory(Integer currentUserId, Integer partnerId) {
         User me = userRepository.findById(currentUserId).orElseThrow();
         User partner = userRepository.findById(partnerId).orElseThrow();
 
-        // Đánh dấu đã đọc ngay khi load
         messengerRepository.markMessagesAsRead(partner, me);
 
         List<MessengerMessage> messages = messengerRepository.findConversation(me, partner);
-        
-        return messages.stream().map(m -> MessengerDto.MessageDto.builder()
-                .id(m.getId())
-                .senderId(m.getSender().getUserID())
-                .receiverId(m.getReceiver().getUserID())
-                .content(m.getContent())
-                .mediaUrl(m.getMediaUrl())
-                .type(m.getType())
-                .status(m.getStatus())
-                .timestamp(m.getTimestamp())
-                .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
-                .build()).collect(Collectors.toList());
+        return messages.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
 
-    // 3. Lưu tin nhắn mới
+    // 3. Gửi tin nhắn
     public MessengerDto.MessageDto sendMessage(Integer senderId, MessengerDto.SendMessageRequest request) {
         User sender = userRepository.findById(senderId).orElseThrow();
         User receiver = userRepository.findById(request.getReceiverId()).orElseThrow();
@@ -90,28 +126,42 @@ public class MessengerService {
         msg.setReceiver(receiver);
         msg.setContent(request.getContent());
         msg.setType(request.getType());
+        msg.setMediaUrl(request.getContent()); 
         msg.setStatus(MessengerMessage.MessageStatus.SENT);
         
         MessengerMessage saved = messengerRepository.save(msg);
+        return convertToMessageDto(saved);
+    }
 
+    // Helper: Convert Entity -> DTO
+    private MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
         return MessengerDto.MessageDto.builder()
-                .id(saved.getId())
-                .senderId(sender.getUserID())
-                .receiverId(receiver.getUserID())
-                .content(saved.getContent())
-                .type(saved.getType())
-                .status(saved.getStatus())
-                .timestamp(saved.getTimestamp())
-                .formattedTime(saved.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
+                .id(m.getId())
+                .senderId(m.getSender().getUserID())
+                .receiverId(m.getReceiver().getUserID())
+                .content(m.getContent())
+                .type(m.getType())
+                .status(m.getStatus())
+                .timestamp(m.getTimestamp())
+                .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
                 .build();
     }
 
-    // Helper: Tạo Avatar UI
+    private String calculateTimeAgo(LocalDateTime time) {
+        if (time == null) return "";
+        Duration diff = Duration.between(time, LocalDateTime.now());
+        long seconds = diff.getSeconds();
+
+        if (seconds < 60) return "Vừa xong";
+        if (seconds < 3600) return (seconds / 60) + " phút";
+        if (seconds < 86400) return (seconds / 3600) + " giờ";
+        if (seconds < 604800) return (seconds / 86400) + " ngày";
+        return time.format(DateTimeFormatter.ofPattern("dd/MM"));
+    }
+
     private String generateAvatar(String name) {
         try {
             return "https://ui-avatars.com/api/?name=" + URLEncoder.encode(name, StandardCharsets.UTF_8) + "&background=random&color=fff";
-        } catch (Exception e) {
-            return "/images/placeholder-user.jpg";
-        }
+        } catch (Exception e) { return "/images/placeholder-user.jpg"; }
     }
 }

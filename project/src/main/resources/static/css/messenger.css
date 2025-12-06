@@ -213,3 +213,52 @@ body.messenger-body {
     justify-content: center; height: 100%; color: var(--msg-text-secondary);
 }
 .empty-state i { font-size: 80px; margin-bottom: 20px; opacity: 0.5; }
+
+/* Thêm đoạn này vào cuối file CSS hiện tại hoặc thay thế các class tương ứng */
+
+/* ITEM HỘI THOẠI */
+.conv-item {
+    display: flex; align-items: center; padding: 10px 15px;
+    border-radius: 8px; cursor: pointer; transition: 0.2s;
+    position: relative; margin-bottom: 2px;
+}
+.conv-item:hover { background: var(--msg-hover-bg); }
+.conv-item.active { background: rgba(45, 136, 255, 0.1); }
+
+/* AVATAR & BADGE */
+.avatar-wrapper { position: relative; margin-right: 12px; }
+.avatar-img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
+
+/* CHẤM XANH UNREAD */
+.unread-badge-dot {
+    position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px;
+    background-color: #0084ff; border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--msg-sidebar-bg); /* Tạo viền giả */
+}
+
+/* TEXT STYLING */
+.conv-info { flex: 1; min-width: 0; padding-right: 15px; }
+.conv-top-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+
+.conv-name { 
+    font-size: 15px; color: #e4e6eb; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Nếu chưa đọc -> Tên in đậm */
+.conv-item.unread .conv-name { font-weight: 700; }
+
+.conv-time { font-size: 12px; color: #b0b3b8; white-space: nowrap; margin-left: 5px; }
+/* Nếu chưa đọc -> Thời gian màu xanh hoặc trắng sáng */
+.conv-item.unread .conv-time { color: #0084ff; font-weight: 600; }
+
+.conv-preview {
+    font-size: 13px; color: #b0b3b8;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Nếu chưa đọc -> Nội dung in đậm + màu trắng */
+.conv-item.unread .conv-preview { 
+    color: #fff; font-weight: 600; 
+}
+/* Tin nhắn của mình: thêm prefix 'Bạn:' màu nhạt */
+.conv-preview .prefix { color: #b0b3b8; font-weight: 400; }

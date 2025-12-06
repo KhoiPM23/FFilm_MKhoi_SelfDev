@@ -462,6 +462,46 @@
           width: 18px;
           text-align: center;
         }
+
+        /* --- THÊM HIỆU ỨNG VIPRO CHO CHUÔNG --- */
+        .bell-wrapper i {
+            transition: all 0.3s ease;
+        }
+        
+        /* 1. Chuông vàng khi có thông báo mới */
+        .bell-wrapper.has-new i {
+            color: #ffd700 !important; /* Vàng kim */
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+        }
+
+        /* 2. Hiệu ứng rung lắc */
+        @keyframes bellShake {
+            0% { transform: rotate(0); }
+            15% { transform: rotate(5deg); }
+            30% { transform: rotate(-5deg); }
+            45% { transform: rotate(4deg); }
+            60% { transform: rotate(-4deg); }
+            75% { transform: rotate(2deg); }
+            85% { transform: rotate(-2deg); }
+            100% { transform: rotate(0); }
+        }
+        
+        .bell-wrapper.shaking i {
+            animation: bellShake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* 3. Style cho nút Kết bạn trong dropdown */
+        .friend-request-actions {
+            display: flex; gap: 10px; margin-top: 5px;
+        }
+        .btn-accept-fr {
+            background: #0084ff; border: none; padding: 4px 12px; 
+            border-radius: 4px; color: white; font-size: 12px; cursor: pointer;
+        }
+        .btn-reject-fr {
+            background: #3a3b3c; border: none; padding: 4px 12px; 
+            border-radius: 4px; color: white; font-size: 12px; cursor: pointer;
+        }
       </style>
 
       <script>
@@ -588,54 +628,109 @@
             }
 
             function updateUI() {
-                // Đếm số chưa đọc (isRead == false)
-                unreadCount = allNotifications.filter(n => !n.read).length;
-                const badge = document.getElementById('notiBadge');
-                if(badge) {
-                    badge.style.display = unreadCount > 0 ? 'block' : 'none';
-                    badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
-                }
-                renderList();
-            }
+              const badge = document.getElementById('notiBadge');
+              const bellWrapper = document.querySelector('.bell-wrapper'); // Chọn wrapper cũ của bạn
+              
+              // Đếm chưa đọc
+              const unreadCount = allNotifications.filter(n => !n.read).length;
+              
+              // Hiển thị số lượng
+              if (unreadCount > 0) {
+                  badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+                  badge.style.display = 'flex';
+                  
+                  // [VIPRO] Thêm class vàng + rung
+                  if(bellWrapper) {
+                      bellWrapper.classList.add('has-new'); 
+                      // Chỉ rung khi số lượng thay đổi tăng lên (logic nâng cao) hoặc rung luôn
+                      bellWrapper.classList.add('shaking');
+                      // Tắt rung sau 0.5s
+                      setTimeout(() => bellWrapper.classList.remove('shaking'), 500);
+                  }
+              } else {
+                  badge.style.display = 'none';
+                  if(bellWrapper) bellWrapper.classList.remove('has-new');
+              }
+          }
 
             function renderList() {
-                const container = document.getElementById('notiList');
-                if(!container) return;
-                
-                container.innerHTML = '';
-                
-                let list = currentFilter === 'unread' ? allNotifications.filter(n => !n.read) : allNotifications;
-                let showList = list.slice(0, visibleCount);
-                
-                if(showList.length === 0) {
-                    container.innerHTML = '<div class="noti-empty">Không có thông báo nào.</div>';
-                    document.getElementById('loadMoreBtn').style.display = 'none';
-                    return;
-                }
+              const listEl = document.getElementById('notiList');
+              if (!listEl) return;
+              
+              listEl.innerHTML = '';
 
-                showList.forEach(n => {
-                    const timeAgo = calcTimeAgo(n.timestamp);
-                    const unreadClass = !n.read ? 'unread' : '';
-                    
-                    const html = `
-                        <a href="${n.link}" class="noti-item ${unreadClass}">
-                            <div class="noti-avatar">
-                                <img src="${n.senderAvatar || '/images/placeholder-user.jpg'}">
-                            </div>
-                            <div class="noti-info">
-                                <div class="noti-text">${n.content}</div>
-                                <div class="noti-time ${!n.read ? '' : 'old'}">${timeAgo}</div>
-                            </div>
-                        </a>
-                    `;
-                    container.insertAdjacentHTML('beforeend', html);
-                });
+              // Lọc theo tab (Tất cả / Chưa đọc)
+              let filtered = allNotifications;
+              if (currentFilter === 'unread') {
+                  filtered = allNotifications.filter(n => !n.read);
+              }
 
-                document.getElementById('loadMoreBtn').style.display = (list.length > visibleCount) ? 'block' : 'none';
-            }
+              if (filtered.length === 0) {
+                  listEl.innerHTML = '<div class="noti-empty">Không có thông báo nào</div>';
+                  document.getElementById('loadMoreBtn').style.display = 'none';
+                  return;
+              }
+
+              // Cắt danh sách theo visibleCount
+              const toShow = filtered.slice(0, visibleCount);
+
+              toShow.forEach(n => {
+                  // [VIPRO] Logic nút kết bạn
+                  let extraContent = '';
+                  if (n.type === 'FRIEND_REQUEST') {
+                      // Giả sử link chứa ID user (vd: /profile/5), ta cần parse ID để gọi API
+                      // Hoặc tốt nhất Backend trả về senderId trong DTO Notification
+                      // Ở đây dùng tạm n.link để xử lý logic UI
+                      extraContent = `
+                          <div class="friend-request-actions" onclick="event.stopPropagation()">
+                              <button class="btn-accept-fr" onclick="handleFriendRequest(${n.id}, '${n.link}', 'ACCEPT', this)">Chấp nhận</button>
+                              <button class="btn-reject-fr" onclick="handleFriendRequest(${n.id}, '${n.link}', 'REJECT', this)">Xóa</button>
+                          </div>
+                      `;
+                  }
+
+                  const item = document.createElement('div');
+                  item.className = `noti-item ${n.read ? '' : 'unread'}`;
+                  
+                  // Giữ nguyên logic click cũ: Đánh dấu đọc + Chuyển trang
+                  item.onclick = () => {
+                      if (!n.read) markAsRead(n.id);
+                      if (n.link && n.link !== '#') window.location.href = n.link;
+                  };
+
+                  item.innerHTML = `
+                      <div class="noti-content">
+                          <p class="noti-text">${n.content}</p>
+                          <span class="noti-time">${calcTimeAgo(n.timestamp)}</span>
+                          ${extraContent}
+                      </div>
+                      ${!n.read ? '<div class="noti-dot"></div>' : ''}
+                  `;
+                  listEl.appendChild(item);
+              });
+
+              // Nút xem thêm
+              const loadMoreBtn = document.getElementById('loadMoreBtn');
+              if (loadMoreBtn) {
+                  loadMoreBtn.style.display = (filtered.length > visibleCount) ? 'block' : 'none';
+              }
+          }
 
             function calcTimeAgo(dateStr) {
-                const date = new Date(dateStr);
+                if(!dateStr) return '';
+    
+                // [FIX] Nếu backend trả về mảng [2025, 12, 6, 10, 30] -> Convert sang string chuẩn ISO
+                let date;
+                if (Array.isArray(dateStr)) {
+                    // Java LocalDateTime array: [year, month, day, hour, minute, second, nano]
+                    // JS Month bắt đầu từ 0 (Tháng 1 là 0)
+                    date = new Date(dateStr[0], dateStr[1] - 1, dateStr[2], dateStr[3], dateStr[4], dateStr[5] || 0);
+                } else {
+                    date = new Date(dateStr);
+                }
+                
+                if (isNaN(date.getTime())) return ''; // Vẫn lỗi thì return rỗng thay vì NaN
+
                 const now = new Date();
                 const seconds = Math.floor((now - date) / 1000);
                 

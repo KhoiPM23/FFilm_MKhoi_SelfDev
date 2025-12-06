@@ -20,12 +20,17 @@ public class MessengerDto {
         private Integer partnerId;
         private String partnerName;
         private String partnerAvatar;
-        private boolean isOnline; // Để hiển thị chấm xanh
+        private boolean isOnline;
 
         private String lastMessage;
         private LocalDateTime lastMessageTime;
-        private boolean isLastMessageMine; // Để hiện chữ "Bạn: ..."
-        private long unreadCount; // Số tin chưa đọc
+        private boolean isLastMessageMine;
+        private long unreadCount;
+        
+        // [MỚI] Các field phục vụ UI Vipro
+        private String timeAgo;      // Ví dụ: "5m", "2h", "1d"
+        private boolean isRead;      // True nếu đã đọc hết
+        private String statusClass;  // Class CSS: "unread" hoặc ""
     }
 
     // DTO cho từng tin nhắn (Khung chat bên phải)
@@ -42,10 +47,9 @@ public class MessengerDto {
         private MessageType type;
         private MessageStatus status;
         private LocalDateTime timestamp;
-        private String formattedTime; // Ví dụ: "10:30 AM"
+        private String formattedTime;
     }
     
-    // DTO để gửi tin nhắn từ Client lên
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
