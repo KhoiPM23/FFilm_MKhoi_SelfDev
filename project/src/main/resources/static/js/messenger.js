@@ -1,234 +1,244 @@
-// messenger.js - Ultimate Version
+/**
+ * MESSENGER VIPRO - SCOPED VERSION
+ * Fix lỗi: Identifier has already been declared
+ */
+(function() {
+    'use strict';
 
-var socket = new SockJS('/ws');
-var stompClient = Stomp.over(socket);
-stompClient.debug = null; // Tắt log
-
-var selectedUser = null;
-const GIPHY_API_KEY = 'YOUR_KEY_HERE'; // Thay key của bạn nếu có, hoặc dùng backup list bên dưới
-const BACKUP_STICKERS = [
-    "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
-    "https://media.giphy.com/media/l0HlO3BJ8LxrZ4VRu/giphy.gif",
-    "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
-    "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif"
-];
-
-// 1. KẾT NỐI SOCKET
-stompClient.connect({}, function (frame) {
-    console.log('Connected to Messenger');
+    // --- KHAI BÁO BIẾN CỤC BỘ (AN TOÀN TUYỆT ĐỐI) ---
+    let stompClient = null;
+    let currentPartnerId = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
     
-    // Đăng ký kênh riêng tư (User Destination)
-    stompClient.subscribe('/user/queue/private', function (payload) {
-        var msg = JSON.parse(payload.body);
-        
-        // Nếu tin nhắn thuộc về hội thoại đang mở (Người gửi là họ HOẶC mình gửi cho họ)
-        if (selectedUser && (msg.sender === selectedUser || msg.replyToId === selectedUser)) {
-            renderMessage(msg);
-        } else {
-            // Notification đơn giản (Có thể nâng cấp lên Toast)
-            playNotificationSound();
-            // Highlight user trong sidebar
-            var userItem = document.getElementById('user-' + msg.sender);
-            if(userItem) userItem.style.background = '#3a3b3c'; 
-        }
+    // Config
+    const STICKERS = [
+        "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
+        "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
+        "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
+        "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif"
+    ];
+
+    // --- KHỞI TẠO ---
+    $(document).ready(function() {
+        console.log("Messenger Init Start...");
+        connectWebSocket();
+        loadConversations();
+        renderStickerMenu();
+        bindEvents();
     });
-});
 
-// 2. CHỌN USER ĐỂ CHAT
-function selectUser(username) {
-    selectedUser = username;
-    
-    // UI Update
-    document.getElementById('emptyState').classList.add('hidden');
-    document.getElementById('activeChat').classList.remove('hidden');
-    
-    // Header Info
-    document.getElementById('headerName').innerText = username;
-    document.getElementById('headerAvatar').src = `https://ui-avatars.com/api/?name=${username}&background=random&color=fff`;
-    
-    // Active Sidebar
-    document.querySelectorAll('.friend-item').forEach(el => el.classList.remove('active'));
-    document.getElementById('user-' + username).classList.add('active');
-    
-    // Load History
-    loadHistory(username);
-}
-
-// 3. LOAD LỊCH SỬ CHAT TỪ API
-function loadHistory(username) {
-    var area = document.getElementById('msgArea');
-    area.innerHTML = '<div class="text-center text-muted mt-5"><i class="fas fa-spinner fa-spin"></i> Đang tải tin nhắn...</div>';
-    
-    fetch(`/api/messenger/history/${username}`)
-        .then(res => res.json())
-        .then(data => {
-            area.innerHTML = '';
-            if(data.length === 0) {
-                area.innerHTML = '<div class="text-center text-muted mt-5">Hãy bắt đầu cuộc trò chuyện!</div>';
-            } else {
-                data.forEach(msg => {
-                    // Convert Entity ChatMessage -> SocketMessage format để tái sử dụng hàm render
-                    // (Lưu ý: Bạn cần đảm bảo logic mapping ở đây khớp với dữ liệu trả về)
-                    var socketMsg = {
-                        sender: msg.senderEmail,
-                        content: msg.content,
-                        timestamp: new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                        type: msg.content.startsWith('[IMAGE]') ? 'IMAGE' : (msg.content.startsWith('[STICKER]') ? 'STICKER' : 'CHAT'),
-                        mediaUrl: msg.content.replace('[IMAGE]', '').replace('[STICKER]', '') // Hack nhẹ để lấy URL
-                    };
-                    renderMessage(socketMsg);
-                });
-            }
-        })
-        .catch(err => area.innerHTML = '<div class="text-center text-danger">Lỗi tải lịch sử</div>');
-}
-
-// 4. GỬI TIN NHẮN
-function sendPrivateMsg() {
-    var input = document.getElementById('msgInput');
-    var content = input.value.trim();
-    if (!content || !selectedUser) return;
-
-    var msg = {
-        sender: currentUser,
-        content: content,
-        type: 'CHAT',
-        replyToId: selectedUser 
-    };
-
-    stompClient.send("/app/chat.sendPrivate", {}, JSON.stringify(msg));
-    input.value = '';
-}
-
-// 5. RENDER TIN NHẮN (Hỗ trợ Text, Image, Sticker)
-function renderMessage(msg) {
-    var area = document.getElementById('msgArea');
-    var isMine = msg.sender === currentUser;
-    
-    // Xử lý nội dung
-    var contentHtml = '';
-    if (msg.type === 'IMAGE' || (msg.content && msg.content.startsWith('[IMAGE]'))) {
-        var url = msg.mediaUrl || msg.content.replace('[IMAGE]', '');
-        contentHtml = `<img src="${url}" style="max-width:200px; border-radius:10px; cursor:pointer;" onclick="window.open(this.src)">`;
-    } else if (msg.type === 'STICKER' || (msg.content && msg.content.startsWith('[STICKER]'))) {
-        var url = msg.mediaUrl || msg.content.replace('[STICKER]', '');
-        contentHtml = `<img src="${url}" style="width:100px;">`;
-    } else {
-        contentHtml = msg.content;
-    }
-
-    var html = `
-        <div class="msg-row ${isMine ? 'mine' : 'other'}">
-            ${!isMine ? `<img src="https://ui-avatars.com/api/?name=${msg.sender}&background=random&color=fff" class="avatar" style="width:30px;height:30px;">` : ''}
-            <div style="display:flex; flex-direction:column; ${isMine ? 'align-items:flex-end' : ''}">
-                <div class="msg-bubble" style="${(msg.type==='IMAGE' || msg.type==='STICKER') ? 'background:transparent;padding:0;' : ''}">
-                    ${contentHtml}
-                </div>
-                <div class="msg-time">${msg.timestamp || 'Just now'}</div>
-            </div>
-        </div>
-    `;
-    
-    var div = document.createElement('div');
-    div.innerHTML = html;
-    area.appendChild(div.firstElementChild);
-    area.scrollTop = area.scrollHeight;
-}
-
-// 6. UPLOAD ẢNH
-function uploadImage() {
-    var file = document.getElementById('imageInput').files[0];
-    if (!file || !selectedUser) return;
-
-    var formData = new FormData();
-    formData.append("file", file);
-
-    fetch('/api/upload/image', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => {
-            if (data.url) {
-                // Gửi message đặc biệt
-                var msg = {
-                    sender: currentUser,
-                    type: 'IMAGE',
-                    mediaUrl: data.url,
-                    replyToId: selectedUser,
-                    content: '[IMAGE]' + data.url // Hack để lưu vào DB text
-                };
-                stompClient.send("/app/chat.sendPrivate", {}, JSON.stringify(msg));
+    function bindEvents() {
+        // Gửi tin bằng Enter
+        $('#msgInput').off('keypress').on('keypress', function(e) {
+            if (e.which === 13 && !e.shiftKey) {
+                e.preventDefault();
+                sendTextMessage();
             }
         });
-}
 
-// 7. GIPHY STICKER
-function toggleStickers() {
-    var menu = document.getElementById('stickerMenu');
-    if (menu.style.display === 'block') {
-        menu.style.display = 'none';
-        return;
-    }
-    
-    // Load stickers nếu chưa có
-    if (menu.innerHTML.trim() === '') {
-        var html = '<div class="d-flex flex-wrap gap-2 justify-content-center">';
-        BACKUP_STICKERS.forEach(url => {
-            html += `<img src="${url}" onclick="sendSticker('${url}')" style="width:80px; height:80px; cursor:pointer; object-fit:contain;">`;
+        // Upload ảnh
+        $('#imageInput').off('change').on('change', function() {
+            if (this.files && this.files[0]) uploadFile(this.files[0], 'IMAGE');
         });
-        html += '</div>';
-        menu.innerHTML = html;
-    }
-    menu.style.display = 'block';
-}
-
-function sendSticker(url) {
-    var msg = {
-        sender: currentUser,
-        type: 'STICKER',
-        mediaUrl: url,
-        replyToId: selectedUser,
-        content: '[STICKER]' + url
-    };
-    stompClient.send("/app/chat.sendPrivate", {}, JSON.stringify(msg));
-    document.getElementById('stickerMenu').style.display = 'none';
-}
-
-function handleEnter(e) { if(e.key === 'Enter') sendPrivateMsg(); }
-function playNotificationSound() { /* Code play sound here if needed */ }
-
-// [BLOCK CODE JS] Hàm tạo HTML tin nhắn chuẩn Facebook Vipro
-function createMessageHTML(msg, isMine) {
-    // Check avatar
-    const avatar = isMine ? currentUserAvatar : currentChatAvatar;
-    const alignClass = isMine ? 'mine' : 'other';
-    const bubbleClass = isMine ? 'mine' : 'other';
-
-    return `
-    <div class="msg-row ${alignClass}" id="msg-${msg.id}">
-        ${!isMine ? `<img src="${avatar}" class="msg-avatar">` : ''}
         
-        <div class="msg-content-wrapper">
-            ${msg.replyTo ? `
-            <div class="reply-context">
-                <div class="reply-line"></div>
-                <small>Trả lời: ${msg.replyTo.content}</small>
-            </div>` : ''}
+        // Ghi âm
+        $('#recordBtn').off('click').on('click', toggleRecording);
+    }
 
-            <div class="msg-bubble ${bubbleClass}">
-                ${msg.type === 'IMAGE' ? `<img src="${msg.content}" class="msg-image">` : 
-                  msg.type === 'VOICE' ? `<audio controls src="${msg.content}"></audio>` : 
-                  msg.content}
+    // --- 1. WEBSOCKET ---
+    function connectWebSocket() {
+        if(stompClient && stompClient.connected) return;
+
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null; 
+
+        stompClient.connect({}, function (frame) {
+            console.log('WS Connected');
+            stompClient.subscribe('/user/queue/private', function (payload) {
+                var message = JSON.parse(payload.body);
+                handleIncomingMessage(message);
+            });
+        }, function(error) {
+            console.log('WS Error, reconnecting...', error);
+            setTimeout(connectWebSocket, 5000);
+        });
+    }
+
+    // --- 2. CORE LOGIC ---
+    function loadConversations() {
+        $.get('/api/v1/messenger/conversations', function(data) {
+            const list = $('#conversationList');
+            list.empty(); // Xóa loading spinner
+
+            // [FIX] Xử lý khi không có dữ liệu
+            if (!data || data.length === 0) {
+                list.html(`
+                    <div class="text-center mt-5 text-muted">
+                        <i class="fas fa-comments fa-3x mb-3"></i><br>
+                        ưa có tin nhắn nào.<br>
+                        <small>Tìm kiếm bạn bè để bắt đầu!</small>
+                    </div>
+                `);
+                return;
+            }
+
+            data.forEach(c => {
+                let active = (c.partnerId === currentPartnerId) ? 'active' : '';
+                let unreadClass = c.unreadCount > 0 ? 'unread' : '';
+                let lastMsg = c.lastMessage || 'Bắt đầu cuộc trò chuyện';
+                let prefix = c.lastMessageMine ? 'Bạn: ' : '';
+                
+                let html = `
+                    <div class="conv-item ${active}" id="conv-${c.partnerId}" 
+                         onclick="selectConversation(${c.partnerId}, '${c.partnerName}', '${c.partnerAvatar}')">
+                        <div class="avatar-wrapper">
+                            <img src="${c.partnerAvatar}" class="avatar-img" onerror="this.src='/images/placeholder-user.jpg'">
+                            <div class="online-dot ${c.online ? 'is-online' : ''}"></div>
+                        </div>
+                        <div class="conv-info">
+                            <div class="conv-name">${c.partnerName}</div>
+                            <div class="conv-preview ${unreadClass}">
+                                ${prefix}${lastMsg}
+                            </div>
+                        </div>
+                        ${c.unreadCount > 0 ? `<div class="unread-badge"></div>` : ''}
+                    </div>
+                `;
+                list.append(html);
+            });
+        }).fail(function() {
+            $('#conversationList').html('<div class="text-center text-danger mt-4">Lỗi tải dữ liệu.</div>');
+        });
+    }
+
+    // Hàm global bridge để HTML gọi được (nếu cần inline onclick, nhưng ở trên tôi đã dùng active onclick)
+    window.selectConversation = function(partnerId, name, avatar) {
+        currentPartnerId = partnerId;
+        
+        // UI Update
+        $('#emptyState').hide();
+        $('#chatInterface').css('display', 'flex');
+        $('#headerName').text(name);
+        $('#headerAvatar').attr('src', avatar);
+        
+        $('.conv-item').removeClass('active');
+        $(`#conv-${partnerId}`).addClass('active');
+
+        loadHistory(partnerId);
+    };
+
+    function loadHistory(partnerId) {
+        let container = $('#messagesContainer');
+        container.html('<div class="text-center mt-5 text-muted"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
+
+        $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
+            container.empty();
+            if(!msgs || msgs.length === 0) {
+                container.html('<div class="text-center mt-5 text-muted"><small>Hãy gửi lời chào!</small></div>');
+                return;
+            }
+            msgs.forEach(m => appendMessageToUI(m));
+            scrollToBottom();
+        });
+    }
+
+    // --- 3. GỬI TIN NHẮN ---
+    function sendTextMessage() {
+        let content = $('#msgInput').val().trim();
+        if (!content || !currentPartnerId) return;
+
+        let payload = {
+            receiverId: currentPartnerId,
+            content: content,
+            type: 'TEXT'
+        };
+        
+        $('#msgInput').val('');
+
+        $.ajax({
+            url: '/api/v1/messenger/send',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(msg) {
+                appendMessageToUI(msg, true);
+                scrollToBottom();
+                loadConversations(); // Refresh sidebar
+            },
+            error: function(err) {
+                console.error("Send error:", err);
+                alert("Lỗi gửi tin nhắn");
+            }
+        });
+    }
+
+    // --- 4. UI HELPER ---
+    function appendMessageToUI(msg, forceMine = false) {
+        // Logic xác định chủ nhân tin nhắn
+        // Nếu msg.senderId == currentPartnerId -> Của người kia (other)
+        // Ngược lại -> Của mình (mine)
+        
+        let isMine = forceMine;
+        if (!forceMine) {
+            isMine = (msg.senderId !== currentPartnerId);
+        }
+
+        let typeClass = isMine ? 'mine' : 'other';
+        let contentHtml = `<div class="bubble" title="${msg.formattedTime}">${msg.content}</div>`;
+
+        if (msg.type === 'IMAGE') {
+            contentHtml = `<img src="${msg.content}" class="msg-image" onclick="window.open('${msg.content}')">`;
+        } 
+
+        let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
+
+        let html = `
+            <div class="msg-row ${typeClass}">
+                ${avatarHtml}
+                <div class="msg-content">${contentHtml}</div>
             </div>
+        `;
+        $('#messagesContainer').append(html);
+    }
 
-            <div class="reaction-display" id="react-${msg.id}">
-                ${msg.reactions && msg.reactions.length > 0 ? renderReactions(msg.reactions) : ''}
-            </div>
-        </div>
+    function scrollToBottom() {
+        let d = $('#messagesContainer');
+        d.scrollTop(d[0].scrollHeight);
+    }
 
-        <div class="msg-actions">
-            <button onclick="showReactionMenu('${msg.id}')" title="Thả cảm xúc"><i class="far fa-smile"></i></button>
-            <button onclick="replyToMessage('${msg.id}', '${msg.content}')" title="Trả lời"><i class="fas fa-reply"></i></button>
-            <button onclick="forwardMessage('${msg.id}')" title="Chuyển tiếp"><i class="fas fa-share"></i></button>
-        </div>
-    </div>
-    `;
-}
+    // Các hàm phụ trợ (Sticker, Upload...)
+    function renderStickerMenu() {
+        // Logic render sticker như cũ
+        let html = '';
+        STICKERS.forEach(url => {
+            html += `<img src="${url}" class="sticker-item" onclick="sendSticker('${url}')">`;
+        });
+        $('#stickerMenu').html(html);
+    }
+    
+    // Gửi Sticker (Cần đưa vào window scope hoặc bind event nếu gọi từ HTML)
+    window.sendSticker = function(url) {
+        $('#stickerMenu').hide();
+        if(!currentPartnerId) return;
+        
+        let payload = { receiverId: currentPartnerId, content: url, type: 'IMAGE' };
+        $.ajax({
+            url: '/api/v1/messenger/send',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(msg) { appendMessageToUI(msg, true); scrollToBottom(); }
+        });
+    };
+    
+    window.toggleStickers = function() { $('#stickerMenu').toggle(); };
+
+    // --- GIỮ LẠI LOGIC RECORDING CŨ NẾU CẦN ---
+    function toggleRecording() {
+       // Logic cũ...
+       console.log("Recording clicked");
+    }
+
+})(); // KẾT THÚC IIFE

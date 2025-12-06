@@ -35,6 +35,9 @@ public class SecurityConfig {
                 .requestMatchers("/**").permitAll()
                 .requestMatchers("/ws/**", "/watch-party/**", "/social/**").permitAll() // Cho phép Socket và trang xem chung
                 // Lưu ý: Thực tế nên yêu cầu .authenticated() cho "/watch-party/**", nhưng "/ws/**" cần mở để Handshake.
+
+                // --- THÊM DÒNG NÀY ĐỂ API MESSENGER CHẠY ĐƯỢC ---
+                .requestMatchers("/api/v1/messenger/**").authenticated()
             )
             
             .exceptionHandling(e -> e

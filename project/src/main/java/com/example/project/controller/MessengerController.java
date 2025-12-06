@@ -1,7 +1,9 @@
 package com.example.project.controller;
 
 import com.example.project.dto.UserSessionDto;
-import com.example.project.service.UserService; 
+import com.example.project.service.UserService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -13,17 +15,23 @@ public class MessengerController {
 
     @Autowired private UserService userService; // Giả sử đã có service này
 
-    @GetMapping("/messenger")
+   @GetMapping("/messenger")
     public String messengerPage(Model model, HttpSession session) {
         UserSessionDto user = (UserSessionDto) session.getAttribute("user");
         if (user == null) return "redirect:/login";
         
-        model.addAttribute("user", user);
+        model.addAttribute("user", user); // ✅ ĐÃ CÓ
         
-        // Lấy danh sách tất cả User khác để giả lập danh sách bạn bè (Demo)
-        // Thực tế bạn nên gọi socialService.getFriends(userId)
+        // ✅ THÊM: Convert sang JSON để JS đọc được
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String userJson = mapper.writeValueAsString(user);
+            model.addAttribute("userJson", userJson);
+        } catch (Exception e) {
+            model.addAttribute("userJson", "{}");
+        }
+        
         model.addAttribute("friends", userService.getAllUsers()); 
-        
         return "User/messenger";
     }
 }
