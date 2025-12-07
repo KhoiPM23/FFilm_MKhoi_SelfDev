@@ -202,7 +202,7 @@
             <script>
                 const userName = document.querySelector('meta[name="_userIdentifier"]').getAttribute('content');
                 let stompClientFixed = null;
-                let unreadCount = 0;
+                let supportUnreadCount = 0;
                 let isChatOpen = false;
 
                 // [AUDIO GỐC]
@@ -230,13 +230,13 @@
 
                 function updateBadge() {
                     const badge = document.getElementById('unread-badge');
-                    badge.innerText = unreadCount;
+                    badge.innerText = supportUnreadCount;
 
                     // Chỉ hiện nếu > 0
-                    if (unreadCount > 0) {
+                    if (supportUnreadCount > 0) {
                         badge.classList.add('visible');
                         // [FIX HIỂN THỊ] Đảm bảo badge không bị méo khi số lớn
-                        if (unreadCount > 99) badge.innerText = '99+';
+                        if (supportUnreadCount > 99) badge.innerText = '99+';
                     } else {
                         badge.classList.remove('visible');
                     }
@@ -269,7 +269,7 @@
                             // B. Xử lý tin nhắn mới
                             if (msg.senderEmail !== userName) {
                                 if (!isChatOpen) {
-                                    unreadCount++;
+                                    supportUnreadCount++;
                                     updateBadge();
                                     playAudio(); // Kêu ting ting
                                 } else {
@@ -333,7 +333,7 @@
 
                             // Cập nhật Badge (Nếu chat đang đóng)
                             if (!isChatOpen) {
-                                unreadCount = serverUnreadCount;
+                                supportUnreadCount = serverUnreadCount;
                                 updateBadge();
                             }
 

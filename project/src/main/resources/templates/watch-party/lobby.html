@@ -337,6 +337,16 @@
                         <i class="fas fa-user-clock"></i>
                     </button>
 
+                    <button th:if="${user.relation == 'PENDING_SENT'}" class="action-btn-mini" 
+                            th:onclick="'cancelFriendRequest(' + ${user.id} + ', this)'" title="Hủy lời mời" style="color: #aaa;">
+                        <i class="fas fa-user-times"></i>
+                    </button>
+
+                    <button th:if="${user.relation == 'PENDING_RECEIVED'}" class="action-btn-mini" 
+                            th:onclick="'acceptFriendRequest(' + ${user.id} + ', this)'" title="Chấp nhận" style="color: #4cd137;">
+                        <i class="fas fa-user-check"></i>
+                    </button>
+
                     <button th:if="${user.relation == 'FRIEND'}" class="action-btn-mini" title="Bạn bè" style="color: #4cd137;">
                         <i class="fas fa-user-check"></i>
                     </button>
@@ -392,38 +402,46 @@
 <script>
     // JS Logic Vipro
     
-    function joinRoom(roomId) {
-        window.location.href = '/watch-party/room/' + roomId;
-    }
+    // function joinRoom(roomId) {
+    //     window.location.href = '/watch-party/room/' + roomId;
+    // }
     
-    function openCreateModal() {
-        document.getElementById('createRoomModal').style.display = 'flex';
-    }
+    // function openCreateModal() {
+    //     document.getElementById('createRoomModal').style.display = 'flex';
+    // }
     
-    function closeCreateModal() {
-        document.getElementById('createRoomModal').style.display = 'none';
-    }
+    // function closeCreateModal() {
+    //     document.getElementById('createRoomModal').style.display = 'none';
+    // }
     
-    function togglePassword(select) {
-        const passGroup = document.getElementById('passGroup');
-        passGroup.style.display = select.value === 'PRIVATE' ? 'block' : 'none';
-    }
+    // function togglePassword(select) {
+    //     const passGroup = document.getElementById('passGroup');
+    //     passGroup.style.display = select.value === 'PRIVATE' ? 'block' : 'none';
+    // }
 
-    // Social Functions
-    function openChat(userId) {
-        // Chuyển hướng sang Messenger
-        window.location.href = '/messenger?uid=' + userId;
-    }
+    // // Social Functions
+    // function openChat(userId) {
+    //     // Chuyển hướng sang Messenger
+    //     window.location.href = '/messenger?uid=' + userId;
+    // }
     
-    function viewProfile(userId) {
-        // Chuyển hướng đúng đến Controller vừa sửa
-        window.location.href = '/social/profile/' + userId; 
-    }
-    
-    function sendFriendRequest(userId) {
-        alert("Đã gửi lời mời kết bạn tới ID: " + userId);
-        // Gọi API add friend ở đây
-    }
+    // function viewProfile(userId) {
+    //     // Chuyển hướng đúng đến Controller vừa sửa
+    //     window.location.href = '/social/profile/' + userId; 
+    // }
+
+    // // Đóng modal khi click ngoài
+    // window.onclick = function(event) {
+    //     const modal = document.getElementById('createRoomModal');
+    //     if (event.target == modal) {
+    //         closeCreateModal();
+    //     }
+    // }
+
+    // function sendFriendRequest(userId) {
+    //     alert("Đã gửi lời mời kết bạn tới ID: " + userId);
+    //     // Gọi API add friend ở đây
+    // }
 
     // Đóng modal khi click ngoài
     window.onclick = function(event) {
@@ -434,62 +452,63 @@
     }
 
     // --- SOCIAL LOGIC ---
-    function sendFriendRequest(targetId, btnElement) {
-        // Hiệu ứng UX: Đổi nút ngay lập tức
-        if(btnElement) {
-            btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        }
+    // function sendFriendRequest(targetId, btnElement) {
+    //     // Hiệu ứng UX: Đổi nút ngay lập tức
+    //     if(btnElement) {
+    //         btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    //     }
 
-        fetch('/api/social/add-friend/' + targetId, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'SENT') {
-                    // Đổi trạng thái nút thành "Hủy lời mời"
-                    if(btnElement) {
-                        btnElement.innerHTML = '<i class="fas fa-user-times"></i>';
-                        btnElement.title = "Hủy lời mời";
-                        btnElement.setAttribute('onclick', 'cancelFriendRequest(' + targetId + ', this)');
-                        btnElement.classList.add('btn-pending'); // Thêm class CSS nếu muốn đổi màu
-                    }
-                    alert("Đã gửi lời mời thành công!");
-                }
-            });
-    }
+    //     fetch('/api/social/add-friend/' + targetId, { method: 'POST' })
+    //         .then(res => res.json())
+    //         .then(data => {
+    //             if(data.status === 'SENT') {
+    //                 // Đổi trạng thái nút thành "Hủy lời mời"
+    //                 if(btnElement) {
+    //                     btnElement.innerHTML = '<i class="fas fa-user-times"></i>';
+    //                     btnElement.title = "Hủy lời mời";
+    //                     btnElement.setAttribute('onclick', 'cancelFriendRequest(' + targetId + ', this)');
+    //                     btnElement.classList.add('btn-pending'); // Thêm class CSS nếu muốn đổi màu
+    //                 }
+    //                 alert("Đã gửi lời mời thành công!");
+    //             }
+    //         });
+    // }
 
-    function cancelFriendRequest(targetId, btnElement) {
-        // Logic hủy tương tự...
-        alert("Đã hủy lời mời.");
-        // Reset nút về ban đầu
-        btnElement.innerHTML = '<i class="fas fa-user-plus"></i>';
-        btnElement.setAttribute('onclick', 'sendFriendRequest(' + targetId + ', this)');
-    }
+    // function cancelFriendRequest(targetId, btnElement) {
+    //     // Logic hủy tương tự...
+    //     alert("Đã hủy lời mời.");
+    //     // Reset nút về ban đầu
+    //     btnElement.innerHTML = '<i class="fas fa-user-plus"></i>';
+    //     btnElement.setAttribute('onclick', 'sendFriendRequest(' + targetId + ', this)');
+    // }
 
-    // --- NOTIFICATION SOCKET (Global Header) ---
-    // Đảm bảo đoạn này chạy sau khi StompClient connect
-    function onConnected() {
-        // Subscribe kênh thông báo riêng tư
-        stompClient.subscribe('/user/queue/notifications', function (msg) {
-            const notif = JSON.parse(msg.body);
-            showNotificationBadge(notif);
-        });
-    }
+    // // --- NOTIFICATION SOCKET (Global Header) ---
+    // // Đảm bảo đoạn này chạy sau khi StompClient connect
+    // function onConnected() {
+    //     // Subscribe kênh thông báo riêng tư
+    //     stompClient.subscribe('/user/queue/notifications', function (msg) {
+    //         const notif = JSON.parse(msg.body);
+    //         showNotificationBadge(notif);
+    //     });
+    // }
 
-    function showNotificationBadge(notif) {
-        const badge = document.getElementById('notif-badge'); // Cần ID này trên Header icon chuông
-        if (badge) {
-            badge.style.display = 'block';
-            let count = parseInt(badge.innerText || '0');
-            badge.innerText = count + 1;
-        }
+    // function showNotificationBadge(notif) {
+    //     const badge = document.getElementById('notif-badge'); // Cần ID này trên Header icon chuông
+    //     if (badge) {
+    //         badge.style.display = 'block';
+    //         let count = parseInt(badge.innerText || '0');
+    //         badge.innerText = count + 1;
+    //     }
         
-        // (Optional) Toast message góc màn hình
-        const toast = document.createElement('div');
-        toast.className = 'vipro-toast';
-        toast.innerHTML = `<i class="fas fa-bell"></i> ${notif.content}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
-    }
+    //     // (Optional) Toast message góc màn hình
+    //     const toast = document.createElement('div');
+    //     toast.className = 'vipro-toast';
+    //     toast.innerHTML = `<i class="fas fa-bell"></i> ${notif.content}`;
+    //     document.body.appendChild(toast);
+    //     setTimeout(() => toast.remove(), 5000);
+    // }
 </script>
+<script src="/js/script.js"></script>
 
 </body>
 </html>

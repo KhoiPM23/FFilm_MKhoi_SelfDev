@@ -31,6 +31,8 @@ public class MessengerDto {
         private String timeAgo;      // Ví dụ: "5m", "2h", "1d"
         private boolean isRead;      // True nếu đã đọc hết
         private String statusClass;  // Class CSS: "unread" hoặc ""
+
+        private boolean friend;
     }
 
     // DTO cho từng tin nhắn (Khung chat bên phải)

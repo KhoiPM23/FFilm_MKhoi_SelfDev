@@ -1319,112 +1319,600 @@
   window.initHoverCards = initHoverCards;
   window.initializeAllCarousels = initializeAllCarousels;
   window.enhanceHoverCard = enhanceHoverCard; // Phòng hờ nếu cần gọi trực tiếp
+
+
+
+
+
+
+// // =========================================================================
+//   // 5. CÁC HÀM TIỆN ÍCH TOÀN CỤC (GLOBAL UTILITIES - Dành cho onclick HTML)
+//   // =========================================================================
+
+//   /**
+//    * Hiển thị Custom Confirmation Modal (dạng Netflix/Cinematic)
+//    * @param {string} msg Nội dung thông báo
+//    * @param {function} callback Hàm sẽ được gọi khi người dùng chọn 'Đồng ý'
+//    */
+//   window.cineConfirm = function(msg, callback) {
+//     if (document.getElementById('cineModal')) {
+//       document.getElementById('cineModal').remove();
+//     }
+
+//     const html = `
+//     <div id="cineModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 99999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); animation: popIn 0.3s ease-out;">
+//         <div style="background: #1e1e1e; padding: 30px; border-radius: 12px; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 1px solid #333;">
+//             <div style="font-size:3rem; color:#e50914; margin-bottom:15px;"><i class="fas fa-exclamation-circle"></i></div>
+//             <h3 style="color:#fff; margin-bottom:10px; font-family:'Segoe UI', sans-serif;">Xác nhận</h3>
+//             <p style="color:#ccc; margin-bottom:25px; line-height:1.5;">${msg}</p>
+//             <div style="display:flex; justify-content:center; gap:15px;">
+//                 <button onclick="document.getElementById('cineModal').remove()" style="padding:10px 24px; background:#333; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:0.2s;">Hủy bỏ</button>
+//                 <button id="cineConfirmBtn" style="padding:10px 24px; background:#e50914; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; box-shadow: 0 4px 15px rgba(229,9,20,0.4); transition:0.2s;">Đồng ý</button>
+//             </div>
+//         </div>
+//     </div>
+//     <style>@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
+//     `;
+//     document.body.insertAdjacentHTML('beforeend', html);
+
+//     document.getElementById('cineConfirmBtn').onclick = function() {
+//       if (callback) callback();
+//       document.getElementById('cineModal').remove();
+//     };
+//   };
+
+//   // =========================================================================
+//   // 6. LOGIC KẾT BẠN (Dùng chung cho public-profile & lobby)
+//   // =========================================================================
+
+//   /**
+//    * Gửi lời mời kết bạn.
+//    * @param {number} targetId ID của người nhận lời mời.
+//    * @param {HTMLElement} btnElement Nút button được click.
+//    */
+//   window.sendFriendRequest = function(targetId, btnElement) {
+//     // 1. Thay đổi UI ngay lập tức
+//     const originalHtml = btnElement.innerHTML;
+//     btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+//     btnElement.disabled = true;
+
+//     // 2. Gọi API
+//     $.ajax({
+//       url: `/api/v1/social/friend/send/${targetId}`,
+//       type: 'POST',
+//       success: function(response) {
+//         // Cập nhật trạng thái 'Đã gửi lời mời'
+//         btnElement.innerHTML = '<i class="fas fa-paper-plane"></i> Đã gửi lời mời';
+//         btnElement.classList.remove('btn-primary');
+//         btnElement.classList.add('btn-secondary');
+//         btnElement.setAttribute('onclick', `window.cancelFriendRequest(${targetId}, this)`);
+//         btnElement.disabled = false;
+//         // Bỏ qua alert, dùng UI thay thế
+//       },
+//       error: function(xhr) {
+//         // Khôi phục UI nếu lỗi
+//         btnElement.innerHTML = originalHtml;
+//         btnElement.disabled = false;
+//         alert('Lỗi: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Không thể gửi lời mời.'));
+//       }
+//     });
+//   };
+
+//   /**
+//    * Hủy lời mời kết bạn (Dùng xác nhận Cine Modal)
+//    * @param {number} targetId ID của người nhận lời mời.
+//    * @param {HTMLElement} btnElement Nút button được click.
+//    */
+//   window.cancelFriendRequest = function(targetId, btnElement) {
+//     window.cineConfirm('Bạn có chắc chắn muốn hủy lời mời kết bạn đã gửi?', function() {
+//       // Logic hủy được thực thi sau khi xác nhận
+//       const originalHtml = btnElement.innerHTML;
+//       btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang hủy...';
+//       btnElement.disabled = true;
+
+//       $.ajax({
+//         url: `/api/v1/social/friend/cancel/${targetId}`,
+//         type: 'POST',
+//         success: function(response) {
+//           // Cập nhật trạng thái 'Thêm bạn bè'
+//           btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
+//           btnElement.classList.remove('btn-secondary');
+//           btnElement.classList.add('btn-primary');
+//           btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
+//           btnElement.disabled = false;
+//         },
+//         error: function(xhr) {
+//           btnElement.innerHTML = originalHtml;
+//           btnElement.disabled = false;
+//           alert('Lỗi: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Không thể hủy lời mời.'));
+//         }
+//       });
+//     });
+//   };
+
+//   /**
+//    * Chấp nhận lời mời kết bạn.
+//    * @param {number} senderId ID của người gửi lời mời.
+//    * @param {HTMLElement} btnElement Nút button được click (thường là trong notification dropdown).
+//    */
+//   window.acceptFriendRequest = function(senderId, btnElement) {
+//     // Thường được gọi từ Notification Dropdown.
+//     // Logic sẽ đơn giản hơn vì không cần xác nhận.
+//     const container = btnElement.closest('.notification-item-actions'); // Giả sử có container chứa nút
+
+//     $.ajax({
+//       url: `/api/v1/social/friend/accept/${senderId}`,
+//       type: 'POST',
+//       success: function(response) {
+//         if (container) {
+//           container.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Các bạn đã là bạn bè</span>';
+//         } else {
+//           alert('Đã chấp nhận lời mời kết bạn.');
+//         }
+//         // Thêm logic cập nhật UI ở nơi khác (ví dụ Public Profile) nếu cần
+//       },
+//       error: function(xhr) {
+//         alert('Lỗi: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Không thể chấp nhận lời mời.'));
+//       }
+//     });
+//   };
+
+
+//   // =========================================================================
+//   // 7. SOCKET TOÀN CỤC (GLOBAL SOCKET)
+//   // [Gắn vào window để gọi từ header.html hoặc các file cần socket]
+//   // =========================================================================
+
+//   let globalStompClient = null;
+
+//   function onGlobalConnected() {
+//     console.log('Global Socket Connected!');
+//     // Subscribe kênh thông báo riêng tư
+//     globalStompClient.subscribe('/user/queue/notifications', function (msg) {
+//         const notif = JSON.parse(msg.body);
+//         window.showNotificationBadge(notif); // Gọi hàm render UI
+//     });
+//     // Kích hoạt các hàm khác nếu có (ví dụ: friend request popup)
+//   }
+
+//   function onGlobalError(error) {
+//     console.error('Global Socket Error: ', error);
+//     // Tự động kết nối lại sau 5s
+//     setTimeout(window.connectGlobalSocket, 5000); 
+//   }
+
+//   window.connectGlobalSocket = function() {
+//     if (globalStompClient && globalStompClient.connected) {
+//         console.log('Global Socket already connected.');
+//         return;
+//     }
+//     const socket = new SockJS('/ws'); // Endpoint WebSocket Spring Boot
+//     globalStompClient = Stomp.over(socket);
+//     globalStompClient.connect({}, onGlobalConnected, onGlobalError);
+//   }
+
+//   /**
+//    * Cập nhật UI Badge thông báo
+//    * (Cần ID notif-badge trên icon chuông ở header.html)
+//    */
+//   window.showNotificationBadge = function(notif) {
+//       const badge = document.getElementById('notif-badge');
+//       if (badge) {
+//           badge.style.display = 'flex';
+//           let count = parseInt(badge.innerText || '0');
+//           badge.innerText = count + 1;
+//       }
+//       // TODO: Thêm logic hiển thị Toast message (như Master Plan)
+//       console.log('New Notification:', notif);
+//   }
+
+//   // Khởi chạy Global Socket khi DOM đã sẵn sàng (Chỉ cần 1 lần)
+//   $(document).ready(function() {
+//       // Đảm bảo SockJS/Stomp đã được load (thường là ở header.html hoặc index.html)
+//       if (typeof SockJS !== 'undefined' && typeof Stomp !== 'undefined') {
+//           window.connectGlobalSocket();
+//       }
+//   });
+
 })();
 
+// /* --- SOCIAL GLOBAL FUNCTIONS (Dùng chung cho Lobby, Profile, Hover Card) --- */
 
-/* --- SOCIAL GLOBAL FUNCTIONS (Dùng chung cho Lobby, Profile, Hover Card) --- */
-
-function sendFriendRequest(targetId, btnElement) {
-    if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+// function sendFriendRequest(targetId, btnElement) {
+//     if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     
-    fetch('/social/add-friend/' + targetId, { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status === 'SENT') {
-                if(btnElement) {
-                    btnElement.innerHTML = '<i class="fas fa-user-times"></i> Hủy lời mời';
-                    btnElement.classList.replace('btn-primary-vipro', 'btn-secondary-vipro');
-                    btnElement.setAttribute('onclick', 'alert("Đã gửi lời mời!")');
-                }
-                alert("Đã gửi lời mời kết bạn!");
-            } else {
-                alert(data.message || "Lỗi gửi lời mời");
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Lỗi kết nối");
-        });
-}
+//     fetch('/social/add-friend/' + targetId, { method: 'POST' })
+//         .then(res => res.json())
+//         .then(data => {
+//             if(data.status === 'SENT') {
+//                 if(btnElement) {
+//                     btnElement.innerHTML = '<i class="fas fa-user-times"></i> Hủy lời mời';
+//                     btnElement.classList.replace('btn-primary-vipro', 'btn-secondary-vipro');
+//                     btnElement.setAttribute('onclick', 'alert("Đã gửi lời mời!")');
+//                 }
+//                 alert("Đã gửi lời mời kết bạn!");
+//             } else {
+//                 alert(data.message || "Lỗi gửi lời mời");
+//             }
+//         })
+//         .catch(err => {
+//             console.error(err);
+//             alert("Lỗi kết nối");
+//         });
+// }
 
-function acceptFriendRequest(senderId, btnElement) {
-    if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+// function acceptFriendRequest(senderId, btnElement) {
+//     if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-    fetch('/social/accept-friend/' + senderId, { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status === 'FRIEND') {
-                alert("Đã trở thành bạn bè!");
-                location.reload(); // Reload để cập nhật UI toàn bộ
-            }
-        });
-}
+//     fetch('/social/accept-friend/' + senderId, { method: 'POST' })
+//         .then(res => res.json())
+//         .then(data => {
+//             if(data.status === 'FRIEND') {
+//                 alert("Đã trở thành bạn bè!");
+//                 location.reload(); // Reload để cập nhật UI toàn bộ
+//             }
+//         });
+// }
 
-function openChat(userId) {
-    window.location.href = '/messenger?uid=' + userId;
-}
+// function followUser(targetId, btnElement) {
+//     if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+//     fetch('/social/api/follow/' + targetId, { method: 'POST' })
+//         .then(res => res.json())
+//         .then(data => {
+//             if(btnElement) {
+//                 btnElement.innerHTML = '<i class="fas fa-check"></i> Đang theo dõi';
+//                 btnElement.classList.replace('btn-blue', 'btn-dark');
+//                 btnElement.setAttribute('onclick', 'unfollowUser(' + targetId + ', this)');
+//             }
+//         });
+// }
 
-/* --- XỬ LÝ KẾT BẠN VIPRO --- */
-function handleFriendRequest(notiId, linkProfile, action, btnElement) {
-    // 1. Parse ID từ link (VD: /social/profile/5 -> lấy 5)
-    // Cách này hơi thủ công, tốt nhất DTO Notification nên có senderId. 
-    // Nhưng với dữ liệu hiện tại, ta tạm dùng cách này:
-    const senderId = linkProfile.split('/').pop(); 
+// function unfollowUser(targetId, btnElement) {
+//     if(btnElement) btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+//     fetch('/social/api/unfollow/' + targetId, { method: 'POST' })
+//         .then(res => res.json())
+//         .then(data => {
+//             if(btnElement) {
+//                 btnElement.innerHTML = '<i class="fas fa-rss"></i> Theo dõi';
+//                 btnElement.classList.replace('btn-dark', 'btn-blue');
+//                 btnElement.setAttribute('onclick', 'followUser(' + targetId + ', this)');
+//             }
+//         });
+// }
 
-    if (action === 'REJECT') {
-        // Xóa âm thầm, không thông báo
-        // Gọi API Reject
-        fetch('/social/reject-friend/' + senderId, { method: 'POST' });
+// function openChat(userId) {
+//     window.location.href = '/messenger?uid=' + userId;
+// }
+
+// /* --- XỬ LÝ KẾT BẠN VIPRO --- */
+// function handleFriendRequest(notiId, linkProfile, action, btnElement) {
+//     // 1. Parse ID từ link (VD: /social/profile/5 -> lấy 5)
+//     // Cách này hơi thủ công, tốt nhất DTO Notification nên có senderId. 
+//     // Nhưng với dữ liệu hiện tại, ta tạm dùng cách này:
+//     const senderId = linkProfile.split('/').pop(); 
+
+//     if (action === 'REJECT') {
+//         // Xóa âm thầm, không thông báo
+//         // Gọi API Reject
+//         fetch('/social/reject-friend/' + senderId, { method: 'POST' });
         
-        // UI: Xóa noti hoặc hiện "Đã gỡ"
-        const container = btnElement.closest('.friend-request-actions');
-        container.innerHTML = '<span style="font-size:12px; color:#aaa;">Đã gỡ lời mời</span>';
+//         // UI: Xóa noti hoặc hiện "Đã gỡ"
+//         const container = btnElement.closest('.friend-request-actions');
+//         container.innerHTML = '<span style="font-size:12px; color:#aaa;">Đã gỡ lời mời</span>';
         
-        // Đánh dấu noti là đã đọc luôn
-        markAsRead(notiId);
+//         // Đánh dấu noti là đã đọc luôn
+//         markAsRead(notiId);
         
-    } else if (action === 'ACCEPT') {
-        // Gọi API Accept
-        fetch('/social/accept-friend/' + senderId, { method: 'POST' })
+//     } else if (action === 'ACCEPT') {
+//         // Gọi API Accept
+//         fetch('/social/accept-friend/' + senderId, { method: 'POST' })
+//             .then(res => {
+//                 if(res.ok) {
+//                     const container = btnElement.closest('.friend-request-actions');
+//                     container.innerHTML = '<span style="font-size:12px; color:#31a24c;">Đã chấp nhận</span>';
+//                     markAsRead(notiId);
+//                 }
+//             });
+//     }
+// }
+
+// /* --- CINEMATIC POPUP (Dùng chung cho toàn web) --- */
+// function showCinematicConfirm(msg, onConfirm) {
+//     // Check xem đã có modal chưa, chưa thì tạo
+//     if (!document.getElementById('cineModal')) {
+//         const modalHtml = `
+//         <div id="cineModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(5px);">
+//             <div style="background:#1a1a1a; padding:30px; border-radius:12px; width:350px; text-align:center; border:1px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+//                 <i class="fas fa-question-circle" style="font-size:40px; color:#ffd700; margin-bottom:15px;"></i>
+//                 <h3 style="color:#fff; margin-bottom:10px;">Xác nhận</h3>
+//                 <p id="cineMsg" style="color:#ccc; margin-bottom:25px; font-size:14px;"></p>
+//                 <div style="display:flex; justify-content:center; gap:15px;">
+//                     <button id="cineCancel" style="padding:8px 20px; background:#333; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hủy</button>
+//                     <button id="cineOk" style="padding:8px 20px; background:#ffd700; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Đồng ý</button>
+//                 </div>
+//             </div>
+//         </div>`;
+//         document.body.insertAdjacentHTML('beforeend', modalHtml);
+//     }
+
+//     const modal = document.getElementById('cineModal');
+//     document.getElementById('cineMsg').innerText = msg;
+//     modal.style.display = 'flex';
+
+//     // Bind event
+//     document.getElementById('cineCancel').onclick = function() {
+//         modal.style.display = 'none';
+//     };
+//     document.getElementById('cineOk').onclick = function() {
+//         modal.style.display = 'none';
+//         if (onConfirm) onConfirm();
+//     };
+// }
+
+
+// // =========================================================
+// // GLOBAL SOCKET: CHỈ KẾT NỐI 1 LẦN TẠI ĐÂY
+// // =========================================================
+// // 1. Cấu hình Socket Toàn Cục
+// let globalStompClient = null;
+
+// function connectGlobalSocket() {
+//     if (globalStompClient && globalStompClient.connected) return; // Chặn duplicate
+    
+//     const socket = new SockJS('/ws');
+//     globalStompClient = Stomp.over(socket);
+//     globalStompClient.debug = null;
+
+//     globalStompClient.connect({}, function() {
+//         console.log('✅ Global Socket Connected');
+        
+//         // Subscribe NOTIFICATION
+//         globalStompClient.subscribe('/user/queue/notifications', function(msg) {
+//             const noti = JSON.parse(msg.body);
+//             if (typeof window.onNewNotificationReceived === 'function') {
+//                 window.onNewNotificationReceived(noti);
+//             }
+//         });
+//     });
+// }
+
+// // 2. Cinematic Modal (Thay thế Alert)
+// window.showCineModal = function(msg, callback) {
+//     // Xóa modal cũ nếu có
+//     const old = document.getElementById('cineModal');
+//     if(old) old.remove();
+
+//     const html = `
+//     <div id="cineModal" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; backdrop-filter:blur(5px);">
+//         <div style="background:#1a1a1a; padding:30px; border-radius:16px; width:400px; text-align:center; border:1px solid #333; box-shadow: 0 0 30px rgba(229,9,20,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+//             <div style="font-size:3rem; color:#e50914; margin-bottom:15px;"><i class="fas fa-exclamation-circle"></i></div>
+//             <h3 style="color:#fff; margin-bottom:10px; font-family:'Segoe UI', sans-serif;">Xác nhận</h3>
+//             <p style="color:#ccc; margin-bottom:25px; line-height:1.5;">${msg}</p>
+//             <div style="display:flex; justify-content:center; gap:15px;">
+//                 <button onclick="document.getElementById('cineModal').remove()" style="padding:10px 24px; background:#333; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:0.2s;">Hủy bỏ</button>
+//                 <button id="cineConfirmBtn" style="padding:10px 24px; background:#e50914; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; box-shadow: 0 4px 15px rgba(229,9,20,0.4); transition:0.2s;">Đồng ý</button>
+//             </div>
+//         </div>
+//     </div>
+//     <style>@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
+//     `;
+//     document.body.insertAdjacentHTML('beforeend', html);
+    
+//     document.getElementById('cineConfirmBtn').onclick = function() {
+//         if(callback) callback();
+//         document.getElementById('cineModal').remove();
+//     };
+// };
+
+// window.connectGlobalSocket = connectGlobalSocket;
+
+// // Khởi chạy
+// $(document).ready(function() {
+//     if (!window.location.pathname.includes('/messenger')) { // Chặn chạy ở trang messenger
+//         connectGlobalSocket();
+//     }
+// });
+
+
+/**
+ * =========================================================================================
+ * FFilm Main UI Script - CENTRALIZED CONTROLLER
+ * =========================================================================================
+ */
+(function () {
+  "use strict";
+
+  // --- 1. GLOBAL HELPERS (Gán vào window để HTML gọi được) ---
+
+  /**
+   * Hiển thị Modal Xác nhận (Cinematic Style)
+   */
+  window.cineConfirm = function(msg, callback) {
+    if (document.getElementById('cineModal')) document.getElementById('cineModal').remove();
+
+    const html = `
+    <div id="cineModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 99999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); animation: popIn 0.3s ease-out;">
+        <div style="background: #1e1e1e; padding: 30px; border-radius: 12px; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 1px solid #333;">
+            <div style="font-size:3rem; color:#e50914; margin-bottom:15px;"><i class="fas fa-exclamation-circle"></i></div>
+            <h3 style="color:#fff; margin-bottom:10px; font-family:'Segoe UI', sans-serif;">Xác nhận</h3>
+            <p style="color:#ccc; margin-bottom:25px; line-height:1.5;">${msg}</p>
+            <div style="display:flex; justify-content:center; gap:15px;">
+                <button onclick="document.getElementById('cineModal').remove()" style="padding:10px 24px; background:#333; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:0.2s;">Hủy bỏ</button>
+                <button id="cineConfirmBtn" style="padding:10px 24px; background:#e50914; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; box-shadow: 0 4px 15px rgba(229,9,20,0.4); transition:0.2s;">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+    <style>@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    document.getElementById('cineConfirmBtn').onclick = function() {
+      if (callback) callback();
+      document.getElementById('cineModal').remove();
+    };
+  };
+
+  /**
+   * Chuyển hướng đến Messenger với ID người dùng
+   */
+  window.openChat = function(userId) {
+      window.location.href = `/messenger?uid=${userId}`;
+  };
+
+  /**
+   * Xem Profile
+   */
+  window.viewProfile = function(userId) {
+      window.location.href = `/social/profile/${userId}`;
+  };
+
+  // --- 2. SOCIAL ACTIONS (Kết bạn, Hủy kết bạn, Follow) ---
+
+  // Gửi lời mời (Dùng cho Lobby & Profile)
+  window.sendFriendRequest = function(targetId, btnElement) {
+    // UI Loading
+    const originalContent = btnElement.innerHTML;
+    btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btnElement.disabled = true;
+
+    // API: SocialController @PostMapping("/add-friend/{targetId}")
+    fetch(`/social/add-friend/${targetId}`, { method: 'POST' })
+      .then(res => {
+          if (!res.ok) throw new Error("Lỗi server");
+          return res.json();
+      })
+      .then(data => {
+        // Cập nhật UI thành công
+        btnElement.innerHTML = '<i class="fas fa-paper-plane"></i> Đã gửi';
+        btnElement.classList.remove('btn-primary', 'btn-blue'); // Xóa class cũ
+        btnElement.classList.add('btn-secondary', 'btn-dark'); // Thêm class xám
+        btnElement.setAttribute('onclick', `window.cancelFriendRequest(${targetId}, this)`);
+        btnElement.disabled = false;
+        showToast("Đã gửi lời mời kết bạn!", "success");
+      })
+      .catch(err => {
+        btnElement.innerHTML = originalContent;
+        btnElement.disabled = false;
+        showToast("Lỗi: Không thể gửi lời mời.", "error");
+      });
+  };
+
+  // Hủy kết bạn / Hủy lời mời (Dùng chung)
+  window.cancelFriendRequest = function(targetId, btnElement) {
+      window.cineConfirm('Bạn muốn hủy lời mời / hủy kết bạn với người này?', function() {
+          // UI Loading
+          btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          
+          // API: SocialController @PostMapping("/unfriend/{targetId}")
+          fetch(`/social/unfriend/${targetId}`, { method: 'POST' })
             .then(res => {
                 if(res.ok) {
-                    const container = btnElement.closest('.friend-request-actions');
-                    container.innerHTML = '<span style="font-size:12px; color:#31a24c;">Đã chấp nhận</span>';
-                    markAsRead(notiId);
+                    // Reset về nút "Thêm bạn bè"
+                    btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
+                    btnElement.classList.remove('btn-secondary', 'btn-dark');
+                    btnElement.classList.add('btn-primary', 'btn-blue');
+                    btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
+                    showToast("Đã hủy thành công.", "success");
+                    // Nếu đang ở trang Profile, có thể reload để cập nhật số liệu
+                    if(window.location.pathname.includes('/profile/')) location.reload();
                 }
             });
-    }
-}
+      });
+  };
 
-/* --- CINEMATIC POPUP (Dùng chung cho toàn web) --- */
-function showCinematicConfirm(msg, onConfirm) {
-    // Check xem đã có modal chưa, chưa thì tạo
-    if (!document.getElementById('cineModal')) {
-        const modalHtml = `
-        <div id="cineModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(5px);">
-            <div style="background:#1a1a1a; padding:30px; border-radius:12px; width:350px; text-align:center; border:1px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
-                <i class="fas fa-question-circle" style="font-size:40px; color:#ffd700; margin-bottom:15px;"></i>
-                <h3 style="color:#fff; margin-bottom:10px;">Xác nhận</h3>
-                <p id="cineMsg" style="color:#ccc; margin-bottom:25px; font-size:14px;"></p>
-                <div style="display:flex; justify-content:center; gap:15px;">
-                    <button id="cineCancel" style="padding:8px 20px; background:#333; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hủy</button>
-                    <button id="cineOk" style="padding:8px 20px; background:#ffd700; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Đồng ý</button>
-                </div>
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
+  // Chấp nhận kết bạn (Thường dùng trong Notification dropdown)
+  window.acceptFriendRequest = function(senderId, btnElement) {
+      fetch(`/social/accept-friend/${senderId}`, { method: 'POST' })
+        .then(res => {
+            if(res.ok) {
+                if(btnElement) {
+                    btnElement.innerHTML = '<i class="fas fa-check"></i> Bạn bè';
+                    btnElement.onclick = null;
+                }
+                showToast("Đã trở thành bạn bè!", "success");
+                // Refresh trang nếu cần thiết
+                if(window.location.pathname.includes('/profile/')) location.reload();
+            }
+        });
+  };
 
-    const modal = document.getElementById('cineModal');
-    document.getElementById('cineMsg').innerText = msg;
-    modal.style.display = 'flex';
+  // Follow User
+  window.followUser = function(targetId, btnElement) {
+      fetch(`/social/api/follow/${targetId}`, { method: 'POST' })
+        .then(res => {
+            if(res.ok) {
+                btnElement.innerHTML = '<i class="fas fa-check"></i> Đang theo dõi';
+                btnElement.setAttribute('onclick', `window.unfollowUser(${targetId}, this)`);
+                btnElement.classList.replace('btn-blue', 'btn-dark');
+            }
+        });
+  };
 
-    // Bind event
-    document.getElementById('cineCancel').onclick = function() {
-        modal.style.display = 'none';
-    };
-    document.getElementById('cineOk').onclick = function() {
-        modal.style.display = 'none';
-        if (onConfirm) onConfirm();
-    };
-}
+  // Unfollow User
+  window.unfollowUser = function(targetId, btnElement) {
+      fetch(`/social/api/unfollow/${targetId}`, { method: 'POST' })
+        .then(res => {
+            if(res.ok) {
+                btnElement.innerHTML = '<i class="fas fa-rss"></i> Theo dõi';
+                btnElement.setAttribute('onclick', `window.followUser(${targetId}, this)`);
+                btnElement.classList.replace('btn-dark', 'btn-blue');
+            }
+        });
+  };
+
+  // --- 3. TOAST NOTIFICATION ---
+  function showToast(message, type = 'info') {
+      let toast = document.getElementById('viproToast');
+      if(!toast) {
+          toast = document.createElement('div');
+          toast.id = 'viproToast';
+          toast.style.cssText = "position:fixed; top:80px; right:20px; background:#333; color:#fff; padding:12px 20px; border-radius:8px; z-index:99999; display:none; box-shadow:0 5px 15px rgba(0,0,0,0.5); border-left: 4px solid #e50914;";
+          document.body.appendChild(toast);
+      }
+      toast.style.borderLeftColor = type === 'success' ? '#46d369' : '#e50914';
+      toast.innerHTML = `<span>${message}</span>`;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  }
+
+  // --- 4. GLOBAL SOCKET (Duy trì kết nối 1 lần) ---
+  let globalStompClient = null;
+  window.connectGlobalSocket = function() {
+      if (globalStompClient && globalStompClient.connected) return;
+      
+      const socket = new SockJS('/ws');
+      globalStompClient = Stomp.over(socket);
+      globalStompClient.debug = null; // Tắt log console
+
+      globalStompClient.connect({}, function() {
+          console.log('✅ Global Socket Connected');
+          
+          // Lắng nghe thông báo
+          globalStompClient.subscribe('/user/queue/notifications', function(msg) {
+              const noti = JSON.parse(msg.body);
+              // Gọi hàm update UI ở header (nếu có)
+              if (typeof window.onNewNotificationReceived === 'function') {
+                  window.onNewNotificationReceived(noti);
+              }
+              showToast("🔔 " + noti.content);
+          });
+      }, function(err) {
+          console.log('Socket error, reconnecting...', err);
+          setTimeout(window.connectGlobalSocket, 5000);
+      });
+  };
+
+  // --- 5. INIT ON LOAD ---
+  document.addEventListener("DOMContentLoaded", () => {
+      // Chỉ kết nối socket nếu user đã đăng nhập (kiểm tra có div notiContainer ở header ko)
+      if (document.getElementById('notiContainer')) {
+          window.connectGlobalSocket();
+      }
+      
+      // Init Hover Cards (nếu có)
+      if (typeof window.initHoverCards === 'function') window.initHoverCards();
+  });
+
+})();

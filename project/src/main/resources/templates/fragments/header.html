@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
   <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -50,33 +51,34 @@
       </nav>
 
       <div class="header-actions">
-        
         <div class="notification-box" id="notiContainer" th:if="${session.user != null}">
-                <div class="bell-wrapper" onclick="toggleNotiDropdown(event)">
-                    <i class="fas fa-bell"></i>
-                    <span id="notiBadge" class="noti-badge">0</span>
+            <div class="bell-wrapper" onclick="toggleNotiDropdown(event)">
+                <i class="fas fa-bell" id="bellIcon"></i>
+                <span id="notiBadge" class="noti-badge" style="display:none">0</span>
+            </div>
+            
+            <div class="noti-dropdown" id="notiDropdown">
+                <div class="noti-header-row">
+                    <h3>Thông báo</h3>
+                    <span style="color:#aaa; cursor:pointer;" onclick="markAllRead()" title="Đánh dấu tất cả đã đọc">
+                        <i class="fas fa-check-double"></i>
+                    </span>
                 </div>
                 
-                <div class="noti-dropdown" id="notiDropdown">
-                    <div class="noti-header-row">
-                        <h3>Thông báo</h3>
-                        <span style="color:#aaa; cursor:pointer;" onclick="markAllRead()"><i class="fas fa-check-double"></i></span>
-                    </div>
-                    
-                    <div class="noti-tabs">
-                        <button class="noti-tab active" onclick="filterNoti('all', this)">Tất cả</button>
-                        <button class="noti-tab" onclick="filterNoti('unread', this)">Chưa đọc</button>
-                    </div>
+                <div class="noti-tabs">
+                    <button class="noti-tab active" onclick="filterNoti('all', this)">Tất cả</button>
+                    <button class="noti-tab" onclick="filterNoti('unread', this)">Chưa đọc</button>
+                </div>
 
-                    <div class="noti-scroll-area custom-scrollbar" id="notiList">
-                        <div class="noti-empty">Đang tải thông báo...</div>
-                    </div>
-                    
-                    <div class="noti-footer" id="loadMoreBtn" onclick="loadMoreNoti()" style="display:none;">
-                        Xem cũ hơn
-                    </div>
+                <div class="noti-scroll-area custom-scrollbar" id="notiList">
+                    <div class="noti-empty">Đang tải thông báo...</div>
+                </div>
+                
+                <div class="noti-footer" id="loadMoreBtn" onclick="loadMoreNoti()" style="display:none;">
+                    Xem cũ hơn
                 </div>
             </div>
+        </div>
         <div class="search-box">
           <a
             href="/search"
@@ -502,7 +504,64 @@
             background: #3a3b3c; border: none; padding: 4px 12px; 
             border-radius: 4px; color: white; font-size: 12px; cursor: pointer;
         }
+
+
       </style>
+
+      <style>
+        /* Avatar người gửi trong thông báo */
+        .noti-item-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 12px;
+            border: 2px solid #333;
+        }
+        
+        /* Bố cục item thông báo */
+        .noti-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: #fff;
+            text-decoration: none !important;
+            transition: background 0.2s;
+        }
+        .noti-item:hover { background: rgba(255,255,255,0.05); }
+        .noti-item.unread { background: rgba(229, 9, 20, 0.1); border-left: 3px solid #e50914; }
+        
+        /* Nội dung text */
+        .noti-content-wrapper { flex: 1; }
+        .noti-text { font-size: 0.9rem; margin-bottom: 4px; line-height: 1.4; color: #e5e5e5; }
+        .noti-text strong { color: #fff; font-weight: 600; }
+        .noti-time { font-size: 0.75rem; color: #999; display: block; margin-top: 2px; }
+        
+        /* Nút hành động (Kết bạn) */
+        .noti-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-noti-action {
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+        }
+        .btn-accept { background: #e50914; color: #fff; }
+        .btn-accept:hover { background: #b20710; }
+        .btn-deny { background: #333; color: #fff; }
+        .btn-deny:hover { background: #555; }
+
+        /* Hiệu ứng chuông rung lắc */
+        @keyframes bellSwing { 
+            0% { transform: rotate(0deg); } 20% { transform: rotate(15deg); } 
+            40% { transform: rotate(-10deg); } 60% { transform: rotate(5deg); } 
+            80% { transform: rotate(-5deg); } 100% { transform: rotate(0deg); } 
+        }
+        .bell-ringing { animation: bellSwing 2s infinite ease-in-out; color: #e50914 !important; }
+    </style>
 
       <script>
         // Giữ lại: Logic cuộn header
@@ -561,21 +620,63 @@
       <script th:if="${session.user != null}">
             let stompClient = null;
             let allNotifications = [];
-            let unreadCount = 0;
             let currentFilter = 'all';
             let visibleCount = 6;
+            
+            // Lấy danh sách ID đã "nhìn thấy" từ LocalStorage
+            function getSeenIds() {
+                const stored = localStorage.getItem('vipro_seen_notis');
+                return stored ? JSON.parse(stored) : [];
+            }
 
-            // --- 1. TOGGLE LOGIC (FIXED) ---
+            // Lưu danh sách ID đã "nhìn thấy"
+            function addSeenIds(ids) {
+                if (!ids || ids.length === 0) return;
+                let seen = getSeenIds();
+                // Merge và loại bỏ trùng lặp
+                seen = [...new Set([...seen, ...ids])];
+                localStorage.setItem('vipro_seen_notis', JSON.stringify(seen));
+                
+                // Cập nhật lại số trên chuông ngay lập tức
+                updateBadgeUI();
+            }
+
+            // --- 1. TOGGLE LOGIC ---
             function toggleNotiDropdown(e) {
                 e.stopPropagation();
-                document.getElementById('userDropdownMenu').classList.remove('show'); // Đóng user menu
-                document.getElementById('notiDropdown').classList.toggle('show');
-                document.querySelector('.bell-wrapper').classList.toggle('active');
+                const dd = document.getElementById('notiDropdown');
+                const bell = document.querySelector('.bell-wrapper');
+                
+                // Đóng menu user nếu đang mở
+                document.getElementById('userDropdownMenu').classList.remove('show'); 
+                
+                dd.classList.toggle('show');
+                bell.classList.toggle('active');
+
+                // Nếu mở ra -> Đánh dấu các tin nhắn ĐANG HIỂN THỊ là "Đã thấy" (để giảm số badge)
+                if (dd.classList.contains('show')) {
+                    document.getElementById('bellIcon').classList.remove('bell-ringing');
+                    markVisibleAsSeen();
+                }
+            }
+            
+            // Hàm logic cốt lõi: Đánh dấu các item đang hiển thị là "Seen"
+            function markVisibleAsSeen() {
+                // Lấy danh sách đang hiển thị
+                let filtered = (currentFilter === 'unread') ? allNotifications.filter(n => !n.read) : allNotifications;
+                const visibleItems = filtered.slice(0, visibleCount);
+                
+                // Lọc ra các ID chưa đọc để lưu vào Seen
+                const unreadIds = visibleItems.filter(n => !n.read).map(n => n.id);
+                
+                if (unreadIds.length > 0) {
+                    addSeenIds(unreadIds);
+                }
             }
 
             function toggleUserDropdown(e) {
                 e.stopPropagation();
-                document.getElementById('notiDropdown').classList.remove('show'); // Đóng noti
+                document.getElementById('notiDropdown').classList.remove('show');
                 document.querySelector('.bell-wrapper').classList.remove('active');
                 document.getElementById('userDropdownMenu').classList.toggle('show');
             }
@@ -590,14 +691,13 @@
                 }
             }
 
-            // --- 2. NOTIFICATION LOGIC ---
+            // --- 2. NOTIFICATION DATA ---
             document.addEventListener('DOMContentLoaded', function() {
                 connectSocket();
                 fetchNotifications();
             });
 
             function connectSocket() {
-                // Đảm bảo endpoint /ws khớp với cấu hình WebSocketConfig
                 var socket = new SockJS('/ws'); 
                 stompClient = Stomp.over(socket);
                 stompClient.debug = null; 
@@ -610,137 +710,143 @@
             }
 
             function fetchNotifications() {
-                fetch('/social/api/notifications') // Gọi đúng API đã tạo ở bước trước
+                fetch('/social/api/notifications')
                     .then(res => res.json())
                     .then(data => {
                         allNotifications = data;
-                        updateUI();
+                        renderList(); // Render list trước
+                        updateBadgeUI(); // Update badge sau
                     })
                     .catch(err => console.error(err));
             }
 
             function handleNewNotification(noti) {
-                allNotifications.unshift(noti); // Thêm vào đầu danh sách
-                updateUI();
-                // Play sound
-                const audio = new Audio('/sounds/notification.mp3'); // Nếu có file sound
+                allNotifications.unshift(noti);
+                renderList();
+                updateBadgeUI();
+                
+                // Rung chuông & Phát tiếng
+                const bellWrapper = document.querySelector('.bell-wrapper');
+                if(bellWrapper) {
+                    bellWrapper.classList.add('shaking', 'has-new');
+                    setTimeout(() => bellWrapper.classList.remove('shaking'), 500);
+                }
+                const audio = new Audio('/sounds/notification.mp3');
                 audio.play().catch(e => {});
             }
 
-            function updateUI() {
-              const badge = document.getElementById('notiBadge');
-              const bellWrapper = document.querySelector('.bell-wrapper'); // Chọn wrapper cũ của bạn
-              
-              // Đếm chưa đọc
-              const unreadCount = allNotifications.filter(n => !n.read).length;
-              
-              // Hiển thị số lượng
-              if (unreadCount > 0) {
-                  badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
-                  badge.style.display = 'flex';
-                  
-                  // [VIPRO] Thêm class vàng + rung
-                  if(bellWrapper) {
-                      bellWrapper.classList.add('has-new'); 
-                      // Chỉ rung khi số lượng thay đổi tăng lên (logic nâng cao) hoặc rung luôn
-                      bellWrapper.classList.add('shaking');
-                      // Tắt rung sau 0.5s
-                      setTimeout(() => bellWrapper.classList.remove('shaking'), 500);
-                  }
-              } else {
-                  badge.style.display = 'none';
-                  if(bellWrapper) bellWrapper.classList.remove('has-new');
-              }
-          }
+            // --- 3. UI RENDERING (BADGE & LIST) ---
+
+            function updateBadgeUI() {
+                const badge = document.getElementById('notiBadge');
+                const bellWrapper = document.querySelector('.bell-wrapper');
+                
+                // Logic Badge VIPRO: 
+                // Số Badge = (Tổng số chưa đọc từ Server) - (Số đã Seen ở LocalStorage)
+                const serverUnread = allNotifications.filter(n => !n.read);
+                const seenIds = getSeenIds();
+                
+                // Đếm những cái chưa đọc VÀ chưa nằm trong danh sách đã thấy
+                const realBadgeCount = serverUnread.filter(n => !seenIds.includes(n.id)).length;
+                
+                if (realBadgeCount > 0) {
+                    badge.innerText = realBadgeCount > 99 ? '99+' : realBadgeCount;
+                    badge.style.display = 'flex';
+                    if(bellWrapper) bellWrapper.classList.add('has-new');
+                } else {
+                    badge.style.display = 'none';
+                    if(bellWrapper) bellWrapper.classList.remove('has-new');
+                }
+            }
 
             function renderList() {
-              const listEl = document.getElementById('notiList');
-              if (!listEl) return;
-              
-              listEl.innerHTML = '';
+                const listEl = document.getElementById('notiList');
+                const loadMoreEl = document.getElementById('loadMoreBtn');
 
-              // Lọc theo tab (Tất cả / Chưa đọc)
-              let filtered = allNotifications;
-              if (currentFilter === 'unread') {
-                  filtered = allNotifications.filter(n => !n.read);
-              }
-
-              if (filtered.length === 0) {
-                  listEl.innerHTML = '<div class="noti-empty">Không có thông báo nào</div>';
-                  document.getElementById('loadMoreBtn').style.display = 'none';
-                  return;
-              }
-
-              // Cắt danh sách theo visibleCount
-              const toShow = filtered.slice(0, visibleCount);
-
-              toShow.forEach(n => {
-                  // [VIPRO] Logic nút kết bạn
-                  let extraContent = '';
-                  if (n.type === 'FRIEND_REQUEST') {
-                      // Giả sử link chứa ID user (vd: /profile/5), ta cần parse ID để gọi API
-                      // Hoặc tốt nhất Backend trả về senderId trong DTO Notification
-                      // Ở đây dùng tạm n.link để xử lý logic UI
-                      extraContent = `
-                          <div class="friend-request-actions" onclick="event.stopPropagation()">
-                              <button class="btn-accept-fr" onclick="handleFriendRequest(${n.id}, '${n.link}', 'ACCEPT', this)">Chấp nhận</button>
-                              <button class="btn-reject-fr" onclick="handleFriendRequest(${n.id}, '${n.link}', 'REJECT', this)">Xóa</button>
-                          </div>
-                      `;
-                  }
-
-                  const item = document.createElement('div');
-                  item.className = `noti-item ${n.read ? '' : 'unread'}`;
-                  
-                  // Giữ nguyên logic click cũ: Đánh dấu đọc + Chuyển trang
-                  item.onclick = () => {
-                      if (!n.read) markAsRead(n.id);
-                      if (n.link && n.link !== '#') window.location.href = n.link;
-                  };
-
-                  item.innerHTML = `
-                      <div class="noti-content">
-                          <p class="noti-text">${n.content}</p>
-                          <span class="noti-time">${calcTimeAgo(n.timestamp)}</span>
-                          ${extraContent}
-                      </div>
-                      ${!n.read ? '<div class="noti-dot"></div>' : ''}
-                  `;
-                  listEl.appendChild(item);
-              });
-
-              // Nút xem thêm
-              const loadMoreBtn = document.getElementById('loadMoreBtn');
-              if (loadMoreBtn) {
-                  loadMoreBtn.style.display = (filtered.length > visibleCount) ? 'block' : 'none';
-              }
-          }
-
-            function calcTimeAgo(dateStr) {
-                if(!dateStr) return '';
-    
-                // [FIX] Nếu backend trả về mảng [2025, 12, 6, 10, 30] -> Convert sang string chuẩn ISO
-                let date;
-                if (Array.isArray(dateStr)) {
-                    // Java LocalDateTime array: [year, month, day, hour, minute, second, nano]
-                    // JS Month bắt đầu từ 0 (Tháng 1 là 0)
-                    date = new Date(dateStr[0], dateStr[1] - 1, dateStr[2], dateStr[3], dateStr[4], dateStr[5] || 0);
-                } else {
-                    date = new Date(dateStr);
+                let filtered = allNotifications;
+                if (currentFilter === 'unread') {
+                    filtered = allNotifications.filter(n => !n.read);
                 }
-                
-                if (isNaN(date.getTime())) return ''; // Vẫn lỗi thì return rỗng thay vì NaN
 
-                const now = new Date();
-                const seconds = Math.floor((now - date) / 1000);
+                if (filtered.length === 0) {
+                    listEl.innerHTML = '<div class="noti-empty">Không có thông báo nào</div>';
+                    loadMoreEl.style.display = 'none';
+                    return;
+                }
+
+                const toShow = filtered.slice(0, visibleCount);
                 
-                if (seconds < 60) return 'Vừa xong';
-                const minutes = Math.floor(seconds / 60);
-                if (minutes < 60) return `${minutes} phút trước`;
-                const hours = Math.floor(minutes / 60);
-                if (hours < 24) return `${hours} giờ trước`;
-                const days = Math.floor(hours / 24);
-                return `${days} ngày trước`;
+                listEl.innerHTML = toShow.map(n => {
+                    // Logic style: Dựa hoàn toàn vào n.read của server
+                    // n.read = false -> Thêm class unread (In đậm, chấm đỏ)
+                    const unreadClass = (!n.read) ? 'unread' : '';
+                    const avatarUrl = n.senderAvatar || '/images/placeholder-user.jpg';
+                    const timeDisplay = n.timeAgo || 'Vừa xong';
+
+                    // Nút kết bạn (chỉ hiện khi type FRIEND_REQUEST và chưa đọc)
+                    let actionButtons = '';
+                    if (n.type === 'FRIEND_REQUEST' && !n.read) {
+                        actionButtons = `
+                            <div class="noti-actions" id="action-group-${n.id}">
+                                <button class="btn-noti-action btn-accept" onclick="handleFriendAction(event, ${n.senderId}, 'accept', ${n.id})">Chấp nhận</button>
+                                <button class="btn-noti-action btn-deny" onclick="handleFriendAction(event, ${n.senderId}, 'deny', ${n.id})">Xóa</button>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="noti-item ${unreadClass}" onclick="markOneRead(${n.id}, '${n.link}')">
+                            <img src="${avatarUrl}" class="noti-item-avatar">
+                            <div class="noti-content-wrapper">
+                                <div class="noti-text">${n.content}</div>
+                                <span class="noti-time">${timeDisplay}</span>
+                                ${actionButtons}
+                            </div>
+                            ${!n.read ? '<div class="noti-dot"></div>' : ''} 
+                        </div>
+                    `;
+                }).join('');
+
+                loadMoreEl.style.display = (visibleCount < filtered.length) ? 'block' : 'none';
+            }
+
+            // --- 4. ACTIONS ---
+
+            window.markOneRead = function(id, link, shouldRedirect = true) {
+                // 1. Cập nhật local state: Đã đọc
+                const noti = allNotifications.find(n => n.id === id);
+                if (noti) noti.read = true;
+                
+                // 2. Render lại để mất in đậm
+                renderList();
+                // 3. Cập nhật badge (phòng trường hợp click mà chưa open dropdown - hiếm)
+                updateBadgeUI();
+
+                // 4. Gọi API báo server đã đọc (quan trọng để F5 vẫn nhớ)
+                // Giả sử bạn chưa có API mark-one, có thể dùng mark-all hoặc tạo thêm.
+                // Ở đây tạm thời ta chỉ update UI. Nếu có API: 
+                // fetch('/social/api/notifications/read/' + id, {method: 'POST'});
+
+                // 5. Chuyển trang
+                if (shouldRedirect && link && link !== 'null' && link !== '#') {
+                    window.location.href = link;
+                }
+            }
+
+            window.markAllRead = function() {
+                fetch('/social/api/notifications/read-all', { method: 'POST' })
+                    .then(() => {
+                        allNotifications.forEach(n => n.read = true);
+                        renderList();
+                        updateBadgeUI();
+                    });
+            }
+
+            window.loadMoreNoti = function() {
+                visibleCount += 10;
+                renderList();
+                // Khi bấm xem thêm, những tin mới hiện ra cũng được tính là "Đã thấy"
+                markVisibleAsSeen();
             }
 
             window.filterNoti = function(type, btn) {
@@ -749,19 +855,31 @@
                 document.querySelectorAll('.noti-tab').forEach(t => t.classList.remove('active'));
                 btn.classList.add('active');
                 renderList();
+                markVisibleAsSeen(); // Chuyển tab cũng tính là đã thấy
             }
 
-            window.loadMoreNoti = function() {
-                visibleCount += 10;
-                renderList();
-            }
-            
-            window.markAllRead = function() {
-                fetch('/social/api/notifications/read-all', { method: 'POST' })
-                    .then(() => {
-                        allNotifications.forEach(n => n.read = true);
-                        updateUI();
-                    });
+            window.handleFriendAction = function(e, senderId, action, notiId) {
+                e.stopPropagation(); 
+                e.preventDefault();
+
+                const url = action === 'accept' ? `/social/accept-friend/${senderId}` : `/social/deny-friend/${senderId}`;
+                const container = document.getElementById(`action-group-${notiId}`);
+                
+                if(container) container.innerHTML = '<span style="font-size:0.8rem; color:#999;">Đang xử lý...</span>';
+
+                fetch(url, { method: 'POST' })
+                    .then(res => {
+                        if (res.ok) {
+                            if(container) {
+                                container.innerHTML = action === 'accept' 
+                                    ? '<span style="color:#46d369; font-size:0.8rem;"><i class="fas fa-check"></i> Đã kết bạn</span>'
+                                    : '<span style="color:#aaa; font-size:0.8rem;">Đã gỡ</span>';
+                            }
+                            // Tự động mark read thông báo này
+                            markOneRead(notiId, null, false);
+                        }
+                    })
+                    .catch(err => console.error(err));
             }
         </script>
     </header>

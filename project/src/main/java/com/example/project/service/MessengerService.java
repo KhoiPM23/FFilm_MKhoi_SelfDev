@@ -34,7 +34,7 @@ public class MessengerService {
         User me = userRepository.findById(currentUserId).orElse(null);
         if (me == null) return new ArrayList<>(); 
 
-        // BƯỚC 1: Lấy những người đã từng chat (Giữ nguyên logic cũ)
+        // BƯỚC 1: Lấy những người đã từng chat (Bao gồm cả người lạ)
         List<MessengerMessage> messages = messengerRepository.findAllMessagesByUser(currentUserId);
         for (MessengerMessage msg : messages) {
             boolean isSender = msg.getSender().getUserID() == currentUserId;
@@ -63,6 +63,13 @@ public class MessengerService {
                 } else {
                     dto.setRead(true);
                     dto.setStatusClass("");
+                }
+
+                // [MỚI] Check xem có phải bạn bè không để hiển thị Badge "Người lạ"
+                boolean isFriend = friendRequestRepository.isFriend(currentUserId, partner.getUserID());
+                if (!isFriend) {
+                    dto.setPartnerName(partner.getUserName() + " (Người lạ)");
+                    // Hoặc dùng 1 field flag riêng trong DTO nếu muốn xử lý UI kỹ hơn
                 }
 
                 map.put(partner.getUserID(), dto);
@@ -96,6 +103,9 @@ public class MessengerService {
                 dto.setUnreadCount(0);
                 dto.setRead(true);
                 dto.setStatusClass("");
+
+                boolean isFriend = friendRequestRepository.isFriend(currentUserId, friend.getUserID());
+                dto.setFriend(isFriend);
                 
                 map.put(friend.getUserID(), dto);
             }

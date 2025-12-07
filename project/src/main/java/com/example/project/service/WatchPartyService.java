@@ -319,15 +319,22 @@ public class WatchPartyService {
             // Fake last active nếu offline
             if (!isOnline) userMap.put("lastActive", "1h"); 
 
-            // [FIX] CHECK QUAN HỆ ĐỂ HIỂN THỊ NÚT
+            // [FIX LOGIC QUAN HỆ CHÍNH XÁC]
             String relation = "STRANGER";
+            
+            // 1. Kiểm tra đã là bạn bè chưa
             if (friendRequestRepository.isFriend(currentUserId, u.getUserID())) {
                 relation = "FRIEND";
             } else {
-                // Check pending sent
                 User me = new User(); me.setUserID(currentUserId);
+                
+                // 2. Kiểm tra mình đã gửi chưa (PENDING_SENT)
                 if (friendRequestRepository.findBySenderAndReceiver(me, u).isPresent()) {
-                    relation = "PENDING";
+                    relation = "PENDING_SENT"; 
+                } 
+                // 3. Kiểm tra họ đã gửi cho mình chưa (PENDING_RECEIVED) -> Để hiện nút Chấp nhận
+                else if (friendRequestRepository.findBySenderAndReceiver(u, me).isPresent()) {
+                    relation = "PENDING_RECEIVED";
                 }
             }
             userMap.put("relation", relation); // Frontend sẽ dùng cái này để if/else nút

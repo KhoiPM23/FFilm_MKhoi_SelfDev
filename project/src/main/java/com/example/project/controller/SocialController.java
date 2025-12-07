@@ -2,6 +2,7 @@ package com.example.project.controller;
 
 import com.example.project.dto.PublicProfileDto;
 import com.example.project.dto.UserSessionDto;
+import com.example.project.dto.NotificationDto;
 import com.example.project.model.Notification; // Import quan trọng
 import com.example.project.service.NotificationService;
 import com.example.project.service.SocialService;
@@ -95,11 +96,12 @@ public class SocialController {
     // --- 4. API: NOTIFICATION SYSTEM (HEADER) ---
     @GetMapping("/api/notifications")
     @ResponseBody
-    public ResponseEntity<List<Notification>> getNotifications(HttpSession session) {
-        UserSessionDto currentUser = (getUserSession(session));
+    public ResponseEntity<List<NotificationDto>> getNotifications(HttpSession session) {
+        UserSessionDto currentUser = getUserSession(session); // Dùng hàm helper có sẵn trong file cũ
         if (currentUser == null) return ResponseEntity.status(401).build();
         
-        return ResponseEntity.ok(notificationService.getUserNotifications(currentUser.getId()));
+        // Gọi hàm mới trả về DTO
+        return ResponseEntity.ok(notificationService.getUserNotificationsDto(currentUser.getId()));
     }
     
     @PostMapping("/api/notifications/read-all")
