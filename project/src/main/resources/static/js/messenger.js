@@ -1,48 +1,36 @@
 /**
- * MESSENGER VIPRO - ULTIMATE EDITION
- * Đầy đủ tính năng: Real-time, Chat người lạ, Ghi âm, Sticker, Upload ảnh.
+ * MESSENGER VIPRO - HYBRID VERSION
+ * UI: Chuẩn file cũ (Đẹp, đúng CSS)
+ * Logic: Nâng cấp Realtime, Media, Stranger
  */
 (function() {
     'use strict';
 
-    // --- 1. KHAI BÁO BIẾN CỤC BỘ (STATE MANAGEMENT) ---
+    // --- KHAI BÁO BIẾN ---
     let stompClient = null;
     let currentPartnerId = null;
     let currentPartnerName = '';
-    let isCurrentPartnerFriend = false;
+    let isCurrentPartnerFriend = false; // Biến check trạng thái bạn bè
     
-    // Biến cho Ghi âm
+    // Media
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
-
-    // Lấy thông tin user hiện tại (được inject từ messenger.html)
-    const currentUser = window.currentUser || { userID: 0, name: 'Me' };
 
     // Config Sticker
     const STICKERS = [
         "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
         "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
         "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
-        "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif",
-        "https://media.giphy.com/media/3o6Zt481isNas9aEqs/giphy.gif",
-        "https://media.giphy.com/media/l41lFw057lAJcYt0Y/giphy.gif"
+        "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif"
     ];
 
-    // --- 2. KHỞI TẠO (INITIALIZATION) ---
+    // --- KHỞI TẠO ---
     $(document).ready(function() {
-        console.log("Messenger System Starting...");
-        
-        // 1. Kết nối Socket
+        console.log("Messenger Init Start...");
         connectWebSocket();
-        
-        // 2. Load danh sách chat
         loadConversations();
-        
-        // 3. Render Menu Sticker
         renderStickerMenu();
-        
-        // 4. Gắn sự kiện (Events)
         bindEvents();
     });
 
@@ -51,73 +39,60 @@
         $('#msgInput').off('keypress').on('keypress', function(e) {
             if (e.which === 13 && !e.shiftKey) {
                 e.preventDefault();
-                sendTextMessage();
+                window.sendTextMessage();
             }
         });
 
-        // Nút Gửi (Click)
-        $('.fa-paper-plane').parent().off('click').on('click', sendTextMessage);
-
-        // Upload ảnh (Input hidden)
+        // Upload ảnh
         $('#imageInput').off('change').on('change', function() {
-            if (this.files && this.files[0]) {
-                uploadFile(this.files[0], 'IMAGE');
-            }
+            if (this.files && this.files[0]) uploadFile(this.files[0], 'IMAGE');
         });
         
-        // Ghi âm (Toggle)
-        $('#recordBtn').parent().off('click').on('click', toggleRecording);
+        // Ghi âm (Gán sự kiện click)
+        $('#recordBtn').parent().off('click').on('click', window.toggleRecording);
+        
+        // Sticker Toggle
+        $('.fa-sticky-note').parent().off('click').on('click', window.toggleStickers);
+        
+        // Nút gửi
+        $('.fa-paper-plane').parent().off('click').on('click', window.sendTextMessage);
     }
 
-    // --- 3. XỬ LÝ SOCKET (REAL-TIME ENGINE) ---
+    // --- 1. WEBSOCKET ---
     function connectWebSocket() {
-        if(stompClient && stompClient.connected) {
-            console.log("Socket already connected.");
-            return;
-        }
+        if(stompClient && stompClient.connected) return;
 
-        const socket = new SockJS('/ws');
+        var socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
-        stompClient.debug = null; // Tắt log spam console
+        stompClient.debug = null; 
 
         stompClient.connect({}, function (frame) {
-            console.log('✅ Messenger Socket Connected');
-            
-            // Subscribe kênh tin nhắn riêng tư
-            // Topic: /user/queue/private (Server gửi về user đích danh)
+            console.log('✅ WS Connected');
             stompClient.subscribe('/user/queue/private', function (payload) {
-                const message = JSON.parse(payload.body);
+                var message = JSON.parse(payload.body);
                 handleIncomingMessage(message);
             });
-
         }, function(error) {
-            console.error('Socket Error, reconnecting in 5s...', error);
+            console.log('WS Error, reconnecting...', error);
             setTimeout(connectWebSocket, 5000);
         });
     }
 
     function handleIncomingMessage(message) {
-        // 1. Nếu đang chat với đúng người gửi hoặc mình gửi (sync đa thiết bị)
-        if (currentPartnerId && (message.senderId === currentPartnerId || message.senderId === currentUser.userID)) {
-            appendMessageToUI(message);
+        // Logic cũ: Nếu đang chat với người đó thì append
+        if (currentPartnerId && (message.senderId == currentPartnerId || message.receiverId == currentPartnerId)) {
+            appendMessageToUI(message); // Không forceMine để nó tự tính toán
             scrollToBottom();
-            // TODO: Gửi signal "Đã xem" nếu cần
         }
-        
-        // 2. Cập nhật Sidebar (đẩy tin mới lên đầu)
         loadConversations();
     }
 
-    // --- 4. LOGIC CHAT & GIAO DIỆN (CORE UI) ---
-
-    // Hàm load danh sách bên trái
+    // --- 2. CORE LOGIC: LOAD LIST ---
     function loadConversations() {
-        console.log("Loading conversations...");
         $.get('/api/v1/messenger/conversations', function(data) {
             const list = $('#conversationList');
             list.empty();
 
-            // Nếu không có dữ liệu, vẫn phải check URL (trường hợp chat người lạ lần đầu)
             if (!data || data.length === 0) {
                 list.html(`<div class="text-center mt-5 text-muted"><small>Chưa có tin nhắn nào.</small></div>`);
                 if (typeof checkUrlAndOpenChat === 'function') checkUrlAndOpenChat([]);
@@ -125,17 +100,24 @@
             }
 
             data.forEach(c => {
-                const isActive = (c.partnerId === currentPartnerId) ? 'active' : '';
-                const isUnread = c.unreadCount > 0 ? 'unread' : '';
-                const senderPrefix = c.lastMessageMine ? 'Bạn: ' : '';
-                const avatarUrl = c.partnerAvatar || `https://ui-avatars.com/api/?name=${c.partnerName}`;
+                let activeClass = (c.partnerId == currentPartnerId) ? 'active' : '';
+                let unreadClass = c.unreadCount > 0 ? 'unread' : '';
+                let senderPrefix = c.lastMessageMine ? '<span class="prefix">Bạn: </span>' : '';
+                let lastMsg = c.lastMessage || 'Hình ảnh/File';
                 
-                // [FIX] Đảm bảo biến friend không bị undefined
-                const isFriendSafe = (c.friend === true); 
+                // Avatar fallback
+                let avatarUrl = c.partnerAvatar;
+                if(!avatarUrl || avatarUrl.includes('default')) {
+                    avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.partnerName)}&background=random&color=fff`;
+                }
 
-                const html = `
-                    <div class="conv-item ${isActive} ${isUnread}" id="conv-${c.partnerId}" 
-                         onclick="window.selectConversation(${c.partnerId}, '${c.partnerName}', '${avatarUrl}', ${isFriendSafe})">
+                // [FIX] Xử lý tham số an toàn cho onclick
+                const safeName = c.partnerName.replace(/'/g, "\\'");
+                const isFriendStr = (c.friend === true) ? 'true' : 'false';
+
+                let html = `
+                    <div class="conv-item ${activeClass} ${unreadClass}" id="conv-${c.partnerId}" 
+                         onclick="window.selectConversation(${c.partnerId}, '${safeName}', '${avatarUrl}', ${isFriendStr})">
                         
                         <div class="avatar-wrapper">
                             <img src="${avatarUrl}" class="avatar-img">
@@ -148,172 +130,140 @@
                                 <span class="conv-time">${c.timeAgo || ''}</span>
                             </div>
                             <div class="conv-preview">
-                                ${senderPrefix}${c.lastMessage || 'Hình ảnh/File'}
+                                ${senderPrefix}${lastMsg}
                             </div>
                         </div>
-                        
                         ${c.unreadCount > 0 ? `<div class="unread-badge-dot"></div>` : ''}
                     </div>
                 `;
                 list.append(html);
             });
-
-            // [FIX QUAN TRỌNG] Gọi hàm kiểm tra URL để mở chat người lạ sau khi list đã render
-            if (typeof checkUrlAndOpenChat === 'function') {
-                checkUrlAndOpenChat(data);
-            }
-
-        }).fail(function(xhr, status, error) {
-            console.error("Lỗi tải hội thoại:", status, error);
-            $('#conversationList').html(`<div class="text-center text-danger mt-4">Lỗi tải dữ liệu</div>`);
+            
+            // Check URL để mở chat người lạ (nếu có uid)
+            checkUrlAndOpenChat(data);
         });
     }
 
-    // Hàm chọn hội thoại (Expose ra window để HTML gọi onclick)
+    // --- 3. SELECT CONVERSATION ---
     window.selectConversation = function(partnerId, name, avatar, isFriend) {
-        currentPartnerId = partnerId;
+        currentPartnerId = parseInt(partnerId);
         currentPartnerName = name;
-        isCurrentPartnerFriend = isFriend;
+        isCurrentPartnerFriend = (String(isFriend) === 'true'); // Convert string -> boolean
 
-        // 1. Update UI Header
-        $('.msg-right-header .user-info h4').text(name);
-        $('.msg-right-header .user-info img').attr('src', avatar);
+        // UI Update
+        $('#emptyState').hide();
+        $('#chatInterface').css('display', 'flex');
         
-        // 2. Xử lý Badge Người Lạ / Online
-        const statusContainer = $('#chatHeaderStatus'); // Cần ID này ở messenger.html
-        if (statusContainer.length) {
-            if (!isFriend) {
-                statusContainer.html(`<span class="badge badge-warning" style="background:#e50914; color:#fff; padding:3px 8px; border-radius:10px; font-size:0.75rem;">Người lạ</span>`);
-            } else {
-                statusContainer.html(`<span class="text-success" style="font-size:0.8rem;"><i class="fas fa-circle" style="font-size:0.6rem;"></i> Đang hoạt động</span>`);
-            }
-        }
-
-        // 3. Highlight Sidebar
+        $('#headerName').text(name);
+        $('#headerAvatar').attr('src', avatar);
+        
         $('.conv-item').removeClass('active');
         $(`#conv-${partnerId}`).addClass('active');
 
-        // 4. Load Lịch sử Chat
-        loadChatHistory(partnerId, name, isFriend);
-        
-        // 5. Mobile responsive: Hiển thị khung chat
-        $('.messenger-container').addClass('show-chat');
+        // Logic Header Status (Người lạ/Bạn bè)
+        const statusDiv = $('#chatHeaderStatus');
+        if(statusDiv.length) {
+            statusDiv.empty();
+            if(!isCurrentPartnerFriend) {
+                statusDiv.html(`
+                    <span class="badge" style="background:#444; color:#ccc; margin-right:5px; font-size:11px;">Người lạ</span>
+                    <button class="btn btn-sm btn-primary" onclick="window.sendFriendRequest(${partnerId}, this)" style="padding:2px 8px; font-size:11px;">Kết bạn</button>
+                `);
+            } else {
+                statusDiv.html(`<small class="text-success">Đang hoạt động</small>`);
+            }
+        }
+
+        loadChatHistory(partnerId);
     };
 
-    function loadChatHistory(partnerId, name, isFriend) {
-        const container = $('#messagesContainer');
-        container.html('<div class="text-center mt-5"><i class="fas fa-spinner fa-spin text-muted"></i></div>');
+    function loadChatHistory(partnerId) {
+        let container = $('#messagesContainer');
+        container.html('<div class="text-center mt-5 text-muted"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
 
-        $.get(`/api/v1/messenger/chat/${partnerId}`, function(messages) {
+        $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
             container.empty();
-
-            // A. Banner Người Lạ (Nếu chưa kết bạn)
-            if (!isFriend) {
-                const strangerBanner = `
-                    <div class="stranger-banner text-center mb-4 p-3" style="background: rgba(255,255,255,0.05); border-radius: 8px;">
-                        <img src="https://ui-avatars.com/api/?name=${name}&background=random" style="width:50px; height:50px; border-radius:50%; margin-bottom:10px;">
-                        <p class="text-muted mb-2" style="font-size: 0.9rem;">Bạn và <strong>${name}</strong> chưa là bạn bè trên FFilm.</p>
-                        <button class="btn btn-sm btn-outline-danger" onclick="window.sendFriendRequest(${partnerId}, this)">
-                            <i class="fas fa-user-plus"></i> Gửi lời mời kết bạn
-                        </button>
-                    </div>
-                `;
-                container.append(strangerBanner);
+            
+            // Nếu trống -> Hiện banner chào
+            if(!msgs || msgs.length === 0) {
+                let bannerText = isCurrentPartnerFriend ? 'Hãy gửi lời chào!' : 'Gửi lời chào để bắt đầu kết nối.';
+                container.html(`<div class="text-center mt-5 text-muted"><small>${bannerText}</small></div>`);
+                return;
             }
-
-            // B. Render tin nhắn
-            if (!messages || messages.length === 0) {
-                if(isFriend) {
-                    container.append(`<div class="text-center mt-5 text-muted"><small>Hãy gửi lời chào tới ${name} 👋</small></div>`);
-                }
-            } else {
-                messages.forEach(msg => appendMessageToUI(msg));
-            }
-
+            msgs.forEach(m => appendMessageToUI(m));
             scrollToBottom();
         });
     }
 
-    // --- 5. RENDER TIN NHẮN (UI RENDERING) ---
-    function appendMessageToUI(msg) {
-        const isMine = (msg.senderId === currentUser.userID);
-        const typeClass = isMine ? 'mine' : 'other';
-        
-        // Avatar người khác
-        const partnerAvatarUrl = $('.msg-right-header .user-info img').attr('src') || '/images/default-avatar.jpg';
-        const avatarHtml = !isMine ? `<img src="${partnerAvatarUrl}" class="msg-avatar">` : '';
-
-        // Xử lý nội dung theo loại tin nhắn
-        let contentHtml = '';
-        
-        if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
-            const imgClass = msg.type === 'STICKER' ? 'sticker-img' : 'chat-image';
-            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}', '_blank')">`;
-        } 
-        else if (msg.type === 'AUDIO' || msg.type === 'VOICE') {
-            contentHtml = `
-                <audio controls controlsList="nodownload" style="height: 30px; max-width: 200px;">
-                    <source src="${msg.content}" type="audio/webm">
-                    Your browser does not support the audio element.
-                </audio>
-            `;
-        } 
-        else {
-            // TEXT mặc định
-            contentHtml = msg.content; // Cần escape HTML nếu muốn bảo mật XSS chặt chẽ
+    // --- 4. RENDER UI (DÙNG CẤU TRÚC FILE CŨ CỦA BẠN) ---
+    function appendMessageToUI(msg, forceMine = false) {
+        // [LOGIC CŨ] Xác định mine/other dựa trên so sánh với partnerId
+        // Nếu người gửi KHÔNG PHẢI partner -> Thì là Mình. (Logic này hoạt động tốt cho chat 1-1)
+        let isMine = forceMine;
+        if (!forceMine) {
+            // So sánh lỏng (==) để tránh lỗi string/int
+            isMine = (msg.senderId != currentPartnerId);
         }
 
-        // HTML tin nhắn hoàn chỉnh
-        const html = `
-            <div class="msg-bubble ${typeClass}">
+        let typeClass = isMine ? 'mine' : 'other';
+        
+        // Xử lý nội dung (Media)
+        let contentHtml = '';
+        if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
+            const imgClass = msg.type === 'STICKER' ? 'sticker-img' : 'msg-image';
+            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
+        } 
+        else if (msg.type === 'AUDIO') {
+            contentHtml = `<audio controls style="height:30px; max-width:220px;"><source src="${msg.content}" type="audio/webm"></audio>`;
+        }
+        else {
+            contentHtml = `<div class="bubble" title="${msg.formattedTime || ''}">${msg.content}</div>`;
+        }
+
+        // Avatar (Chỉ hiện cho 'other')
+        let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
+
+        // [CẤU TRÚC HTML CHUẨN CŨ]
+        let html = `
+            <div class="msg-row ${typeClass}">
                 ${avatarHtml}
-                <div class="msg-text">
-                    ${contentHtml}
-                    <div class="msg-time">${msg.formattedTime || 'Vừa xong'}</div>
-                </div>
+                <div class="msg-content">${contentHtml}</div>
             </div>
         `;
-        
         $('#messagesContainer').append(html);
     }
 
     function scrollToBottom() {
-        const d = $('#messagesContainer');
+        let d = $('#messagesContainer');
         d.scrollTop(d[0].scrollHeight);
     }
 
-    // --- 6. CÁC CHỨC NĂNG GỬI (SEND ACTIONS) ---
-    
-    // 6.1 Gửi Text
-    function sendTextMessage() {
-        const input = $('#msgInput');
-        const content = input.val().trim();
+    // --- 5. ACTIONS ---
+
+    // Gán vào window để HTML gọi được
+    window.sendTextMessage = function() {
+        let content = $('#msgInput').val().trim();
         if (!content || !currentPartnerId) return;
 
-        const payload = {
+        let payload = {
             receiverId: currentPartnerId,
             content: content,
             type: 'TEXT'
         };
-
-        sendApiRequest(payload);
-        input.val('');
-    }
-
-    // 6.2 Gửi Sticker (Global function)
-    window.sendSticker = function(url) {
-        $('#stickerMenu').hide();
-        if (!currentPartnerId) return;
         
-        const payload = {
-            receiverId: currentPartnerId,
-            content: url,
-            type: 'STICKER' // Hoặc IMAGE tùy backend
-        };
+        $('#msgInput').val('');
         sendApiRequest(payload);
     };
 
-    // 6.3 Core Send API
+    window.sendSticker = function(url) {
+        $('#stickerMenu').hide();
+        if(!currentPartnerId) return;
+        
+        // Gửi type STICKER (nếu backend đã update) hoặc IMAGE
+        let payload = { receiverId: currentPartnerId, content: url, type: 'STICKER' };
+        sendApiRequest(payload);
+    };
+
     function sendApiRequest(payload) {
         $.ajax({
             url: '/api/v1/messenger/send',
@@ -321,103 +271,71 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(msg) {
-                // UI được cập nhật qua Socket, nhưng để mượt thì append luôn (nếu socket chậm)
-                // appendMessageToUI(msg); // Tùy chọn: Bật lên nếu muốn instant feedback
+                appendMessageToUI(msg, true); // Force mine = true
                 scrollToBottom();
             },
-            error: function(e) {
-                console.error("Send Failed", e);
-                alert("Không thể gửi tin nhắn. Vui lòng kiểm tra kết nối.");
-            }
+            error: function(e) { console.error("Send Error", e); }
         });
     }
 
-    // --- 7. UPLOAD FILE & GHI ÂM (FILE HANDLING) ---
-
-    // 7.1 Upload File (Ảnh/Audio)
+    // Upload (Fix URL)
     function uploadFile(file, type) {
-        if (!currentPartnerId) return alert("Vui lòng chọn cuộc trò chuyện trước.");
+        if (!currentPartnerId) return alert("Chọn đoạn chat trước.");
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("receiverId", currentPartnerId);
-        formData.append("type", type); // 'IMAGE' hoặc 'AUDIO'
 
-        // UI Loading
-        const loadingId = 'loading-' + Date.now();
-        $('#messagesContainer').append(`<div id="${loadingId}" class="text-center text-muted small mt-2">Đang gửi file...</div>`);
+        $('#messagesContainer').append(`<div id="uploading" class="text-center small text-muted">Đang gửi...</div>`);
         scrollToBottom();
 
         $.ajax({
-            url: '/api/v1/messenger/upload', // Endpoint backend xử lý upload
+            url: '/api/upload/image', // [FIX] URL đúng
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
-            success: function(response) {
-                $(`#${loadingId}`).remove();
-                // Response trả về đối tượng Message -> Append hoặc đợi Socket
+            success: function(res) {
+                $('#uploading').remove();
+                if(res.url) {
+                    sendApiRequest({
+                        receiverId: currentPartnerId,
+                        content: res.url,
+                        type: type // AUDIO hoặc IMAGE
+                    });
+                }
             },
-            error: function() {
-                $(`#${loadingId}`).html('<span class="text-danger">Lỗi gửi file!</span>');
-            }
+            error: function() { $('#uploading').html('Lỗi upload'); }
         });
     }
 
-    // 7.2 Logic Ghi âm (Record Audio)
-    function toggleRecording() {
+    // Recording (Gán vào window)
+    window.toggleRecording = function() {
         const btn = $('#recordBtn');
-        
         if (!isRecording) {
-            // BẮT ĐẦU GHI
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert("Trình duyệt của bạn không hỗ trợ ghi âm.");
-                return;
-            }
-
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    isRecording = true;
-                    audioChunks = [];
-
-                    // UI Effect
-                    btn.removeClass('fa-microphone').addClass('fa-stop-circle text-danger').addClass('fa-beat');
-                    $('#msgInput').attr('placeholder', 'Đang ghi âm...').prop('disabled', true);
-
-                    mediaRecorder.ondataavailable = event => {
-                        audioChunks.push(event.data);
-                    };
-
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        // Gửi file ngay khi dừng
-                        uploadFile(audioBlob, 'AUDIO');
-                    };
-                })
-                .catch(err => {
-                    console.error("Mic Access Error:", err);
-                    alert("Không thể truy cập Microphone.");
-                });
-
+            if (!navigator.mediaDevices) return alert("Trình duyệt không hỗ trợ");
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                isRecording = true;
+                audioChunks = [];
+                btn.addClass('fa-beat text-danger');
+                $('#msgInput').attr('placeholder', 'Đang ghi âm...').prop('disabled', true);
+                
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    uploadFile(blob, 'AUDIO');
+                };
+            }).catch(() => alert("Cần quyền Mic"));
         } else {
-            // DỪNG GHI
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-            }
+            if (mediaRecorder) mediaRecorder.stop();
             isRecording = false;
-            
-            // Reset UI
-            btn.removeClass('fa-stop-circle text-danger fa-beat').addClass('fa-microphone');
+            btn.removeClass('fa-beat text-danger');
             $('#msgInput').attr('placeholder', 'Nhập tin nhắn...').prop('disabled', false).focus();
         }
-    }
-
-    // --- 8. HELPER FUNCTIONS ---
-    window.toggleStickers = function() {
-        $('#stickerMenu').toggle();
     };
+
+    window.toggleStickers = function() { $('#stickerMenu').toggle(); };
 
     function renderStickerMenu() {
         let html = '';
@@ -426,89 +344,25 @@
         });
         $('#stickerMenu').html(html);
     }
-
-
-    // ============================================================
-    // [MỚI] CÁC HÀM HỖ TRỢ CHAT NGƯỜI LẠ (STRANGER CHAT)
-    // ============================================================
-
-    /**
-     * Kiểm tra URL param ?uid=... và mở chat nếu cần
-     */
+    
+    // --- 6. URL CHECK (NGƯỜI LẠ) ---
     function checkUrlAndOpenChat(existingConversations) {
         const urlParams = new URLSearchParams(window.location.search);
-        const targetUid = urlParams.get('uid');
-
-        if (!targetUid) return; // Không có yêu cầu chat
-
-        const targetIdInt = parseInt(targetUid);
+        const uid = urlParams.get('uid');
+        if(!uid) return;
         
-        // Trường hợp 1: Người này ĐÃ CÓ trong danh sách chat cũ
-        // existingConversations là mảng data trả về từ API /conversations
-        if (existingConversations && existingConversations.length > 0) {
-            const existing = existingConversations.find(c => c.partnerId === targetIdInt);
-            if (existing) {
-                console.log("Đã có hội thoại, mở ngay:", existing);
-                // Giả lập click vào item đó để mở chat
-                // Lưu ý: Đảm bảo ID trong HTML render ở loadConversations là #conv-{id}
-                const item = document.getElementById(`conv-${targetIdInt}`);
-                if(item) item.click();
-                return;
-            }
-        }
+        const targetId = parseInt(uid);
+        const existing = existingConversations.find(c => c.partnerId === targetId);
 
-        // Trường hợp 2: Người lạ (Chưa có trong list) -> Gọi API lấy thông tin để tạo box tạm
-        console.log("Người lạ, đang lấy thông tin...");
-        $.get(`/api/users/${targetIdInt}`)
-            .done(function(userDto) {
-                // Tạo data giả lập cho item sidebar
-                const tempItem = {
-                    partnerId: userDto.userId,
-                    partnerName: userDto.userName,
-                    partnerAvatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userDto.userName)}&background=random`,
-                    lastMessage: "Bắt đầu cuộc trò chuyện mới",
-                    friend: false // Đánh dấu là chưa kết bạn
-                };
-                
-                // Render item này lên đầu sidebar
-                prependSidebarItem(tempItem);
-                
-                // Tự động mở chat với người này (false = chưa là bạn)
-                window.selectConversation(tempItem.partnerId, tempItem.partnerName, tempItem.partnerAvatar, false);
-            })
-            .fail(function() {
-                console.error("Không tìm thấy user ID:", targetIdInt);
+        if(existing) {
+            $(`#conv-${targetId}`).click();
+        } else {
+            // Fetch info & Open Temp Chat
+            $.get(`/api/users/${targetId}`).done(function(u) {
+                const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}&background=random&color=fff`;
+                window.selectConversation(u.userId, u.userName, avatar, 'false');
             });
+        }
     }
 
-    /**
-     * Chèn item tạm thời vào đầu danh sách chat
-     */
-    function prependSidebarItem(c) {
-        const list = $('#conversationList');
-        // Xóa thông báo "Chưa có tin nhắn" nếu có
-        if (list.find('.text-muted').length > 0) list.empty();
-
-        const html = `
-            <div class="conv-item active" id="conv-${c.partnerId}" 
-                 onclick="window.selectConversation(${c.partnerId}, '${c.partnerName}', '${c.partnerAvatar}', ${c.friend})">
-                
-                <div class="avatar-wrapper">
-                    <img src="${c.partnerAvatar}" class="avatar-img">
-                </div>
-
-                <div class="conv-info">
-                    <div class="conv-top-row">
-                        <div class="conv-name">${c.partnerName}</div>
-                        <span class="conv-time">Mới</span>
-                    </div>
-                    <div class="conv-preview">
-                        <span class="text-primary">Bắt đầu trò chuyện ngay</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        list.prepend(html);
-    }
-
-})(); // END IIFE
+})();

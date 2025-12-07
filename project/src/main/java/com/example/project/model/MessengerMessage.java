@@ -50,7 +50,13 @@ public class MessengerMessage {
     }
 
     public enum MessageType {
-        TEXT, IMAGE, FILE, SYSTEM
+        TEXT, 
+        IMAGE, 
+        FILE, 
+        SYSTEM,
+        STICKER, // [MỚI] Hỗ trợ Sticker
+        AUDIO,   // [MỚI] Hỗ trợ Ghi âm
+        VIDEO    // [MỚI] Hỗ trợ Video call
     }
 
     public enum MessageStatus {

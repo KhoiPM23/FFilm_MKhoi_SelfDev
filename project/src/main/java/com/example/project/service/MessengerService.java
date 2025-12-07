@@ -145,6 +145,9 @@ public class MessengerService {
 
     // Helper: Convert Entity -> DTO
     private MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
+        // Tạo avatar
+        String avatar = generateAvatar(m.getSender().getUserName());
+        
         return MessengerDto.MessageDto.builder()
                 .id(m.getId())
                 .senderId(m.getSender().getUserID())
@@ -154,6 +157,7 @@ public class MessengerService {
                 .status(m.getStatus())
                 .timestamp(m.getTimestamp())
                 .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
+                .senderAvatar(avatar) // [MỚI] Set Avatar vào đây
                 .build();
     }
 

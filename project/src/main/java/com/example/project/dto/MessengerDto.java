@@ -50,6 +50,7 @@ public class MessengerDto {
         private MessageStatus status;
         private LocalDateTime timestamp;
         private String formattedTime;
+        private String senderAvatar;
     }
     
     @Data
