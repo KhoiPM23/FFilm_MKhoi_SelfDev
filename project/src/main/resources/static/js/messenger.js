@@ -16,6 +16,8 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
+    let recordTimerInterval = null;
+    let recordStartTime = 0;
 
     // Config Sticker
     const STICKERS = [
@@ -68,9 +70,13 @@
 
         stompClient.connect({}, function (frame) {
             console.log('✅ WS Connected');
-            stompClient.subscribe('/user/queue/private', function (payload) {
-                var message = JSON.parse(payload.body);
-                handleIncomingMessage(message);
+            stompClient.subscribe('/user/queue/private', function(payload) {
+                const msg = JSON.parse(payload.body);
+                // Nếu tin nhắn thuộc cuộc trò chuyện hiện tại -> Hiện ngay
+                if(currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
+                    appendMessageToUI(msg);
+                }
+                loadConversations();
             });
         }, function(error) {
             console.log('WS Error, reconnecting...', error);
@@ -280,70 +286,202 @@
 
     // Upload (Fix URL)
     function uploadFile(file, type) {
-        if (!currentPartnerId) return alert("Chọn đoạn chat trước.");
+        if (!currentPartnerId) return alert("Chọn cuộc trò chuyện trước.");
 
         const formData = new FormData();
         formData.append("file", file);
 
-        $('#messagesContainer').append(`<div id="uploading" class="text-center small text-muted">Đang gửi...</div>`);
+        // UI Loading giả
+        const tempId = Date.now();
+        $('#messagesContainer').append(`<div id="temp-${tempId}" class="text-center small text-muted">Đang gửi...</div>`);
         scrollToBottom();
 
         $.ajax({
-            url: '/api/upload/image', // [FIX] URL đúng
+            url: '/api/upload/image', // [FIX] URL chuẩn theo Controller
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(res) {
-                $('#uploading').remove();
+                $(`#temp-${tempId}`).remove();
                 if(res.url) {
-                    sendApiRequest({
-                        receiverId: currentPartnerId,
-                        content: res.url,
-                        type: type // AUDIO hoặc IMAGE
+                    // Gửi tin nhắn chứa URL ảnh
+                    sendApiRequest({ 
+                        receiverId: currentPartnerId, 
+                        content: res.url, 
+                        type: type // 'IMAGE' hoặc 'AUDIO'
                     });
                 }
             },
-            error: function() { $('#uploading').html('Lỗi upload'); }
+            error: function(err) {
+                console.error("Upload Error:", err);
+                $(`#temp-${tempId}`).html('<span class="text-danger">Lỗi upload</span>');
+            }
         });
     }
+
+    // Timer Helper
+    let timerInterval;
+    function startTimer() {
+        let sec = 0;
+        $('#recordTimer').text("00:00");
+        timerInterval = setInterval(() => {
+            sec++;
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            $('#recordTimer').text(`${m}:${s}`);
+        }, 1000);
+    }
+    function stopTimer() { clearInterval(timerInterval); }
 
     // Recording (Gán vào window)
     window.toggleRecording = function() {
-        const btn = $('#recordBtn');
         if (!isRecording) {
-            if (!navigator.mediaDevices) return alert("Trình duyệt không hỗ trợ");
+            // BẮT ĐẦU
+            if (!navigator.mediaDevices) return alert("Lỗi Mic");
+            
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                
                 mediaRecorder.start();
                 isRecording = true;
-                audioChunks = [];
-                btn.addClass('fa-beat text-danger');
-                $('#msgInput').attr('placeholder', 'Đang ghi âm...').prop('disabled', true);
                 
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                // UI: Ẩn input, Hiện recording (Dùng class .show của CSS mới)
+                $('.input-actions').hide();
+                $('.recording-ui').addClass('show').css('display', 'flex'); // Force flex
+                
+                // Timer
+                let sec = 0;
+                $('#recordTimer').text("00:00");
+                timerInterval = setInterval(() => {
+                    sec++;
+                    const m = Math.floor(sec/60).toString().padStart(2,'0');
+                    const s = (sec%60).toString().padStart(2,'0');
+                    $('#recordTimer').text(`${m}:${s}`);
+                }, 1000);
+
                 mediaRecorder.onstop = () => {
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadFile(blob, 'AUDIO');
+                    uploadFile(blob, 'AUDIO'); // Gọi hàm upload đã fix
+                    closeRecordingUI();
                 };
-            }).catch(() => alert("Cần quyền Mic"));
-        } else {
-            if (mediaRecorder) mediaRecorder.stop();
-            isRecording = false;
-            btn.removeClass('fa-beat text-danger');
-            $('#msgInput').attr('placeholder', 'Nhập tin nhắn...').prop('disabled', false).focus();
+
+            }).catch(err => alert("Cần quyền Mic"));
         }
     };
 
-    window.toggleStickers = function() { $('#stickerMenu').toggle(); };
+    // --- 1. LOGIC GHI ÂM (RECORDING) ---
+
+    // Bắt đầu ghi âm: Chuyển UI, Start MediaRecorder
+    window.startRecording = function() {
+        if (!navigator.mediaDevices) return alert("Trình duyệt không hỗ trợ ghi âm");
+        
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            // 1. Setup Recorder
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.start();
+            isRecording = true;
+
+            // 2. Chuyển đổi UI
+            $('#normalInputState').hide();
+            $('#recordingState').css('display', 'flex'); // Hiện thanh ghi âm
+            
+            // 3. Chạy đồng hồ đếm giờ
+            recordStartTime = Date.now();
+            $('#recordTimer').text("00:00");
+            recordTimerInterval = setInterval(() => {
+                const diff = Math.floor((Date.now() - recordStartTime) / 1000);
+                const mm = Math.floor(diff / 60).toString().padStart(2, '0');
+                const ss = (diff % 60).toString().padStart(2, '0');
+                $('#recordTimer').text(`${mm}:${ss}`);
+            }, 1000);
+
+        }).catch(err => {
+            console.error(err);
+            alert("Không thể truy cập Microphone. Vui lòng kiểm tra quyền.");
+        });
+    };
+
+    // Hủy ghi âm: Dừng Recorder (không lưu), Reset UI
+    window.cancelRecording = function() {
+        if(mediaRecorder) {
+            mediaRecorder.onstop = null; // Hủy sự kiện gửi
+            mediaRecorder.stop();
+        }
+        closeRecordingUI();
+    };
+
+    // Hoàn tất & Gửi: Dừng Recorder -> Trigger onstop -> Upload
+    window.finishRecording = function() {
+        if(mediaRecorder) mediaRecorder.stop(); // Trigger onstop -> Gửi
+    };
+
+    function closeRecordingUI() {
+        isRecording = false;
+        clearInterval(timerInterval);
+        $('.recording-ui').removeClass('show').hide();
+        $('.input-actions').show();
+    }
+
+    function resetRecordingUI() {
+        isRecording = false;
+        clearInterval(recordTimerInterval);
+        
+        // Chuyển lại UI thường
+        $('#recordingState').hide();
+        $('#normalInputState').show();
+        $('#msgInput').focus();
+        
+        // Tắt stream mic (để tắt đèn đỏ trên tab trình duyệt)
+        if(mediaRecorder && mediaRecorder.stream) {
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    // --- 2. CÁC HÀM KHÁC (Giữ nguyên hoặc cập nhật sự kiện input) ---
+    
+    // Khi gõ text -> Có thể ẩn nút Mic hiện nút Gửi (Logic Messenger)
+    // Tạm thời ta để cả 2 nút như thiết kế HTML mới.
+    
+    // --- 1. STICKER TOGGLE (Fix tự bung) ---
+    window.toggleStickers = function() {
+        const menu = $('#stickerMenu');
+        if(menu.is(':visible')) menu.hide(); else menu.show();
+    };
+
+    window.sendSticker = function(url) {
+        $('#stickerMenu').hide();
+        if(!currentPartnerId) return;
+        sendApiRequest({ receiverId: currentPartnerId, content: url, type: 'IMAGE' }); // Dùng IMAGE tạm
+    };
 
     function renderStickerMenu() {
         let html = '';
-        STICKERS.forEach(url => {
-            html += `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`;
-        });
+        STICKERS.forEach(url => html += `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`);
         $('#stickerMenu').html(html);
     }
+
+    // Hàm chọn Emoji (Placeholder - Phase sau sẽ tích hợp thư viện)
+    // window.toggleEmojiPicker = function() {
+    //     // Tạm thời insert emoji mẫu
+    //     const input = $('#msgInput');
+    //     input.val(input.val() + "😊");
+    //     input.focus();
+    // };
+
+    // window.toggleStickers = function() { $('#stickerMenu').toggle(); };
+
+    // function renderStickerMenu() {
+    //     let html = '';
+    //     STICKERS.forEach(url => {
+    //         html += `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`;
+    //     });
+    //     $('#stickerMenu').html(html);
+    // }
     
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
     function checkUrlAndOpenChat(existingConversations) {
@@ -364,5 +502,12 @@
             });
         }
     }
+
+    // Events Listener
+    $(document).on('click', '.emoji-btn', function() {
+        const input = $('#msgInput');
+        input.val(input.val() + "😊");
+        input.focus();
+    });
 
 })();

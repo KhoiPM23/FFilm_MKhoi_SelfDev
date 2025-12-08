@@ -66,28 +66,57 @@
                 <div id="stickerMenu" class="sticker-menu"></div>
 
                 <div class="chat-footer">
-                    <label class="footer-btn" title="Gửi ảnh">
-                        <i class="fas fa-image"></i>
-                        <input type="file" id="imageInput" hidden accept="image/*">
-                    </label>
-                    
-                    <div class="footer-btn" onclick="toggleStickers()" title="Sticker">
-                        <i class="fas fa-sticky-note"></i>
-                    </div>
-                    
-                    <div class="footer-btn" onclick="toggleRecording()" title="Ghi âm">
-                        <i class="fas fa-microphone" id="recordBtn"></i>
+    
+                    <div class="input-actions" id="normalInputState">
+                        <label class="footer-btn" title="Gửi ảnh/video">
+                            <i class="fas fa-image"></i>
+                            <input type="file" id="imageInput" hidden accept="image/*,video/*">
+                        </label>
+                        
+                        <div class="footer-btn" onclick="window.toggleStickers()" title="Nhãn dán">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+
+                        <label class="footer-btn" title="Đính kèm file">
+                            <i class="fas fa-paperclip"></i>
+                            <input type="file" id="fileInput" hidden>
+                        </label>
+
+                        <div class="input-group">
+                            <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+                            <i class="fas fa-smile emoji-btn" onclick="toggleEmojiPicker()"></i> 
+                        </div>
+
+                        <div class="footer-btn send-btn" onclick="window.sendTextMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </div>
+                        
+                        <div class="footer-btn mic-btn" onclick="window.startRecording()" title="Ghi âm">
+                            <i class="fas fa-microphone"></i>
+                        </div>
                     </div>
 
-                    <div class="input-group">
-                        <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off">
-                        <i class="fas fa-smile text-muted" style="cursor: pointer;"></i>
+                    <div class="recording-ui" id="recordingState" style="display: none;">
+                        <div class="footer-btn cancel-record" onclick="window.cancelRecording()" title="Hủy">
+                            <i class="fas fa-times"></i>
+                        </div>
+
+                        <div class="record-display">
+                            <div class="record-dot"></div> <span id="recordTimer">00:00</span>
+                            <div class="fake-wave">
+                                <span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                            <span class="record-hint">Đang ghi âm...</span>
+                        </div>
+
+                        <div class="footer-btn send-record-btn" onclick="window.finishRecording()" title="Gửi ghi âm">
+                            <i class="fas fa-paper-plane"></i>
+                        </div>
                     </div>
 
-                    <div class="footer-btn" onclick="sendTextMessage()">
-                        <i class="fas fa-paper-plane text-primary"></i>
-                    </div>
                 </div>
+
+                <div id="stickerMenu" class="sticker-menu" style="display: none;"></div>
             </div>
         </div>
     </div>

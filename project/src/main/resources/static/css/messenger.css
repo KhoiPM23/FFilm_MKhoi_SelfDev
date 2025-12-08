@@ -165,9 +165,14 @@ body.messenger-body {
 
 /* Footer Input */
 .chat-footer {
-    padding: 15px; border-top: 1px solid var(--msg-border);
-    display: flex; align-items: center; gap: 10px;
-    background: var(--msg-sidebar);
+    position: relative !important; /* Để con absolute bám vào */
+    padding: 10px 15px;
+    background-color: var(--msg-sidebar);
+    border-top: 1px solid var(--msg-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 70px; /* Cố định chiều cao */
 }
 .footer-btn {
     font-size: 20px; color: var(--msg-blue); cursor: pointer;
@@ -198,13 +203,7 @@ body.messenger-body {
 .sticker-item:hover { transform: scale(1.1); }
 
 /* --- RECORDING UI --- */
-.recording-ui {
-    position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
-    background: #ff3b30; color: #fff;
-    padding: 8px 15px; border-radius: 20px;
-    display: none; align-items: center; gap: 10px;
-    animation: pulse 1s infinite;
-}
+
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
 /* Empty State */
@@ -262,3 +261,185 @@ body.messenger-body {
 }
 /* Tin nhắn của mình: thêm prefix 'Bạn:' màu nhạt */
 .conv-preview .prefix { color: #b0b3b8; font-weight: 400; }
+
+
+
+
+
+
+
+
+
+
+/* --- CHAT FOOTER & INPUT --- */
+.input-actions, .recording-ui {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Nút bấm chung */
+.footer-btn {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    color: var(--msg-blue);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 1.2rem;
+}
+.footer-btn:hover { background-color: rgba(255,255,255,0.1); }
+
+/* Ô Input Group */
+.input-group {
+    flex: 1;
+    position: relative;
+    display: flex; align-items: center;
+    background-color: #3a3b3c;
+    border-radius: 20px;
+    padding: 0 12px;
+}
+
+.input-group input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    padding: 10px 5px;
+    outline: none;
+}
+
+.emoji-btn {
+    color: #e50914; /* Màu vàng cam hoặc đỏ */
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+/* --- GIAO DIỆN GHI ÂM (RECORDING UI) --- */
+.recording-ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--msg-sidebar);
+    z-index: 50;
+    display: none; /* Mặc định ẩn */
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+/* Class kích hoạt hiển thị */
+.recording-ui.show {
+    display: flex !important;
+    animation: slideUp 0.2s ease-out;
+}
+/* Animation sóng âm */
+.record-display {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: #e50914;
+    font-weight: bold;
+}
+.fake-wave span {
+    display: inline-block;
+    width: 4px; height: 15px;
+    background: #e50914;
+    margin: 0 2px;
+    animation: wave 1s infinite;
+}
+@keyframes wave { 0%, 100% { height: 10px; } 50% { height: 25px; } }
+/* 3. Emoji Picker (Tạm thời) */
+.emoji-picker-container {
+    position: absolute; bottom: 60px; right: 20px; z-index: 100;
+}
+
+/* Nút hủy */
+.cancel-record { color: #888; }
+.cancel-record:hover { color: #fff; background: #333; }
+
+/* Khu vực hiển thị giờ & sóng */
+.record-display {
+    flex: 1;
+    display: flex; align-items: center; gap: 10px;
+    background: #2a2b2c;
+    padding: 8px 15px;
+    border-radius: 20px;
+    margin: 0 10px;
+}
+
+.record-dot {
+    width: 10px; height: 10px;
+    background-color: #e50914;
+    border-radius: 50%;
+    animation: blink 1s infinite;
+}
+
+#recordTimer {
+    font-family: monospace;
+    font-size: 1rem;
+    color: #fff;
+    min-width: 50px;
+}
+
+/* Sóng âm giả (CSS Animation) */
+.fake-wave {
+    display: flex; align-items: center; gap: 3px;
+    height: 20px;
+}
+.fake-wave span {
+    width: 3px;
+    background-color: #e50914;
+    border-radius: 2px;
+    animation: wave 1s infinite ease-in-out;
+}
+.fake-wave span:nth-child(1) { height: 10px; animation-delay: 0s; }
+.fake-wave span:nth-child(2) { height: 15px; animation-delay: 0.1s; }
+.fake-wave span:nth-child(3) { height: 20px; animation-delay: 0.2s; }
+.fake-wave span:nth-child(4) { height: 15px; animation-delay: 0.3s; }
+.fake-wave span:nth-child(5) { height: 10px; animation-delay: 0.4s; }
+
+/* Nút gửi ghi âm (Thoi thóp) */
+.send-record-btn {
+    background-color: #e50914;
+    color: white;
+    box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7);
+    animation: pulse-red 1.5s infinite;
+}
+.send-record-btn:hover { background-color: #b20710; }
+
+/* --- KEYFRAMES --- */
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+@keyframes wave { 0%, 100% { height: 10px; } 50% { height: 20px; } }
+@keyframes pulse-red {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(229, 9, 20, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0); }
+}
+
+/* STICKER MENU (Chỉnh lại vị trí cho đẹp) */
+.sticker-menu {
+    position: absolute;
+    bottom: 70px; /* Cách đáy 1 đoạn để không che input */
+    left: 20px;
+    background: #242526;
+    border: 1px solid #333;
+    padding: 10px;
+    border-radius: 12px;
+    display: none; /* [QUAN TRỌNG] Mặc định ẩn */
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 300px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    z-index: 100;
+}
+
+/* Class active để hiện sticker */
+.sticker-menu.show { display: flex; }
+.sticker-item { width: 60px; height: 60px; cursor: pointer; transition: transform 0.2s; }
+.sticker-item:hover { transform: scale(1.1); }
