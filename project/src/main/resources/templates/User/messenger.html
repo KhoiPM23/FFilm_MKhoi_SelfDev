@@ -50,8 +50,8 @@
                     </div>
                     <div class="chat-status-bar" id="chatHeaderStatus" style="margin-left: 15px; display: flex; align-items: center;"></div>
                     <div class="chat-actions">
-                        <i class="fas fa-phone-alt" title="Gọi thoại"></i>
-                        <i class="fas fa-video" title="Video Call"></i>
+                        <i class="fas fa-phone-alt" title="Gọi thoại" onclick="window.startVoiceCall()"></i>
+                        <i class="fas fa-video" title="Video Call" onclick="window.startVideoCall()"></i>
                         <i class="fas fa-info-circle" title="Thông tin"></i>
                     </div>
                 </div>
@@ -133,6 +133,7 @@
         const currentUser = /*[[${userJson}]]*/ {};
     </script>
     <script src="/js/script.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="/js/messenger.js"></script>
     <script>
         $(document).ready(function() {
@@ -142,5 +143,53 @@
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
+
+    <div id="videoCallModal" class="call-modal" style="display: none;">
+        <div class="call-content">
+            <div class="call-header">
+                <h3 id="callStatusText">Đang gọi...</h3>
+                <span id="callDuration">00:00</span>
+            </div>
+
+            <div class="video-grid">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <video id="localVideo" autoplay playsinline muted></video>
+                
+                <div class="call-avatar-container">
+                    <img id="callPartnerAvatar" src="" class="call-avatar">
+                </div>
+            </div>
+
+            <div class="call-controls">
+                <button class="call-btn" id="btnToggleMic" onclick="window.toggleCallMic()" title="Tắt/Mở Mic">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="call-btn" id="btnToggleCam" onclick="window.toggleCallCam()" title="Tắt/Mở Cam">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button class="call-btn btn-hangup" onclick="window.endCall()" title="Kết thúc">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="incomingCallModal" class="incoming-call-modal" style="display: none;">
+        <div class="incoming-content">
+            <img id="incomingAvatar" src="" class="incoming-avatar">
+            <div class="incoming-info">
+                <h4 id="incomingName">User Name</h4>
+                <p>Đang gọi cho bạn...</p>
+            </div>
+            <div class="incoming-actions">
+                <button class="btn-decline" onclick="window.rejectCall()">
+                    <i class="fas fa-phone-slash"></i> Từ chối
+                </button>
+                <button class="btn-accept" onclick="window.acceptCall()">
+                    <i class="fas fa-phone"></i> Trả lời
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

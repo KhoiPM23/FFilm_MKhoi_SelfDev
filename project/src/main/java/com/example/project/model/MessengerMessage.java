@@ -54,9 +54,14 @@ public class MessengerMessage {
         IMAGE, 
         FILE, 
         SYSTEM,
-        STICKER, // [MỚI] Hỗ trợ Sticker
-        AUDIO,   // [MỚI] Hỗ trợ Ghi âm
-        VIDEO    // [MỚI] Hỗ trợ Video call
+        STICKER, 
+        AUDIO,
+        VIDEO, // Dành cho file video
+        // [MỚI] Tín hiệu cuộc gọi
+        CALL_REQ,    // Yêu cầu gọi (kèm PeerID người gọi)
+        CALL_ACCEPT, // Chấp nhận (kèm PeerID người nghe)
+        CALL_DENY,   // Từ chối
+        CALL_END     // Kết thúc
     }
 
     public enum MessageStatus {

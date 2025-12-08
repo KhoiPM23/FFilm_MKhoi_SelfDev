@@ -21,6 +21,17 @@
     let pendingFile = null; // Lưu file đang chọn để preview
     let emojiPicker = null; // Instance của Emoji Button
 
+    // Call State (PeerJS)
+    let myPeer = null;
+    let myPeerId = null;
+    let currentCall = null;
+    let localStream = null;
+    let remoteStream = null;
+    let callTimerInterval = null;
+    let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar }
+
+    const currentUser = window.currentUser || { userID: 0, name: 'Me' };
+
     // Config Sticker
     const STICKERS = [
         "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
@@ -36,6 +47,7 @@
         loadConversations();
         renderStickerMenu();
         bindEvents();
+        initPeerJS();
         initEmojiPicker();
     });
 
@@ -63,38 +75,283 @@
         $('.fa-paper-plane').parent().off('click').on('click', window.sendTextMessage);
     }
 
+    // --- 1. PEERJS SETUP (WEB RTC) ---
+    function initPeerJS() {
+        // Tạo PeerID ngẫu nhiên hoặc dựa trên UserID (nhưng PeerJS yêu cầu unique string)
+        // Ta dùng UserID + timestamp để đảm bảo unique mỗi lần F5
+        myPeerId = `user_${currentUser.userID}_${Date.now()}`;
+        
+        myPeer = new Peer(myPeerId, {
+            // debug: 3, // Bật nếu cần debug
+        });
+
+        myPeer.on('open', (id) => {
+            console.log('✅ PeerJS Connected. My ID:', id);
+        });
+
+        // Xử lý khi có người gọi đến (PeerJS signal)
+        myPeer.on('call', (call) => {
+            // Đây là bước 2 của luồng nhận cuộc gọi. 
+            // Bước 1 là nhận Socket Message CALL_REQ để hiện popup.
+            // Khi người dùng bấm "Trả lời", ta sẽ answer call này.
+            
+            // Lưu tạm call instance để xử lý sau khi user bấm Accept
+            // Tuy nhiên, logic chuẩn: A gọi B -> B nhận Socket -> B Accept -> B gửi Socket Accept -> A gọi Peer -> B nhận Peer Call -> B answer.
+            // Nên ở đây ta cứ answer nếu đã có trạng thái "Accepting".
+            
+            // Cách đơn giản nhất cho người dùng: 
+            // A gửi Socket "Tao gọi mày nè, PeerID tao là X" -> B hiện Popup.
+            // B bấm Nghe -> B gọi lại A (hoặc B chờ A gọi?).
+            
+            // CHUẨN:
+            // 1. A gửi Socket CALL_REQ kèm A_PeerID.
+            // 2. B nhận. Bấm Nghe.
+            // 3. B lấy A_PeerID gọi A.
+            
+            // Hoặc:
+            // 1. A gửi Socket.
+            // 2. B nhận. Bấm Nghe.
+            // 3. B gửi Socket CALL_ACCEPT kèm B_PeerID.
+            // 4. A nhận. A gọi B.
+            
+            // Ta dùng cách: A gọi B (Peer) ngay lập tức? Không, phải chờ B online.
+            // Chọn cách: A gửi Socket CALL_REQ (kèm PeerID).
+            // B nhận -> Popup -> Bấm Nghe -> B gọi lại cho A qua PeerJS.
+        });
+        
+        // Handle call error
+        myPeer.on('error', (err) => console.error('Peer Error:', err));
+    }
+
+    // --- 2. LOGIC GỌI ĐIỆN (CALL LOGIC) ---
+
+    // A. Người gọi (Caller)
+    window.startVideoCall = function() {
+        startCall('VIDEO');
+    };
+
+    window.startVoiceCall = function() {
+        startCall('AUDIO');
+    };
+
+    function startCall(type) {
+        if (!currentPartnerId || !myPeerId) return alert("Chưa kết nối máy chủ gọi.");
+        
+        // 1. Gửi tín hiệu yêu cầu gọi qua Socket
+        // type: CALL_REQ, content: myPeerId
+        const payload = {
+            receiverId: currentPartnerId,
+            content: myPeerId, // Gửi PeerID của mình qua
+            type: 'CALL_REQ'
+        };
+        sendApiRequest(payload);
+        
+        // 2. Hiện UI đang gọi
+        showCallModal(true, "Đang gọi...", null); // Local stream chưa có, sẽ bật sau khi bên kia bắt máy hoặc bật ngay tùy UX
+        
+        // UX: Bật camera mình trước để soi gương
+        navigator.mediaDevices.getUserMedia({ video: type === 'VIDEO', audio: true })
+            .then(stream => {
+                localStream = stream;
+                document.getElementById('localVideo').srcObject = stream;
+            })
+            .catch(err => console.error("Lỗi cam:", err));
+    }
+
+    // B. Người nhận (Callee) - Xử lý trong handleIncomingMessage
+    
+    // C. Xử lý chấp nhận/từ chối
+    window.acceptCall = function() {
+        $('#incomingCallModal').hide();
+        document.getElementById("incomingCallRingtone")?.pause(); // Tắt nhạc chuông nếu có
+
+        if (!incomingCallData) return;
+
+        // 1. Bật Camera/Mic của mình
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                localStream = stream;
+                // Hiện UI Gọi
+                showCallModal(true, "Đang kết nối...", stream);
+
+                // 2. Gọi lại cho người kia bằng PeerID của họ (đã nhận từ Socket)
+                const call = myPeer.call(incomingCallData.peerId, stream);
+                handleCallStream(call);
+            })
+            .catch(err => {
+                alert("Không thể truy cập Camera/Mic: " + err.message);
+                rejectCall();
+            });
+    };
+
+    window.rejectCall = function() {
+        $('#incomingCallModal').hide();
+        // Gửi tín hiệu từ chối
+        if (incomingCallData) {
+            sendApiRequest({
+                receiverId: incomingCallData.senderId,
+                content: "BUSY",
+                type: 'CALL_DENY'
+            });
+        }
+        incomingCallData = null;
+    };
+
+    window.endCall = function() {
+        // Tắt stream
+        if (localStream) localStream.getTracks().forEach(track => track.stop());
+        if (currentCall) currentCall.close();
+        
+        // Gửi tín hiệu kết thúc
+        if (currentPartnerId) {
+            sendApiRequest({ receiverId: currentPartnerId, content: "END", type: 'CALL_END' });
+        }
+        
+        closeCallModal();
+    };
+
+    // D. Helper xử lý Stream PeerJS
+    function handleCallStream(call) {
+        currentCall = call;
+        
+        // Khi nhận stream từ đối phương
+        call.on('stream', (userVideoStream) => {
+            remoteStream = userVideoStream;
+            document.getElementById('remoteVideo').srcObject = userVideoStream;
+            $('#callStatusText').text("Đang trong cuộc gọi");
+            startCallTimer();
+            $('.call-avatar-container').hide();
+        });
+
+        call.on('close', () => {
+            endCall(); // Đóng UI khi kết thúc
+        });
+        
+        call.on('error', (e) => {
+            console.error(e);
+            alert("Lỗi kết nối cuộc gọi");
+            endCall();
+        });
+    }
+
     // --- 1. WEBSOCKET ---
+    // --- 3. SOCKET HANDLER (UPDATED) ---
     function connectWebSocket() {
-        if(stompClient && stompClient.connected) return;
-
-        var socket = new SockJS('/ws');
+        const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
-        stompClient.debug = null; 
+        stompClient.debug = null;
+        stompClient.connect({}, function() {
+            // Lắng nghe cuộc gọi (PeerJS cũng cần socket để signaling ban đầu)
+            myPeer.on('call', (call) => {
+                // Trường hợp A gọi B -> B Accept -> B gọi A.
+                // Lúc này A nhận được cuộc gọi từ B. A phải trả lời (answer)
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(stream => {
+                        localStream = stream;
+                        document.getElementById('localVideo').srcObject = stream;
+                        call.answer(stream); // Trả lời với stream của mình
+                        handleCallStream(call);
+                    });
+            });
 
-        stompClient.connect({}, function (frame) {
-            console.log('✅ WS Connected');
             stompClient.subscribe('/user/queue/private', function(payload) {
                 const msg = JSON.parse(payload.body);
-                
-                // [FIX] Kiểm tra đúng người đang chat
-                if(currentPartnerId && 
-                (msg.senderId == currentPartnerId || msg.receiverId == currentPartnerId)) {
-                    
-                    // [FIX] Không append nếu đã có (tránh double)
-                    const existingMsg = $(`#messagesContainer .msg-row[data-msg-id="${msg.id}"]`);
-                    if(existingMsg.length === 0) {
-                        appendMessageToUI(msg);
-                        scrollToBottom();
-                    }
-                }
-                
-                // Luôn reload sidebar
-                loadConversations();
+                handleSocketMessage(msg);
             });
-        }, function(error) {
-            console.log('WS Error, reconnecting...', error);
-            setTimeout(connectWebSocket, 5000);
         });
+    }
+
+    function handleSocketMessage(msg) {
+        // 1. Xử lý Tín hiệu Gọi
+        if (msg.type === 'CALL_REQ') {
+            // Người khác gọi mình
+            if (isRecording || currentCall) {
+                // Đang bận -> Tự từ chối (Optional)
+                return;
+            }
+            incomingCallData = { 
+                peerId: msg.content, // PeerID của người gọi
+                senderId: msg.senderId,
+                senderName: msg.senderName || 'Người dùng FFilm', // Cần Backend trả về senderName trong MessageDto
+                senderAvatar: msg.senderAvatar 
+            };
+            showIncomingCallModal(incomingCallData);
+            return; // Không hiện tin nhắn chat
+        }
+        else if (msg.type === 'CALL_DENY') {
+            alert("Người dùng bận hoặc từ chối cuộc gọi.");
+            closeCallModal();
+            return;
+        }
+        else if (msg.type === 'CALL_END') {
+            closeCallModal();
+            return;
+        }
+
+        // 2. Xử lý Chat thường (Text, Image, Audio)
+        if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
+            appendMessageToUI(msg);
+        }
+        loadConversations();
+    }
+
+    // --- 4. UI HELPERS ---
+    function showIncomingCallModal(data) {
+        $('#incomingName').text(data.senderName);
+        $('#incomingAvatar').attr('src', data.senderAvatar || '/images/placeholder-user.jpg');
+        $('#incomingCallModal').show().css('display', 'flex'); // Flex để căn giữa
+        // Play sound if needed
+    }
+
+    function showCallModal(isVideo, status, localStream) {
+        $('#videoCallModal').show().css('display', 'flex');
+        $('#callStatusText').text(status);
+        if (localStream) {
+            document.getElementById('localVideo').srcObject = localStream;
+        }
+        // Set avatar partner
+        $('#callPartnerAvatar').attr('src', $('#headerAvatar').attr('src'));
+    }
+
+    function closeCallModal() {
+        $('#videoCallModal').hide();
+        $('#incomingCallModal').hide();
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (currentCall) currentCall.close();
+        localStream = null;
+        currentCall = null;
+        stopCallTimer();
+    }
+
+    function startCallTimer() {
+        let sec = 0;
+        clearInterval(callTimerInterval);
+        callTimerInterval = setInterval(() => {
+            sec++;
+            let m = Math.floor(sec / 60).toString().padStart(2, '0');
+            let s = (sec % 60).toString().padStart(2, '0');
+            $('#callDuration').text(`${m}:${s}`);
+        }, 1000);
+    }
+    function stopCallTimer() {
+        clearInterval(callTimerInterval);
+        $('#callDuration').text("00:00");
+    }
+    
+    // Toggle Cam/Mic
+    window.toggleCallMic = function() {
+        if(localStream) {
+            const track = localStream.getAudioTracks()[0];
+            track.enabled = !track.enabled;
+            $('#btnToggleMic').toggleClass('off');
+        }
+    }
+    window.toggleCallCam = function() {
+        if(localStream) {
+            const track = localStream.getVideoTracks()[0];
+            track.enabled = !track.enabled;
+            $('#btnToggleCam').toggleClass('off');
+        }
     }
 
     function handleIncomingMessage(message) {

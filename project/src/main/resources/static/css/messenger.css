@@ -530,3 +530,90 @@ body.messenger-body .stranger-alert-bar {
 /* Fix lại input group để emoji nằm gọn */
 .input-group { position: relative; }
 .emoji-btn { cursor: pointer; color: #f5c518; }
+
+
+
+
+
+
+
+
+
+
+
+
+/* --- VIDEO CALL UI --- */
+.call-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95); z-index: 9999;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column;
+}
+
+.video-grid {
+    position: relative; width: 100%; height: 100%; max-width: 1200px;
+    display: flex; justify-content: center; align-items: center;
+}
+
+#remoteVideo {
+    width: 100%; height: 100%; object-fit: contain;
+    max-height: 80vh;
+}
+
+#localVideo {
+    position: absolute; bottom: 20px; right: 20px;
+    width: 200px; height: 150px; object-fit: cover;
+    border-radius: 10px; border: 2px solid #333;
+    background: #000; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    z-index: 10;
+}
+
+.call-controls {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 20px; z-index: 20;
+    padding: 15px 30px; background: rgba(255,255,255,0.1);
+    border-radius: 40px; backdrop-filter: blur(10px);
+}
+
+.call-btn {
+    width: 50px; height: 50px; border-radius: 50%; border: none;
+    font-size: 1.2rem; cursor: pointer; color: white;
+    background: rgba(255,255,255,0.2); transition: 0.3s;
+}
+.call-btn:hover { background: rgba(255,255,255,0.4); }
+.call-btn.btn-hangup { background: #ff4757; }
+.call-btn.btn-hangup:hover { background: #ff6b81; }
+.call-btn.off { background: #fff; color: #333; position: relative; }
+.call-btn.off::after { content: '\\'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 1.5rem; }
+
+.call-avatar-container {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center; display: none; /* Hiện khi ko có video */
+}
+.call-avatar { width: 150px; height: 150px; border-radius: 50%; border: 4px solid #fff; animation: pulse 2s infinite; }
+
+/* --- INCOMING CALL POPUP --- */
+.incoming-call-modal {
+    position: fixed; top: 20px; right: 20px;
+    background: #242526; border: 1px solid #333;
+    border-radius: 12px; padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    z-index: 10000; animation: slideInRight 0.5s;
+    width: 300px;
+}
+.incoming-content { text-align: center; }
+.incoming-avatar { width: 80px; height: 80px; border-radius: 50%; margin-bottom: 10px; border: 3px solid #0084ff; }
+.incoming-info h4 { color: #fff; margin: 0 0 5px 0; }
+.incoming-info p { color: #aaa; margin: 0 0 15px 0; font-size: 0.9rem; }
+.incoming-actions { display: flex; justify-content: center; gap: 15px; }
+
+.btn-accept, .btn-decline {
+    width: 50px; height: 50px; border-radius: 50%; border: none;
+    font-size: 1.2rem; cursor: pointer; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-accept { background: #2ecc71; animation: bounce 1s infinite; }
+.btn-decline { background: #ff4757; }
+
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
