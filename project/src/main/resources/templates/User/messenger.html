@@ -67,53 +67,60 @@
 
                 <div class="chat-footer">
     
-                    <div class="input-actions" id="normalInputState">
-                        <label class="footer-btn" title="Gửi ảnh/video">
+                    <div id="mediaPreview" class="media-preview" style="display: none; padding: 10px; background: rgba(0,0,0,0.3); width: 100%;">
+                        <div style="position: relative; display: inline-block;">
+                            <img id="previewImg" src="" style="height: 60px; border-radius: 5px; display: none;">
+                            <div id="filePreviewIcon" style="display: none; color: #fff; align-items: center; gap: 5px;">
+                                <i class="fas fa-file fa-2x"></i>
+                                <span id="previewFileName" style="font-size: 12px;"></span>
+                            </div>
+                            <div onclick="window.clearPreview()" style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-times"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-actions" id="normalInputState" style="display: flex; width: 100%; align-items: center; gap: 10px;">
+                        <label class="footer-btn" title="Gửi ảnh">
                             <i class="fas fa-image"></i>
-                            <input type="file" id="imageInput" hidden accept="image/*,video/*">
+                            <input type="file" id="imageInput" hidden accept="image/*" onchange="window.handleFileSelect(this, 'IMAGE')">
+                        </label>
+
+                        <label class="footer-btn" title="Gửi file">
+                            <i class="fas fa-paperclip"></i>
+                            <input type="file" id="fileInput" hidden onchange="window.handleFileSelect(this, 'FILE')">
                         </label>
                         
-                        <div class="footer-btn" onclick="window.toggleStickers()" title="Nhãn dán">
+                        <div class="footer-btn" onclick="window.toggleStickers()" title="Sticker">
                             <i class="fas fa-sticky-note"></i>
                         </div>
 
-                        <label class="footer-btn" title="Đính kèm file">
-                            <i class="fas fa-paperclip"></i>
-                            <input type="file" id="fileInput" hidden>
-                        </label>
-
-                        <div class="input-group">
-                            <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off">
-                            <i class="fas fa-smile emoji-btn" onclick="toggleEmojiPicker()"></i> 
+                        <div class="input-group" style="flex: 1; position: relative;">
+                            <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off" style="width: 100%; padding-right: 30px;">
+                            <i class="fas fa-smile emoji-btn" id="emojiTrigger" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #f5c518;"></i> 
                         </div>
 
                         <div class="footer-btn send-btn" onclick="window.sendTextMessage()">
                             <i class="fas fa-paper-plane"></i>
                         </div>
                         
-                        <div class="footer-btn mic-btn" onclick="window.startRecording()" title="Ghi âm">
-                            <i class="fas fa-microphone"></i>
+                        <div class="footer-btn mic-btn" onclick="window.toggleRecording()" title="Ghi âm">
+                            <i class="fas fa-microphone" id="recordBtn"></i>
                         </div>
                     </div>
 
                     <div class="recording-ui" id="recordingState" style="display: none;">
-                        <div class="footer-btn cancel-record" onclick="window.cancelRecording()" title="Hủy">
+                        <div class="footer-btn cancel-record" onclick="window.cancelRecording()">
                             <i class="fas fa-times"></i>
                         </div>
-
                         <div class="record-display">
                             <div class="record-dot"></div> <span id="recordTimer">00:00</span>
-                            <div class="fake-wave">
-                                <span></span><span></span><span></span><span></span><span></span>
-                            </div>
-                            <span class="record-hint">Đang ghi âm...</span>
+                            <div class="fake-wave"><span></span><span></span><span></span><span></span><span></span></div>
                         </div>
-
-                        <div class="footer-btn send-record-btn" onclick="window.finishRecording()" title="Gửi ghi âm">
+                        <div class="footer-btn send-record-btn" onclick="window.finishRecording()">
                             <i class="fas fa-paper-plane"></i>
                         </div>
                     </div>
-
                 </div>
 
                 <div id="stickerMenu" class="sticker-menu" style="display: none;"></div>
@@ -125,6 +132,7 @@
         /* Lấy thông tin user hiện tại để JS xử lý logic 'mine' vs 'other' nếu cần */
         const currentUser = /*[[${userJson}]]*/ {};
     </script>
+    <script src="/js/script.js"></script>
     <script src="/js/messenger.js"></script>
     <script>
         $(document).ready(function() {

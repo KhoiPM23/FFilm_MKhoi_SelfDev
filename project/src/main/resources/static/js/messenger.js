@@ -18,6 +18,8 @@
     let isRecording = false;
     let recordTimerInterval = null;
     let recordStartTime = 0;
+    let pendingFile = null; // Lưu file đang chọn để preview
+    let emojiPicker = null; // Instance của Emoji Button
 
     // Config Sticker
     const STICKERS = [
@@ -34,6 +36,7 @@
         loadConversations();
         renderStickerMenu();
         bindEvents();
+        initEmojiPicker();
     });
 
     function bindEvents() {
@@ -167,18 +170,7 @@
 
         // 2. Xử lý Trạng thái Online (Xanh lá / Phút trước)
         const statusDiv = $('#chatHeaderStatus');
-        let statusHtml = '';
-        
-        if (String(isOnline) === 'true') {
-            statusHtml = `<span class="text-success" style="font-size:12px; font-weight:600;">
-                            <i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động
-                          </span>`;
-        } else {
-            // Nếu có lastActive thì hiện, ko thì hiện Offline
-            const timeStr = lastActive ? `Hoạt động ${lastActive}` : 'Không hoạt động';
-            statusHtml = `<span class="text-muted" style="font-size:12px;">${timeStr}</span>`;
-        }
-        statusDiv.html(statusHtml);
+        statusDiv.empty();
 
         // 3. Xử lý Banner Người Lạ (Zalo Style) - Nằm DƯỚI header, TRÊN message list
         $('#strangerBanner').remove(); // Xóa banner cũ nếu có
@@ -191,12 +183,23 @@
                     </div>
                     <div class="stranger-actions">
                         <button class="btn-stranger-add" onclick="window.sendFriendRequest(${partnerId}, this)">Kết bạn</button>
-                        <button class="btn-stranger-block">Chặn</button>
+                        <button class="btn-stranger-block" onclick="alert('Tính năng chặn đang phát triển')">Chặn</button>
                     </div>
                 </div>
             `;
             // Chèn vào đầu khung chat
             $('#messagesContainer').before(bannerHtml);
+        }
+
+        else {
+            // Ưu tiên 2: Nếu là bạn bè -> Hiện Status (Online hoặc Last Active)
+            if (String(isOnline) === 'true') {
+                statusDiv.html(`<small class="text-success fw-bold"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`);
+            } else {
+                // Nếu có lastActive thì hiện, không thì hiện Offline
+                const statusText = lastActive ? `Hoạt động ${lastActive}` : 'Không hoạt động';
+                statusDiv.html(`<small class="text-muted">${statusText}</small>`);
+            }
         }
 
         // Highlight Sidebar
@@ -275,43 +278,28 @@
 
     // Gán vào window để HTML gọi được
     window.sendTextMessage = function() {
-        const input = $('#msgInput');
-        const content = input.val().trim();
-        if (!content || !currentPartnerId) return;
+        const content = $('#msgInput').val().trim();
 
-        // 1. Xóa input ngay
-        input.val(''); 
-        input.focus();
+        // Ưu tiên 1: Nếu có file đang chờ (Preview) -> Upload -> Gửi
+        if (pendingFile) {
+            uploadAndSend(pendingFile.file, pendingFile.type, content); // content là caption
+            return;
+        }
 
-        // 2. Tạo tin nhắn giả lập để hiện ngay lên màn hình (Không cần đợi Server)
-        const fakeMsg = {
-            senderId: currentUser.userID,
-            content: content,
-            type: 'TEXT',
-            status: 'SENDING',
-            formattedTime: 'Vừa xong'
-        };
-        appendMessageToUI(fakeMsg, true); // forceMine = true
+        // Ưu tiên 2: Gửi text thường
+        if (content && currentPartnerId) {
+            // Optimistic UI: Hiện ngay lập tức
+            appendMessageToUI({
+                senderId: currentUser.userID,
+                content: content,
+                type: 'TEXT',
+                status: 'SENDING',
+                formattedTime: 'Vừa xong'
+            }, true);
 
-        // 3. Gửi API ngầm
-        $.ajax({
-            url: '/api/v1/messenger/send',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ 
-                receiverId: currentPartnerId, 
-                content: content, 
-                type: 'TEXT' 
-            }),
-            success: function(response) {
-                // Tin nhắn đã lên server, không cần làm gì thêm, socket sẽ sync sau
-                console.log("Sent success");
-            },
-            error: function(e) { 
-                console.error("Send Error:", e);
-                // TODO: Hiển thị icon dấu than đỏ bên cạnh tin nhắn nếu lỗi
-            }
-        });
+            sendApiRequest({ receiverId: currentPartnerId, content: content, type: 'TEXT' });
+            $('#msgInput').val('');
+        }
     };
 
     window.sendSticker = function(url) {
@@ -330,7 +318,7 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(msg) {
-                appendMessageToUI(msg, true); // Force mine = true
+                // appendMessageToUI(msg, true); // Force mine = true
                 scrollToBottom();
             },
             error: function(e) { console.error("Send Error", e); }
@@ -338,18 +326,21 @@
     }
 
     // Upload (Fix URL)
-    function uploadFile(file, type) {
-        if (!currentPartnerId) return alert("Chọn cuộc trò chuyện trước.");
-
+    function uploadAndSend(file, type, caption) {
         const formData = new FormData();
         formData.append("file", file);
 
-        const tempId = 'temp-' + Date.now();
-        $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang gửi file...</div>`);
+        // UI Loading giả
+        const tempId = 'up-' + Date.now();
+        $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang tải lên...</div>`);
         scrollToBottom();
+        
+        // Xóa preview ngay cho gọn
+        window.clearPreview();
+        $('#msgInput').val(''); 
 
         $.ajax({
-            url: '/api/upload/image', // Đảm bảo URL này đúng controller
+            url: '/api/upload/image', // Đảm bảo Backend Controller map đúng URL này
             type: 'POST',
             data: formData,
             processData: false,
@@ -357,32 +348,65 @@
             success: function(res) {
                 $(`#${tempId}`).remove();
                 if(res.url) {
-                    // Gửi tin nhắn chứa URL
-                    // Lưu ý: Type phải khớp với Enum backend (IMAGE hoặc AUDIO)
-                    const msgType = (type === 'STICKER') ? 'IMAGE' : type;
-                    
+                    // 1. Gửi tin nhắn chứa URL file/ảnh
+                    // Backend cần hỗ trợ Enum: IMAGE hoặc FILE hoặc AUDIO
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
-                        type: msgType 
+                        type: type 
                     });
-
+                    
                     // Hiện ngay (Optimistic)
-                    const fakeMsg = { 
-                        senderId: currentUser.userID, 
-                        content: res.url, 
-                        type: msgType,
-                        formattedTime: 'Đang gửi...'
-                    };
-                    appendMessageToUI(fakeMsg, true);
+                    appendMessageToUI({
+                         senderId: currentUser.userID, 
+                         content: res.url, 
+                         type: type 
+                    }, true);
+
+                    // 2. Nếu có caption (text đi kèm) -> Gửi tiếp 1 tin text
+                    if(caption) {
+                        sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
+                        appendMessageToUI({ senderId: currentUser.userID, content: caption, type: 'TEXT' }, true);
+                    }
                 }
             },
             error: function(err) {
-                console.error("Upload error:", err);
-                $(`#${tempId}`).html('<span class="text-danger">Lỗi gửi file (Server 404/500)</span>');
+                console.error("Upload failed", err);
+                $(`#${tempId}`).html('<span class="text-danger">Lỗi tải lên</span>');
             }
         });
     }
+
+    // Hàm này gọi từ onchange của input file trong HTML
+    window.handleFileSelect = function(input, type) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            pendingFile = { file: file, type: type };
+            
+            $('#mediaPreview').show().css('display', 'flex'); // ← THÊM .css('display', 'flex')
+            
+            if (type === 'IMAGE') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#previewImg').attr('src', e.target.result).show();
+                    $('#filePreviewIcon').hide();
+                }
+                reader.readAsDataURL(file);
+            } else {
+                $('#previewImg').hide();
+                $('#filePreviewIcon').show().css('display', 'flex');
+                $('#previewFileName').text(file.name);
+            }
+        }
+    };
+
+    window.clearPreview = function() {
+        pendingFile = null;
+        $('#imageInput').val('');
+        $('#fileInput').val('');
+        $('#mediaPreview').hide();
+        $('#previewImg').attr('src', '');
+    };
 
     // Timer Helper
     let timerInterval;
@@ -428,7 +452,28 @@
 
                 mediaRecorder.onstop = () => {
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadFile(blob, 'AUDIO'); // Gọi hàm upload đã fix
+                    
+                    // Upload ngay lập tức (giống logic ảnh)
+                    const formData = new FormData();
+                    formData.append("file", blob, "audio_" + Date.now() + ".webm");
+                    
+                    $.ajax({
+                        url: '/api/upload/image', // Dùng chung endpoint
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(res) {
+                            if(res.url) {
+                                sendApiRequest({ 
+                                    receiverId: currentPartnerId, 
+                                    content: res.url, 
+                                    type: 'AUDIO' 
+                                });
+                            }
+                        }
+                    });
+                    
                     closeRecordingUI();
                 };
 
@@ -543,6 +588,29 @@
         input.val(currentVal + "😊"); // Tạm thời chèn hardcode, sau này gắn lib
         input.focus();
     };
+
+    function initEmojiPicker() {
+        if (typeof EmojiButton !== 'undefined') {
+            emojiPicker = new EmojiButton({
+                theme: 'dark',
+                position: 'bottom-end', // ← ĐỔI POSITION
+                emojiSize: '1.8em'
+            });
+
+            emojiPicker.on('emoji', selection => {
+                $('#msgInput').val($('#msgInput').val() + selection.emoji).focus();
+            });
+
+            const trigger = document.querySelector('#emojiTrigger');
+            if(trigger) {
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation(); // ← THÊM DÒNG NÀY
+                    emojiPicker.togglePicker(trigger);
+                });
+            }
+        }
+    }
+    // NHỚ GỌI initEmojiPicker() TRONG $(document).ready()
 
     // window.toggleStickers = function() { $('#stickerMenu').toggle(); };
 
