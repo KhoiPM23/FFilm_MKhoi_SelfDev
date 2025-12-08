@@ -65,12 +65,19 @@ public class MessengerService {
                     dto.setStatusClass("");
                 }
 
-                // [MỚI] Check xem có phải bạn bè không để hiển thị Badge "Người lạ"
+                // Trong MessengerService.java -> getRecentConversations
+
+                // Trong vòng lặp for (MessengerMessage msg : messages) hoặc for (User friend : friends)
+            
+                // 1. Tên: Giữ nguyên tên gốc, TUYỆT ĐỐI KHÔNG cộng chuỗi "(Người lạ)"
+                dto.setPartnerName(partner.getUserName()); 
+                
+                // 2. Avatar: Giữ nguyên logic cũ
+                dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
+
+                // 3. [FIX] Check bạn bè dùng hàm mới viết ở Repo
                 boolean isFriend = friendRequestRepository.isFriend(currentUserId, partner.getUserID());
-                if (!isFriend) {
-                    dto.setPartnerName(partner.getUserName() + " (Người lạ)");
-                    // Hoặc dùng 1 field flag riêng trong DTO nếu muốn xử lý UI kỹ hơn
-                }
+                dto.setFriend(isFriend); // Dữ liệu chuẩn: true/false
 
                 map.put(partner.getUserID(), dto);
             }

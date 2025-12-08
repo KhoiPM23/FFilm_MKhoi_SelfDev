@@ -618,3 +618,28 @@ body.messenger-body .stranger-alert-bar {
 
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+.badge-stranger-icon {
+    font-size: 0.8rem;
+    margin-left: 4px;
+    filter: grayscale(1);
+    opacity: 0.7;
+}
+/* Style Banner Zalo (Nhắc lại để chắc chắn có) */
+.stranger-alert-bar {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ffeeba;
+    font-size: 13px;
+    flex-shrink: 0; /* Không bị co lại */
+}
+
+/* Sticker Menu Active State */
+.sticker-menu.active {
+    display: flex !important;
+    animation: popIn 0.2s ease-out;
+}

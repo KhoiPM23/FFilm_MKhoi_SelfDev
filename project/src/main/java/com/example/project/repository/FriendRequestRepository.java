@@ -18,12 +18,13 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, Lo
     // Tìm lời mời đang chờ xử lý
     List<FriendRequest> findByReceiverAndStatus(User receiver, FriendRequest.Status status);
     
-    // [FIX] Sửa 'f.sender.id' thành 'f.sender.userID'
-    @Query("SELECT count(f) > 0 FROM FriendRequest f WHERE " +
-           "(f.sender.userID = :u1 AND f.receiver.userID = :u2 AND f.status = 'ACCEPTED') OR " +
-           "(f.sender.userID = :u2 AND f.receiver.userID = :u1 AND f.status = 'ACCEPTED')")
-    boolean isFriend(@Param("u1") Integer u1, @Param("u2") Integer u2);
-
+    // Check nếu A và B là bạn (Bất kể ai gửi, miễn là ACCEPTED)
+    @Query("SELECT COUNT(f) > 0 FROM FriendRequest f " +
+           "WHERE f.status = 'ACCEPTED' " +
+           "AND ((f.sender.userID = :u1 AND f.receiver.userID = :u2) " +
+           "OR (f.sender.userID = :u2 AND f.receiver.userID = :u1))")
+    boolean isFriend(@Param("u1") Integer userId1, @Param("u2") Integer userId2);
+    
     // [THAY THẾ] Bỏ method findAcceptedFriends cũ gây lỗi ClassCastException
     // Thay bằng method này: Lấy toàn bộ lời mời đã chấp nhận liên quan đến user
     @Query("SELECT f FROM FriendRequest f " +
