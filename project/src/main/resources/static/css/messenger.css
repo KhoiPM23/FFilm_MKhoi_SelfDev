@@ -311,7 +311,7 @@ body.messenger-body {
 }
 
 .emoji-btn {
-    color: #e50914; /* Màu vàng cam hoặc đỏ */
+    color:  var(--msg-blue); 
     cursor: pointer;
     font-size: 1.2rem;
 }
@@ -443,3 +443,46 @@ body.messenger-body {
 .sticker-menu.show { display: flex; }
 .sticker-item { width: 60px; height: 60px; cursor: pointer; transition: transform 0.2s; }
 .sticker-item:hover { transform: scale(1.1); }
+
+
+/* --- FIX TC3: Sticker Menu --- */
+/* Đè class show để hiện menu khi JS add class */
+.sticker-menu.show {
+    display: flex !important;
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+
+/* --- FIX TC7: Banner Người Lạ (Zalo Style) --- */
+.stranger-alert-bar {
+    background-color: #fff3cd; /* Màu vàng nhạt cảnh báo */
+    color: #856404;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ffeeba;
+    z-index: 10;
+    font-size: 13px;
+}
+
+/* Dark mode support cho banner */
+body.messenger-body .stranger-alert-bar {
+    background-color: #332b00;
+    color: #ffdd57;
+    border-bottom: 1px solid #4d4d00;
+}
+
+.stranger-content { display: flex; align-items: center; gap: 8px; }
+
+.stranger-actions { display: flex; gap: 10px; }
+
+.btn-stranger-add {
+    background: #0084ff; color: white; border: none;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;
+}
+.btn-stranger-block {
+    background: #3a3b3c; color: #e4e6eb; border: none;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer;
+}

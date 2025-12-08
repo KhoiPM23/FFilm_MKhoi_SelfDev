@@ -94,6 +94,7 @@
     }
 
     // --- 2. CORE LOGIC: LOAD LIST ---
+    // --- CẬP NHẬT: loadConversations (Truyền đủ tham số Online/Active) ---
     function loadConversations() {
         $.get('/api/v1/messenger/conversations', function(data) {
             const list = $('#conversationList');
@@ -101,33 +102,33 @@
 
             if (!data || data.length === 0) {
                 list.html(`<div class="text-center mt-5 text-muted"><small>Chưa có tin nhắn nào.</small></div>`);
-                if (typeof checkUrlAndOpenChat === 'function') checkUrlAndOpenChat([]);
+                if(typeof checkUrlAndOpenChat === 'function') checkUrlAndOpenChat([]);
                 return;
             }
 
             data.forEach(c => {
-                let activeClass = (c.partnerId == currentPartnerId) ? 'active' : '';
-                let unreadClass = c.unreadCount > 0 ? 'unread' : '';
-                let senderPrefix = c.lastMessageMine ? '<span class="prefix">Bạn: </span>' : '';
-                let lastMsg = c.lastMessage || 'Hình ảnh/File';
+                const isActive = (c.partnerId == currentPartnerId) ? 'active' : '';
+                const isUnread = c.unreadCount > 0 ? 'unread' : '';
                 
-                // Avatar fallback
-                let avatarUrl = c.partnerAvatar;
-                if(!avatarUrl || avatarUrl.includes('default')) {
-                    avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.partnerName)}&background=random&color=fff`;
+                // Avatar Fallback
+                let avatar = c.partnerAvatar;
+                if (!avatar || avatar.includes('default')) {
+                    avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.partnerName)}&background=random&color=fff`;
                 }
 
-                // [FIX] Xử lý tham số an toàn cho onclick
-                const safeName = c.partnerName.replace(/'/g, "\\'");
+                // [FIX] Convert dữ liệu an toàn để truyền vào onclick
                 const isFriendStr = (c.friend === true) ? 'true' : 'false';
+                const isOnlineStr = (c.isOnline === true) ? 'true' : 'false'; // [MỚI]
+                const lastActiveStr = c.lastActive || ''; // [MỚI] (Nếu backend chưa có thì để rỗng)
+                const safeName = c.partnerName.replace(/'/g, "\\'");
 
-                let html = `
-                    <div class="conv-item ${activeClass} ${unreadClass}" id="conv-${c.partnerId}" 
-                         onclick="window.selectConversation(${c.partnerId}, '${safeName}', '${avatarUrl}', ${isFriendStr})">
+                const html = `
+                    <div class="conv-item ${isActive} ${isUnread}" id="conv-${c.partnerId}" 
+                         onclick="window.selectConversation(${c.partnerId}, '${safeName}', '${avatar}', '${isFriendStr}', '${isOnlineStr}', '${lastActiveStr}')">
                         
                         <div class="avatar-wrapper">
-                            <img src="${avatarUrl}" class="avatar-img">
-                            <div class="online-dot ${c.online ? 'is-online' : ''}"></div>
+                            <img src="${avatar}" class="avatar-img" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random'">
+                            <div class="online-dot ${c.isOnline ? 'is-online' : ''}"></div>
                         </div>
 
                         <div class="conv-info">
@@ -136,7 +137,7 @@
                                 <span class="conv-time">${c.timeAgo || ''}</span>
                             </div>
                             <div class="conv-preview">
-                                ${senderPrefix}${lastMsg}
+                                ${c.lastMessageMine ? 'Bạn: ' : ''}${c.lastMessage || 'Hình ảnh'}
                             </div>
                         </div>
                         ${c.unreadCount > 0 ? `<div class="unread-badge-dot"></div>` : ''}
@@ -144,43 +145,69 @@
                 `;
                 list.append(html);
             });
-            
-            // Check URL để mở chat người lạ (nếu có uid)
-            checkUrlAndOpenChat(data);
+
+            if(typeof checkUrlAndOpenChat === 'function') checkUrlAndOpenChat(data);
         });
     }
 
     // --- 3. SELECT CONVERSATION ---
-    window.selectConversation = function(partnerId, name, avatar, isFriend) {
+    window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive) {
         currentPartnerId = parseInt(partnerId);
         currentPartnerName = name;
-        isCurrentPartnerFriend = (String(isFriend) === 'true'); // Convert string -> boolean
+        // Fix lỗi so sánh chuỗi "true"/"false"
+        isCurrentPartnerFriend = (String(isFriend) === 'true');
 
-        // UI Update
+        // UI Reset
         $('#emptyState').hide();
         $('#chatInterface').css('display', 'flex');
         
+        // 1. Header Info
         $('#headerName').text(name);
         $('#headerAvatar').attr('src', avatar);
+
+        // 2. Xử lý Trạng thái Online (Xanh lá / Phút trước)
+        const statusDiv = $('#chatHeaderStatus');
+        let statusHtml = '';
         
+        if (String(isOnline) === 'true') {
+            statusHtml = `<span class="text-success" style="font-size:12px; font-weight:600;">
+                            <i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động
+                          </span>`;
+        } else {
+            // Nếu có lastActive thì hiện, ko thì hiện Offline
+            const timeStr = lastActive ? `Hoạt động ${lastActive}` : 'Không hoạt động';
+            statusHtml = `<span class="text-muted" style="font-size:12px;">${timeStr}</span>`;
+        }
+        statusDiv.html(statusHtml);
+
+        // 3. Xử lý Banner Người Lạ (Zalo Style) - Nằm DƯỚI header, TRÊN message list
+        $('#strangerBanner').remove(); // Xóa banner cũ nếu có
+        if (!isCurrentPartnerFriend) {
+            const bannerHtml = `
+                <div id="strangerBanner" class="stranger-alert-bar">
+                    <div class="stranger-content">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Tin nhắn từ người lạ. Hãy cẩn thận khi chia sẻ thông tin.</span>
+                    </div>
+                    <div class="stranger-actions">
+                        <button class="btn-stranger-add" onclick="window.sendFriendRequest(${partnerId}, this)">Kết bạn</button>
+                        <button class="btn-stranger-block">Chặn</button>
+                    </div>
+                </div>
+            `;
+            // Chèn vào đầu khung chat
+            $('#messagesContainer').before(bannerHtml);
+        }
+
+        // Highlight Sidebar
         $('.conv-item').removeClass('active');
         $(`#conv-${partnerId}`).addClass('active');
 
-        // Logic Header Status (Người lạ/Bạn bè)
-        const statusDiv = $('#chatHeaderStatus');
-        if(statusDiv.length) {
-            statusDiv.empty();
-            if(!isCurrentPartnerFriend) {
-                statusDiv.html(`
-                    <span class="badge" style="background:#444; color:#ccc; margin-right:5px; font-size:11px;">Người lạ</span>
-                    <button class="btn btn-sm btn-primary" onclick="window.sendFriendRequest(${partnerId}, this)" style="padding:2px 8px; font-size:11px;">Kết bạn</button>
-                `);
-            } else {
-                statusDiv.html(`<small class="text-success">Đang hoạt động</small>`);
-            }
-        }
-
+        // Load History
         loadChatHistory(partnerId);
+        
+        // Mobile Support
+        $('.messenger-container').addClass('show-chat');
     };
 
     function loadChatHistory(partnerId) {
@@ -248,17 +275,43 @@
 
     // Gán vào window để HTML gọi được
     window.sendTextMessage = function() {
-        let content = $('#msgInput').val().trim();
+        const input = $('#msgInput');
+        const content = input.val().trim();
         if (!content || !currentPartnerId) return;
 
-        let payload = {
-            receiverId: currentPartnerId,
+        // 1. Xóa input ngay
+        input.val(''); 
+        input.focus();
+
+        // 2. Tạo tin nhắn giả lập để hiện ngay lên màn hình (Không cần đợi Server)
+        const fakeMsg = {
+            senderId: currentUser.userID,
             content: content,
-            type: 'TEXT'
+            type: 'TEXT',
+            status: 'SENDING',
+            formattedTime: 'Vừa xong'
         };
-        
-        $('#msgInput').val('');
-        sendApiRequest(payload);
+        appendMessageToUI(fakeMsg, true); // forceMine = true
+
+        // 3. Gửi API ngầm
+        $.ajax({
+            url: '/api/v1/messenger/send',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                receiverId: currentPartnerId, 
+                content: content, 
+                type: 'TEXT' 
+            }),
+            success: function(response) {
+                // Tin nhắn đã lên server, không cần làm gì thêm, socket sẽ sync sau
+                console.log("Sent success");
+            },
+            error: function(e) { 
+                console.error("Send Error:", e);
+                // TODO: Hiển thị icon dấu than đỏ bên cạnh tin nhắn nếu lỗi
+            }
+        });
     };
 
     window.sendSticker = function(url) {
@@ -291,31 +344,42 @@
         const formData = new FormData();
         formData.append("file", file);
 
-        // UI Loading giả
-        const tempId = Date.now();
-        $('#messagesContainer').append(`<div id="temp-${tempId}" class="text-center small text-muted">Đang gửi...</div>`);
+        const tempId = 'temp-' + Date.now();
+        $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang gửi file...</div>`);
         scrollToBottom();
 
         $.ajax({
-            url: '/api/upload/image', // [FIX] URL chuẩn theo Controller
+            url: '/api/upload/image', // Đảm bảo URL này đúng controller
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(res) {
-                $(`#temp-${tempId}`).remove();
+                $(`#${tempId}`).remove();
                 if(res.url) {
-                    // Gửi tin nhắn chứa URL ảnh
+                    // Gửi tin nhắn chứa URL
+                    // Lưu ý: Type phải khớp với Enum backend (IMAGE hoặc AUDIO)
+                    const msgType = (type === 'STICKER') ? 'IMAGE' : type;
+                    
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
-                        type: type // 'IMAGE' hoặc 'AUDIO'
+                        type: msgType 
                     });
+
+                    // Hiện ngay (Optimistic)
+                    const fakeMsg = { 
+                        senderId: currentUser.userID, 
+                        content: res.url, 
+                        type: msgType,
+                        formattedTime: 'Đang gửi...'
+                    };
+                    appendMessageToUI(fakeMsg, true);
                 }
             },
             error: function(err) {
-                console.error("Upload Error:", err);
-                $(`#temp-${tempId}`).html('<span class="text-danger">Lỗi upload</span>');
+                console.error("Upload error:", err);
+                $(`#${tempId}`).html('<span class="text-danger">Lỗi gửi file (Server 404/500)</span>');
             }
         });
     }
@@ -450,7 +514,14 @@
     // --- 1. STICKER TOGGLE (Fix tự bung) ---
     window.toggleStickers = function() {
         const menu = $('#stickerMenu');
-        if(menu.is(':visible')) menu.hide(); else menu.show();
+        // Debug: Log để xem hàm có được gọi không
+        console.log("Toggle Sticker Menu", menu.length); 
+        
+        if (menu.hasClass('show')) {
+            menu.removeClass('show').hide();
+        } else {
+            menu.addClass('show').css('display', 'flex'); // Force flex để hiện
+        }
     };
 
     window.sendSticker = function(url) {
@@ -466,12 +537,12 @@
     }
 
     // Hàm chọn Emoji (Placeholder - Phase sau sẽ tích hợp thư viện)
-    // window.toggleEmojiPicker = function() {
-    //     // Tạm thời insert emoji mẫu
-    //     const input = $('#msgInput');
-    //     input.val(input.val() + "😊");
-    //     input.focus();
-    // };
+    window.toggleEmojiPicker = function() {
+        const input = $('#msgInput');
+        const currentVal = input.val();
+        input.val(currentVal + "😊"); // Tạm thời chèn hardcode, sau này gắn lib
+        input.focus();
+    };
 
     // window.toggleStickers = function() { $('#stickerMenu').toggle(); };
 
@@ -504,10 +575,10 @@
     }
 
     // Events Listener
-    $(document).on('click', '.emoji-btn', function() {
-        const input = $('#msgInput');
-        input.val(input.val() + "😊");
-        input.focus();
-    });
+    // $(document).on('click', '.emoji-btn', function() {
+    //     const input = $('#msgInput');
+    //     input.val(input.val() + "😊");
+    //     input.focus();
+    // });
 
 })();
