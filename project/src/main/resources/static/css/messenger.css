@@ -318,6 +318,7 @@ body.messenger-body {
 
 /* --- GIAO DIỆN GHI ÂM (RECORDING UI) --- */
 .recording-ui {
+    position: absolute !important;
     display: none; /* Mặc định ẩn */
     align-items: center;
     gap: 10px;

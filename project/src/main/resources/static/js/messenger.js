@@ -141,9 +141,13 @@
         // type: CALL_REQ, content: myPeerId
         const payload = {
             receiverId: currentPartnerId,
-            content: myPeerId, // Gửi PeerID của mình qua
-            type: 'CALL_REQ'
+            content: myPeerId,
+            type: 'CALL_REQ',
+            senderId: currentUser.userID,
+            senderName: currentUser.name,
+            senderAvatar: $('#headerAvatar').attr('src') || null
         };
+        console.log("CALL_REQ -> sending", payload);
         sendApiRequest(payload);
         
         // 2. Hiện UI đang gọi
@@ -427,6 +431,8 @@
         // Fix lỗi so sánh chuỗi "true"/"false"
         isCurrentPartnerFriend = (String(isFriend) === 'true');
 
+        console.log("Check Friend:", name, isFriend, "->", isCurrentPartnerFriend);
+
         // UI Reset
         $('#emptyState').hide();
         $('#chatInterface').css('display', 'flex');
@@ -579,6 +585,7 @@
     };
 
     function sendApiRequest(payload) {
+        console.log("sendApiRequest payload:", payload);
         $.ajax({
             url: '/api/v1/messenger/send',
             type: 'POST',
@@ -586,6 +593,7 @@
             data: JSON.stringify(payload),
             success: function(msg) {
                 // appendMessageToUI(msg, true); // Force mine = true
+                console.log("sendApiRequest success:", msg);
                 scrollToBottom();
             },
             error: function(e) { console.error("Send Error", e); }
@@ -597,49 +605,52 @@
         const formData = new FormData();
         formData.append("file", file);
 
-        // UI Loading giả
-        const tempId = 'up-' + Date.now();
-        $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang tải lên...</div>`);
-        scrollToBottom();
-        
-        // Xóa preview ngay cho gọn
-        window.clearPreview();
-        $('#msgInput').val(''); 
+        // 1. Tạo Preview Base64 ngay lập tức (Optimistic UI)
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Url = e.target.result;
+            // Hiện ngay tin nhắn ảnh với base64 (không sợ 404)
+            const fakeMsg = { 
+                senderId: currentUser.userID, 
+                content: base64Url, // Dùng base64 để hiện ngay
+                type: type,
+                formattedTime: 'Đang gửi...'
+            };
+            appendMessageToUI(fakeMsg, true);
+            scrollToBottom();
+        };
+        reader.readAsDataURL(file);
 
+        // 2. Clear Input
+        window.clearPreview();
+        $('#msgInput').val('');
+
+        // 3. Upload thật
         $.ajax({
-            url: '/api/upload/image', // Đảm bảo Backend Controller map đúng URL này
+            url: '/api/upload/image', 
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(res) {
-                $(`#${tempId}`).remove();
                 if(res.url) {
-                    // 1. Gửi tin nhắn chứa URL file/ảnh
-                    // Backend cần hỗ trợ Enum: IMAGE hoặc FILE hoặc AUDIO
+                    // Gửi tin nhắn chứa URL Server (để người kia xem được)
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
                         type: type 
                     });
                     
-                    // Hiện ngay (Optimistic)
-                    appendMessageToUI({
-                         senderId: currentUser.userID, 
-                         content: res.url, 
-                         type: type 
-                    }, true);
-
-                    // 2. Nếu có caption (text đi kèm) -> Gửi tiếp 1 tin text
+                    // Gửi caption nếu có
                     if(caption) {
                         sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
                         appendMessageToUI({ senderId: currentUser.userID, content: caption, type: 'TEXT' }, true);
                     }
                 }
             },
-            error: function(err) {
-                console.error("Upload failed", err);
-                $(`#${tempId}`).html('<span class="text-danger">Lỗi tải lên</span>');
+            error: function(e) { 
+                console.error("Upload fail:", e);
+                // Có thể thêm logic hiện icon lỗi tại tin nhắn vừa append
             }
         });
     }
@@ -676,7 +687,7 @@
     };
 
     // Timer Helper
-    let timerInterval;
+    let timerInterval = null;
     function startTimer() {
         let sec = 0;
         $('#recordTimer').text("00:00");
@@ -706,6 +717,8 @@
                 // UI: Ẩn input, Hiện recording (Dùng class .show của CSS mới)
                 $('.input-actions').hide();
                 $('.recording-ui').addClass('show').css('display', 'flex'); // Force flex
+
+                if (timerInterval) clearInterval(timerInterval);
                 
                 // Timer
                 let sec = 0;
@@ -805,16 +818,18 @@
 
     function resetRecordingUI() {
         isRecording = false;
-        clearInterval(recordTimerInterval);
+        // Xóa interval ngay lập tức
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        $('#recordTimer').text("00:00"); // Reset text
         
-        // Chuyển lại UI thường
-        $('#recordingState').hide();
+        $('#recordingState').removeClass('show').hide();
         $('#normalInputState').show();
-        $('#msgInput').focus();
         
-        // Tắt stream mic (để tắt đèn đỏ trên tab trình duyệt)
         if(mediaRecorder && mediaRecorder.stream) {
-            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
         }
     }
 
