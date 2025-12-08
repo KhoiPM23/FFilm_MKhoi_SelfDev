@@ -75,10 +75,20 @@
             console.log('✅ WS Connected');
             stompClient.subscribe('/user/queue/private', function(payload) {
                 const msg = JSON.parse(payload.body);
-                // Nếu tin nhắn thuộc cuộc trò chuyện hiện tại -> Hiện ngay
-                if(currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
-                    appendMessageToUI(msg);
+                
+                // [FIX] Kiểm tra đúng người đang chat
+                if(currentPartnerId && 
+                (msg.senderId == currentPartnerId || msg.receiverId == currentPartnerId)) {
+                    
+                    // [FIX] Không append nếu đã có (tránh double)
+                    const existingMsg = $(`#messagesContainer .msg-row[data-msg-id="${msg.id}"]`);
+                    if(existingMsg.length === 0) {
+                        appendMessageToUI(msg);
+                        scrollToBottom();
+                    }
                 }
+                
+                // Luôn reload sidebar
                 loadConversations();
             });
         }, function(error) {
@@ -261,7 +271,7 @@
 
         // [CẤU TRÚC HTML CHUẨN CŨ]
         let html = `
-            <div class="msg-row ${typeClass}">
+            <div class="msg-row ${typeClass}" data-msg-id="${msg.id || Date.now()}">
                 ${avatarHtml}
                 <div class="msg-content">${contentHtml}</div>
             </div>
@@ -559,13 +569,10 @@
     // --- 1. STICKER TOGGLE (Fix tự bung) ---
     window.toggleStickers = function() {
         const menu = $('#stickerMenu');
-        // Debug: Log để xem hàm có được gọi không
-        console.log("Toggle Sticker Menu", menu.length); 
-        
         if (menu.hasClass('show')) {
             menu.removeClass('show').hide();
         } else {
-            menu.addClass('show').css('display', 'flex'); // Force flex để hiện
+            menu.addClass('show').css('display', 'flex');
         }
     };
 
@@ -610,18 +617,7 @@
             }
         }
     }
-    // NHỚ GỌI initEmojiPicker() TRONG $(document).ready()
 
-    // window.toggleStickers = function() { $('#stickerMenu').toggle(); };
-
-    // function renderStickerMenu() {
-    //     let html = '';
-    //     STICKERS.forEach(url => {
-    //         html += `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`;
-    //     });
-    //     $('#stickerMenu').html(html);
-    // }
-    
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
     function checkUrlAndOpenChat(existingConversations) {
         const urlParams = new URLSearchParams(window.location.search);
