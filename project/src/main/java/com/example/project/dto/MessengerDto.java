@@ -51,6 +51,9 @@ public class MessengerDto {
         private LocalDateTime timestamp;
         private String formattedTime;
         private String senderAvatar;
+
+        private boolean isDeleted;   // [MỚI]
+        private MessageDto replyTo;  // [MỚI] Object tin nhắn gốc (để hiện preview)
     }
     
     @Data
@@ -60,5 +63,7 @@ public class MessengerDto {
         private Integer receiverId;
         private String content;
         private MessageType type = MessageType.TEXT;
+
+        private Long replyToId; // [MỚI] Gửi lên ID của tin muốn reply
     }
 }

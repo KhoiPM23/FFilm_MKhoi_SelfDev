@@ -52,7 +52,7 @@
                     <div class="chat-actions">
                         <i class="fas fa-phone-alt" title="Gọi thoại" onclick="window.startVoiceCall()"></i>
                         <i class="fas fa-video" title="Video Call" onclick="window.startVideoCall()"></i>
-                        <i class="fas fa-info-circle" title="Thông tin"></i>
+                        <i class="fas fa-info-circle active" title="Thông tin hội thoại" onclick="window.toggleChatInfo()"></i>
                     </div>
                 </div>
 
@@ -143,6 +143,7 @@
         });
     </script>
     <!-- Emoji Library (Đúng CDN) -->
+     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
     <!-- Giphy SDK (GIF/Sticker) -->
     <script src="https://sdk.giphy.com/v1/giphy.js"></script>

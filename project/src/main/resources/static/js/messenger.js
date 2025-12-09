@@ -861,29 +861,27 @@
         
         if (menu.hasClass('active')) {
             menu.removeClass('active').hide();
-        } else {
-            // Lần đầu load, fetch từ Giphy
-            if (menu.children().length === 0) {
-                menu.html('<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
-                
-                // Fetch trending stickers
-                fetch(`https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=20`)
-                    .then(res => res.json())
-                    .then(data => {
-                        let html = '';
-                        data.data.forEach(gif => {
-                            html += `<img src="${gif.images.fixed_height_small.url}" class="sticker-item" onclick="window.sendSticker('${gif.images.original.url}')">`;
-                        });
-                        menu.html(html);
-                    })
-                    .catch(() => {
-                        // Fallback hardcode nếu API lỗi
-                        menu.html(STICKERS.map(url => `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`).join(''));
-                    });
-            }
-            
-            menu.addClass('active').show().css('display', 'flex');
+            return;
         }
+
+        if (menu.children().length === 0) {
+            menu.html('<div style="text-align:center; padding:20px; color:#fff;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
+            
+            fetch(`https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=20`)
+                .then(res => res.json())
+                .then(data => {
+                    let html = '';
+                    data.data.forEach(gif => {
+                        html += `<img src="${gif.images.fixed_height_small.url}" class="sticker-item" onclick="window.sendSticker('${gif.images.original.url}')">`;
+                    });
+                    menu.html(html);
+                })
+                .catch(() => {
+                    menu.html(STICKERS.map(url => `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`).join(''));
+                });
+        }
+        
+        menu.addClass('active').show().css('display', 'flex');
     };
 
     window.sendSticker = function(url) {
@@ -908,34 +906,40 @@
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
     // --- INIT EMOJI PICKER (Native Web Component) ---
+    // messenger.js - Thay function initEmojiPicker()
     function initEmojiPicker() {
-        const trigger = document.querySelector('#emojiTrigger');
-        const input = document.querySelector('#msgInput');
+        const trigger = $('#emojiTrigger');
+        const input = $('#msgInput');
         
-        if (!trigger || !input) return;
+        if (!trigger.length || !input.length) return;
 
-        let picker = document.createElement('emoji-picker');
-        picker.style.cssText = 'position:absolute; bottom:70px; right:20px; display:none; z-index:9999;';
-        document.body.appendChild(picker);
+        // Dùng emoji-picker-element (Web Component hiện đại)
+        let picker = document.querySelector('emoji-picker');
+        if (!picker) {
+            picker = document.createElement('emoji-picker');
+            picker.style.cssText = 'position:absolute; bottom:80px; right:20px; display:none; z-index:9999;';
+            document.body.appendChild(picker);
+        }
 
-        trigger.addEventListener('click', (e) => {
+        trigger.on('click', (e) => {
             e.stopPropagation();
             picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
         });
 
         picker.addEventListener('emoji-click', (e) => {
-            input.value += e.detail.unicode;
+            input.val(input.val() + e.detail.unicode);
             input.focus();
         });
 
-        document.addEventListener('click', (e) => {
-            if (!picker.contains(e.target) && e.target !== trigger) {
+        $(document).on('click', (e) => {
+            if (!picker.contains(e.target) && !trigger.is(e.target)) {
                 picker.style.display = 'none';
             }
         });
     }
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
+    // messenger.js - checkUrlAndOpenChat()
     function checkUrlAndOpenChat(existingConversations) {
         const urlParams = new URLSearchParams(window.location.search);
         const uid = urlParams.get('uid');
@@ -945,12 +949,11 @@
         const existing = existingConversations.find(c => c.partnerId === targetId);
 
         if(existing) {
-            $(`#conv-${targetId}`).click();
+            window.selectConversation(existing.partnerId, existing.partnerName, existing.partnerAvatar, existing.friend);
         } else {
-            // Fetch info & Open Temp Chat
             $.get(`/api/users/${targetId}`).done(function(u) {
-                const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}&background=random&color=fff`;
-                window.selectConversation(u.userId, u.userName, avatar, 'false');
+                const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}`;
+                window.selectConversation(u.userID, u.userName, avatar, false);
             });
         }
     }
@@ -961,5 +964,14 @@
     //     input.val(input.val() + "😊");
     //     input.focus();
     // });
+
+    // messenger.js - bindEvents()
+    $('.search-wrapper input').on('input', function() {
+        const query = $(this).val().toLowerCase();
+        $('.conv-item').each(function() {
+            const name = $(this).find('.conv-name').text().toLowerCase();
+            $(this).toggle(name.includes(query));
+        });
+    });
 
 })();

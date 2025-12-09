@@ -3,6 +3,7 @@ package com.example.project.controller;
 import com.example.project.dto.MessengerDto;
 import com.example.project.dto.UserSessionDto;
 import com.example.project.service.MessengerService;
+import com.example.project.service.OnlineStatusService;
 import com.example.project.service.UserService; 
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ public class MessengerApiController {
     @Autowired private MessengerService messengerService;
     @Autowired private UserService userService;
     @Autowired private SimpMessagingTemplate messagingTemplate;
+    @Autowired private OnlineStatusService onlineStatusService;
 
     // 1. API lấy danh sách hội thoại
     @GetMapping("/conversations")

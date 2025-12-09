@@ -42,6 +42,14 @@ public class MessengerMessage {
 
     private LocalDateTime timestamp;
 
+    // [MỚI] Trỏ đến tin nhắn gốc nếu đây là tin reply
+    @ManyToOne
+    @JoinColumn(name = "reply_to_id")
+    private MessengerMessage replyTo;
+
+    // [MỚI] Cờ đánh dấu đã thu hồi (Soft delete)
+    private boolean isDeleted = false;
+
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
