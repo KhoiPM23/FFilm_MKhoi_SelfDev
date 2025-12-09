@@ -32,7 +32,11 @@
 
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
 
-    const GIPHY_API_KEY = '79jQGsmrNhvWRKAytBeikpRkve4u2m0K'; // Thay bằng key thật
+    // --- CẤU HÌNH STICKER NỘI BỘ ---
+    let currentStickerCollection = 'popular';
+    let recentStickers = JSON.parse(localStorage.getItem('recentStickers') || '[]');
+    let suggestionTimeout = null;
+    
 
     // Config Sticker
     const STICKERS = [
@@ -47,10 +51,11 @@
         console.log("Messenger Init Start...");
         connectWebSocket();
         loadConversations();
-        renderStickerMenu();
         bindEvents();
         initPeerJS();
-        initEmojiPicker();
+        initStickerMenu();
+        setupStickerSuggestions();
+        renderRecentStickers();
     });
 
     function bindEvents() {
@@ -62,19 +67,31 @@
             }
         });
 
-        // Upload ảnh
+        // Upload ảnh - CHỈ GÁN SỰ KIỆN 1 LẦN
         $('#imageInput').off('change').on('change', function() {
-            if (this.files && this.files[0]) uploadFile(this.files[0], 'IMAGE');
+            if (this.files && this.files[0]) {
+                window.handleFileSelect(this, 'IMAGE');
+            }
         });
         
-        // Ghi âm (Gán sự kiện click)
-        $('#recordBtn').parent().off('click').on('click', window.toggleRecording);
+        // Upload file
+        $('#fileInput').off('change').on('change', function() {
+            if (this.files && this.files[0]) {
+                window.handleFileSelect(this, 'FILE');
+            }
+        });
+        
+        // Ghi âm - SỬA: DÙNG NÚT ĐÚNG
+        $('#micBtn').off('click').on('click', window.toggleRecording);
         
         // Sticker Toggle
-        $('.fa-sticky-note').parent().off('click').on('click', window.toggleStickers);
+        $('#stickerBtn').off('click').on('click', window.toggleStickers);
         
         // Nút gửi
-        $('.fa-paper-plane').parent().off('click').on('click', window.sendTextMessage);
+        $('#sendBtn').off('click').on('click', window.sendTextMessage);
+        
+        // Emoji
+        initEmojiPicker();
     }
 
     // --- 1. PEERJS SETUP (WEB RTC) ---
@@ -536,13 +553,14 @@
         // 3. [FIX] Xử lý File đính kèm (Hiện ra text link)
         else if (msg.type === 'FILE') {
             // Tách tên file từ URL (nếu có)
-            const fileName = msg.content.split('/').pop() || 'Tệp đính kèm';
+            const fileName = decodeURIComponent(msg.content.split('/').pop()); // ← THÊM decode
+            const safeUrl = msg.content.replace(/ /g, '%20'); // ← Encode space
             contentHtml = `
                 <div class="msg-file" style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:8px;">
                     <i class="fas fa-file-alt fa-2x"></i>
                     <div>
                         <div style="font-size:12px; font-weight:bold;">${fileName}</div>
-                        <a href="${msg.content}" target="_blank" style="color:#0084ff; font-size:11px; text-decoration:underline;">Tải xuống</a>
+                        <a href="${safeUrl}" target="_blank" style="color:#0084ff; font-size:11px; text-decoration:underline;">Tải xuống</a>
                     </div>
                 </div>`;
         }
@@ -637,25 +655,29 @@
     window.sendTextMessage = function() {
         const content = $('#msgInput').val().trim();
 
-        // Ưu tiên 1: Nếu có file đang chờ (Preview) -> Upload -> Gửi
+        // [FIX QUAN TRỌNG] Kiểm tra xem có file đang chờ gửi không TRƯỚC
         if (pendingFile) {
-            uploadAndSend(pendingFile.file, pendingFile.type, content); // content là caption
-            return;
+            console.log("Đang gửi file...", pendingFile);
+            // Gọi hàm upload kèm theo nội dung text (làm caption)
+            uploadAndSend(pendingFile.file, pendingFile.type, content);
+            return; // Dừng lại, không chạy logic gửi text phía dưới
         }
 
-        // Ưu tiên 2: Gửi text thường
+        // Nếu không có file, mới kiểm tra text
         if (content && currentPartnerId) {
-            // Optimistic UI: Hiện ngay lập tức
+            // Optimistic UI: Hiện tin nhắn ngay lập tức
             appendMessageToUI({
                 senderId: currentUser.userID,
                 content: content,
                 type: 'TEXT',
-                status: 'SENDING',
-                formattedTime: 'Vừa xong'
+                formattedTime: 'Đang gửi...'
             }, true);
 
+            // Gửi API
             sendApiRequest({ receiverId: currentPartnerId, content: content, type: 'TEXT' });
-            $('#msgInput').val('');
+            
+            // Xóa ô nhập liệu
+            $('#msgInput').val('').focus();
         }
     };
 
@@ -700,14 +722,19 @@
                 type: type,
                 formattedTime: 'Đang gửi...'
             };
-            appendMessageToUI(fakeMsg, true);
-            scrollToBottom();
+            // appendMessageToUI(fakeMsg, true);
+            // scrollToBottom();
         };
         reader.readAsDataURL(file);
 
         // 2. Clear Input
         window.clearPreview();
         $('#msgInput').val('');
+
+        // Thêm loading
+        const tempId = 'up-' + Date.now();
+        $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang tải lên...</div>`);
+        scrollToBottom();
 
         // 3. Upload thật
         $.ajax({
@@ -717,24 +744,36 @@
             processData: false,
             contentType: false,
             success: function(res) {
+                $(`#${tempId}`).remove(); // Xóa loading
                 if(res.url) {
                     // Gửi tin nhắn chứa URL Server (để người kia xem được)
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
-                        type: type 
+                        type: type // AUDIO, IMAGE, FILE
                     });
+
+                    // 2. Hiện ngay lên UI của mình
+                    appendMessageToUI({ 
+                         senderId: currentUser.userID, 
+                         content: res.url, 
+                         type: type 
+                    }, true);
                     
                     // Gửi caption nếu có
                     if(caption) {
                         sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
                         appendMessageToUI({ senderId: currentUser.userID, content: caption, type: 'TEXT' }, true);
                     }
+
+                    // [QUAN TRỌNG] Reset mọi thứ sau khi gửi xong
+                    window.clearPreview(); 
+                    $('#msgInput').val('');
                 }
             },
-            error: function(e) { 
-                console.error("Upload fail:", e);
-                // Có thể thêm logic hiện icon lỗi tại tin nhắn vừa append
+            error: function(err) {
+                console.error("Upload lỗi:", err);
+                $(`#${tempId}`).html('<span class="text-danger">Lỗi tải lên</span>');
             }
         });
     }
@@ -815,6 +854,7 @@
                 }, 1000);
 
                 mediaRecorder.onstop = () => {
+                    if (!currentPartnerId) return;
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
                     
                     // Upload ngay lập tức (giống logic ảnh)
@@ -844,6 +884,40 @@
             }).catch(err => alert("Cần quyền Mic"));
         }
     };
+
+    // Khởi tạo Emoji Picker (Thư viện đầy đủ)
+    // --- INIT EMOJI PICKER (Native Web Component) ---
+    // messenger.js - Thay function initEmojiPicker()
+    function initEmojiPicker() {
+        const trigger = $('#emojiTrigger');
+        const input = $('#msgInput');
+        
+        if (!trigger.length || !input.length) return;
+
+        // Dùng emoji-picker-element (Web Component hiện đại)
+        let picker = document.querySelector('emoji-picker');
+        if (!picker) {
+            picker = document.createElement('emoji-picker');
+            picker.style.cssText = 'position:absolute; bottom:80px; right:20px; display:none; z-index:9999;';
+            document.body.appendChild(picker);
+        }
+
+        trigger.on('click', (e) => {
+            e.stopPropagation();
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        });
+
+        picker.addEventListener('emoji-click', (e) => {
+            input.val(input.val() + e.detail.unicode);
+            input.focus();
+        });
+
+        $(document).on('click', (e) => {
+            if (!picker.contains(e.target) && !trigger.is(e.target)) {
+                picker.style.display = 'none';
+            }
+        });
+    }
 
     // --- 1. LOGIC GHI ÂM (RECORDING) ---
 
@@ -916,94 +990,366 @@
             mediaRecorder.stream.getTracks().forEach(t => t.stop());
         }
     }
+    
+    
 
-    // --- 2. CÁC HÀM KHÁC (Giữ nguyên hoặc cập nhật sự kiện input) ---
-    
-    // Khi gõ text -> Có thể ẩn nút Mic hiện nút Gửi (Logic Messenger)
-    // Tạm thời ta để cả 2 nút như thiết kế HTML mới.
-    
-    // --- 1. STICKER TOGGLE (Fix tự bung) ---
+    // --- 8. STICKER LOGIC (MESSENGER STYLE) ---
+
+    // Toggle Sticker Menu (Messenger Style)
     window.toggleStickers = function() {
         const menu = $('#stickerMenu');
+        const input = $('#msgInput');
         
-        if (menu.hasClass('active')) {
-            menu.removeClass('active').hide();
-            return;
-        }
-
-        if (menu.children().length === 0) {
-            menu.html('<div style="text-align:center; padding:20px; color:#fff;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
+        if (menu.hasClass('show')) {
+            menu.removeClass('show').hide();
+        } else {
+            // Hide suggestions if open
+            hideStickerSuggestions();
             
-            fetch(`https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=20`)
-                .then(res => res.json())
-                .then(data => {
-                    let html = '';
-                    data.data.forEach(gif => {
-                        html += `<img src="${gif.images.fixed_height_small.url}" class="sticker-item" onclick="window.sendSticker('${gif.images.original.url}')">`;
-                    });
-                    menu.html(html);
-                })
-                .catch(() => {
-                    menu.html(STICKERS.map(url => `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`).join(''));
-                });
+            // Position menu properly
+            menu.css({
+                bottom: '80px',
+                left: '20px'
+            });
+            
+            menu.addClass('show').css('display', 'flex');
+            
+            // Load stickers if not loaded
+            if ($('#stickerGrid').is(':empty')) {
+                renderStickerCollection(currentStickerCollection);
+            }
+            
+            // Render recent stickers
+            renderRecentStickers();
         }
+    };
+
+    // Render Sticker Collection
+    function renderStickerCollection(collectionId) {
+        const grid = $('#stickerGrid');
+        const collection = STICKER_COLLECTIONS[collectionId];
         
-        menu.addClass('active').show().css('display', 'flex');
-    };
-
-    window.sendSticker = function(url) {
-        $('#stickerMenu').hide();
-        if(!currentPartnerId) return;
-        sendApiRequest({ receiverId: currentPartnerId, content: url, type: 'IMAGE' }); // Dùng IMAGE tạm
-    };
-
-    function renderStickerMenu() {
-        let html = '';
-        STICKERS.forEach(url => html += `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`);
-        $('#stickerMenu').html(html);
+        if (!collection) return;
+        
+        grid.empty();
+        
+        collection.items.forEach(sticker => {
+            const item = $(`
+                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
+                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
+                </div>
+            `);
+            
+            item.on('click', function() {
+                sendSticker(sticker.url);
+                addToRecentStickers(sticker);
+            });
+            
+            grid.append(item);
+        });
     }
 
-    // Hàm chọn Emoji (Placeholder - Phase sau sẽ tích hợp thư viện)
-    window.toggleEmojiPicker = function() {
-        const input = $('#msgInput');
-        const currentVal = input.val();
-        input.val(currentVal + "😊"); // Tạm thời chèn hardcode, sau này gắn lib
-        input.focus();
+    // Render Recent Stickers
+    function renderRecentStickers() {
+        const recentGrid = $('.recent-stickers-grid');
+        if (!recentGrid.length) return;
+        
+        recentGrid.empty();
+        
+        recentStickers.slice(0, 8).forEach(sticker => {
+            const item = $(`
+                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
+                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
+                </div>
+            `);
+            
+            item.on('click', function() {
+                sendSticker(sticker.url);
+                addToRecentStickers(sticker);
+            });
+            
+            recentGrid.append(item);
+        });
+    }
+
+    // Add to Recent Stickers
+    function addToRecentStickers(sticker) {
+        // Remove if already exists
+        recentStickers = recentStickers.filter(s => s.id !== sticker.id);
+        
+        // Add to beginning
+        recentStickers.unshift(sticker);
+        
+        // Keep only last 20
+        recentStickers = recentStickers.slice(0, 20);
+        
+        // Save to localStorage
+        localStorage.setItem('recentStickers', JSON.stringify(recentStickers));
+    }
+
+    // Switch Sticker Collection
+    window.switchStickerCollection = function(collectionId, element) {
+        currentStickerCollection = collectionId;
+        
+        // Update active state
+        $('.collection-btn').removeClass('active');
+        $(element).addClass('active');
+        
+        // Render collection
+        renderStickerCollection(collectionId);
     };
 
-    // Khởi tạo Emoji Picker (Thư viện đầy đủ)
-    // --- INIT EMOJI PICKER (Native Web Component) ---
-    // messenger.js - Thay function initEmojiPicker()
-    function initEmojiPicker() {
-        const trigger = $('#emojiTrigger');
+    // Search Stickers
+    window.searchStickers = function(query) {
+        if (!query.trim()) {
+            renderStickerCollection(currentStickerCollection);
+            return;
+        }
+        
+        const grid = $('#stickerGrid');
+        grid.empty();
+        
+        query = query.toLowerCase();
+        let foundStickers = [];
+        
+        // Search in all collections
+        Object.values(STICKER_COLLECTIONS).forEach(collection => {
+            collection.items.forEach(sticker => {
+                // Search in tags
+                const matches = sticker.tags.some(tag => tag.includes(query));
+                if (matches) {
+                    foundStickers.push(sticker);
+                }
+            });
+        });
+        
+        if (foundStickers.length === 0) {
+            grid.html('<div class="text-center text-muted p-4">Không tìm thấy sticker phù hợp</div>');
+            return;
+        }
+        
+        // Display found stickers
+        foundStickers.forEach(sticker => {
+            const item = $(`
+                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
+                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
+                </div>
+            `);
+            
+            item.on('click', function() {
+                sendSticker(sticker.url);
+                addToRecentStickers(sticker);
+            });
+            
+            grid.append(item);
+        });
+    };
+
+    // --- 9. STICKER SUGGESTIONS (ZALO STYLE) ---
+
+    // Show/Hide Sticker Suggestions
+    function showStickerSuggestions(keywords) {
+        const suggestions = findStickerSuggestions(keywords);
+        
+        if (suggestions.length === 0) {
+            hideStickerSuggestions();
+            return;
+        }
+        
+        const container = $('#stickerSuggestions');
+        const grid = $('#suggestionsGrid');
+        
+        grid.empty();
+        
+        suggestions.slice(0, 12).forEach(sticker => {
+            const item = $(`
+                <img src="${sticker.url}" class="suggestion-sticker" 
+                    data-url="${sticker.url}" 
+                    title="${sticker.tags.join(', ')}">
+            `);
+            
+            item.on('click', function() {
+                sendSticker(sticker.url);
+                addToRecentStickers(sticker);
+                hideStickerSuggestions();
+                $('#msgInput').val('').focus();
+            });
+            
+            grid.append(item);
+        });
+        
+        container.addClass('show').css('display', 'flex');
+    }
+
+    function hideStickerSuggestions() {
+        $('#stickerSuggestions').removeClass('show').hide();
+    }
+
+    // Find Sticker Suggestions by Keywords
+    function findStickerSuggestions(keywords) {
+        const suggestions = new Set();
+        const keywordList = keywords.toLowerCase().split(' ');
+        
+        keywordList.forEach(keyword => {
+            if (STICKER_SUGGESTIONS[keyword]) {
+                STICKER_SUGGESTIONS[keyword].forEach(stickerId => {
+                    // Find sticker in all collections
+                    Object.values(STICKER_COLLECTIONS).forEach(collection => {
+                        const sticker = collection.items.find(s => s.id === stickerId);
+                        if (sticker) {
+                            suggestions.add(sticker);
+                        }
+                    });
+                });
+            }
+            
+            // Also search in tags
+            Object.values(STICKER_COLLECTIONS).forEach(collection => {
+                collection.items.forEach(sticker => {
+                    if (sticker.tags.some(tag => tag.includes(keyword))) {
+                        suggestions.add(sticker);
+                    }
+                });
+            });
+        });
+        
+        return Array.from(suggestions);
+    }
+
+    // Analyze message for sticker suggestions
+    function analyzeMessageForStickers(message) {
+        const words = message.toLowerCase().split(/\s+/);
+        const stickerKeywords = [
+            'cười', 'vui', 'buồn', 'khóc', 'yêu', 'tim', 'ok', 'like',
+            'cảm ơn', 'hoan hô', 'wink', 'dễ thương', 'ngon', 'ngầu',
+            'giận', 'tức', 'sợ', 'hoảng', 'ngượng', 'chó', 'mèo', 'cún',
+            'thỏ', 'cáo', 'gấu', 'heo', 'hổ', 'ngựa', 'hamburger', 'bánh',
+            'kem', 'kẹo', 'party', 'tiệc', 'quà', 'pháo hoa', 'noel',
+            'halloween', 'ý tưởng', 'bom', 'ngủ', 'mồ hôi', 'cơ bắp',
+            'khỏe', 'chóng mặt', 'nói', 'suy nghĩ', 'hôn', 'kim cương',
+            'hoa', 'chạy', 'bóng đá', 'bóng rổ', 'tennis', 'bơi', 'golf'
+        ];
+        
+        return words.filter(word => stickerKeywords.some(keyword => 
+            keyword.includes(word) || word.includes(keyword)
+        ));
+    }
+
+    // Initialize Sticker Menu HTML
+    function initStickerMenu() {
+        if (!window.STICKER_COLLECTIONS) return;
+        const menu = $('#stickerMenu');
+        
+        if (menu.find('.sticker-collections').length === 0) {
+            const html = `
+                <div class="sticker-header">
+                    <div class="sticker-tabs">
+                        <button class="tab-btn active" onclick="window.switchStickerTab('stickers')">
+                            <i class="fas fa-sticky-note"></i> Stickers
+                        </button>
+                        <button class="tab-btn" onclick="window.switchStickerTab('gifs')">
+                            <i class="fas fa-film"></i> GIFs
+                        </button>
+                    </div>
+                    <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
+                </div>
+                
+                <div class="sticker-search">
+                    <input type="text" id="stickerSearchInput" 
+                        placeholder="Tìm kiếm stickers..." 
+                        onkeyup="window.searchStickers(this.value)">
+                    <i class="fas fa-search"></i>
+                </div>
+                
+                <div class="sticker-collections">
+                    ${Object.entries(STICKER_COLLECTIONS).map(([id, collection]) => `
+                        <button class="collection-btn ${id === 'popular' ? 'active' : ''}" 
+                                onclick="window.switchStickerCollection('${id}', this)">
+                            ${collection.name}
+                        </button>
+                    `).join('')}
+                </div>
+                
+                ${recentStickers.length > 0 ? `
+                <div class="recent-stickers">
+                    <h4><i class="fas fa-history"></i> Gần đây</h4>
+                    <div class="recent-stickers-grid"></div>
+                </div>
+                ` : ''}
+                
+                <div class="sticker-grid-container">
+                    <div id="stickerGrid" class="sticker-grid"></div>
+                </div>
+            `;
+            
+            menu.html(html);
+        }
+    }
+
+    // Enhanced Message Input with Sticker Suggestions
+    function setupStickerSuggestions() {
         const input = $('#msgInput');
         
-        if (!trigger.length || !input.length) return;
-
-        // Dùng emoji-picker-element (Web Component hiện đại)
-        let picker = document.querySelector('emoji-picker');
-        if (!picker) {
-            picker = document.createElement('emoji-picker');
-            picker.style.cssText = 'position:absolute; bottom:80px; right:20px; display:none; z-index:9999;';
-            document.body.appendChild(picker);
-        }
-
-        trigger.on('click', (e) => {
-            e.stopPropagation();
-            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        input.on('input', function() {
+            const message = $(this).val().trim();
+            
+            if (suggestionTimeout) {
+                clearTimeout(suggestionTimeout);
+            }
+            
+            if (message.length >= 2) {
+                suggestionTimeout = setTimeout(() => {
+                    const keywords = analyzeMessageForStickers(message);
+                    if (keywords.length > 0) {
+                        showStickerSuggestions(keywords);
+                    } else {
+                        hideStickerSuggestions();
+                    }
+                }, 500);
+            } else {
+                hideStickerSuggestions();
+            }
         });
-
-        picker.addEventListener('emoji-click', (e) => {
-            input.val(input.val() + e.detail.unicode);
-            input.focus();
-        });
-
-        $(document).on('click', (e) => {
-            if (!picker.contains(e.target) && !trigger.is(e.target)) {
-                picker.style.display = 'none';
+        
+        // Hide suggestions when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#stickerSuggestions, #msgInput').length) {
+                hideStickerSuggestions();
             }
         });
     }
+
+    // Send Sticker Function (Updated)
+    window.sendSticker = function(url, type = 'STICKER') {
+        if (!currentPartnerId) return;
+        
+        // Close menus
+        $('#stickerMenu').removeClass('show').hide();
+        hideStickerSuggestions();
+        
+        // Send to server
+        sendApiRequest({ 
+            receiverId: currentPartnerId, 
+            content: url, 
+            type: type 
+        });
+        
+        // Show immediately on UI
+        const fakeMsg = { 
+            senderId: currentUser.userID, 
+            content: url, 
+            type: type,
+            formattedTime: 'Vừa xong'
+        };
+        appendMessageToUI(fakeMsg, true);
+    };
+
+    // Initialize in document ready
+    // $(document).ready(function() {
+    //     initStickerMenu();
+    //     setupStickerSuggestions();
+    //     renderRecentStickers();
+    // });
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
     // messenger.js - checkUrlAndOpenChat()
@@ -1047,7 +1393,10 @@
         replyToId = msgId;
         // Hiện thanh Replying Bar (Cần thêm HTML vào footer ở bước sau)
         $('#replyingBar').css('display', 'flex');
-        $('#replyingText').text(`Đang trả lời ${name}: ${content}`);
+        $('#replyingBar').css('display', 'flex').html(`
+            <span>Đang trả lời ${name}: ${content}</span>
+            <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;margin-left:auto;"></i>
+        `);
         $('#msgInput').focus();
     };
 
@@ -1069,6 +1418,10 @@
 
     // [CẬP NHẬT HÀM GỬI TIN] Để kèm replyToId
     window.sendTextMessage = function() {
+        if (pendingFile) {
+            uploadAndSend(pendingFile.file, pendingFile.type, $('#msgInput').val().trim());
+            return;
+        }
         const input = $('#msgInput');
         const content = input.val().trim();
         if (!content || !currentPartnerId) return;
@@ -1219,5 +1572,4 @@
             loadSharedMedia();
         }
     };
-
 })();

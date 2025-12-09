@@ -38,6 +38,16 @@ public class MessengerApiController {
             HttpSession session) {
         UserSessionDto user = getUserFromSession(session);
         if (user == null) return ResponseEntity.status(401).build();
+
+        List<MessengerDto.ConversationDto> conversations = messengerService.getRecentConversations(user.getId());
+    
+        // ← THÊM logic online
+        conversations.forEach(conv -> {
+            boolean isOnline = onlineStatusService.isOnline(conv.getPartnerId());
+            String lastActive = onlineStatusService.getLastActive(conv.getPartnerId());
+            conv.setOnline(isOnline);
+            conv.setLastActive(lastActive);
+        });
         
         return ResponseEntity.ok(messengerService.getChatHistory(user.getId(), partnerId));
     }

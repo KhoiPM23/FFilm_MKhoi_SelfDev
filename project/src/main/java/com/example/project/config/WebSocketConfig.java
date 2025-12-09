@@ -1,6 +1,7 @@
 package com.example.project.config;
 
 import com.example.project.dto.UserSessionDto;
+import com.example.project.service.OnlineStatusService;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -21,6 +22,12 @@ import java.util.Map;
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private final OnlineStatusService onlineStatusService;
+
+    public WebSocketConfig(OnlineStatusService onlineStatusService) {
+        this.onlineStatusService = onlineStatusService;
+    }
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
         config.enableSimpleBroker("/topic", "/queue");
@@ -37,7 +44,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     // Lấy User từ HttpSession bỏ vào Attributes
-    private static class AuthHandshake implements HandshakeInterceptor {
+    private class AuthHandshake implements HandshakeInterceptor {
         @Override
         public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
             if (request instanceof ServletServerHttpRequest) {
@@ -48,7 +55,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 if (user == null) user = session.getAttribute("admin");
                 
                 if (user != null) {
-                    attributes.put("userSession", user);
+                    UserSessionDto userDto = (UserSessionDto) user;
+                    attributes.put("userSession", userDto);
+                    onlineStatusService.markOnline(userDto.getId());
                 }
             }
             return true;

@@ -33,6 +33,16 @@ public class MessengerDto {
         private String statusClass;  // Class CSS: "unread" hoặc ""
 
         private boolean friend;
+
+        private String lastActive;
+    
+        public void setLastActive(String lastActive) {
+            this.lastActive = lastActive;
+        }
+        
+        public String getLastActive() {
+            return this.lastActive;
+        }
     }
 
     // DTO cho từng tin nhắn (Khung chat bên phải)
