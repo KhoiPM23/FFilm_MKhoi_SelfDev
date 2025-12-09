@@ -4,15 +4,20 @@
     <title>Messenger - FFilm Connect</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css"> <link rel="stylesheet" href="/css/messenger.css"> <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/messenger.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
-<body class="messenger-body">
 
+<body class="messenger-body">
+    <!-- HEADER -->
     <div th:replace="fragments/header :: header"></div>
 
+    <!-- MAIN MESSENGER CONTAINER -->
     <div class="messenger-container">
+        <!-- LEFT SIDEBAR -->
         <div class="msg-sidebar">
             <div class="sidebar-header">
                 <h2>Chats</h2>
@@ -31,204 +36,213 @@
             </div>
         </div>
 
+        <!-- MAIN CHAT AREA -->
         <div class="msg-chat-area">
-            
+            <!-- Empty State -->
             <div id="emptyState" class="empty-state">
                 <i class="fab fa-facebook-messenger"></i>
                 <h3>Chọn một đoạn chat để bắt đầu</h3>
             </div>
 
-            <div id="chatInterface" style="display: none; flex-direction: column; height: 100%;">
-                
+            <!-- Chat Interface -->
+            <div id="chatInterface" style="display: none;">
+                <!-- Chat Header -->
                 <div class="chat-header">
                     <div class="chat-user-info">
                         <img id="headerAvatar" src="/images/placeholder-user.jpg" class="avatar-img">
                         <div>
-                            <h4 id="headerName" style="margin: 0; font-size: 16px;">User Name</h4>
+                            <h4 id="headerName">User Name</h4>
                             <small class="text-success">Đang hoạt động</small>
                         </div>
                     </div>
-                    <div class="chat-status-bar" id="chatHeaderStatus" style="margin-left: 15px; display: flex; align-items: center;"></div>
                     <div class="chat-actions">
                         <i class="fas fa-phone-alt" title="Gọi thoại" onclick="window.startVoiceCall()"></i>
                         <i class="fas fa-video" title="Video Call" onclick="window.startVideoCall()"></i>
-                        <i class="fas fa-info-circle active" title="Thông tin hội thoại" onclick="window.toggleChatInfo()"></i>
+                        <i class="fas fa-info-circle" id="btnToggleInfo" title="Thông tin hội thoại" onclick="window.toggleChatInfo()"></i>
                     </div>
                 </div>
 
-                <div class="messages-container" id="messagesContainer">
+                <!-- Stranger Banner -->
+                <div id="strangerBanner" class="stranger-alert-bar" style="display: none;">
+                    <div class="stranger-content">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Tin nhắn từ người lạ. Hãy cẩn thận khi chia sẻ thông tin.</span>
+                    </div>
+                    <div class="stranger-actions">
+                        <button class="btn-stranger-add" onclick="window.sendFriendRequest()">Kết bạn</button>
+                        <button class="btn-stranger-block" onclick="alert('Tính năng chặn đang phát triển')">Chặn</button>
+                    </div>
                 </div>
 
+                <!-- Messages Container -->
+                <div class="messages-container" id="messagesContainer">
+                    <!-- Messages will be rendered here -->
+                </div>
+
+                <!-- Chat Footer -->
                 <div class="chat-footer">
-    
-                    <div id="mediaPreview" class="media-preview" style="display: none; padding: 10px; background: rgba(0,0,0,0.3); width: 100%;">
-                        <div style="position: relative; display: inline-block;">
-                            <img id="previewImg" src="" style="height: 60px; border-radius: 5px; display: none;">
-                            <div id="filePreviewIcon" style="display: none; color: #fff; align-items: center; gap: 5px;">
+                    <!-- Media Preview -->
+                    <div id="mediaPreview" class="media-preview" style="display: none;">
+                        <div class="preview-content">
+                            <img id="previewImg" src="" style="display: none;">
+                            <div id="filePreviewIcon" style="display: none;">
                                 <i class="fas fa-file fa-2x"></i>
-                                <span id="previewFileName" style="font-size: 12px;"></span>
+                                <span id="previewFileName"></span>
                             </div>
-                            <div onclick="window.clearPreview()" style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer; font-size: 12px;">
+                            <div class="remove-preview-btn" onclick="window.clearPreview()">
                                 <i class="fas fa-times"></i>
                             </div>
                         </div>
                     </div>
 
-                    <div id="replyingBar" class="replying-bar">
-                        <div style="display:flex; flex-direction:column;">
+                    <!-- Replying Bar -->
+                    <div id="replyingBar" class="replying-bar" style="display: none;">
+                        <div>
                             <span style="font-weight:bold; color:#e50914;">Trả lời tin nhắn</span>
-                            <span id="replyingText" style="font-size:12px; color:#aaa;">Nội dung tin nhắn...</span>
+                            <div id="replyingText" style="font-size:12px; color:#aaa;">Nội dung tin nhắn...</div>
                         </div>
-                        <div onclick="window.cancelReply()" style="cursor:pointer; padding:5px;"><i class="fas fa-times"></i></div>
+                        <div onclick="window.cancelReply()" style="cursor:pointer;">
+                            <i class="fas fa-times"></i>
+                        </div>
                     </div>
 
-                    <div class="input-actions" id="normalInputState" style="display: flex; width: 100%; align-items: center; gap: 10px;">
+                    <!-- Input Actions -->
+                    <div class="input-actions" id="normalInputState">
                         <label class="footer-btn" title="Gửi ảnh">
                             <i class="fas fa-image"></i>
-                            <input type="file" id="imageInput" hidden accept="image/*" onchange="window.handleFileSelect(this, 'IMAGE')">
+                            <input type="file" id="imageInput" hidden accept="image/*">
                         </label>
 
                         <label class="footer-btn" title="Gửi file">
                             <i class="fas fa-paperclip"></i>
-                            <input type="file" id="fileInput" hidden onchange="window.handleFileSelect(this, 'FILE')">
+                            <input type="file" id="fileInput" hidden>
                         </label>
-                        
-                        <div class="footer-btn" id="stickerBtn" onclick="window.toggleStickers()" title="Sticker">
+
+                        <div class="footer-btn" id="stickerBtn" title="Sticker">
                             <i class="fas fa-sticky-note"></i>
                         </div>
 
-                        <div class="input-group" style="flex: 1; position: relative;">
-                            <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off" style="width: 100%; padding-right: 30px;">
-                            <i class="fas fa-smile emoji-btn" id="emojiTrigger" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #f5c518;"></i> 
+                        <div class="input-group">
+                            <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+                            <i class="fas fa-smile emoji-btn" id="emojiTrigger"></i>
                         </div>
 
-                        <!-- Thêm vào sau thẻ <div class="input-group"> trong chat-footer -->
-                        <div id="stickerSuggestions" class="sticker-suggestions" style="display: none;">
-                            <div class="suggestions-header">
-                                <span>Gợi ý stickers</span>
-                                <i class="fas fa-times close-suggestions" onclick="hideStickerSuggestions()"></i>
-                            </div>
-                            <div id="suggestionsGrid" class="suggestions-grid">
-                                <!-- Sticker gợi ý sẽ được render ở đây -->
-                            </div>
-                        </div>
-
-                        <div class="footer-btn send-btn" id="sendBtn" onclick="window.sendTextMessage()">
+                        <div class="footer-btn send-btn" id="sendBtn" title="Gửi">
                             <i class="fas fa-paper-plane"></i>
                         </div>
-                        
-                        <div class="footer-btn mic-btn" id="micBtn" onclick="window.toggleRecording()" title="Ghi âm">
-                            <i class="fas fa-microphone" id="recordBtn"></i>
+
+                        <div class="footer-btn mic-btn" id="micBtn" title="Ghi âm">
+                            <i class="fas fa-microphone"></i>
                         </div>
                     </div>
 
+                    <!-- Recording UI -->
                     <div class="recording-ui" id="recordingState" style="display: none;">
                         <div class="footer-btn cancel-record" onclick="window.cancelRecording()">
                             <i class="fas fa-times"></i>
                         </div>
                         <div class="record-display">
-                            <div class="record-dot"></div> <span id="recordTimer">00:00</span>
-                            <div class="fake-wave"><span></span><span></span><span></span><span></span><span></span></div>
+                            <div class="record-dot"></div>
+                            <span id="recordTimer">00:00</span>
+                            <div class="fake-wave">
+                                <span></span><span></span><span></span><span></span><span></span>
+                            </div>
                         </div>
                         <div class="footer-btn send-record-btn" onclick="window.finishRecording()">
                             <i class="fas fa-paper-plane"></i>
                         </div>
                     </div>
+
+                    <!-- Sticker Suggestions -->
+                    <div id="stickerSuggestions" class="sticker-suggestions">
+                        <div class="suggestions-header">
+                            <span>Gợi ý stickers</span>
+                            <i class="fas fa-times close-suggestions" onclick="hideStickerSuggestions()"></i>
+                        </div>
+                        <div id="suggestionsGrid" class="suggestions-grid"></div>
+                    </div>
                 </div>
 
-                <div class="recording-ui">
-                    <i class="fas fa-microphone-alt fa-beat"></i> Đang ghi âm...
-                </div>
-
+                <!-- Sticker Menu -->
                 <div id="stickerMenu" class="sticker-menu">
-                    <!-- Content will be generated by JavaScript -->
+                    <div class="sticker-header">
+                        <div class="sticker-tabs">
+                            <button class="tab-btn active">Stickers</button>
+                            <button class="tab-btn">GIFs</button>
+                        </div>
+                        <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
+                    </div>
+                    <div class="sticker-search">
+                        <input type="text" placeholder="Tìm kiếm stickers...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="sticker-grid" id="stickerGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR (INFO) -->
+        <div class="chat-info-sidebar hidden" id="chatInfoSidebar">
+            <div class="info-header">
+                <img id="infoAvatar" src="/images/placeholder-user.jpg" class="info-avatar-lg">
+                <h3 id="infoName">User Name</h3>
+                <span class="info-status">Đang hoạt động</span>
+            </div>
+
+            <div class="info-body custom-scrollbar">
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                        <span>Tùy chỉnh đoạn chat</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="info-action-btn" onclick="alert('Tính năng đổi chủ đề đang phát triển')">
+                            <i class="fas fa-circle" style="color: #0084ff;"></i> Đổi chủ đề
+                        </div>
+                        <div class="info-action-btn" onclick="alert('Tính năng đổi biệt danh đang phát triển')">
+                            <i class="fas fa-font"></i> Chỉnh sửa biệt danh
+                        </div>
+                    </div>
                 </div>
 
-                <div class="chat-info-sidebar hidden" id="chatInfoSidebar">
-                    <div class="info-header">
-                        <img id="infoAvatar" src="/images/placeholder-user.jpg" class="info-avatar-lg">
-                        <h3 id="infoName">User Name</h3>
-                        <span class="info-status">Đang hoạt động</span>
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                        <span>File phương tiện & file</span>
+                        <i class="fas fa-chevron-down"></i>
                     </div>
-
-                    <div class="info-body custom-scrollbar">
-
-                        <div class="accordion-item">
-                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
-                                <span>Tùy chỉnh đoạn chat</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </div>
-                            <div class="accordion-content">
-                                <div class="info-action-btn" onclick="alert('Tính năng đổi chủ đề đang phát triển')">
-                                    <i class="fas fa-circle" style="color: #0084ff;"></i> Đổi chủ đề
-                                </div>
-                                <div class="info-action-btn" onclick="alert('Tính năng đổi biệt danh đang phát triển')">
-                                    <i class="fas fa-font"></i> Chỉnh sửa biệt danh
-                                </div>
-                            </div>
+                    <div class="accordion-content">
+                        <div class="media-tabs">
+                            <span class="media-tab active" onclick="window.switchMediaTab('img')">Ảnh</span>
+                            <span class="media-tab" onclick="window.switchMediaTab('file')">File</span>
                         </div>
 
-                        <div class="accordion-item">
-                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
-                                <span>File phương tiện & file</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </div>
-                            <div class="accordion-content">
-                                <div class="media-tabs">
-                                    <span class="media-tab active" onclick="window.switchMediaTab('img')">Ảnh</span>
-                                    <span class="media-tab" onclick="window.switchMediaTab('file')">File</span>
-                                </div>
-
-                                <div id="sharedImagesGrid" class="media-grid">
-                                    <div class="text-muted small text-center w-100 mt-2">Đang tải...</div>
-                                </div>
-
-                                <div id="sharedFilesList" class="file-list" style="display:none;"></div>
-                            </div>
+                        <div id="sharedImagesGrid" class="media-grid">
+                            <div class="text-muted small text-center w-100 mt-2">Đang tải...</div>
                         </div>
 
-                        <div class="accordion-item">
-                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
-                                <span>Quyền riêng tư & hỗ trợ</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </div>
-                            <div class="accordion-content">
-                                <div class="info-action-btn text-warning">
-                                    <i class="fas fa-bell-slash"></i> Tắt thông báo
-                                </div>
-                                <div class="info-action-btn text-danger" onclick="alert('Chức năng chặn')">
-                                    <i class="fas fa-ban"></i> Chặn
-                                </div>
-                            </div>
-                        </div>
-
+                        <div id="sharedFilesList" class="file-list" style="display:none;"></div>
                     </div>
-                </div>                
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                        <span>Quyền riêng tư & hỗ trợ</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="info-action-btn text-warning">
+                            <i class="fas fa-bell-slash"></i> Tắt thông báo
+                        </div>
+                        <div class="info-action-btn text-danger" onclick="alert('Chức năng chặn')">
+                            <i class="fas fa-ban"></i> Chặn
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script th:inline="javascript">
-        /* Lấy thông tin user hiện tại để JS xử lý logic 'mine' vs 'other' nếu cần */
-        const currentUser = /*[[${userJson}]]*/ {};
-    </script>    
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <script src="/js/stickers.js"></script>
-    <script src="/js/messenger.js"></script>
-    <script src="/js/script.js"></script>
-    <script>
-        $(document).ready(function() {
-            if (typeof window.messengerInit === 'function') {
-                window.messengerInit();
-            }
-        });
-    </script>
-    <!-- Emoji Library (Đúng CDN) -->
-     <!-- <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script> -->
-    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
-    <!-- Giphy SDK (GIF/Sticker) -->
-    <!-- <script src="https://sdk.giphy.com/v1/giphy.js"></script> -->
-
+    <!-- VIDEO CALL MODAL -->
     <div id="videoCallModal" class="call-modal" style="display: none;">
         <div class="call-content">
             <div class="call-header">
@@ -259,6 +273,7 @@
         </div>
     </div>
 
+    <!-- INCOMING CALL MODAL -->
     <div id="incomingCallModal" class="incoming-call-modal" style="display: none;">
         <div class="incoming-content">
             <img id="incomingAvatar" src="" class="incoming-avatar">
@@ -276,5 +291,23 @@
             </div>
         </div>
     </div>
+
+    <script th:inline="javascript">
+        const currentUser = /*[[${userJson}]]*/ {};
+    </script>
+    
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <script src="/js/stickers.js"></script>
+    <script src="/js/messenger.js"></script>
+    <script src="/js/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            if (typeof window.messengerInit === 'function') {
+                window.messengerInit();
+            }
+        });
+    </script>
 </body>
 </html>
