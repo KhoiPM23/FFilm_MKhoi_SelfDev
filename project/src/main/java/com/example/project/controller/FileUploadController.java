@@ -14,26 +14,26 @@ import java.util.UUID;
 @RequestMapping("/api/upload")
 public class FileUploadController {
 
-    // Thư mục lưu ảnh: src/main/resources/static/uploads/chat
-    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/chat/";
+    // [FIX] Lưu vào thư mục NGOÀI resources (để Spring ResourceHandler access được)
+    private static final String UPLOAD_DIR = "uploads/chat/";
 
     @PostMapping("/image")
     public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
-            // Tạo thư mục nếu chưa có
+            // Tạo thư mục uploads/ ở root project (ngang với src/)
             Path uploadPath = Paths.get(UPLOAD_DIR);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // Tạo tên file ngẫu nhiên để tránh trùng
+            // Tạo tên file unique
             String fileName = UUID.randomUUID().toString() + "-" + StringUtils.cleanPath(file.getOriginalFilename());
             Path filePath = uploadPath.resolve(fileName);
             
             // Lưu file
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // Trả về URL đường dẫn tĩnh (để frontend truy cập)
+            // [QUAN TRỌNG] Trả về URL ĐÚNG với ResourceHandler mapping
             String fileUrl = "/uploads/chat/" + fileName;
             return ResponseEntity.ok(Map.of("url", fileUrl));
 

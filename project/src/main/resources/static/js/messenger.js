@@ -32,6 +32,8 @@
 
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
 
+    const GIPHY_API_KEY = '79jQGsmrNhvWRKAytBeikpRkve4u2m0K'; // Thay bằng key thật
+
     // Config Sticker
     const STICKERS = [
         "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
@@ -856,12 +858,31 @@
     // --- 1. STICKER TOGGLE (Fix tự bung) ---
     window.toggleStickers = function() {
         const menu = $('#stickerMenu');
-        console.log("Toggle Sticker:", menu.css('display')); // Debug
         
         if (menu.hasClass('active')) {
             menu.removeClass('active').hide();
         } else {
-            menu.addClass('active').show().css('display', 'flex'); // Force flex
+            // Lần đầu load, fetch từ Giphy
+            if (menu.children().length === 0) {
+                menu.html('<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
+                
+                // Fetch trending stickers
+                fetch(`https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=20`)
+                    .then(res => res.json())
+                    .then(data => {
+                        let html = '';
+                        data.data.forEach(gif => {
+                            html += `<img src="${gif.images.fixed_height_small.url}" class="sticker-item" onclick="window.sendSticker('${gif.images.original.url}')">`;
+                        });
+                        menu.html(html);
+                    })
+                    .catch(() => {
+                        // Fallback hardcode nếu API lỗi
+                        menu.html(STICKERS.map(url => `<img src="${url}" class="sticker-item" onclick="window.sendSticker('${url}')">`).join(''));
+                    });
+            }
+            
+            menu.addClass('active').show().css('display', 'flex');
         }
     };
 
@@ -886,28 +907,32 @@
     };
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
+    // --- INIT EMOJI PICKER (Native Web Component) ---
     function initEmojiPicker() {
         const trigger = document.querySelector('#emojiTrigger');
+        const input = document.querySelector('#msgInput');
         
-        if (typeof EmojiButton !== 'undefined' && trigger) {
-            const picker = new EmojiButton({
-                theme: 'dark',
-                autoHide: true,
-                position: 'top-start',
-                zIndex: 9999
-            });
+        if (!trigger || !input) return;
 
-            picker.on('emoji', selection => {
-                const input = $('#msgInput');
-                input.val(input.val() + selection.emoji);
-                input.focus();
-            });
+        let picker = document.createElement('emoji-picker');
+        picker.style.cssText = 'position:absolute; bottom:70px; right:20px; display:none; z-index:9999;';
+        document.body.appendChild(picker);
 
-            trigger.addEventListener('click', (e) => {
-                e.stopPropagation();
-                picker.togglePicker(trigger);
-            });
-        }
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        });
+
+        picker.addEventListener('emoji-click', (e) => {
+            input.value += e.detail.unicode;
+            input.focus();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!picker.contains(e.target) && e.target !== trigger) {
+                picker.style.display = 'none';
+            }
+        });
     }
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
