@@ -133,7 +133,7 @@ public class MessengerService {
         return messages.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
 
-    // 3. Gửi tin nhắn
+    // 1. Sửa hàm sendMessage
     public MessengerDto.MessageDto sendMessage(Integer senderId, MessengerDto.SendMessageRequest request) {
         User sender = userRepository.findById(senderId).orElseThrow();
         User receiver = userRepository.findById(request.getReceiverId()).orElseThrow();
@@ -145,26 +145,54 @@ public class MessengerService {
         msg.setType(request.getType());
         msg.setMediaUrl(request.getContent()); 
         msg.setStatus(MessengerMessage.MessageStatus.SENT);
+
+        // [MỚI] Xử lý Reply
+        if (request.getReplyToId() != null) {
+            MessengerMessage parent = messengerRepository.findById(request.getReplyToId()).orElse(null);
+            msg.setReplyTo(parent);
+        }
         
         MessengerMessage saved = messengerRepository.save(msg);
         return convertToMessageDto(saved);
     }
 
-    // Helper: Convert Entity -> DTO
+    // 2. Thêm hàm thu hồi tin nhắn
+    public void unsendMessage(Long messageId, Integer userId) {
+        MessengerMessage msg = messengerRepository.findById(messageId).orElseThrow();
+        if (msg.getSender().getUserID() == userId) {
+            msg.setDeleted(true);
+            messengerRepository.save(msg);
+        }
+    }
+
+    // 3. Sửa hàm convertToMessageDto
     private MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
-        // Tạo avatar
         String avatar = generateAvatar(m.getSender().getUserName());
         
+        // [MỚI] Map tin nhắn gốc nếu có
+        MessengerDto.MessageDto replyDto = null;
+        if (m.getReplyTo() != null) {
+            // Đệ quy nhẹ để lấy thông tin tin nhắn gốc (chỉ cần nội dung cơ bản)
+            replyDto = MessengerDto.MessageDto.builder()
+                    .id(m.getReplyTo().getId())
+                    .content(m.getReplyTo().getContent())
+                    .type(m.getReplyTo().getType())
+                    .senderId(m.getReplyTo().getSender().getUserID()) // Để biết ai là người được reply
+                    .build();
+        }
+
         return MessengerDto.MessageDto.builder()
                 .id(m.getId())
                 .senderId(m.getSender().getUserID())
                 .receiverId(m.getReceiver().getUserID())
-                .content(m.getContent())
+                .content(m.isDeleted() ? "Tin nhắn đã bị thu hồi" : m.getContent()) // [MỚI] Check delete
                 .type(m.getType())
                 .status(m.getStatus())
                 .timestamp(m.getTimestamp())
                 .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
-                .senderAvatar(avatar) // [MỚI] Set Avatar vào đây
+                .senderAvatar(avatar)
+                .isDeleted(m.isDeleted()) // [MỚI]
+                .replyTo(replyDto)        // [MỚI]
                 .build();
     }
 
@@ -184,5 +212,11 @@ public class MessengerService {
         try {
             return "https://ui-avatars.com/api/?name=" + URLEncoder.encode(name, StandardCharsets.UTF_8) + "&background=random&color=fff";
         } catch (Exception e) { return "/images/placeholder-user.jpg"; }
+    }
+
+    // [MỚI] Lấy danh sách Media shared
+    public List<MessengerDto.MessageDto> getSharedMedia(Integer currentUserId, Integer partnerId) {
+        List<MessengerMessage> media = messengerRepository.findSharedMedia(currentUserId, partnerId);
+        return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
 }

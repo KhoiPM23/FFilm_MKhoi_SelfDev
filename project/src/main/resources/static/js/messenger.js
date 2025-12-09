@@ -430,7 +430,9 @@
 
         // UI Updates
         $('#emptyState').hide();
-        $('#chatInterface').css('display', 'flex');
+        // $('#chatInterface').css('display', 'flex');
+        $('#chatInterface').css('display', 'flex').css('flex-direction', 'row');
+        updateInfoSidebar(name, avatar);
         
         // [FIX] Header: Tên + Badge (nếu lạ)
         let headerHtml = `<h4 id="headerName" style="margin:0;">${name}`;
@@ -504,13 +506,16 @@
     function appendMessageToUI(msg, forceMine = false) {
         // [LOGIC CŨ] Xác định mine/other dựa trên so sánh với partnerId
         // Nếu người gửi KHÔNG PHẢI partner -> Thì là Mình. (Logic này hoạt động tốt cho chat 1-1)
+        const myId = parseInt(currentUser.userID);
+        const senderId = parseInt(msg.senderId);
         let isMine = forceMine;
         if (!forceMine) {
             // So sánh lỏng (==) để tránh lỗi string/int
             isMine = (msg.senderId != currentPartnerId);
         }
 
-        let typeClass = isMine ? 'mine' : 'other';
+        const typeClass = isMine ? 'mine' : 'other';
+        const msgId = msg.id || 'temp-' + Date.now();
         
         // Xử lý nội dung (Media)
         let contentHtml = '';
@@ -546,17 +551,79 @@
             contentHtml = `<div class="bubble" title="${msg.formattedTime || ''}">${msg.content}</div>`;
         }
 
+        // // --- 1. Xử lý Nội dung (Đã xóa / Media) ---
+        // if (msg.isDeleted) {
+        //     contentHtml = 'Tin nhắn đã bị thu hồi';
+        // } else if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
+        //      const cls = (msg.type === 'STICKER') ? 'sticker-img' : 'msg-image';
+        //      contentHtml = `<img src="${msg.content}" class="${cls}" style="max-width:200px; border-radius:10px; cursor:pointer;" onclick="window.open('${msg.content}')">`;
+        // } else if (msg.type === 'AUDIO') {
+        //     contentHtml = `<audio controls style="height:30px;"><source src="${msg.content}" type="audio/webm"></audio>`;
+        // } else {
+        //     contentHtml = msg.content;
+        // }
+
+        // // --- 2. Xử lý Reply Block (Nếu tin này đang trả lời tin khác) ---
+        // let replyHtml = '';
+        // if (msg.replyTo) {
+        //     const rName = (msg.replyTo.senderId === myId) ? 'Bạn' : currentPartnerName;
+        //     let rContent = msg.replyTo.type === 'TEXT' ? msg.replyTo.content : '[Đính kèm]';
+        //     replyHtml = `
+        //         <div class="reply-block" onclick="scrollToMessage(${msg.replyTo.id})">
+        //             <div class="reply-name">Đang trả lời ${rName}</div>
+        //             <div class="text-truncate">${rContent}</div>
+        //         </div>
+        //     `;
+        // }
+
+        // --- 3. Xử lý Menu Actions (Hover) ---
+        // Nút Unsend chỉ hiện cho tin của mình và chưa xóa
+        const unsendBtn = (isMine && !msg.isDeleted) 
+            ? `<div class="action-btn" onclick="window.unsendMessage(${msgId})" title="Thu hồi"><i class="fas fa-trash"></i></div>` 
+            : '';
+        
+        const actionsHtml = `
+            <div class="msg-actions">
+                <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.type === 'TEXT' ? msg.content.substring(0,20) : '[File]' }')" title="Trả lời"><i class="fas fa-reply"></i></div>
+                ${unsendBtn}
+            </div>
+        `;
+
+        // // Avatar
+        // const avatarUrl = $('#headerAvatar').attr('src');
+        // const avatarHtml = isMine ? '' : `<img src="${avatarUrl}" class="msg-avatar" style="width:28px; height:28px; border-radius:50%; margin-right:8px;">`;
+        // const bubbleClass = msg.isDeleted ? 'msg-content deleted' : 'msg-content';
+        // const bubbleStyle = msg.isDeleted ? '' : (isMine ? 'background:#0084ff; color:#fff;' : 'background:#3e4042; color:#eee;');
+
+        // const html = `
+        //     <div class="msg-row ${typeClass}" id="msg-${msgId}" style="display:flex; margin-bottom:10px; ${isMine ? 'justify-content:flex-end' : ''}">
+        //         ${isMine ? actionsHtml : avatarHtml} 
+                
+        //         <div class="${bubbleClass}" style="padding:8px 12px; border-radius:15px; max-width:70%; ${bubbleStyle}">
+        //             ${replyHtml}
+        //             ${contentHtml}
+        //         </div>
+                
+        //         ${!isMine ? actionsHtml : ''}
+        //     </div>
+        // `;
+        // $('#messagesContainer').append(html);
+        // scrollToBottom();
+
         // Avatar (Chỉ hiện cho 'other')
         let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
 
         // [CẤU TRÚC HTML CHUẨN CŨ]
         let html = `
             <div class="msg-row ${typeClass}" data-msg-id="${msg.id || Date.now()}">
-                ${avatarHtml}
+            ${isMine ? actionsHtml : avatarHtml} 
                 <div class="msg-content">${contentHtml}</div>
+
+                ${!isMine ? actionsHtml : ''}
             </div>
         `;
         $('#messagesContainer').append(html);
+        scrollToBottom();
     }
 
     function scrollToBottom() {
@@ -973,5 +1040,184 @@
             $(this).toggle(name.includes(query));
         });
     });
+    // --- REPLY & UNSEND LOGIC ---
+    let replyToId = null; // Biến lưu trạng thái đang reply
+
+    window.startReply = function(msgId, name, content) {
+        replyToId = msgId;
+        // Hiện thanh Replying Bar (Cần thêm HTML vào footer ở bước sau)
+        $('#replyingBar').css('display', 'flex');
+        $('#replyingText').text(`Đang trả lời ${name}: ${content}`);
+        $('#msgInput').focus();
+    };
+
+    window.cancelReply = function() {
+        replyToId = null;
+        $('#replyingBar').hide();
+    };
+
+    window.unsendMessage = function(msgId) {
+        if(!confirm("Thu hồi tin nhắn này?")) return;
+        
+        $.post(`/api/v1/messenger/unsend/${msgId}`, function() {
+            // Update UI ngay lập tức
+            const bubble = $(`#msg-${msgId} .msg-content`);
+            bubble.addClass('deleted').removeAttr('style').text('Tin nhắn đã bị thu hồi');
+            $(`#msg-${msgId} .msg-actions`).remove(); // Xóa menu action
+        });
+    };
+
+    // [CẬP NHẬT HÀM GỬI TIN] Để kèm replyToId
+    window.sendTextMessage = function() {
+        const input = $('#msgInput');
+        const content = input.val().trim();
+        if (!content || !currentPartnerId) return;
+
+        // Payload có thêm replyToId
+        const payload = { 
+            receiverId: currentPartnerId, 
+            content: content, 
+            type: 'TEXT',
+            replyToId: replyToId // [MỚI]
+        };
+        
+        // Reset Input & Reply
+        input.val('');
+        window.cancelReply();
+
+        sendApiRequest(payload);
+        
+        // Optimistic UI (Cần xử lý kỹ hơn cho Reply, tạm thời chờ server trả về để render đúng context)
+        // Nếu muốn hiện ngay: cần truyền object replyTo vào appendMessageToUI
+    };
+
+
+
+
+    // --- 9. SIDEBAR INFO LOGIC ---
+
+    // Toggle Sidebar
+    window.toggleChatInfo = function() {
+        const sidebar = $('#chatInfoSidebar');
+        const btn = $('#btnToggleInfo');
+        
+        if (sidebar.hasClass('hidden')) {
+            sidebar.removeClass('hidden');
+            btn.addClass('active');
+        } else {
+            sidebar.addClass('hidden');
+            btn.removeClass('active');
+        }
+    };
+
+    // Update Info Sidebar khi chọn hội thoại
+    function updateInfoSidebar(name, avatar) {
+        $('#infoName').text(name);
+        $('#infoAvatar').attr('src', avatar);
+        // Có thể gọi thêm API lấy ảnh đã gửi để render vào .media-grid sau
+    }
+
+
+    // --- 9. SIDEBAR & SETTINGS LOGIC ---
+
+    // Toggle Sidebar Info
+    window.toggleChatInfo = function() {
+        const sidebar = $('#chatInfoSidebar');
+        const btn = $('#btnToggleInfo');
+        
+        if (sidebar.hasClass('hidden')) {
+            sidebar.removeClass('hidden');
+            btn.addClass('active');
+            // Load media khi mở sidebar
+            loadSharedMedia();
+        } else {
+            sidebar.addClass('hidden');
+            btn.removeClass('active');
+        }
+    };
+
+    // Toggle Accordion Item
+    window.toggleAccordion = function(header) {
+        $(header).parent().toggleClass('active');
+    };
+
+    // Switch Tab Ảnh/File
+    window.switchMediaTab = function(tab) {
+        $('.media-tab').removeClass('active');
+        if (tab === 'img') {
+            $('.media-tab:first-child').addClass('active');
+            $('#sharedImagesGrid').show();
+            $('#sharedFilesList').hide();
+        } else {
+            $('.media-tab:last-child').addClass('active');
+            $('#sharedImagesGrid').hide();
+            $('#sharedFilesList').show();
+        }
+    };
+
+    // Load Shared Media từ API
+    function loadSharedMedia() {
+        if (!currentPartnerId) return;
+        
+        const grid = $('#sharedImagesGrid');
+        const fileList = $('#sharedFilesList');
+        grid.html('<div class="text-center w-100 small text-muted">Đang tải...</div>');
+
+        $.get(`/api/v1/messenger/media/${currentPartnerId}`, function(data) {
+            grid.empty();
+            fileList.empty();
+
+            if (!data || data.length === 0) {
+                grid.html('<div class="text-center w-100 small text-muted">Chưa có file nào</div>');
+                return;
+            }
+
+            data.forEach(msg => {
+                if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
+                    // Render Ảnh
+                    grid.append(`<div class="media-thumb" style="background-image: url('${msg.content}')" onclick="window.open('${msg.content}')"></div>`);
+                } else if (msg.type === 'FILE' || msg.type === 'AUDIO') {
+                    // Render File
+                    const name = msg.content.split('/').pop() || 'File đính kèm';
+                    const icon = msg.type === 'AUDIO' ? 'fa-microphone' : 'fa-file-alt';
+                    fileList.append(`
+                        <div class="file-list-item">
+                            <i class="fas ${icon} text-primary"></i>
+                            <a href="${msg.content}" target="_blank" class="file-list-name text-white">${name}</a>
+                        </div>
+                    `);
+                }
+            });
+        });
+    }
+
+    // --- 10. LIVE SEARCH CONVERSATIONS (Left Sidebar) ---
+    window.filterConversations = function() {
+        const query = $('#convSearchInput').val().toLowerCase();
+        $('.conv-item').each(function() {
+            const name = $(this).find('.conv-name').text().toLowerCase();
+            if (name.includes(query)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    };
+    
+    // Cập nhật lại hàm updateInfoSidebar để reset trạng thái khi đổi chat
+    const originalSelectConversation = window.selectConversation;
+    window.selectConversation = function(id, name, avatar, isFriend, isOnline, lastActive) {
+        // Gọi hàm gốc
+        originalSelectConversation(id, name, avatar, isFriend, isOnline, lastActive);
+        
+        // Update Info bên phải
+        $('#infoName').text(name);
+        $('#infoAvatar').attr('src', avatar);
+        
+        // Nếu sidebar đang mở thì load lại media
+        if (!$('#chatInfoSidebar').hasClass('hidden')) {
+            loadSharedMedia();
+        }
+    };
 
 })();

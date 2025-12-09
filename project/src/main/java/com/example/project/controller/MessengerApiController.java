@@ -84,6 +84,18 @@ public class MessengerApiController {
         return ResponseEntity.ok(sentMessage);
     }
 
+    // API Thu hồi tin nhắn
+    @PostMapping("/unsend/{messageId}")
+    public ResponseEntity<?> unsendMessage(@PathVariable Long messageId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session); // Hàm helper cũ
+        if (user == null) return ResponseEntity.status(401).build();
+
+        messengerService.unsendMessage(messageId, user.getId());
+        
+        // Bắn socket báo xóa tin (Client tự xử lý UI xóa) - Optional, làm sau cho đơn giản
+        return ResponseEntity.ok().build();
+    }
+
     // Helper: Lấy User từ Session an toàn
     private UserSessionDto getUserFromSession(HttpSession session) {
         Object sessionUser = session.getAttribute("user");
@@ -91,5 +103,16 @@ public class MessengerApiController {
             return (UserSessionDto) sessionUser;
         }
         return null;
+    }
+
+    // [MỚI] API lấy Media cho Sidebar phải
+    @GetMapping("/media/{partnerId}")
+    public ResponseEntity<List<MessengerDto.MessageDto>> getSharedMedia(
+            @PathVariable Integer partnerId,
+            HttpSession session) {
+        UserSessionDto user = getUserFromSession(session); // Hàm helper cũ của bạn
+        if (user == null) return ResponseEntity.status(401).build();
+        
+        return ResponseEntity.ok(messengerService.getSharedMedia(user.getId(), partnerId));
     }
 }

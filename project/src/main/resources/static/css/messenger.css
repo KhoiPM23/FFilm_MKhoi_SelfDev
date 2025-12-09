@@ -209,7 +209,7 @@ body.messenger-body {
     background: #1e1e1e; border-radius: 10px;
     border: 1px solid var(--msg-border);
     display: none; grid-template-columns: repeat(3, 1fr);
-    gap: 10px; padding: 10px; overflow-y: auto; z-index: 100;
+    gap: 10px; padding: 10px; overflow-y: auto; z-index: 999;
 }
 .sticker-item { width: 100%; cursor: pointer; transition: 0.2s; }
 .sticker-item:hover { transform: scale(1.1); }
@@ -284,7 +284,7 @@ body.messenger-body {
 
 
 /* --- CHAT FOOTER & INPUT --- */
-.input-actions, .recording-ui {
+.input-actions {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -446,7 +446,6 @@ body.messenger-body {
 }
 
 /* Class active để hiện sticker */
-.sticker-menu.show { display: flex; }
 .sticker-item { width: 60px; height: 60px; cursor: pointer; transition: transform 0.2s; }
 .sticker-item:hover { transform: scale(1.1); }
 
@@ -454,7 +453,8 @@ body.messenger-body {
 /* --- FIX TC3: Sticker Menu --- */
 /* Đè class show để hiện menu khi JS add class */
 .sticker-menu.show {
-    display: flex !important;
+    display: grid !important;
+    /* display: flex !important; */
     animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -654,4 +654,216 @@ body.messenger-body .stranger-alert-bar {
 .sticker-menu.active {
     display: flex !important;
     animation: popIn 0.2s ease-out;
+}
+
+
+/* --- HOVER ACTIONS (Menu 3 chấm) --- */
+.msg-row { position: relative; } /* Để định vị menu */
+
+/* Menu ẩn mặc định */
+.msg-actions {
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    display: none; /* Ẩn */
+    gap: 5px;
+    z-index: 10;
+}
+/* Hiện khi hover vào dòng tin nhắn */
+.msg-row:hover .msg-actions { display: flex; }
+
+/* Vị trí menu: Tin mình -> Bên trái, Tin bạn -> Bên phải */
+.msg-row.mine .msg-actions { right: 100%; margin-right: 10px; }
+.msg-row.other .msg-actions { left: 100%; margin-left: 10px; }
+
+.action-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #3a3b3c; color: #b0b3b8;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px;
+    transition: 0.2s;
+}
+.action-btn:hover { background: #4e4f50; color: #fff; }
+
+/* --- REPLY UI (Bên trong bong bóng) --- */
+.reply-block {
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    border-left: 2px solid rgba(255,255,255,0.5);
+    padding-left: 8px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+.reply-block .reply-name { font-weight: bold; margin-bottom: 2px; }
+
+/* --- UNSENT MESSAGE --- */
+.msg-content.deleted {
+    background: transparent !important;
+    border: 1px solid #444;
+    color: #888 !important;
+    font-style: italic;
+    font-size: 13px;
+}
+
+/* --- REPLYING BAR (Thanh đang trả lời đè trên Input) --- */
+.replying-bar {
+    position: absolute;
+    bottom: 100%; left: 0; width: 100%;
+    background: #242526;
+    border-top: 1px solid #333;
+    padding: 8px 15px;
+    display: none; /* Ẩn */
+    justify-content: space-between; align-items: center;
+    font-size: 13px; color: #ddd;
+    z-index: 40;
+}
+
+/* --- RIGHT SIDEBAR INFO --- */
+#chatInterface {
+    display: flex; /* Mặc định là flex row */
+    flex-direction: row !important; /* Quan trọng: Ghi đè style inline cũ nếu có */
+}
+
+.chat-info-sidebar {
+    width: 320px;
+    background-color: var(--msg-sidebar);
+    border-left: 1px solid var(--msg-border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+    opacity: 1;
+}
+
+/* Class để ẩn sidebar */
+.chat-info-sidebar.hidden {
+    width: 0;
+    padding: 0;
+    opacity: 0;
+    border-left: none;
+}
+
+/* Header Info */
+.info-header {
+    padding: 30px 15px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border-bottom: 1px solid var(--msg-border);
+}
+
+.info-avatar-lg {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    object-fit: cover;
+    border: 3px solid var(--msg-hover);
+}
+
+.info-header h3 { margin: 0; font-size: 1.1rem; color: #e4e6eb; }
+.info-status { font-size: 0.8rem; color: #b0b3b8; margin-top: 5px; }
+
+/* Info Body Items */
+.info-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.info-section {
+    margin-bottom: 15px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #e4e6eb;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+.info-item:hover { background-color: var(--msg-hover); }
+
+/* Accordion Media */
+.accordion-header {
+    display: flex; justify-content: space-between;
+    padding: 10px; color: #b0b3b8; font-size: 0.85rem; font-weight: bold;
+    cursor: pointer;
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    padding: 5px;
+}
+
+.media-thumb {
+    width: 100%;
+    padding-top: 100%; /* Aspect ratio 1:1 */
+    background-size: cover;
+    background-position: center;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Nút Info trên Header */
+.chat-actions i.active {
+    color: var(--msg-blue);
+    background: rgba(0, 132, 255, 0.15);
+    border-radius: 50%;
+}
+
+
+/* --- RIGHT SIDEBAR ACCORDION --- */
+.info-body { flex: 1; overflow-y: auto; padding: 10px 0; }
+
+.accordion-item { border-bottom: 1px solid #333; }
+
+.accordion-header {
+    padding: 15px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; font-weight: 600; color: #e4e6eb; font-size: 0.95rem;
+    transition: background 0.2s;
+}
+.accordion-header:hover { background: rgba(255,255,255,0.05); }
+
+.accordion-content {
+    display: none; /* Mặc định ẩn */
+    padding: 5px 10px 15px;
+}
+/* Class active để hiện content */
+.accordion-item.active .accordion-content { display: block; }
+.accordion-item.active .accordion-header i { transform: rotate(180deg); }
+
+.info-action-btn {
+    padding: 10px; display: flex; align-items: center; gap: 10px;
+    cursor: pointer; border-radius: 6px; font-size: 0.9rem; color: #ddd;
+}
+.info-action-btn:hover { background: rgba(255,255,255,0.1); }
+
+/* --- MEDIA GRID (SIDEBAR) --- */
+.media-tabs { display: flex; gap: 15px; margin-bottom: 10px; padding: 0 5px; }
+.media-tab { font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #888; }
+.media-tab.active { color: #0084ff; border-bottom: 2px solid #0084ff; }
+
+.media-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+}
+.media-thumb {
+    width: 100%; aspect-ratio: 1/1;
+    background-size: cover; background-position: center;
+    border-radius: 4px; cursor: pointer; border: 1px solid #333;
+}
+
+.file-list-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px;
+    background: #2a2b2c; border-radius: 6px; margin-bottom: 5px;
+}
+.file-list-name {
+    font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;
 }

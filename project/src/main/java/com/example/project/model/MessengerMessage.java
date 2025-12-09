@@ -48,6 +48,7 @@ public class MessengerMessage {
     private MessengerMessage replyTo;
 
     // [MỚI] Cờ đánh dấu đã thu hồi (Soft delete)
+    @Column(name = "isDeleted", columnDefinition = "bit default 0")
     private boolean isDeleted = false;
 
     @PrePersist

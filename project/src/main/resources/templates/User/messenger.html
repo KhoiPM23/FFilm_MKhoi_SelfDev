@@ -21,7 +21,7 @@
 
             <div class="search-wrapper">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Tìm kiếm trên Messenger">
+                <input type="text" id="convSearchInput" placeholder="Tìm kiếm trên Messenger" onkeyup="window.filterConversations()">
             </div>
 
             <div class="conversation-list" id="conversationList">
@@ -57,13 +57,7 @@
                 </div>
 
                 <div class="messages-container" id="messagesContainer">
-                    </div>
-
-                <div class="recording-ui">
-                    <i class="fas fa-microphone-alt fa-beat"></i> Đang ghi âm...
                 </div>
-
-                <div id="stickerMenu" class="sticker-menu"></div>
 
                 <div class="chat-footer">
     
@@ -78,6 +72,14 @@
                                 <i class="fas fa-times"></i>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="replyingBar" class="replying-bar">
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-weight:bold; color:#e50914;">Trả lời tin nhắn</span>
+                            <span id="replyingText" style="font-size:12px; color:#aaa;">Nội dung tin nhắn...</span>
+                        </div>
+                        <div onclick="window.cancelReply()" style="cursor:pointer; padding:5px;"><i class="fas fa-times"></i></div>
                     </div>
 
                     <div class="input-actions" id="normalInputState" style="display: flex; width: 100%; align-items: center; gap: 10px;">
@@ -120,6 +122,73 @@
                         <div class="footer-btn send-record-btn" onclick="window.finishRecording()">
                             <i class="fas fa-paper-plane"></i>
                         </div>
+                    </div>
+                </div>
+
+                <div class="recording-ui">
+                    <i class="fas fa-microphone-alt fa-beat"></i> Đang ghi âm...
+                </div>
+
+                <div id="stickerMenu" class="sticker-menu"></div>
+
+                <div class="chat-info-sidebar hidden" id="chatInfoSidebar">
+                    <div class="info-header">
+                        <img id="infoAvatar" src="/images/placeholder-user.jpg" class="info-avatar-lg">
+                        <h3 id="infoName">User Name</h3>
+                        <span class="info-status">Đang hoạt động</span>
+                    </div>
+
+                    <div class="info-body custom-scrollbar">
+
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                                <span>Tùy chỉnh đoạn chat</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="info-action-btn" onclick="alert('Tính năng đổi chủ đề đang phát triển')">
+                                    <i class="fas fa-circle" style="color: #0084ff;"></i> Đổi chủ đề
+                                </div>
+                                <div class="info-action-btn" onclick="alert('Tính năng đổi biệt danh đang phát triển')">
+                                    <i class="fas fa-font"></i> Chỉnh sửa biệt danh
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                                <span>File phương tiện & file</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="media-tabs">
+                                    <span class="media-tab active" onclick="window.switchMediaTab('img')">Ảnh</span>
+                                    <span class="media-tab" onclick="window.switchMediaTab('file')">File</span>
+                                </div>
+
+                                <div id="sharedImagesGrid" class="media-grid">
+                                    <div class="text-muted small text-center w-100 mt-2">Đang tải...</div>
+                                </div>
+
+                                <div id="sharedFilesList" class="file-list" style="display:none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="window.toggleAccordion(this)">
+                                <span>Quyền riêng tư & hỗ trợ</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="info-action-btn text-warning">
+                                    <i class="fas fa-bell-slash"></i> Tắt thông báo
+                                </div>
+                                <div class="info-action-btn text-danger" onclick="alert('Chức năng chặn')">
+                                    <i class="fas fa-ban"></i> Chặn
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 

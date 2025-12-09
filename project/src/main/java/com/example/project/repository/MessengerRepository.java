@@ -29,4 +29,12 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
     @Modifying
     @Query("UPDATE MessengerMessage m SET m.status = 'READ' WHERE m.sender = :sender AND m.receiver = :receiver AND m.status <> 'READ'")
     void markMessagesAsRead(@Param("sender") User sender, @Param("receiver") User receiver);
+
+    // [MỚI] Lấy tất cả file media giữa 2 người (để hiển thị bên Sidebar phải)
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+            "((m.sender.userID = :u1 AND m.receiver.userID = :u2) OR " +
+            "(m.sender.userID = :u2 AND m.receiver.userID = :u1)) AND " +
+            "m.type IN ('IMAGE', 'VIDEO', 'FILE') " +
+            "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findSharedMedia(@Param("u1") Integer userId1, @Param("u2") Integer userId2);
 }
