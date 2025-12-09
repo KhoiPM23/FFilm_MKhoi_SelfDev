@@ -447,8 +447,7 @@
 
         // UI Updates
         $('#emptyState').hide();
-        // $('#chatInterface').css('display', 'flex');
-        $('#chatInterface').css('display', 'flex').css('flex-direction', 'row');
+        $('#chatInterface').show();
         updateInfoSidebar(name, avatar);
         
         // [FIX] Header: Tên + Badge (nếu lạ)
