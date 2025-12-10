@@ -1086,9 +1086,11 @@
         `;
     }
 
-    window.toggleAudioPlay = function(playerId, audioUrl) {
-        const audio = document.getElementById(playerId);
-        const btn = $(`[data-audio-id="${playerId}"] .audio-play-btn i`);
+    window.toggleAudioPlay = function(playerId) {
+        const audio = document.getElementById(playerId + '-audio');
+        const btn = $(`#${playerId} .audio-play-btn i`);
+        
+        if (!audio) return;
         
         if (audio.paused) {
             audio.play();
@@ -1098,6 +1100,21 @@
             btn.removeClass('fa-pause').addClass('fa-play');
         }
     };
+
+    window.updateAudioProgress = function(playerId) {
+        const audio = document.getElementById(playerId + '-audio');
+        if (!audio || !audio.duration) return;
+        
+        const progress = (audio.currentTime / audio.duration) * 100;
+        $(`#${playerId}-progress`).css('width', progress + '%');
+        
+        const current = Math.floor(audio.currentTime);
+        const minutes = Math.floor(current / 60);
+        const seconds = current % 60;
+        
+        $(`#${playerId}-current-time`).text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
 
     window.updateAudioProgress = function(playerId) {
         const audio = document.getElementById(playerId);
@@ -1110,20 +1127,24 @@
     };
 
     window.seekAudio = function(event, playerId) {
-        const audio = document.getElementById(playerId);
-        const bar = event.currentTarget;
-        const clickX = event.offsetX;
-        const width = bar.offsetWidth;
-        const seekTime = (clickX / width) * audio.duration;
-        audio.currentTime = seekTime;
+        const audio = document.getElementById(playerId + '-audio');
+        if (!audio || !audio.duration) return;
+        
+        const bar = $(`#${playerId} .audio-progress-container`);
+        const clickX = event.offsetX || event.originalEvent.layerX;
+        const width = bar.width();
+        const percent = clickX / width;
+        
+        audio.currentTime = percent * audio.duration;
     };
 
     window.onAudioEnded = function(playerId) {
-        const btn = $(`[data-audio-id="${playerId}"] .audio-play-btn i`);
+        const btn = $(`#${playerId} .audio-play-btn i`);
         btn.removeClass('fa-pause').addClass('fa-play');
+        
+        // Reset progress
         $(`#${playerId}-progress`).css('width', '0%');
-        const audio = document.getElementById(playerId);
-        $(`#${playerId}-time`).text('0:00');
+        $(`#${playerId}-current-time`).text('0:00');
     };
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
@@ -1164,48 +1185,77 @@
 
     // Bắt đầu ghi âm: Chuyển UI, Start MediaRecorder
     window.startRecording = function() {
-        if (!navigator.mediaDevices) return alert("Trình duyệt không hỗ trợ ghi âm");
+        if (isRecording) return;
         
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            // 1. Setup Recorder
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.start();
-            isRecording = true;
-
-            // 2. Chuyển đổi UI
-            $('#normalInputState').hide();
-            $('#recordingState').css('display', 'flex'); // Hiện thanh ghi âm
-            
-            // 3. Chạy đồng hồ đếm giờ
-            recordStartTime = Date.now();
-            $('#recordTimer').text("00:00");
-            recordTimerInterval = setInterval(() => {
-                const diff = Math.floor((Date.now() - recordStartTime) / 1000);
-                const mm = Math.floor(diff / 60).toString().padStart(2, '0');
-                const ss = (diff % 60).toString().padStart(2, '0');
-                $('#recordTimer').text(`${mm}:${ss}`);
-            }, 1000);
-
-        }).catch(err => {
-            console.error(err);
-            alert("Không thể truy cập Microphone. Vui lòng kiểm tra quyền.");
-        });
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showToast('Trình duyệt không hỗ trợ ghi âm', 'error');
+            return;
+        }
+        
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    uploadAudioFile(audioBlob);
+                    
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                // Start recording
+                mediaRecorder.start();
+                isRecording = true;
+                recordingStartTime = Date.now();
+                
+                // Show recording UI
+                $('#normalInputState').hide();
+                $('#recordingState').show();
+                
+                // Start timer
+                updateRecordingTimer();
+                recordingTimer = setInterval(updateRecordingTimer, 1000);
+                
+            })
+            .catch(err => {
+                console.error('Lỗi truy cập microphone:', err);
+                showToast('Không thể truy cập microphone. Vui lòng kiểm tra quyền.', 'error');
+            });
     };
 
     // Hủy ghi âm: Dừng Recorder (không lưu), Reset UI
     window.cancelRecording = function() {
-        if(mediaRecorder) {
-            mediaRecorder.onstop = null; // Hủy sự kiện gửi
+        if (!isRecording) return;
+        
+        // Stop recording
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
         }
-        closeRecordingUI();
+        
+        resetRecordingUI();
+        showToast('Đã hủy ghi âm', 'info');
     };
 
     // Hoàn tất & Gửi: Dừng Recorder -> Trigger onstop -> Upload
     window.finishRecording = function() {
-        if(mediaRecorder) mediaRecorder.stop(); // Trigger onstop -> Gửi
+        if (!isRecording) return;
+        
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        
+        resetRecordingUI();
     };
 
     function closeRecordingUI() {
@@ -1217,21 +1267,138 @@
 
     function resetRecordingUI() {
         isRecording = false;
-        // Xóa interval ngay lập tức
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
+        recordingStartTime = null;
+        
+        // Clear timer
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
         }
-        $('#recordTimer').text("00:00"); // Reset text
         
-        $('#recordingState').removeClass('show').hide();
+        // Reset UI
+        $('#recordingState').hide();
         $('#normalInputState').show();
+        $('#recordTimer').text('00:00');
+    }
+
+    function updateRecordingTimer() {
+        if (!recordingStartTime) return;
         
-        if(mediaRecorder && mediaRecorder.stream) {
-            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        const elapsed = Date.now() - recordingStartTime;
+        const seconds = Math.floor(elapsed / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        
+        const timeString = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        $('#recordTimer').text(timeString);
+        
+        // Auto-stop after 5 minutes
+        if (seconds >= 300) {
+            finishRecording();
         }
     }
 
+    function uploadAudioFile(audioBlob) {
+        if (!currentPartnerId) {
+            showToast('Vui lòng chọn người nhận', 'error');
+            return;
+        }
+        
+        // Create FormData
+        const formData = new FormData();
+        const fileName = `audio_${Date.now()}.webm`;
+        formData.append('file', audioBlob, fileName);
+        formData.append('type', 'AUDIO');
+        
+        // Show uploading indicator
+        const tempId = 'audio-upload-' + Date.now();
+        $('#messagesContainer').append(`
+            <div id="${tempId}" class="msg-row mine">
+                <div class="msg-content">
+                    <div class="bubble uploading-audio">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Đang tải lên...</span>
+                    </div>
+                </div>
+            </div>
+        `);
+        scrollToBottom();
+        
+        // Upload to server
+        $.ajax({
+            url: '/api/upload/audio', // Cần tạo endpoint này
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $(`#${tempId}`).remove();
+                
+                if (response.url) {
+                    // Send message with audio URL
+                    const payload = {
+                        receiverId: currentPartnerId,
+                        content: response.url,
+                        type: 'AUDIO',
+                        metadata: {
+                            duration: response.duration || 0,
+                            size: response.size || 0
+                        }
+                    };
+                    
+                    sendApiRequest(payload);
+                }
+            },
+            error: function(err) {
+                console.error('Upload audio error:', err);
+                $(`#${tempId}`).remove();
+                
+                const errorId = 'audio-error-' + Date.now();
+                $('#messagesContainer').append(`
+                    <div id="${errorId}" class="msg-row mine">
+                        <div class="msg-content">
+                            <div class="bubble error">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Lỗi tải lên file âm thanh</span>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+        });
+    }
+
+    // Enhanced audio player
+    function renderAudioPlayer(audioUrl) {
+        const playerId = 'audio-player-' + Date.now();
+        
+        return `
+            <div class="msg-audio-player" id="${playerId}">
+                <button class="audio-play-btn" onclick="toggleAudioPlay('${playerId}')">
+                    <i class="fas fa-play"></i>
+                </button>
+                <div class="audio-progress-container" onclick="seekAudio(event, '${playerId}')">
+                    <div class="audio-progress-bar">
+                        <div class="audio-progress-fill" id="${playerId}-progress"></div>
+                    </div>
+                    <div class="audio-time-display">
+                        <span id="${playerId}-current-time">0:00</span>
+                        <span id="${playerId}-duration">0:00</span>
+                    </div>
+                </div>
+                <audio id="${playerId}-audio" preload="metadata"
+                    onloadedmetadata="initAudioPlayer('${playerId}')"
+                    ontimeupdate="updateAudioProgress('${playerId}')"
+                    onended="onAudioEnded('${playerId}')">
+                    <source src="${audioUrl}" type="audio/webm">
+                    <source src="${audioUrl}" type="audio/mpeg">
+                </audio>
+                <a href="${audioUrl}" download class="audio-download-btn" title="Tải xuống">
+                    <i class="fas fa-download"></i>
+                </a>
+            </div>
+        `;
+    }
 
     // --- FIX 9: TYPING INDICATOR ---
     function showTypingIndicator() {
@@ -1334,64 +1501,96 @@
     // Render Sticker Collection
     function renderStickerCollection(collectionId) {
         const grid = $('#stickerGrid');
-        const collection = STICKER_COLLECTIONS[collectionId];
+        const collection = window.STICKER_COLLECTIONS[collectionId];
         
-        if (!collection) return;
+        if (!collection) {
+            grid.html('<div class="text-center p-4 text-muted">Không có sticker</div>');
+            return;
+        }
         
-        grid.empty();
-        
-        collection.items.forEach(sticker => {
-            const item = $(`
-                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
-                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
+        let html = '';
+        collection.items.forEach((sticker, index) => {
+            html += `
+                <div class="sticker-item" onclick="sendSticker('${sticker.url}', '${collectionId}', ${index})">
+                    <img src="${sticker.url}" alt="Sticker" loading="lazy">
                 </div>
-            `);
-            
-            item.on('click', function() {
-                sendSticker(sticker.url);
-                addToRecentStickers(sticker);
-            });
-            
-            grid.append(item);
+            `;
         });
+        
+        grid.html(html);
+        $('#recentStickersSection').toggle(recentStickers.length > 0);
     }
 
     // Render Recent Stickers
     function renderRecentStickers() {
-        const recentGrid = $('.recent-stickers-grid');
-        if (!recentGrid.length) return;
+        const grid = $('#recentStickersGrid');
+        if (!grid.length) return;
         
-        recentGrid.empty();
-        
-        recentStickers.slice(0, 8).forEach(sticker => {
-            const item = $(`
-                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
-                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
+        let html = '';
+        recentStickers.slice(0, 8).forEach((sticker, index) => {
+            html += `
+                <div class="sticker-item" onclick="sendSticker('${sticker.url}', 'recent', ${index})">
+                    <img src="${sticker.url}" alt="Sticker">
                 </div>
-            `);
-            
-            item.on('click', function() {
-                sendSticker(sticker.url);
-                addToRecentStickers(sticker);
-            });
-            
-            recentGrid.append(item);
+            `;
         });
+        
+        grid.html(html || '<div class="text-muted small">Chưa có sticker gần đây</div>');
     }
 
     // Add to Recent Stickers
-    function addToRecentStickers(sticker) {
-        // Remove if already exists
-        recentStickers = recentStickers.filter(s => s.id !== sticker.id);
+    function addToRecentStickers(stickerUrl) {
+        // Remove if exists
+        recentStickers = recentStickers.filter(s => s !== stickerUrl);
         
         // Add to beginning
-        recentStickers.unshift(sticker);
+        recentStickers.unshift(stickerUrl);
         
-        // Keep only last 20
-        recentStickers = recentStickers.slice(0, 20);
+        // Keep only last 12
+        recentStickers = recentStickers.slice(0, 12);
         
         // Save to localStorage
         localStorage.setItem('recentStickers', JSON.stringify(recentStickers));
+        
+        // Update UI
+        renderRecentStickers();
+    }
+
+    function searchStickers(query) {
+        const grid = $('#stickerGrid');
+        
+        if (!query.trim()) {
+            renderStickerCollection(currentStickerCollection);
+            return;
+        }
+        
+        query = query.toLowerCase();
+        let results = [];
+        
+        // Search in all collections
+        Object.values(window.STICKER_COLLECTIONS).forEach(collection => {
+            collection.items.forEach(sticker => {
+                if (sticker.tags && sticker.tags.some(tag => tag.includes(query))) {
+                    results.push(sticker);
+                }
+            });
+        });
+        
+        if (results.length === 0) {
+            grid.html('<div class="text-center p-4 text-muted">Không tìm thấy sticker phù hợp</div>');
+            return;
+        }
+        
+        let html = '';
+        results.slice(0, 24).forEach((sticker, index) => {
+            html += `
+                <div class="sticker-item" onclick="sendSticker('${sticker.url}', 'search', ${index})">
+                    <img src="${sticker.url}" alt="Sticker">
+                </div>
+            `;
+        });
+        
+        grid.html(html);
     }
 
     // Switch Sticker Collection
@@ -1544,34 +1743,47 @@
 
     // Initialize Sticker Menu HTML
     function initStickerMenu() {
-        if (!window.STICKER_COLLECTIONS) {
-            console.error("STICKER_COLLECTIONS not loaded");
-            return;
-        }
-        
         const menu = $('#stickerMenu');
-        if (menu.find('.sticker-collections').length > 0) return; // Already init
-
-        const collectionsHtml = Object.entries(window.STICKER_COLLECTIONS)
-            .map(([id, col]) => `<button class="collection-btn ${id === 'popular' ? 'active' : ''}" onclick="window.switchStickerCollection('${id}', this)">${col.name}</button>`)
-            .join('');
-
+        
+        // Tạo HTML cho sticker menu
+        const collections = Object.entries(window.STICKER_COLLECTIONS || {});
+        const collectionsHtml = collections.map(([id, col]) => `
+            <button class="collection-btn ${id === 'popular' ? 'active' : ''}" 
+                    onclick="switchStickerCollection('${id}', this)">
+                ${col.name}
+            </button>
+        `).join('');
+        
         menu.html(`
             <div class="sticker-header">
-                <div class="sticker-tabs">
-                    <button class="tab-btn active">Stickers</button>
-                </div>
+                <div class="sticker-collections">${collectionsHtml}</div>
                 <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
             </div>
             <div class="sticker-search">
-                <input type="text" placeholder="Tìm kiếm..." onkeyup="window.searchStickers(this.value)">
+                <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm sticker...">
                 <i class="fas fa-search"></i>
             </div>
-            <div class="sticker-collections">${collectionsHtml}</div>
-            <div class="sticker-grid" id="stickerGrid"></div>
+            <div class="sticker-grid" id="stickerGrid">
+                <div class="text-center text-muted p-4">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                </div>
+            </div>
+            <div class="recent-stickers" id="recentStickersSection" style="display: none;">
+                <div class="sticker-section-title">Gần đây</div>
+                <div class="recent-stickers-grid" id="recentStickersGrid"></div>
+            </div>
         `);
-
-        renderStickerCollection('popular');
+        
+        // Load stickers
+        setTimeout(() => {
+            renderStickerCollection('popular');
+            renderRecentStickers();
+            
+            // Search functionality
+            $('#stickerSearchInput').on('input', function() {
+                searchStickers($(this).val());
+            });
+        }, 100);
     }
 
     function renderStickerCollection(collectionId) {
@@ -1660,28 +1872,30 @@
     }
 
     // Send Sticker Function (Updated)
-    window.sendSticker = function(url, type = 'STICKER') {
-        if (!currentPartnerId) return;
+    window.sendSticker = function(url, source, index) {
+        if (!currentPartnerId) {
+            showToast('Vui lòng chọn người nhận trước', 'error');
+            return;
+        }
         
-        // Close menus
-        $('#stickerMenu').removeClass('show').hide();
-        hideStickerSuggestions();
+        // Close sticker menu
+        $('#stickerMenu').hide();
         
-        // Send to server
-        sendApiRequest({ 
-            receiverId: currentPartnerId, 
-            content: url, 
-            type: type 
-        });
+        // Add to recent
+        addToRecentStickers(url);
         
-        // Show immediately on UI
-        const fakeMsg = { 
-            senderId: currentUser.userID, 
-            content: url, 
-            type: type,
-            formattedTime: 'Vừa xong'
+        // Send via API
+        const payload = {
+            receiverId: currentPartnerId,
+            content: url,
+            type: 'STICKER',
+            metadata: {
+                source: source,
+                index: index
+            }
         };
-        appendMessageToUI(fakeMsg, true);
+        
+        sendApiRequest(payload);
     };
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
@@ -1692,14 +1906,36 @@
         if(!uid) return;
         
         const targetId = parseInt(uid);
+        
+        // Tìm trong danh sách hội thoại hiện có
         const existing = existingConversations.find(c => c.partnerId === targetId);
-
+        
         if(existing) {
-            window.selectConversation(existing.partnerId, existing.partnerName, existing.partnerAvatar, existing.friend);
+            window.selectConversation(
+                existing.partnerId, 
+                existing.partnerName, 
+                existing.partnerAvatar, 
+                existing.friend,
+                existing.isOnline,
+                existing.lastActive
+            );
         } else {
+            // Nếu chưa có hội thoại, tạo mới và load thông tin user
             $.get(`/api/users/${targetId}`).done(function(u) {
-                const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}`;
-                window.selectConversation(u.userID, u.userName, avatar, false);
+                const avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}`;
+                window.selectConversation(u.userID, u.userName, avatar, false, false, null);
+                
+                // Tạo tin nhắn chào mừng tự động
+                setTimeout(() => {
+                    const welcomeMsg = {
+                        id: 'welcome-' + Date.now(),
+                        senderId: currentUser.userID,
+                        content: `Xin chào! Tôi là ${currentUser.name}. Rất vui được kết nối với bạn!`,
+                        type: 'TEXT',
+                        formattedTime: 'Vừa xong'
+                    };
+                    appendMessageToUI(welcomeMsg, true);
+                }, 1000);
             });
         }
     }
@@ -1852,6 +2088,27 @@
         } else {
             sidebar.addClass('hidden');
             btn.removeClass('active');
+        }
+    };
+
+    // --- FIX: SCROLL TO MESSAGE ---
+    window.scrollToMessage = function(messageId) {
+        const messageElement = $(`#msg-${messageId}`);
+        if (messageElement.length) {
+            const container = $('#messagesContainer');
+            const containerTop = container.offset().top;
+            const messageTop = messageElement.offset().top;
+            const scrollTo = messageTop - containerTop - 100;
+            
+            container.animate({
+                scrollTop: scrollTo
+            }, 500);
+            
+            // Highlight effect
+            messageElement.addClass('highlighted');
+            setTimeout(() => {
+                messageElement.removeClass('highlighted');
+            }, 2000);
         }
     };
 

@@ -412,6 +412,54 @@ body.messenger-body {
     background: rgba(255, 255, 255, 0.3);
 }
 
+/* --- DATE DIVIDER --- */
+.date-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+    position: relative;
+}
+
+.date-divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.date-divider span {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    position: relative;
+    z-index: 1;
+}
+
+/* --- MESSAGE TIMESTAMP --- */
+.msg-timestamp {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    margin: 5px 0;
+    user-select: none;
+}
+
+.msg-row.mine .msg-timestamp {
+    text-align: right;
+    padding-right: 40px;
+}
+
+.msg-row.other .msg-timestamp {
+    text-align: left;
+    padding-left: 40px;
+}
+
 /* MESSAGE BUBBLES */
 .msg-row {
     display: flex;

@@ -1,93 +1,112 @@
-# group_3
+# FFilm - Social Movie Discovery Platform 🎬
 
+**FFilm** is a comprehensive web application designed for movie enthusiasts. It combines movie discovery with social interaction, allowing users to search for films, watch trailers, chat in real-time, and host "Watch Parties" to enjoy content together synchronously.
 
+> **Status:** Active Development 🚀
+> **Demo:** [Link to your video demo or live site if available]
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## ✨ Key Features
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### 🎥 Discovery & Streaming
+* **Smart Search (AI-Powered):** Integrated AI Agent (`AIAgentService`) to help users find movies based on natural language queries / context.
+* **Rich Metadata:** Fetches up-to-date movie details, posters, casts, and trailers via **TMDB API**.
+* **Personalization:** Users can build "Favorites" lists and track their "Watch History".
 
-## Add your files
+### 🤝 Social & Real-time Interaction
+* **Watch Party:** Create private rooms to watch movies with friends. Video playback is synchronized in real-time across all members using **WebSocket**.
+* **Live Chat:** Real-time messaging system (Messenger) with sticker support and notifications.
+* **Community:** Friend system (Add/Accept/Block), public profiles, and activity feeds.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+### 💳 Monetization & System
+* **Subscription Plans:** Tiered membership system (Manage Plans).
+* **Payment Integration:** Secure payment processing via **VnPay**.
+* **Admin Dashboard:** Comprehensive dashboard for managing movies, users, comments, and revenue statistics.
 
-```
-cd existing_repo
-git remote add origin http://git.fa.edu.vn/dn25_cpl_fu_js_02/group_3.git
-git branch -M main
-git push -uf origin main
-```
+---
 
-## Integrate with your tools
+## 🛠️ Tech Stack
 
-- [ ] [Set up project integrations](http://git.fa.edu.vn/dn25_cpl_fu_js_02/group_3/-/settings/integrations)
+**Backend:**
+* **Java 17**
+* **Spring Boot 3.x** (Spring Security, Spring Data JPA, Spring MVC)
+* **WebSocket (STOMP)** for real-time communication
+* **MySQL** Database
 
-## Collaborate with your team
+**Frontend:**
+* **Thymeleaf** (Server-side rendering)
+* **HTML5 / CSS3 / JavaScript**
+* **Bootstrap** for responsive design
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+**Integrations & APIs:**
+* **The Movie Database (TMDB) API**
+* **OpenAI / Gemini API** (for AI Search features)
+* **VnPay SDK** (Payment Gateway)
 
-## Test and Deploy
+---
 
-Use the built-in continuous integration in GitLab.
+## 📸 Screenshots
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+| Home Page | Watch Party Room |
+|:---:|:---:|
+| ![Home](https://via.placeholder.com/400x200?text=Home+Page+Screenshot) | ![WatchParty](https://via.placeholder.com/400x200?text=Watch+Party+Screenshot) |
 
-***
+| AI Search | Admin Dashboard |
+|:---:|:---:|
+| ![AI](https://via.placeholder.com/400x200?text=AI+Search+Screenshot) | ![Admin](https://via.placeholder.com/400x200?text=Admin+Dashboard+Screenshot) |
 
-# Editing this README
+---
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## 🚀 Getting Started
 
-## Suggestions for a good README
+### Prerequisites
+* Java Development Kit (JDK) 17 or higher
+* Maven
+* MySQL Server
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Installation
 
-## Name
-Choose a self-explaining name for your project.
+1.  **Clone the repository**
+    ```bash
+    git clone [https://github.com/YourUsername/FFilm.git](https://github.com/YourUsername/FFilm.git)
+    cd FFilm
+    ```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+2.  **Database Configuration**
+    * Create a MySQL database named `ffilm_db`.
+    * Update database credentials in `application.properties.example` and rename it to `application.properties`:
+    ```properties
+    spring.datasource.url=jdbc:mysql://localhost:3306/ffilm_db
+    spring.datasource.username=your_username
+    spring.datasource.password=your_password
+    ```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+3.  **API Keys Setup**
+    * Get a generic API Key from [TMDB](https://www.themoviedb.org/).
+    * Configure your AI Provider Key and VnPay credentials in `application.properties`.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+4.  **Run the Application**
+    ```bash
+    mvn spring-boot:run
+    ```
+    The app will start at `http://localhost:8080`.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+---
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 🛡️ License
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+---
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## 👨‍💻 Author
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+**[Phan Minh Khôi]**
+* **Github:** [Check out my projects](https://github.com/KhoiPM23)
+* **Email:** [Your Email Here]
+* **LinkedIn:** [Your LinkedIn Profile]
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+---
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+*Note: This project is for educational purposes and portfolio demonstration.*
