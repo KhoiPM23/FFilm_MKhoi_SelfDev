@@ -858,6 +858,66 @@
         }
     };
 
+    // --- FIX 6: AUDIO PLAYER ---
+    function renderAudioPlayer(audioUrl) {
+        const playerId = 'audio-' + Date.now();
+        
+        return `
+            <div class="msg-audio-player" data-audio-id="${playerId}">
+                <button class="audio-play-btn" onclick="window.toggleAudioPlay('${playerId}', '${audioUrl}')">
+                    <i class="fas fa-play"></i>
+                </button>
+                <div class="audio-waveform" onclick="window.seekAudio(event, '${playerId}')">
+                    <div class="audio-progress-bar">
+                        <div class="audio-progress-fill" id="${playerId}-progress"></div>
+                    </div>
+                </div>
+                <span class="audio-time" id="${playerId}-time">0:00</span>
+                <audio id="${playerId}" src="${audioUrl}" onended="window.onAudioEnded('${playerId}')" ontimeupdate="window.updateAudioProgress('${playerId}')"></audio>
+            </div>
+        `;
+    }
+
+    window.toggleAudioPlay = function(playerId, audioUrl) {
+        const audio = document.getElementById(playerId);
+        const btn = $(`[data-audio-id="${playerId}"] .audio-play-btn i`);
+        
+        if (audio.paused) {
+            audio.play();
+            btn.removeClass('fa-play').addClass('fa-pause');
+        } else {
+            audio.pause();
+            btn.removeClass('fa-pause').addClass('fa-play');
+        }
+    };
+
+    window.updateAudioProgress = function(playerId) {
+        const audio = document.getElementById(playerId);
+        const progress = (audio.currentTime / audio.duration) * 100;
+        $(`#${playerId}-progress`).css('width', progress + '%');
+        
+        const minutes = Math.floor(audio.currentTime / 60);
+        const seconds = Math.floor(audio.currentTime % 60);
+        $(`#${playerId}-time`).text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    window.seekAudio = function(event, playerId) {
+        const audio = document.getElementById(playerId);
+        const bar = event.currentTarget;
+        const clickX = event.offsetX;
+        const width = bar.offsetWidth;
+        const seekTime = (clickX / width) * audio.duration;
+        audio.currentTime = seekTime;
+    };
+
+    window.onAudioEnded = function(playerId) {
+        const btn = $(`[data-audio-id="${playerId}"] .audio-play-btn i`);
+        btn.removeClass('fa-pause').addClass('fa-play');
+        $(`#${playerId}-progress`).css('width', '0%');
+        const audio = document.getElementById(playerId);
+        $(`#${playerId}-time`).text('0:00');
+    };
+
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
     // --- INIT EMOJI PICKER (Native Web Component) ---
     // messenger.js - Thay function initEmojiPicker()
