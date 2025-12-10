@@ -87,4 +87,11 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
     List<MessengerMessage> findLastMessages(@Param("userId") Integer userId,
                                            @Param("partnerId") Integer partnerId,
                                            org.springframework.data.domain.Pageable pageable);
+
+    // 3. Phương thức findBySenderAndReceiver (nếu cần)
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+           "m.sender.userID = :senderId AND m.receiver.userID = :receiverId " +
+           "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findBySenderAndReceiver(@Param("senderId") Integer senderId, 
+                                                  @Param("receiverId") Integer receiverId);                                       
 }

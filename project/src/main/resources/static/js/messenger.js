@@ -2951,28 +2951,11 @@
                 mediaRecorder.onstop = () => {
                     if (!currentPartnerId) return;
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    
-                    // Upload ngay lập tức (giống logic ảnh)
-                    const formData = new FormData();
-                    formData.append("file", blob, "audio_" + Date.now() + ".webm");
-                    
-                    $.ajax({
-                        url: '/api/upload/image', // Dùng chung endpoint
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(res) {
-                            if(res.url) {
-                                sendApiRequest({ 
-                                    receiverId: currentPartnerId, 
-                                    content: res.url, 
-                                    type: 'AUDIO' 
-                                });
-                            }
-                        }
-                    });
-                    
+
+                    console.log('Recording stopped — uploading audio blob, size:', blob.size);
+                    // Use the centralized helper that posts to /api/upload/audio and shows UI
+                    uploadAudioFile(blob);
+
                     closeRecordingUI();
                 };
 
@@ -2983,82 +2966,63 @@
     // --- FIX 6: AUDIO PLAYER ---
     function renderAudioPlayer(audioUrl) {
         const playerId = 'audio-' + Date.now();
-        
         return `
-            <div class="msg-audio-player" data-audio-id="${playerId}">
-                <button class="audio-play-btn" onclick="window.toggleAudioPlay('${playerId}', '${audioUrl}')">
+            <div class="msg-audio-player" id="${playerId}">
+                <button class="audio-play-btn" onclick="toggleAudioPlay('${playerId}')">
                     <i class="fas fa-play"></i>
                 </button>
-                <div class="audio-waveform" onclick="window.seekAudio(event, '${playerId}')">
-                    <div class="audio-progress-bar">
-                        <div class="audio-progress-fill" id="${playerId}-progress"></div>
-                    </div>
+                <div class="audio-progress-bar" onclick="seekAudio(event, '${playerId}')">
+                    <div class="audio-progress-fill" id="${playerId}-progress"></div>
                 </div>
                 <span class="audio-time" id="${playerId}-time">0:00</span>
-                <audio id="${playerId}" src="${audioUrl}" onended="window.onAudioEnded('${playerId}')" ontimeupdate="window.updateAudioProgress('${playerId}')"></audio>
+                <audio id="${playerId}-audio" preload="metadata">
+                    <source src="${audioUrl}" type="audio/webm">
+                    <source src="${audioUrl}" type="audio/mpeg">
+                </audio>
+                <a href="${audioUrl}" download class="audio-download-btn" title="Tải xuống">
+                    <i class="fas fa-download"></i>
+                </a>
             </div>
         `;
     }
 
     window.toggleAudioPlay = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        const btn = $(`#${playerId} .audio-play-btn i`);
-        
+        const btnIcon = $(`#${playerId} .audio-play-btn i`);
         if (!audio) return;
-        
         if (audio.paused) {
             audio.play();
-            btn.removeClass('fa-play').addClass('fa-pause');
+            btnIcon.removeClass('fa-play').addClass('fa-pause');
         } else {
             audio.pause();
-            btn.removeClass('fa-pause').addClass('fa-play');
+            btnIcon.removeClass('fa-pause').addClass('fa-play');
         }
     };
 
     window.updateAudioProgress = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
         if (!audio || !audio.duration) return;
-        
         const progress = (audio.currentTime / audio.duration) * 100;
         $(`#${playerId}-progress`).css('width', progress + '%');
-        
-        const current = Math.floor(audio.currentTime);
-        const minutes = Math.floor(current / 60);
-        const seconds = current % 60;
-        
-        $(`#${playerId}-current-time`).text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-    };
-
-
-    window.updateAudioProgress = function(playerId) {
-        const audio = document.getElementById(playerId);
-        const progress = (audio.currentTime / audio.duration) * 100;
-        $(`#${playerId}-progress`).css('width', progress + '%');
-        
-        const minutes = Math.floor(audio.currentTime / 60);
-        const seconds = Math.floor(audio.currentTime % 60);
-        $(`#${playerId}-time`).text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+        const cur = Math.floor(audio.currentTime);
+        const mins = Math.floor(cur/60);
+        const secs = cur % 60;
+        $(`#${playerId}-time`).text(`${mins}:${secs.toString().padStart(2,'0')}`);
     };
 
     window.seekAudio = function(event, playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        if (!audio || !audio.duration) return;
-        
-        const bar = $(`#${playerId} .audio-progress-container`);
-        const clickX = event.offsetX || event.originalEvent.layerX;
-        const width = bar.width();
-        const percent = clickX / width;
-        
-        audio.currentTime = percent * audio.duration;
+        if (!audio) return;
+        const rect = $(`#${playerId} .audio-progress-bar`)[0].getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, x / rect.width));
+        audio.currentTime = audio.duration * ratio;
+        updateAudioProgress(playerId);
     };
 
     window.onAudioEnded = function(playerId) {
-        const btn = $(`#${playerId} .audio-play-btn i`);
-        btn.removeClass('fa-pause').addClass('fa-play');
-        
-        // Reset progress
+        $(`#${playerId} .audio-play-btn i`).removeClass('fa-pause').addClass('fa-play');
         $(`#${playerId}-progress`).css('width', '0%');
-        $(`#${playerId}-current-time`).text('0:00');
     };
 
     // --- IN-CHAT SEARCH FEATURE ---

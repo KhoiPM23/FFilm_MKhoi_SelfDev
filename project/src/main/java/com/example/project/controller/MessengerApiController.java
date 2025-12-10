@@ -6,7 +6,6 @@ import com.example.project.dto.UserSessionDto;
 import com.example.project.model.MessengerMessage;
 import com.example.project.model.CallLog;
 import com.example.project.model.ConversationSettings;
-import com.example.project.model.MessengerMessage;
 import com.example.project.repository.CallLogRepository;
 import com.example.project.repository.ConversationSettingsRepository;
 import com.example.project.service.MessengerService;
@@ -35,6 +34,15 @@ public class MessengerApiController {
     @Autowired private OnlineStatusService onlineStatusService;
     @Autowired private CallLogRepository callLogRepository;
     @Autowired private ConversationSettingsRepository conversationSettingsRepository;
+
+    // ============= FIX: SỬA LỖI PHƯƠNG THỨC HELPER =============
+    private UserSessionDto getUserFromSession(HttpSession session) {
+        Object sessionUser = session.getAttribute("user");
+        if (sessionUser instanceof UserSessionDto) {
+            return (UserSessionDto) sessionUser;
+        }
+        return null;
+    }
 
     // 1. API lấy danh sách hội thoại
     @GetMapping("/conversations")
@@ -81,8 +89,6 @@ public class MessengerApiController {
         // 2. Bắn Socket cho người nhận (Realtime)
         try {
             // Lấy username người nhận để gửi socket
-            // Giả định UserService có hàm lấy username hoặc user entity
-            // Nếu chưa có, bạn có thể dùng UserRepository để findById
              String receiverUsername = userService.getUserById(request.getReceiverId()).getUserName();
             
             if (receiverUsername != null) {
@@ -102,7 +108,7 @@ public class MessengerApiController {
             );
             
         } catch (Exception e) {
-            e.printStackTrace(); // Log lỗi socket (không chặn flow chính)
+            e.printStackTrace();
         }
 
         return ResponseEntity.ok(sentMessage);
@@ -111,22 +117,11 @@ public class MessengerApiController {
     // API Thu hồi tin nhắn
     @PostMapping("/unsend/{messageId}")
     public ResponseEntity<?> unsendMessage(@PathVariable Long messageId, HttpSession session) {
-        UserSessionDto user = getUserFromSession(session); // Hàm helper cũ
+        UserSessionDto user = getUserFromSession(session);
         if (user == null) return ResponseEntity.status(401).build();
 
         messengerService.unsendMessage(messageId, user.getId());
-        
-        // Bắn socket báo xóa tin (Client tự xử lý UI xóa) - Optional, làm sau cho đơn giản
         return ResponseEntity.ok().build();
-    }
-
-    // Helper: Lấy User từ Session an toàn
-    private UserSessionDto getUserFromSession(HttpSession session) {
-        Object sessionUser = session.getAttribute("user");
-        if (sessionUser instanceof UserSessionDto) {
-            return (UserSessionDto) sessionUser;
-        }
-        return null;
     }
 
     // [MỚI] API lấy Media cho Sidebar phải
@@ -134,7 +129,7 @@ public class MessengerApiController {
     public ResponseEntity<List<MessengerDto.MessageDto>> getSharedMedia(
             @PathVariable Integer partnerId,
             HttpSession session) {
-        UserSessionDto user = getUserFromSession(session); // Hàm helper cũ của bạn
+        UserSessionDto user = getUserFromSession(session);
         if (user == null) return ResponseEntity.status(401).build();
         
         return ResponseEntity.ok(messengerService.getSharedMedia(user.getId(), partnerId));
@@ -205,7 +200,7 @@ public class MessengerApiController {
         }
     }
     
-    // ============= FIX 3: Sửa endpoint togglePinMessage =============
+    // ============= FIX 3: Sửa endpoint togglePinMessage - SỬA LỖI CHÍNH =============
     @PostMapping("/pin/{messageId}")
     public ResponseEntity<?> togglePinMessage(@PathVariable Long messageId, HttpSession session) {
         UserSessionDto user = getUserFromSession(session);
@@ -214,8 +209,12 @@ public class MessengerApiController {
         try {
             MessengerMessage message = messengerService.getMessageById(messageId);
             
-            if (!message.getSender().getUserID().equals(user.getId()) && 
-                !message.getReceiver().getUserID().equals(user.getId())) {
+            // FIX: Sử dụng int để so sánh, không dùng .equals() trên primitive
+            int userId = user.getId();
+            int senderId = message.getSender().getUserID(); // getUserID() trả về int
+            int receiverId = message.getReceiver().getUserID();
+            
+            if (senderId != userId && receiverId != userId) {
                 return ResponseEntity.status(403).build();
             }
             
@@ -300,7 +299,6 @@ public class MessengerApiController {
                 conversationSettingsRepository.save(settings);
             }
             
-            // Gửi thông báo realtime nếu cần
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             e.printStackTrace();
@@ -428,7 +426,7 @@ public class MessengerApiController {
         }
     }
 
-    // DTOs
+    // ============= FIX 8: ĐỊNH NGHĨA CÁC DTO NỘI BỘ =============
     @Data
     public static class CallLogRequest {
         private Integer partnerId;

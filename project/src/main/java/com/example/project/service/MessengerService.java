@@ -207,7 +207,7 @@ public class MessengerService {
     }
 
     // 3. Sửa hàm convertToMessageDto
-    private MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
+    public  MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
         String avatar = generateAvatar(m.getSender().getUserName());
         
         // [MỚI] Map tin nhắn gốc nếu có
@@ -260,6 +260,4 @@ public class MessengerService {
         List<MessengerMessage> media = messengerRepository.findSharedMedia(currentUserId, partnerId);
         return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
-
-
 }
