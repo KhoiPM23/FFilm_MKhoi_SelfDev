@@ -32,6 +32,9 @@
     let typingTimeout = null;
     let lastSeenMessageId = null;
 
+    let messageQueue = [];
+    let isProcessingQueue = false;
+
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
     const notificationSound = new Audio('/sounds/message-notification.mp3');
 
@@ -288,30 +291,50 @@
     }
 
     // --- 1. WEBSOCKET ---
-    // --- 3. SOCKET HANDLER (UPDATED) ---
+    // --- FIX: WEBSOCKET CONNECTION IMPROVED ---
     function connectWebSocket() {
         const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
-        stompClient.connect({}, function() {
-            stompClient.subscribe('/user/queue/private', function(payload) {
+        
+        const headers = {
+            'X-User-Id': currentUser.userID,
+            'X-User-Name': currentUser.name
+        };
+        
+        stompClient.connect(headers, function(frame) {
+            console.log('✅ WebSocket Connected:', frame);
+            
+            // Subscribe đến private messages
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/private`, function(payload) {
                 const msg = JSON.parse(payload.body);
-                
-                if (msg.type === 'TYPING') {
-                    showTypingIndicator();
-                    return;
-                }
-                if (msg.type === 'STOP_TYPING') {
-                    hideTypingIndicator();
-                    return;
-                }
-                if (msg.type === 'SEEN') {
-                    updateSeenAvatar(msg.messageId);
-                    return;
-                }
-                
-                handleIncomingMessage(msg);
+                handleSocketMessage(msg);
             });
+            
+            // Subscribe đến typing notifications
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/typing`, function(payload) {
+                const data = JSON.parse(payload.body);
+                if (data.senderId === currentPartnerId) {
+                    if (data.type === 'TYPING') {
+                        showTypingIndicator();
+                    } else {
+                        hideTypingIndicator();
+                    }
+                }
+            });
+            
+            // Subscribe đến seen notifications
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/seen`, function(payload) {
+                const data = JSON.parse(payload.body);
+                updateSeenAvatar(data.messageId);
+            });
+            
+            // Subscribe đến online status
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/online-status`, function(payload) {
+                const data = JSON.parse(payload.body);
+                updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
+            });
+
             // Lắng nghe cuộc gọi (PeerJS cũng cần socket để signaling ban đầu)
             myPeer.on('call', (call) => {
                 // Trường hợp A gọi B -> B Accept -> B gọi A.
@@ -324,31 +347,61 @@
                         handleCallStream(call);
                     });
             });
-
             
-            stompClient.subscribe('/user/queue/online-status', function(payload) {
-                const data = JSON.parse(payload.body);
-                updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
-            });
+            // Thông báo kết nối thành công
+            showToast("Đã kết nối thời gian thực", "success");
+            
+        }, function(error) {
+            console.error('WebSocket Error:', error);
+            setTimeout(connectWebSocket, 5000); // Reconnect sau 5s
         });
+    }
+
+    // --- FIX: TIMESTAMP THÔNG MINH ---
+    function formatSmartTimestamp(timestamp) {
+        if (!timestamp) return "";
+        
+        const now = new Date();
+        const msgDate = new Date(timestamp);
+        const diffMs = now - msgDate;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        // Cùng ngày: chỉ hiện giờ
+        if (diffDays === 0) {
+            return msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+        // Hôm qua
+        else if (diffDays === 1) {
+            return `Hôm qua ${msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        // Trong tuần
+        else if (diffDays < 7) {
+            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+            return `${days[msgDate.getDay()]} ${msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        // Trong năm
+        else if (msgDate.getFullYear() === now.getFullYear()) {
+            return `${msgDate.getDate()}/${msgDate.getMonth() + 1} ${msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        // Năm khác
+        else {
+            return `${msgDate.getDate()}/${msgDate.getMonth() + 1}/${msgDate.getFullYear()} ${msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+        }
     }
 
     function handleSocketMessage(msg) {
         // 1. Xử lý Tín hiệu Gọi
         if (msg.type === 'CALL_REQ') {
-            // Người khác gọi mình
-            if (isRecording || currentCall) {
-                // Đang bận -> Tự từ chối (Optional)
-                return;
-            }
             incomingCallData = { 
-                peerId: msg.content, // PeerID của người gọi
+                peerId: msg.content,
                 senderId: msg.senderId,
-                senderName: msg.senderName || 'Người dùng FFilm', // Cần Backend trả về senderName trong MessageDto
+                senderName: msg.senderName || 'Người dùng FFilm',
                 senderAvatar: msg.senderAvatar 
             };
             showIncomingCallModal(incomingCallData);
-            return; // Không hiện tin nhắn chat
+            return;
         }
         else if (msg.type === 'CALL_DENY') {
             alert("Người dùng bận hoặc từ chối cuộc gọi.");
@@ -360,28 +413,31 @@
             return;
         }
 
-        if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
+        // 2. Chat messages
+        const senderId = msg.senderId;
+        const receiverId = msg.receiverId;
+        const partnerId = (senderId === currentUser.userID) ? receiverId : senderId;
+
+        // Append to UI if viewing this conversation
+        if (currentPartnerId && currentPartnerId === partnerId) {
             appendMessageToUI(msg);
-            
-            // Mark as seen if chat is open
-            if (msg.senderId == currentPartnerId) {
-                markAsRead(msg.id);
+            if (senderId !== currentUser.userID) {
+                markAsRead(msg.id); // Mark as seen
             }
         }
 
-        // 2. Xử lý Chat thường (Text, Image, Audio)
-        if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
-            appendMessageToUI(msg);
-        }
-        loadConversations();
+        // Always update conversation list preview WITHOUT full reload
+        updateConversationPreview(msg);
     }
 
+    // --- FIX: SEEN REAL-TIME ---
     function markAsRead(messageId) {
         if (!stompClient || !stompClient.connected) return;
         
         stompClient.send('/app/mark-seen', {}, JSON.stringify({
             messageId: messageId,
-            userId: currentUser.userID
+            userId: currentUser.userID,
+            partnerId: currentPartnerId
         }));
     }
 
@@ -783,17 +839,73 @@
 
     function sendApiRequest(payload) {
         console.log("sendApiRequest payload:", payload);
+        
+        // Optimistic UI cho TEXT
+        // if (payload.type === 'TEXT' && payload.content.trim()) {
+        //     const tempMsg = {
+        //         id: 'temp-' + Date.now(),
+        //         senderId: currentUser.userID,
+        //         content: payload.content,
+        //         type: 'TEXT',
+        //         replyToId: payload.replyToId,
+        //         formattedTime: 'Đang gửi...',
+        //         status: 'SENDING'
+        //     };
+        //     appendMessageToUI(tempMsg, true);
+        // }
+        
         $.ajax({
             url: '/api/v1/messenger/send',
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(msg) {
-                // appendMessageToUI(msg, true); // Force mine = true
                 console.log("sendApiRequest success:", msg);
+                
+                // Cập nhật tin nhắn tạm thành tin nhắn thật
+                if (payload.type === 'TEXT') {
+                    $(`#msg-temp-${msg.id}`).remove();
+                    appendMessageToUI(msg, true);
+                } else {
+                    appendMessageToUI(msg, true);
+                }
+                
                 scrollToBottom();
+                // updateConversationPreview(msg);
+                
+                // KHÔNG gọi loadConversations() - tránh reload
             },
-            error: function(e) { console.error("Send Error", e); }
+            error: function(e) { 
+                console.error("Send Error", e); 
+                // Xử lý lỗi cho tin nhắn tạm
+                if (payload.type === 'TEXT') {
+                    $(`#msg-temp-${msg.id} .bubble`).text('❌ Gửi thất bại').addClass('error');
+                }
+            }
+        });
+    }
+
+    // --- FIX: TYPING INDICATOR REAL-TIME ---
+    function setupTypingIndicator() {
+        $('#msgInput').off('input').on('input', function() {
+            if (!currentPartnerId || !stompClient || !stompClient.connected) return;
+            
+            clearTimeout(typingTimeout);
+            
+            // Chỉ gửi typing nếu có nội dung
+            if ($(this).val().trim().length > 0) {
+                stompClient.send('/app/typing', {}, JSON.stringify({
+                    receiverId: currentPartnerId,
+                    senderId: currentUser.userID,
+                    senderName: currentUser.name
+                }));
+            }
+            
+            typingTimeout = setTimeout(() => {
+                stompClient.send('/app/stop-typing', {}, JSON.stringify({
+                    receiverId: currentPartnerId
+                }));
+            }, 2000);
         });
     }
 
@@ -818,21 +930,18 @@
             success: function(res) {
                 $(`#${tempId}`).remove();
                 if(res.url) {
+                    // Send to server - let sendApiRequest handle UI append
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
                         type: type
                     });
-
-                    appendMessageToUI({ 
-                        senderId: currentUser.userID, 
-                        content: res.url, 
-                        type: type 
-                    }, true);
                     
-                    if(caption) {
-                        sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
-                        appendMessageToUI({ senderId: currentUser.userID, content: caption, type: 'TEXT' }, true);
+                    // Only append caption as separate message if needed
+                    if(caption && caption.trim()) {
+                        setTimeout(() => {
+                            sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
+                        }, 200);
                     }
 
                     window.clearPreview();
