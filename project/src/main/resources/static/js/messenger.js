@@ -684,32 +684,13 @@
         const formData = new FormData();
         formData.append("file", file);
 
-        // 1. Tạo Preview Base64 ngay lập tức (Optimistic UI)
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Url = e.target.result;
-            // Hiện ngay tin nhắn ảnh với base64 (không sợ 404)
-            const fakeMsg = { 
-                senderId: currentUser.userID, 
-                content: base64Url, // Dùng base64 để hiện ngay
-                type: type,
-                formattedTime: 'Đang gửi...'
-            };
-            // appendMessageToUI(fakeMsg, true);
-            // scrollToBottom();
-        };
-        reader.readAsDataURL(file);
-
-        // 2. Clear Input
         window.clearPreview();
         $('#msgInput').val('');
 
-        // Thêm loading
         const tempId = 'up-' + Date.now();
         $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang tải lên...</div>`);
         scrollToBottom();
 
-        // 3. Upload thật
         $.ajax({
             url: '/api/upload/image', 
             type: 'POST',
@@ -717,31 +698,26 @@
             processData: false,
             contentType: false,
             success: function(res) {
-                $(`#${tempId}`).remove(); // Xóa loading
+                $(`#${tempId}`).remove();
                 if(res.url) {
-                    // Gửi tin nhắn chứa URL Server (để người kia xem được)
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
-                        type: type // AUDIO, IMAGE, FILE
+                        type: type
                     });
 
-                    // 2. Hiện ngay lên UI của mình
                     appendMessageToUI({ 
-                         senderId: currentUser.userID, 
-                         content: res.url, 
-                         type: type 
+                        senderId: currentUser.userID, 
+                        content: res.url, 
+                        type: type 
                     }, true);
                     
-                    // Gửi caption nếu có
                     if(caption) {
                         sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
                         appendMessageToUI({ senderId: currentUser.userID, content: caption, type: 'TEXT' }, true);
                     }
 
-                    // [QUAN TRỌNG] Reset mọi thứ sau khi gửi xong
-                    window.clearPreview(); 
-                    $('#msgInput').val('');
+                    window.clearPreview();
                 }
             },
             error: function(err) {
