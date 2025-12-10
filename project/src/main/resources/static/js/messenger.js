@@ -741,6 +741,579 @@
         updateConversationPreview(msg);
     }
 
+    // ============= FIX 10: CALL HISTORY INTEGRATION =============
+    window.openCallHistory = function() {
+        const modal = $('<div class="call-history-modal-overlay"></div>');
+        const content = $(`
+            <div class="call-history-modal">
+                <div class="call-history-header">
+                    <h3><i class="fas fa-history"></i> Lịch sử cuộc gọi</h3>
+                    <button class="close-call-history" onclick="closeCallHistory()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="call-history-tabs">
+                    <button class="tab-btn active" data-type="ALL">Tất cả</button>
+                    <button class="tab-btn" data-type="MISSED">Đã nhỡ</button>
+                    <button class="tab-btn" data-type="VIDEO">Video</button>
+                    <button class="tab-btn" data-type="AUDIO">Thoại</button>
+                </div>
+                <div class="call-history-list" id="callHistoryList">
+                    <div class="loading-calls">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải lịch sử...</p>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+        
+        loadCallHistory('ALL');
+        
+        // Tab switching
+        $('.tab-btn').click(function() {
+            $('.tab-btn').removeClass('active');
+            $(this).addClass('active');
+            const type = $(this).data('type');
+            loadCallHistory(type);
+        });
+    };
+
+    window.closeCallHistory = function() {
+        $('.call-history-modal-overlay, .call-history-modal').remove();
+    };
+
+    window.loadCallHistory = function(type) {
+        const container = $('#callHistoryList');
+        container.html('<div class="loading-calls"><i class="fas fa-spinner fa-spin"></i><p>Đang tải...</p></div>');
+        
+        $.get('/api/v1/messenger/call-history', {
+            partnerId: currentPartnerId || undefined,
+            days: 30
+        })
+        .done(function(logs) {
+            displayCallHistory(logs, type);
+        })
+        .fail(function() {
+            container.html('<div class="no-calls">Không thể tải lịch sử cuộc gọi</div>');
+        });
+    };
+
+    window.displayCallHistory = function(logs, filterType) {
+        const container = $('#callHistoryList');
+        container.empty();
+        
+        let filteredLogs = logs;
+        if (filterType !== 'ALL') {
+            if (filterType === 'MISSED') {
+                filteredLogs = logs.filter(log => log.callStatus === 'MISSED');
+            } else if (filterType === 'VIDEO') {
+                filteredLogs = logs.filter(log => log.video);
+            } else if (filterType === 'AUDIO') {
+                filteredLogs = logs.filter(log => !log.video);
+            }
+        }
+        
+        if (filteredLogs.length === 0) {
+            container.html('<div class="no-calls">Không có cuộc gọi nào</div>');
+            return;
+        }
+        
+        filteredLogs.forEach(log => {
+            const time = new Date(log.timestamp).toLocaleString('vi-VN');
+            const duration = formatDuration(log.duration);
+            const isOutgoing = log.callType === 'OUTGOING';
+            const isMissed = log.callStatus === 'MISSED';
+            const callIcon = log.video ? 'fa-video' : 'fa-phone';
+            
+            container.append(`
+                <div class="call-history-item ${isMissed ? 'missed' : ''}">
+                    <div class="call-icon">
+                        <i class="fas ${callIcon} ${isOutgoing ? 'outgoing' : 'incoming'}"></i>
+                    </div>
+                    <div class="call-details">
+                        <div class="call-partner">${log.partnerName}</div>
+                        <div class="call-meta">
+                            <span class="call-time">${time}</span>
+                            <span class="call-duration">${duration}</span>
+                        </div>
+                    </div>
+                    <div class="call-actions">
+                        <button class="btn-call-action" onclick="redialCall(${log.partnerId}, ${log.video})">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+                </div>
+            `);
+        });
+    };
+
+    window.formatDuration = function(seconds) {
+        if (!seconds) return '--:--';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    window.redialCall = function(partnerId, isVideo) {
+        // Logic redial - cần lấy thông tin partner từ partnerId
+        if (isVideo) {
+            window.startVideoCall();
+        } else {
+            window.startVoiceCall();
+        }
+        closeCallHistory();
+    };
+
+    // Thêm các CSS cần thiết
+    const additionalCSS = `
+    /* Pin Message Styles */
+    .pin-indicator {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ff4757;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        z-index: 5;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .pinned-section {
+        margin-top: 20px;
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #333;
+    }
+
+    .pinned-messages-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .pinned-message-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-left: 3px solid var(--msg-blue);
+    }
+
+    .pinned-message-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(2px);
+    }
+
+    .pinned-content {
+        color: #fff;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+
+    .pinned-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pinned-time {
+        color: #aaa;
+        font-size: 11px;
+    }
+
+    .btn-unpin {
+        background: rgba(255, 71, 87, 0.2);
+        color: #ff4757;
+        border: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s;
+    }
+
+    .btn-unpin:hover {
+        background: rgba(255, 71, 87, 0.3);
+        transform: scale(1.1);
+    }
+
+    /* Search Modal Styles */
+    .search-modal {
+        width: 800px;
+        max-width: 95%;
+    }
+
+    .search-filters {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .filter-group label {
+        display: block;
+        color: #fff;
+        font-size: 14px;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    #searchKeyword, #searchType, #searchSort {
+        width: 100%;
+        background: #3a3b3c;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 10px;
+        color: #fff;
+        font-size: 14px;
+    }
+
+    .date-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #searchFromDate, #searchToDate {
+        flex: 1;
+        background: #3a3b3c;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 10px;
+        color: #fff;
+        font-size: 14px;
+    }
+
+    .search-actions {
+        padding: 15px 20px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .btn-search-clear, .btn-search-execute {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-search-clear {
+        background: #3a3b3c;
+        color: #fff;
+    }
+
+    .btn-search-execute {
+        background: #0084ff;
+        color: white;
+    }
+
+    .search-results-container {
+        padding: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        color: #fff;
+    }
+
+    .search-result-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        display: flex;
+        gap: 12px;
+        transition: all 0.2s;
+    }
+
+    .search-result-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .result-avatar img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+    }
+
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+    }
+
+    .result-sender {
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .result-time {
+        color: #aaa;
+        font-size: 12px;
+    }
+
+    .result-text {
+        color: #ccc;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .highlight {
+        background: #ffeb3b;
+        color: #000;
+        padding: 0 2px;
+        border-radius: 2px;
+        font-weight: bold;
+    }
+
+    .result-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-result-action {
+        background: rgba(0, 132, 255, 0.1);
+        color: #0084ff;
+        border: 1px solid rgba(0, 132, 255, 0.3);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    /* Stats Modal */
+    .stats-modal {
+        width: 600px;
+    }
+
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        padding: 20px;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, rgba(0, 132, 255, 0.1), rgba(0, 132, 255, 0.05));
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid rgba(0, 132, 255, 0.2);
+    }
+
+    .stat-value {
+        color: var(--msg-blue);
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        color: #aaa;
+        font-size: 14px;
+    }
+
+    .stats-section {
+        padding: 20px;
+        border-top: 1px solid #333;
+    }
+
+    .stats-section h4 {
+        color: #fff;
+        margin: 0 0 15px 0;
+        font-size: 16px;
+    }
+
+    .first-message {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 3px solid var(--msg-blue);
+    }
+
+    .first-sender {
+        color: var(--msg-blue);
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .first-content {
+        color: #ccc;
+        font-style: italic;
+        margin-bottom: 5px;
+    }
+
+    .first-date {
+        color: #aaa;
+        font-size: 12px;
+    }
+
+    .activity-chart {
+        height: 200px;
+        margin-top: 20px;
+    }
+
+    /* Call History */
+    .call-history-modal {
+        width: 500px;
+    }
+
+    .call-history-tabs {
+        padding: 15px 20px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        gap: 10px;
+    }
+
+    .call-history-tabs .tab-btn {
+        padding: 8px 16px;
+        background: #3a3b3c;
+        color: #aaa;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .call-history-tabs .tab-btn.active {
+        background: var(--msg-blue);
+        color: white;
+    }
+
+    .call-history-list {
+        padding: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .call-history-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        margin-bottom: 10px;
+        transition: all 0.2s;
+    }
+
+    .call-history-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .call-history-item.missed {
+        border-left: 3px solid #ff4757;
+    }
+
+    .call-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(0, 132, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+
+    .call-icon .outgoing {
+        color: var(--msg-blue);
+    }
+
+    .call-icon .incoming {
+        color: #2ed573;
+    }
+
+    .call-details {
+        flex: 1;
+    }
+
+    .call-partner {
+        color: #fff;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .call-meta {
+        display: flex;
+        gap: 15px;
+    }
+
+    .call-time, .call-duration {
+        color: #aaa;
+        font-size: 12px;
+    }
+
+    .btn-call-action {
+        background: rgba(0, 132, 255, 0.1);
+        color: #0084ff;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-call-action:hover {
+        background: rgba(0, 132, 255, 0.2);
+        transform: scale(1.1);
+    }
+
+    .loading-calls, .no-calls {
+        text-align: center;
+        padding: 40px;
+        color: #aaa;
+    }
+    `;
+
+    // Thêm CSS vào document
+    $(document).ready(function() {
+        $('head').append(`<style>${additionalCSS}</style>`);
+    });
+
     // [FIX] Update conversation list WITHOUT reload
     function updateConversationPreview(msg) {
         const partnerId = (msg.senderId == currentUser.userID) ? msg.receiverId : msg.senderId;
@@ -844,7 +1417,7 @@
             });
     };
 
-    // --- 3. SELECT CONVERSATION ---
+    // --- 3. SELECT AND LOAD THEME KHI CHỌN CONVERSATION ---
     window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive) {
         currentPartnerId = parseInt(partnerId);
         currentPartnerName = name;
@@ -854,6 +1427,24 @@
         $('#emptyState').hide();
         $('#chatInterface').show();
         updateInfoSidebar(name, avatar);
+
+        // Load theme từ server
+        $.get(`/api/v1/messenger/settings/${partnerId}`)
+            .done(function(settings) {
+                if (settings.themeColor && settings.themeColor !== '#0084ff') {
+                    window.applyTheme(settings.themeColor);
+                } else {
+                    // Reset về mặc định
+                    document.documentElement.style.setProperty('--msg-blue', '#0084ff');
+                }
+            })
+            .fail(function() {
+                // Fallback: load từ localStorage
+                const savedTheme = localStorage.getItem(`theme_${partnerId}`);
+                if (savedTheme) {
+                    window.applyTheme(savedTheme);
+                }
+            });
         
         // [FIX] Header: Tên + Badge (nếu lạ)
         let headerHtml = `<h4 id="headerName" style="margin:0;">${name}`;
@@ -1063,6 +1654,890 @@
         // Gửi type STICKER (nếu backend đã update) hoặc IMAGE
         let payload = { receiverId: currentPartnerId, content: url, type: 'STICKER' };
         sendApiRequest(payload);
+    };
+
+    // ============= FIX 7: PIN MESSAGE SYSTEM =============
+    window.togglePinMessage = function(messageId) {
+        if (!currentPartnerId || !messageId) return;
+        
+        $.post(`/api/v1/messenger/pin/${messageId}`)
+            .done(function(response) {
+                const msgElement = $(`#msg-${messageId}`);
+                const pinIcon = msgElement.find('.pin-icon');
+                
+                if (response.pinned) {
+                    if (!pinIcon.length) {
+                        msgElement.find('.msg-content').append(`
+                            <div class="pin-indicator" title="Đã ghim">
+                                <i class="fas fa-thumbtack"></i>
+                            </div>
+                        `);
+                    }
+                    showToast('Đã ghim tin nhắn!', 'success');
+                } else {
+                    msgElement.find('.pin-indicator').remove();
+                    showToast('Đã bỏ ghim tin nhắn!', 'info');
+                }
+                
+                // Reload pinned messages trong sidebar
+                if (!$('#chatInfoSidebar').hasClass('hidden')) {
+                    loadPinnedMessages();
+                }
+            })
+            .fail(function() {
+                showToast('Lỗi thao tác ghim tin nhắn!', 'error');
+            });
+    };
+
+    window.loadPinnedMessages = function() {
+        if (!currentPartnerId) return;
+        
+        const container = $('#pinnedMessagesList');
+        if (!container.length) {
+            // Thêm section pinned messages vào sidebar
+            $('.accordion-item:eq(1) .accordion-content').append(`
+                <div class="pinned-section">
+                    <div class="section-title">
+                        <i class="fas fa-thumbtack"></i>
+                        <span>Tin nhắn đã ghim</span>
+                    </div>
+                    <div class="pinned-messages-list" id="pinnedMessagesList">
+                        <div class="loading-pinned">Đang tải...</div>
+                    </div>
+                </div>
+            `);
+        }
+        
+        $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
+            .done(function(messages) {
+                const list = $('#pinnedMessagesList');
+                list.empty();
+                
+                if (messages.length === 0) {
+                    list.html('<div class="no-pinned">Chưa có tin nhắn nào được ghim</div>');
+                    return;
+                }
+                
+                messages.forEach(msg => {
+                    const shortContent = msg.content.length > 30 ? 
+                        msg.content.substring(0, 30) + '...' : msg.content;
+                    const time = new Date(msg.timestamp).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    list.append(`
+                        <div class="pinned-message-item" onclick="scrollToMessage(${msg.id})">
+                            <div class="pinned-content">${shortContent}</div>
+                            <div class="pinned-meta">
+                                <span class="pinned-time">${time}</span>
+                                <button class="btn-unpin" onclick="event.stopPropagation(); togglePinMessage(${msg.id})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `);
+                });
+            })
+            .fail(function() {
+                $('#pinnedMessagesList').html('<div class="error-pinned">Lỗi tải tin đã ghim</div>');
+            });
+    };
+
+    // ============= FIX 8: ADVANCED SEARCH SYSTEM =============
+    window.openAdvancedSearch = function() {
+        const modal = $('<div class="search-modal-overlay"></div>');
+        const content = $(`
+            <div class="search-modal">
+                <div class="search-modal-header">
+                    <h3><i class="fas fa-search"></i> Tìm kiếm nâng cao</h3>
+                    <button class="close-search-modal" onclick="closeAdvancedSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="search-filters">
+                    <div class="filter-group">
+                        <label>Từ khóa:</label>
+                        <input type="text" id="searchKeyword" placeholder="Nhập từ cần tìm...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Loại tin nhắn:</label>
+                        <select id="searchType">
+                            <option value="ALL">Tất cả</option>
+                            <option value="TEXT">Tin nhắn văn bản</option>
+                            <option value="IMAGE">Hình ảnh</option>
+                            <option value="FILE">File đính kèm</option>
+                            <option value="AUDIO">Tin nhắn thoại</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Khoảng thời gian:</label>
+                        <div class="date-range">
+                            <input type="date" id="searchFromDate">
+                            <span>đến</span>
+                            <input type="date" id="searchToDate">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sắp xếp:</label>
+                        <select id="searchSort">
+                            <option value="NEWEST">Mới nhất trước</option>
+                            <option value="OLDEST">Cũ nhất trước</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="search-actions">
+                    <button class="btn-search-clear" onclick="clearSearchFilters()">
+                        <i class="fas fa-eraser"></i> Xóa bộ lọc
+                    </button>
+                    <button class="btn-search-execute" onclick="executeAdvancedSearch()">
+                        <i class="fas fa-search"></i> Tìm kiếm
+                    </button>
+                </div>
+                <div class="search-results-container">
+                    <div class="results-header">
+                        <span id="resultsCount">0 kết quả</span>
+                        <div class="results-actions">
+                            <button class="btn-export-results" onclick="exportSearchResults()">
+                                <i class="fas fa-download"></i> Xuất kết quả
+                            </button>
+                        </div>
+                    </div>
+                    <div class="search-results-list" id="searchResultsList">
+                        <div class="no-results-placeholder">
+                            <i class="fas fa-search"></i>
+                            <p>Nhập từ khóa và nhấn "Tìm kiếm"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+        
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        $('#searchFromDate').val(weekAgo);
+        $('#searchToDate').val(today);
+    };
+
+    window.closeAdvancedSearch = function() {
+        $('.search-modal-overlay, .search-modal').remove();
+    };
+
+    window.clearSearchFilters = function() {
+        $('#searchKeyword').val('');
+        $('#searchType').val('ALL');
+        $('#searchSort').val('NEWEST');
+        
+        const today = new Date().toISOString().split('T')[0];
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        $('#searchFromDate').val(weekAgo);
+        $('#searchToDate').val(today);
+    };
+
+    window.executeAdvancedSearch = function() {
+        if (!currentPartnerId) {
+            showToast('Vui lòng chọn một cuộc trò chuyện!', 'error');
+            return;
+        }
+        
+        const keyword = $('#searchKeyword').val().trim();
+        if (!keyword) {
+            showToast('Vui lòng nhập từ khóa tìm kiếm!', 'warning');
+            return;
+        }
+        
+        const btn = $('.btn-search-execute');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang tìm...');
+        
+        $.get('/api/v1/messenger/search', {
+            partnerId: currentPartnerId,
+            query: keyword
+        })
+        .done(function(messages) {
+            displaySearchResults(messages);
+            $('#resultsCount').text(`${messages.length} kết quả`);
+        })
+        .fail(function() {
+            showToast('Lỗi tìm kiếm!', 'error');
+        })
+        .always(function() {
+            btn.prop('disabled', false).html('<i class="fas fa-search"></i> Tìm kiếm');
+        });
+    };
+
+    window.displaySearchResults = function(messages) {
+        const container = $('#searchResultsList');
+        container.empty();
+        
+        if (messages.length === 0) {
+            container.html(`
+                <div class="no-results-found">
+                    <i class="fas fa-search"></i>
+                    <p>Không tìm thấy kết quả phù hợp</p>
+                </div>
+            `);
+            return;
+        }
+        
+        messages.forEach(msg => {
+            const time = new Date(msg.timestamp).toLocaleString('vi-VN');
+            const isMine = msg.senderId === currentUser.userID;
+            const senderName = isMine ? 'Bạn' : currentPartnerName;
+            
+            container.append(`
+                <div class="search-result-item" onclick="scrollToMessage(${msg.id})">
+                    <div class="result-avatar">
+                        <img src="${msg.senderAvatar}" alt="${senderName}">
+                    </div>
+                    <div class="result-content">
+                        <div class="result-header">
+                            <span class="result-sender">${senderName}</span>
+                            <span class="result-time">${time}</span>
+                        </div>
+                        <div class="result-text">${highlightKeyword(msg.content, $('#searchKeyword').val())}</div>
+                        <div class="result-actions">
+                            <button class="btn-result-action" onclick="event.stopPropagation(); replyToMessage(${msg.id})">
+                                <i class="fas fa-reply"></i> Trả lời
+                            </button>
+                            <button class="btn-result-action" onclick="event.stopPropagation(); togglePinMessage(${msg.id})">
+                                <i class="fas fa-thumbtack"></i> Ghim
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+    };
+
+    window.highlightKeyword = function(text, keyword) {
+        if (!keyword) return text;
+        const regex = new RegExp(`(${keyword})`, 'gi');
+        return text.replace(regex, '<mark class="highlight">$1</mark>');
+    };
+
+    window.exportSearchResults = function() {
+        // Logic export kết quả tìm kiếm (có thể export ra file txt)
+        showToast('Tính năng xuất kết quả đang phát triển', 'info');
+    };
+
+
+    // ============= FIX 9: CHAT STATISTICS =============
+    window.viewChatStats = function() {
+        if (!currentPartnerId) return;
+        
+        const modal = $('<div class="stats-modal-overlay"></div>');
+        const content = $(`
+            <div class="stats-modal">
+                <div class="stats-modal-header">
+                    <h3><i class="fas fa-chart-bar"></i> Thống kê đoạn chat</h3>
+                    <button class="close-stats-modal" onclick="closeStatsModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="stats-content" id="statsContent">
+                    <div class="loading-stats">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải thống kê...</p>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+        
+        // Load stats
+        $.get(`/api/v1/messenger/stats/${currentPartnerId}`)
+            .done(function(stats) {
+                displayChatStats(stats);
+            })
+            .fail(function() {
+                $('#statsContent').html(`
+                    <div class="stats-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Không thể tải thống kê</p>
+                    </div>
+                `);
+            });
+    };
+
+    window.closeStatsModal = function() {
+        $('.stats-modal-overlay, .stats-modal').remove();
+    };
+
+    window.displayChatStats = function(stats) {
+        const container = $('#statsContent');
+        
+        let html = `
+            <div class="stats-summary">
+                <div class="stat-card">
+                    <div class="stat-value">${stats.totalMessages || 0}</div>
+                    <div class="stat-label">Tổng tin nhắn</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.mediaCount || 0}</div>
+                    <div class="stat-label">File phương tiện</div>
+                </div>
+            </div>
+        `;
+        
+        if (stats.firstMessage) {
+            const firstDate = new Date(stats.firstMessage.timestamp).toLocaleDateString('vi-VN');
+            html += `
+                <div class="stats-section">
+                    <h4>Tin nhắn đầu tiên</h4>
+                    <div class="first-message">
+                        <div class="first-sender">${stats.firstMessage.sender}</div>
+                        <div class="first-content">${stats.firstMessage.content}</div>
+                        <div class="first-date">${firstDate}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Thêm các phần thống kê khác nếu có
+        html += `
+            <div class="stats-section">
+                <h4>Hoạt động gần đây</h4>
+                <div class="activity-chart" id="activityChart">
+                    <canvas id="chatActivityCanvas"></canvas>
+                </div>
+            </div>
+        `;
+        
+        container.html(html);
+        
+        // Vẽ biểu đồ nếu có dữ liệu
+        setTimeout(() => {
+            if (window.Chart && $('#chatActivityCanvas').length) {
+                renderActivityChart();
+            }
+        }, 100);
+    };
+
+    window.renderActivityChart = function() {
+        // Demo chart - cần tích hợp với dữ liệu thực
+        const ctx = document.getElementById('chatActivityCanvas').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+                datasets: [{
+                    label: 'Số tin nhắn',
+                    data: [12, 19, 8, 15, 22, 18, 25],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Hoạt động chat trong tuần'
+                    }
+                }
+            }
+        });
+    };
+
+
+    // ============= FIX 1: THÊM LOGIC THEME DYNAMIC =============
+    window.applyTheme = function(color) {
+        if (!color) return;
+        
+        // Cập nhật CSS variables
+        document.documentElement.style.setProperty('--msg-blue', color);
+        
+        // Tính toán các biến màu liên quan
+        const lightColor = adjustBrightness(color, 40);
+        const darkColor = adjustBrightness(color, -20);
+        
+        document.documentElement.style.setProperty('--msg-blue-light', lightColor);
+        document.documentElement.style.setProperty('--msg-blue-dark', darkColor);
+        
+        // Lưu vào localStorage
+        if (currentPartnerId) {
+            localStorage.setItem(`theme_${currentPartnerId}`, color);
+        }
+    };
+
+    function adjustBrightness(color, percent) {
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        
+        return "#" + (
+            0x1000000 +
+            (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)
+        ).toString(16).slice(1);
+    }
+
+    // ============= FIX 2: THÊM MODAL THEME PICKER =============
+    window.openThemePicker = function() {
+        const modal = $('<div class="theme-modal-overlay"></div>');
+        const content = $(`
+            <div class="theme-modal">
+                <div class="theme-modal-header">
+                    <h3><i class="fas fa-palette"></i> Chọn chủ đề</h3>
+                    <button class="close-theme-modal" onclick="closeThemePicker()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="theme-colors-grid">
+                    <div class="color-option" data-color="#0084ff" style="background: #0084ff;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#ff4757" style="background: #ff4757;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#2ed573" style="background: #2ed573;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#ffa502" style="background: #ffa502;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#3742fa" style="background: #3742fa;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#7158e2" style="background: #7158e2;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#ff6b81" style="background: #ff6b81;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#1e90ff" style="background: #1e90ff;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#00d2d3" style="background: #00d2d3;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#ff9ff3" style="background: #ff9ff3;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#54a0ff" style="background: #54a0ff;" onclick="selectThemeColor(this)"></div>
+                    <div class="color-option" data-color="#5f27cd" style="background: #5f27cd;" onclick="selectThemeColor(this)"></div>
+                </div>
+                <div class="theme-custom-section">
+                    <h4>Màu tùy chỉnh</h4>
+                    <div class="custom-color-input">
+                        <input type="color" id="customColorPicker" value="#0084ff">
+                        <input type="text" id="customColorHex" placeholder="#0084ff" maxlength="7">
+                        <button onclick="applyCustomTheme()">Áp dụng</button>
+                    </div>
+                </div>
+                <div class="theme-actions">
+                    <button class="btn-theme-cancel" onclick="closeThemePicker()">Hủy</button>
+                    <button class="btn-theme-apply" onclick="saveThemeToServer()">Lưu thay đổi</button>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+    };
+
+    window.closeThemePicker = function() {
+        $('.theme-modal-overlay, .theme-modal').remove();
+    };
+
+    window.selectThemeColor = function(element) {
+        $('.color-option').removeClass('selected');
+        $(element).addClass('selected');
+        const color = $(element).data('color');
+        $('#customColorPicker').val(color);
+        $('#customColorHex').val(color);
+        window.applyTheme(color);
+    };
+
+    window.applyCustomTheme = function() {
+        let color = $('#customColorHex').val();
+        if (!color.startsWith('#')) color = '#' + color;
+        if (/^#[0-9A-F]{6}$/i.test(color)) {
+            $('#customColorPicker').val(color);
+            window.applyTheme(color);
+        } else {
+            alert('Mã màu không hợp lệ!');
+        }
+    };
+
+    window.saveThemeToServer = function() {
+        const color = $('#customColorHex').val();
+        if (!currentPartnerId) {
+            alert('Vui lòng chọn một cuộc trò chuyện!');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/v1/messenger/settings/theme',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                partnerId: currentPartnerId,
+                themeColor: color
+            }),
+            success: function() {
+                showToast('Đã cập nhật chủ đề!', 'success');
+                closeThemePicker();
+            },
+            error: function() {
+                showToast('Lỗi cập nhật chủ đề!', 'error');
+            }
+        });
+    };
+
+    // ============= FIX 5: THÊM CSS CHO MODAL =============
+    // Thêm vào messenger.css
+    const themeAndNicknameCSS = `
+    /* Theme Modal */
+    .theme-modal-overlay, .nickname-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+    }
+
+    .theme-modal, .nickname-modal {
+        background: #242526;
+        border-radius: 16px;
+        width: 450px;
+        max-width: 90%;
+        max-height: 80%;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: modalAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes modalAppear {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .theme-modal-header, .nickname-modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .theme-modal-header h3, .nickname-modal-header h3 {
+        margin: 0;
+        color: #fff;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .close-theme-modal, .close-nickname-modal {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-theme-modal:hover, .close-nickname-modal:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .theme-colors-grid {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+    }
+
+    .color-option {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: all 0.2s;
+        position: relative;
+    }
+
+    .color-option:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .color-option.selected {
+        border-color: #fff;
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+    }
+
+    .color-option.selected::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .theme-custom-section {
+        padding: 0 20px 20px;
+        border-bottom: 1px solid #333;
+    }
+
+    .theme-custom-section h4 {
+        color: #fff;
+        margin: 0 0 15px 0;
+        font-size: 16px;
+    }
+
+    .custom-color-input {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    #customColorPicker {
+        width: 50px;
+        height: 50px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        background: none;
+    }
+
+    #customColorPicker::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+
+    #customColorPicker::-webkit-color-swatch {
+        border: none;
+        border-radius: 8px;
+    }
+
+    #customColorHex {
+        flex: 1;
+        background: #3a3b3c;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 12px;
+        color: #fff;
+        font-size: 14px;
+    }
+
+    .custom-color-input button {
+        background: #0084ff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .custom-color-input button:hover {
+        background: #0073e6;
+    }
+
+    .theme-actions, .nickname-actions {
+        padding: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-theme-cancel, .btn-nickname-clear {
+        background: #3a3b3c;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-theme-apply, .btn-nickname-save {
+        background: #0084ff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-theme-cancel:hover, .btn-nickname-clear:hover {
+        background: #4e4f50;
+    }
+
+    .btn-theme-apply:hover, .btn-nickname-save:hover {
+        background: #0073e6;
+    }
+
+    /* Nickname Modal */
+    .nickname-input-section {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+    }
+
+    .nickname-input-section p {
+        color: #fff;
+        margin: 0 0 15px 0;
+    }
+
+    #nicknameInput {
+        width: 100%;
+        background: #3a3b3c;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 12px;
+        color: #fff;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    .nickname-hint {
+        color: #aaa;
+        font-size: 12px;
+    }
+
+    .nickname-examples {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+    }
+
+    .example-title {
+        color: #aaa;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .example-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .example-tag {
+        background: rgba(0, 132, 255, 0.1);
+        color: #0084ff;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid rgba(0, 132, 255, 0.3);
+    }
+
+    .example-tag:hover {
+        background: rgba(0, 132, 255, 0.2);
+        transform: translateY(-2px);
+    }
+    `;
+
+    // Thêm CSS vào document
+    $(document).ready(function() {
+        $('head').append(`<style>${themeAndNicknameCSS}</style>`);
+    });
+
+    // ============= FIX 3: THÊM MODAL NICKNAME =============
+    window.openNicknameModal = function() {
+        const modal = $('<div class="nickname-modal-overlay"></div>');
+        const content = $(`
+            <div class="nickname-modal">
+                <div class="nickname-modal-header">
+                    <h3><i class="fas fa-font"></i> Đổi biệt danh</h3>
+                    <button class="close-nickname-modal" onclick="closeNicknameModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="nickname-input-section">
+                    <p>Biệt danh mới cho <strong>${currentPartnerName}</strong>:</p>
+                    <input type="text" id="nicknameInput" placeholder="Nhập biệt danh..." maxlength="50">
+                    <div class="nickname-hint">
+                        <small>Biệt danh chỉ hiển thị với bạn</small>
+                    </div>
+                </div>
+                <div class="nickname-examples">
+                    <div class="example-title">Gợi ý:</div>
+                    <div class="example-tags">
+                        <span class="example-tag" onclick="fillNickname('Bạn thân')">Bạn thân</span>
+                        <span class="example-tag" onclick="fillNickname('Đồng nghiệp')">Đồng nghiệp</span>
+                        <span class="example-tag" onclick="fillNickname('Crush')">Crush</span>
+                        <span class="example-tag" onclick="fillNickname('Sếp')">Sếp</span>
+                        <span class="example-tag" onclick="fillNickname('Chị/Anh')">Chị/Anh</span>
+                    </div>
+                </div>
+                <div class="nickname-actions">
+                    <button class="btn-nickname-clear" onclick="clearNickname()">Xóa biệt danh</button>
+                    <button class="btn-nickname-save" onclick="saveNickname()">Lưu</button>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+        
+        // Load current nickname
+        $.get(`/api/v1/messenger/settings/${currentPartnerId}`)
+            .done(function(settings) {
+                if (settings.nickname) {
+                    $('#nicknameInput').val(settings.nickname);
+                }
+            });
+    };
+
+    window.closeNicknameModal = function() {
+        $('.nickname-modal-overlay, .nickname-modal').remove();
+    };
+
+    window.fillNickname = function(nickname) {
+        $('#nicknameInput').val(nickname);
+    };
+
+    window.clearNickname = function() {
+        $('#nicknameInput').val('');
+        saveNickname();
+    };
+
+    window.saveNickname = function() {
+        const nickname = $('#nicknameInput').val().trim();
+        
+        $.ajax({
+            url: '/api/v1/messenger/settings/nickname',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                partnerId: currentPartnerId,
+                nickname: nickname
+            }),
+            success: function() {
+                showToast(nickname ? 'Đã cập nhật biệt danh!' : 'Đã xóa biệt danh!', 'success');
+                closeNicknameModal();
+                
+                // Update UI
+                if (nickname) {
+                    $('#infoName').text(nickname);
+                    // Update trong conversation list nếu cần
+                } else {
+                    $('#infoName').text(currentPartnerName);
+                }
+            },
+            error: function() {
+                showToast('Lỗi cập nhật biệt danh!', 'error');
+            }
+        });
     };
 
     function sendApiRequest(payload) {
@@ -2653,7 +4128,22 @@
     function updateInfoSidebar(name, avatar) {
         $('#infoName').text(name);
         $('#infoAvatar').attr('src', avatar);
-        // Có thể gọi thêm API lấy ảnh đã gửi để render vào .media-grid sau
+        
+        // Thêm các nút chức năng mới
+        $('.accordion-content:first').html(`
+            <div class="info-action-btn" onclick="window.openThemePicker()">
+                <i class="fas fa-palette" style="color: var(--msg-blue);"></i> Đổi chủ đề
+            </div>
+            <div class="info-action-btn" onclick="window.openNicknameModal()">
+                <i class="fas fa-font"></i> Chỉnh sửa biệt danh
+            </div>
+            <div class="info-action-btn" onclick="window.openBackgroundPicker()">
+                <i class="fas fa-image"></i> Đổi nền chat
+            </div>
+            <div class="info-action-btn" onclick="window.viewChatStats()">
+                <i class="fas fa-chart-bar"></i> Thống kê đoạn chat
+            </div>
+        `);
     }
 
     // --- FIX 2: ONLINE STATUS UPDATE ---

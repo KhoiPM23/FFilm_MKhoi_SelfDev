@@ -10,6 +10,9 @@
     --msg-bubble-me: #0084ff;
     --msg-bubble-other: #3e4042;
     --msg-border: #2f3031;
+    --msg-blue: #0084ff;
+    --msg-blue-light: #66b3ff;
+    --msg-blue-dark: #0066cc;
     --header-height: 70px;
 }
 
@@ -40,10 +43,14 @@ body.messenger-body {
 .msg-sidebar {
     width: 360px;
     min-width: 360px;
+    max-width: 360px;
     background: var(--msg-sidebar);
     border-right: 1px solid var(--msg-border);
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
+    height: 100%;
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -91,19 +98,21 @@ body.messenger-body {
     padding: 12px;
     border-radius: 10px;
     cursor: pointer;
-    transition: 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     width: 100%;
-    flex-direction: row; /* Đảm bảo avatar và info nằm ngang BÊN TRONG item */
+    box-sizing: border-box;
 }
 
 .conv-item:hover {
     background: var(--msg-hover);
+    transform: translateX(2px);
 }
 
 .conv-item.active {
-    background: rgba(45, 136, 255, 0.1);
+    background: linear-gradient(135deg, rgba(0, 132, 255, 0.15), rgba(0, 132, 255, 0.05));
+    border-left: 3px solid var(--msg-blue);
 }
 
 /* ============= FIX 10: UNREAD MESSAGE STYLE ============= */
@@ -401,15 +410,17 @@ body.messenger-body {
 
 .messages-container::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.05);
-}
-
-.messages-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
     border-radius: 3px;
 }
 
+.messages-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, var(--msg-blue), #00c6ff);
+    border-radius: 3px;
+    transition: all 0.3s;
+}
+
 .messages-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(to bottom, #0073e6, #0099ff);
 }
 
 /* --- DATE DIVIDER --- */
@@ -465,14 +476,37 @@ body.messenger-body {
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    max-width: 70%;
-    animation: slideIn 0.3s ease;
+    max-width: 75%;
+    animation: messageAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+}
+
+@keyframes messageAppear {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .msg-row.mine {
     align-self: flex-end;
     flex-direction: row-reverse;
+    animation: messageAppearMine 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes messageAppearMine {
+    from {
+        opacity: 0;
+        transform: translateY(20px) translateX(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) translateX(0) scale(1);
+    }
 }
 
 .msg-row.other {
@@ -499,9 +533,12 @@ body.messenger-body {
     padding: 10px 15px;
     border-radius: 18px;
     font-size: 15px;
-    line-height: 1.4;
+    line-height: 1.5;
     word-wrap: break-word;
     position: relative;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .msg-row.other .bubble {
@@ -511,7 +548,7 @@ body.messenger-body {
 }
 
 .msg-row.mine .bubble {
-    background: var(--msg-blue-grad);
+    background: linear-gradient(135deg, var(--msg-blue), #00c6ff);
     color: #fff;
     border-bottom-right-radius: 4px;
 }
@@ -601,16 +638,30 @@ body.messenger-body {
 .media-preview {
     padding: 8px 0;
     display: none;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .preview-content {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    background: #2a2b2c;
-    padding: 8px;
-    border-radius: 8px;
+    gap: 12px;
+    background: linear-gradient(135deg, #2a2b2c, #1e1f20);
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .preview-content img {
@@ -733,15 +784,28 @@ body.messenger-body {
 
 /* ============= FIX 5: REPLY PREVIEW UI ============= */
 .replying-bar {
-    padding: 8px 15px;
-    background: #242526;
-    border-top: 1px solid #333;
-    border-left: 3px solid #0084ff; /* Blue accent */
+    padding: 10px 15px;
+    background: linear-gradient(135deg, rgba(0, 132, 255, 0.1), rgba(0, 132, 255, 0.05));
+    border-top: 1px solid rgba(0, 132, 255, 0.2);
+    border-left: 3px solid var(--msg-blue);
     display: none;
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
     margin-bottom: 10px;
+    border-radius: 8px;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .replying-bar.active {
@@ -773,7 +837,8 @@ body.messenger-body {
 .input-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    transition: all 0.3s;
 }
 
 .footer-btn {
@@ -785,10 +850,30 @@ body.messenger-body {
     border-radius: 50%;
     color: var(--msg-blue);
     cursor: pointer;
-    transition: 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 18px;
     background: transparent;
     border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.footer-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 132, 255, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.footer-btn:hover::after {
+    transform: translateY(-2px);
+    color: #fff;
 }
 
 .footer-btn:hover {
@@ -803,6 +888,14 @@ body.messenger-body {
     padding: 8px 15px;
     display: flex;
     align-items: center;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+}
+
+.input-group:focus-within {
+    border-color: var(--msg-blue);
+    background: rgba(0, 132, 255, 0.05);
+    box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.1);
 }
 
 .input-group input {
@@ -971,7 +1064,17 @@ body.messenger-body {
     border-radius: 18px;
     width: fit-content;
     margin-bottom: 10px;
-    animation: slideIn 0.3s ease;
+    /* animation: slideIn 0.3s ease; */
+    animation: typingPulse 2s infinite;
+}
+
+@keyframes typingPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
 }
 
 .typing-indicator.active {
@@ -1013,15 +1116,42 @@ body.messenger-body {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 1px solid var(--msg-bg);
+    border: 2px solid var(--msg-bg);
     position: absolute;
-    bottom: -8px;
-    right: -8px;
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    bottom: -6px;
+    right: -6px;
+    z-index: 2;
+    animation: popIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .msg-row.mine {
     margin-bottom: 12px; /* Space for seen avatar */
+}
+
+/* ============= FIX 16: THÊM HIGHLIGHT CHO MESSAGE KHI SCROLL TO ============= */
+.msg-row.highlighted {
+    animation: highlightMessage 2s ease;
+}
+
+@keyframes highlightMessage {
+    0%, 100% {
+        background: transparent;
+    }
+    10%, 90% {
+        background: rgba(0, 132, 255, 0.1);
+        border-radius: 8px;
+    }
 }
 
 /* STICKER MENU */
@@ -1033,12 +1163,24 @@ body.messenger-body {
     height: 400px;
     background: #1e1e1e;
     border: 1px solid #333;
-    border-radius: 12px;
+    border-radius: 16px;
     display: none;
     flex-direction: column;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    z-index: 100;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    z-index: 1000;
     overflow: hidden;
+    animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .sticker-header {
@@ -1173,27 +1315,26 @@ body.messenger-body {
 /* RIGHT SIDEBAR INFO */
 .chat-info-sidebar {
     width: 320px;
-    flex: 0 0 320px;   
+    min-width: 320px;
+    max-width: 320px;
     background: var(--msg-sidebar);
     border-left: 1px solid var(--msg-border);
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease, opacity 0.3s ease;
-    position: absolute; /* Keep absolute but animate transform */
-    right: 0;
-    top: 0;
+    flex-shrink: 0;
     height: 100%;
-    z-index: 20;
+    position: relative;
     transform: translateX(0);
-    opacity: 1;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+    overflow: hidden;
 }
 
 .chat-info-sidebar.hidden {
-    width: 0;
-    min-width: 0;
-    transform: translateX(100%); /* Slide out to right */
+    transform: translateX(100%);
     opacity: 0;
     pointer-events: none;
+    position: absolute;
+    right: 0;
 }
 
 .info-header {
@@ -1298,7 +1439,8 @@ body.messenger-body {
 .media-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
+    gap: 6px;
+    margin-top: 10px;
 }
 
 .media-thumb {
@@ -1306,9 +1448,33 @@ body.messenger-body {
     aspect-ratio: 1/1;
     background-size: cover;
     background-position: center;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    border: 1px solid #333;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.media-thumb::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.media-thumb:hover::after {
+    opacity: 1;
+}
+
+.media-thumb:hover {
+    transform: scale(1.05);
+    border-color: var(--msg-blue);
 }
 
 .file-list-item {
@@ -1318,6 +1484,111 @@ body.messenger-body {
 .file-list-name {
     font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;
 }
+
+/* ============= FIX 18: THÊM RESPONSIVE CHO MOBILE ============= */
+@media (max-width: 768px) {
+    .messenger-container {
+        flex-direction: column;
+        height: calc(100vh - var(--header-height));
+    }
+    
+    .msg-sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid var(--msg-border);
+    }
+    
+    .msg-chat-area {
+        height: 60vh;
+    }
+    
+    .chat-info-sidebar {
+        position: fixed;
+        top: var(--header-height);
+        right: 0;
+        width: 100%;
+        height: calc(100vh - var(--header-height));
+        z-index: 1000;
+        transform: translateX(100%);
+    }
+    
+    .chat-info-sidebar:not(.hidden) {
+        transform: translateX(0);
+    }
+    
+    .msg-row {
+        max-width: 90%;
+    }
+    
+    .sticker-menu {
+        width: calc(100% - 40px);
+        height: 300px;
+        bottom: 70px;
+        left: 20px;
+    }
+}
+
+/* ============= FIX 19: THÊM LOADING ANIMATION ============= */
+.loading-skeleton {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.skeleton-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #2a2b2c 25%, #3a3b3c 50%, #2a2b2c 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text {
+    flex: 1;
+    margin-left: 12px;
+}
+
+.skeleton-line {
+    height: 10px;
+    background: linear-gradient(90deg, #2a2b2c 25%, #3a3b3c 50%, #2a2b2c 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 6px;
+}
+
+.skeleton-line.short {
+    width: 60%;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* ============= FIX 20: THÊM TRANSITION CHO THEME ============= */
+.msg-chat-area, .msg-sidebar, .chat-info-sidebar, .bubble {
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
 
 /* CALL MODALS */
 .call-modal {
@@ -1329,6 +1600,16 @@ body.messenger-body {
     background: #000;
     z-index: 9999;
     display: none;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .call-background {
@@ -1351,6 +1632,8 @@ body.messenger-body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 /* Remote Video */

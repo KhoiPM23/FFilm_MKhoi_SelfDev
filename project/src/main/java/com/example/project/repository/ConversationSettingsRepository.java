@@ -38,4 +38,30 @@ public interface ConversationSettingsRepository extends JpaRepository<Conversati
     @Query("SELECT cs FROM ConversationSettings cs WHERE cs.userId = :userId AND cs.partnerId IN :partnerIds")
     List<ConversationSettings> findByUserIdAndPartnerIdIn(@Param("userId") Integer userId, 
                                                          @Param("partnerIds") List<Integer> partnerIds);
+    
+    // ============= FIX 1: Thêm phương thức cập nhật background =============
+    @Modifying
+    @Query("UPDATE ConversationSettings cs SET cs.customBackgroundUrl = :backgroundUrl WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
+    int updateBackground(@Param("userId") Integer userId, 
+                        @Param("partnerId") Integer partnerId, 
+                        @Param("backgroundUrl") String backgroundUrl);
+    
+    // ============= FIX 2: Thêm phương thức mute/unmute =============
+    @Modifying
+    @Query("UPDATE ConversationSettings cs SET cs.mutedUntil = :mutedUntil WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
+    int updateMuteSetting(@Param("userId") Integer userId, 
+                         @Param("partnerId") Integer partnerId, 
+                         @Param("mutedUntil") java.time.LocalDateTime mutedUntil);
+    
+    // ============= FIX 3: Thêm phương thức lấy settings hàng loạt =============
+    @Query("SELECT cs FROM ConversationSettings cs WHERE cs.userId = :userId AND cs.notificationEnabled = false")
+    List<ConversationSettings> findMutedConversations(@Param("userId") Integer userId);
+    
+    // ============= FIX 4: Thêm phương thức kiểm tra mute =============
+    @Query("SELECT CASE WHEN COUNT(cs) > 0 THEN true ELSE false END " +
+           "FROM ConversationSettings cs WHERE " +
+           "cs.userId = :userId AND cs.partnerId = :partnerId AND " +
+           "(cs.notificationEnabled = false OR cs.mutedUntil > CURRENT_TIMESTAMP)")
+    boolean isConversationMuted(@Param("userId") Integer userId, 
+                               @Param("partnerId") Integer partnerId);
 }

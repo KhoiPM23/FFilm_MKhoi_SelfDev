@@ -26,79 +26,89 @@ public class MessengerService {
     @Autowired private UserRepository userRepository;
     @Autowired private FriendRequestRepository friendRequestRepository;
 
+    // ============= FIX 1: Thêm các phương thức mới =============
+    
+    public List<MessengerMessage> searchMessages(Integer userId, Integer partnerId, String query) {
+        return messengerRepository.searchMessages(userId, partnerId, query);
+    }
+    
+    public List<MessengerMessage> getPinnedMessages(Integer userId, Integer partnerId) {
+        return messengerRepository.findPinnedMessages(userId, partnerId);
+    }
+    
+    public MessengerMessage getMessageById(Long messageId) {
+        return messengerRepository.findById(messageId).orElseThrow(
+            () -> new RuntimeException("Message not found with id: " + messageId)
+        );
+    }
+    
+    public void saveMessage(MessengerMessage message) {
+        messengerRepository.save(message);
+    }
+    
+    public Map<String, Object> getChatStats(Integer userId, Integer partnerId) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // Đếm tổng số tin nhắn
+        List<MessengerMessage> allMessages = messengerRepository.findConversation(
+            userRepository.findById(userId).orElseThrow(),
+            userRepository.findById(partnerId).orElseThrow()
+        );
+        
+        stats.put("totalMessages", allMessages.size());
+        
+        // Đếm media
+        long mediaCount = allMessages.stream()
+            .filter(m -> m.getType() != MessengerMessage.MessageType.TEXT)
+            .count();
+        stats.put("mediaCount", mediaCount);
+        
+        // Tin nhắn đầu tiên
+        Optional<MessengerMessage> firstMessage = allMessages.stream()
+            .min(Comparator.comparing(MessengerMessage::getTimestamp));
+        
+        if (firstMessage.isPresent()) {
+            Map<String, Object> firstMsgInfo = new HashMap<>();
+            firstMsgInfo.put("id", firstMessage.get().getId());
+            firstMsgInfo.put("content", firstMessage.get().getContent());
+            firstMsgInfo.put("timestamp", firstMessage.get().getTimestamp());
+            firstMsgInfo.put("sender", firstMessage.get().getSender().getUserName());
+            stats.put("firstMessage", firstMsgInfo);
+        }
+        
+        // Tin nhắn thường xuyên nhất (chưa implement, cần thêm repository method)
+        // stats.put("mostActiveHour", getMostActiveHour(allMessages));
+        
+        return stats;
+    }
+
     // 1. Lấy danh sách hội thoại
     public List<MessengerDto.ConversationDto> getRecentConversations(Integer currentUserId) {
         Map<Integer, MessengerDto.ConversationDto> map = new LinkedHashMap<>();
 
-        // Lấy User hiện tại
         User me = userRepository.findById(currentUserId).orElse(null);
-        if (me == null) return new ArrayList<>(); 
+        if (me == null) return new ArrayList<>();
 
-        // BƯỚC 1: Lấy những người đã từng chat (Bao gồm cả người lạ)
+        // BƯỚC 1: Lấy tin nhắn và bạn bè như cũ
         List<MessengerMessage> messages = messengerRepository.findAllMessagesByUser(currentUserId);
+        
         for (MessengerMessage msg : messages) {
             boolean isSender = msg.getSender().getUserID() == currentUserId;
             User partner = isSender ? msg.getReceiver() : msg.getSender();
             
             if (!map.containsKey(partner.getUserID())) {
-                MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
-                dto.setPartnerId(partner.getUserID());
-                dto.setPartnerName(partner.getUserName());
-                dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
-                
-                String preview = msg.getContent();
-                if (msg.getType() == MessengerMessage.MessageType.IMAGE) preview = "Đã gửi 1 ảnh";
-                if (msg.getType() == MessengerMessage.MessageType.FILE) preview = "Đã gửi 1 tệp đính kèm";
-                
-                dto.setLastMessage(preview);
-                dto.setLastMessageTime(msg.getTimestamp());
-                dto.setLastMessageMine(isSender);
-                dto.setTimeAgo(calculateTimeAgo(msg.getTimestamp()));
-
-                if (!isSender) {
-                    long unread = messengerRepository.countUnreadMessages(partner, me);
-                    dto.setUnreadCount(unread);
-                    dto.setRead(unread == 0);
-                    dto.setStatusClass(unread > 0 ? "unread" : "");
-                } else {
-                    dto.setRead(true);
-                    dto.setStatusClass("");
-                }
-
-                // Trong MessengerService.java -> getRecentConversations
-
-                // Trong vòng lặp for (MessengerMessage msg : messages) hoặc for (User friend : friends)
-            
-                // 1. Tên: Giữ nguyên tên gốc, TUYỆT ĐỐI KHÔNG cộng chuỗi "(Người lạ)"
-                dto.setPartnerName(partner.getUserName()); 
-                
-                // 2. Avatar: Giữ nguyên logic cũ
-                dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
-
-                // 3. [FIX] Check bạn bè dùng hàm mới viết ở Repo
-                boolean isFriend = friendRequestRepository.isFriend(currentUserId, partner.getUserID());
-                dto.setFriend(isFriend); // Dữ liệu chuẩn: true/false
-
+                MessengerDto.ConversationDto dto = createConversationDto(me, partner, msg, isSender);
                 map.put(partner.getUserID(), dto);
             }
         }
 
-        // BƯỚC 2: [FIX QUAN TRỌNG] Merge thêm bạn bè chưa từng chat
-        // Thay vì để SQL xử lý logic chọn User (gây lỗi ClassCast), ta lấy List<FriendRequest> về Java xử lý
+        // BƯỚC 2: Merge thêm bạn bè chưa từng chat
         List<FriendRequest> friendRequests = friendRequestRepository.findAllAcceptedByUserId(currentUserId);
         
-        // Tự lọc ra User là bạn bè
-        List<User> friends = new ArrayList<>();
         for (FriendRequest fr : friendRequests) {
-            if (fr.getSender().getUserID() == currentUserId) {
-                friends.add(fr.getReceiver()); // Mình gửi -> Bạn là Receiver
-            } else {
-                friends.add(fr.getSender());   // Mình nhận -> Bạn là Sender
-            }
-        }
-
-        // Vòng lặp map vào danh sách chat (Giữ nguyên logic hiển thị)
-        for (User friend : friends) {
+            User friend = fr.getSender().getUserID() == currentUserId ? 
+                fr.getReceiver() : fr.getSender();
+            
             if (!map.containsKey(friend.getUserID())) {
                 MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
                 dto.setPartnerId(friend.getUserID());
@@ -109,16 +119,47 @@ public class MessengerService {
                 dto.setTimeAgo("");
                 dto.setUnreadCount(0);
                 dto.setRead(true);
-                dto.setStatusClass("");
-
-                boolean isFriend = friendRequestRepository.isFriend(currentUserId, friend.getUserID());
-                dto.setFriend(isFriend);
+                dto.setLastMessageMine(false);
+                dto.setFriend(true);
                 
                 map.put(friend.getUserID(), dto);
             }
         }
 
         return new ArrayList<>(map.values());
+    }
+    
+    private MessengerDto.ConversationDto createConversationDto(User me, User partner, MessengerMessage lastMsg, boolean isSender) {
+        MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
+        dto.setPartnerId(partner.getUserID());
+        dto.setPartnerName(partner.getUserName());
+        dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
+        
+        String preview = lastMsg.getContent();
+        if (lastMsg.getType() == MessengerMessage.MessageType.IMAGE) preview = "Đã gửi 1 ảnh";
+        if (lastMsg.getType() == MessengerMessage.MessageType.FILE) preview = "Đã gửi 1 tệp đính kèm";
+        if (lastMsg.getType() == MessengerMessage.MessageType.AUDIO) preview = "Đã gửi 1 tin nhắn thoại";
+        if (lastMsg.getType() == MessengerMessage.MessageType.VIDEO) preview = "Đã gửi 1 video";
+        
+        dto.setLastMessage(preview);
+        dto.setLastMessageTime(lastMsg.getTimestamp());
+        dto.setLastMessageMine(isSender);
+        dto.setTimeAgo(calculateTimeAgo(lastMsg.getTimestamp()));
+
+        if (!isSender) {
+            long unread = messengerRepository.countUnreadMessages(partner, me);
+            dto.setUnreadCount(unread);
+            dto.setRead(unread == 0);
+            dto.setStatusClass(unread > 0 ? "unread" : "");
+        } else {
+            dto.setRead(true);
+            dto.setStatusClass("");
+        }
+
+        boolean isFriend = friendRequestRepository.isFriend(me.getUserID(), partner.getUserID());
+        dto.setFriend(isFriend);
+        
+        return dto;
     }
 
     // 2. Lấy Chat History
@@ -219,4 +260,6 @@ public class MessengerService {
         List<MessengerMessage> media = messengerRepository.findSharedMedia(currentUserId, partnerId);
         return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
+
+
 }

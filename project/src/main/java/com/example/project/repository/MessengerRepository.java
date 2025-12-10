@@ -37,4 +37,54 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
             "m.type IN ('IMAGE', 'VIDEO', 'FILE') " +
             "ORDER BY m.timestamp DESC")
     List<MessengerMessage> findSharedMedia(@Param("u1") Integer userId1, @Param("u2") Integer userId2);
+
+    // ============= FIX 1: Thêm phương thức searchMessages =============
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+           "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +
+           "(m.sender.userID = :partnerId AND m.receiver.userID = :userId)) AND " +
+           "LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) AND " +
+           "m.type = 'TEXT' AND m.isDeleted = false " +
+           "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> searchMessages(@Param("userId") Integer userId, 
+                                          @Param("partnerId") Integer partnerId, 
+                                          @Param("query") String query);
+    
+    // ============= FIX 2: Thêm phương thức findPinnedMessages =============
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+           "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +
+           "(m.sender.userID = :partnerId AND m.receiver.userID = :userId)) AND " +
+           "m.isPinned = true AND m.isDeleted = false " +
+           "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findPinnedMessages(@Param("userId") Integer userId, 
+                                             @Param("partnerId") Integer partnerId);
+    
+    // ============= FIX 3: Thêm phương thức tìm tin nhắn theo khoảng thời gian =============
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+           "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +
+           "(m.sender.userID = :partnerId AND m.receiver.userID = :userId)) AND " +
+           "m.timestamp >= :startDate AND m.timestamp <= :endDate " +
+           "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findMessagesByDateRange(
+            @Param("userId") Integer userId,
+            @Param("partnerId") Integer partnerId,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate);
+    
+    // ============= FIX 4: Thêm phương thức đếm tin nhắn theo loại =============
+    @Query("SELECT COUNT(m) FROM MessengerMessage m WHERE " +
+           "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +
+           "(m.sender.userID = :partnerId AND m.receiver.userID = :userId)) AND " +
+           "m.type = :type AND m.isDeleted = false")
+    Long countMessagesByType(@Param("userId") Integer userId,
+                            @Param("partnerId") Integer partnerId,
+                            @Param("type") MessengerMessage.MessageType type);
+    
+    // ============= FIX 5: Thêm phương thức lấy tin nhắn cuối cùng =============
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+           "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +
+           "(m.sender.userID = :partnerId AND m.receiver.userID = :userId)) " +
+           "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findLastMessages(@Param("userId") Integer userId,
+                                           @Param("partnerId") Integer partnerId,
+                                           org.springframework.data.domain.Pageable pageable);
 }
