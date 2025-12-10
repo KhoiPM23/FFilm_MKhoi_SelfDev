@@ -13,12 +13,6 @@
     --header-height: 70px;
 }
 
-#chatInterface {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
 /* LAYOUT CHÍNH */
 body.messenger-body {
     background-color: var(--msg-bg);
@@ -104,6 +98,17 @@ body.messenger-body {
     background: rgba(45, 136, 255, 0.1);
 }
 
+/* ============= FIX 10: UNREAD MESSAGE STYLE ============= */
+.conv-item.unread .conv-name {
+    font-weight: 700;
+    color: #fff;
+}
+
+.conv-item.unread .conv-preview {
+    font-weight: 600;
+    color: #fff;
+}
+
 .avatar-wrapper {
     position: relative;
     margin-right: 12px;
@@ -115,6 +120,31 @@ body.messenger-body {
     height: 56px;
     border-radius: 50%;
     object-fit: cover;
+}
+
+/* Main chat header status */
+.chat-user-info .online-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #31a24c;
+}
+
+.chat-user-info .online-status i {
+    font-size: 8px;
+}
+
+.chat-user-info .offline-status {
+    color: #b0b3b8;
+    font-size: 13px;
+}
+
+/* Conversation list online indicator */
+.avatar-wrapper {
+    position: relative;
+    margin-right: 12px;
+    flex-shrink: 0;
 }
 
 .online-dot {
@@ -131,6 +161,20 @@ body.messenger-body {
 
 .online-dot.is-online {
     display: block;
+}
+
+/* Last active badge (replaces online dot when offline) */
+.last-active-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -5px;
+    background: rgba(49, 162, 76, 0.2);
+    color: #31a24c;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 8px;
+    border: 1px solid #31a24c;
 }
 
 .conv-info {
@@ -191,6 +235,7 @@ body.messenger-body {
     flex-direction: column;
     background: var(--msg-bg);
     position: relative;
+    transition: margin-right 0.3s ease; /* Smooth push effect */
 }
 
 .empty-state {
@@ -281,6 +326,26 @@ body.messenger-body {
     gap: 10px;
 }
 
+.btn-stranger-pending {
+    background: #3a3b3c;
+    color: #888;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-stranger-cancel {
+    background: #ff4444;
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
 .btn-stranger-add {
     background: #0084ff;
     color: white;
@@ -308,6 +373,14 @@ body.messenger-body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+
+    /* Hide scrollbar */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.messages-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 /* MESSAGE BUBBLES */
@@ -442,7 +515,9 @@ body.messenger-body {
     padding: 10px 15px;
     background-color: var(--msg-sidebar);
     border-top: 1px solid var(--msg-border);
-    position: relative;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
     flex-shrink: 0;
 }
 
@@ -484,11 +559,140 @@ body.messenger-body {
     padding: 8px 15px;
     background: #242526;
     border-top: 1px solid #333;
+    border-left: 3px solid #0084ff;
     display: none;
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
     margin-bottom: 10px;
+}
+
+.replying-bar.active {
+    display: flex;
+}
+
+/* Reply trong tin nhắn */
+.reply-block {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid #0084ff;
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.reply-block:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+/* ============= FIX 1: LAYOUT CONTAINER ============= */
+.msg-chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--msg-bg);
+    position: relative;
+    transition: margin-right 0.3s ease; /* Smooth push effect */
+}
+
+/* Khi sidebar mở, đẩy chat area sang trái */
+.msg-chat-area.info-open {
+    margin-right: 320px;
+}
+
+/* ============= FIX 2: CHAT FOOTER STICKY ============= */
+.chat-footer {
+    padding: 10px 15px;
+    background-color: var(--msg-sidebar);
+    border-top: 1px solid var(--msg-border);
+    position: sticky; /* Changed from relative */
+    bottom: 0;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+/* ============= FIX 3: MESSAGES CONTAINER SCROLL ============= */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    
+    /* Hide scrollbar */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.messages-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* ============= FIX 4: SIDEBAR ANIMATION ============= */
+.chat-info-sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--msg-sidebar);
+    border-left: 1px solid var(--msg-border);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    position: absolute; /* Keep absolute but animate transform */
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 20;
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.chat-info-sidebar.hidden {
+    transform: translateX(100%); /* Slide out to right */
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ============= FIX 5: REPLY PREVIEW UI ============= */
+.replying-bar {
+    padding: 8px 15px;
+    background: #242526;
+    border-top: 1px solid #333;
+    border-left: 3px solid #0084ff; /* Blue accent */
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.replying-bar.active {
+    display: flex;
+}
+
+/* Reply trong tin nhắn */
+.reply-block {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid #0084ff;
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.reply-block:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.reply-name {
+    font-weight: 600;
+    color: #0084ff;
+    margin-bottom: 3px;
 }
 
 .input-actions {
@@ -611,6 +815,138 @@ body.messenger-body {
     50% {
         opacity: 0.3;
     }
+}
+
+
+
+/* ============= FIX 7: AUDIO PLAYER UI ============= */
+.msg-audio-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 300px;
+    min-width: 250px;
+}
+
+.audio-play-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #0084ff;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: 0.2s;
+}
+
+.audio-play-btn:hover {
+    background: #0073e6;
+    transform: scale(1.05);
+}
+
+.audio-waveform {
+    flex: 1;
+    height: 32px;
+    position: relative;
+    cursor: pointer;
+}
+
+.audio-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    overflow: hidden;
+}
+
+.audio-progress-fill {
+    height: 100%;
+    background: #0084ff;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.audio-time {
+    font-size: 11px;
+    color: #b0b3b8;
+    flex-shrink: 0;
+    min-width: 40px;
+    text-align: right;
+}
+
+
+
+/* ============= FIX 8: TYPING INDICATOR ============= */
+.typing-indicator {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background: var(--msg-bubble-other);
+    border-radius: 18px;
+    width: fit-content;
+    margin-bottom: 10px;
+    animation: slideIn 0.3s ease;
+}
+
+.typing-indicator.active {
+    display: flex;
+}
+
+.typing-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #b0b3b8;
+    border-radius: 50%;
+    animation: typing-bounce 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-8px);
+    }
+}
+
+/* ============= FIX 9: SEEN AVATAR ============= */
+.msg-seen-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--msg-bg);
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.msg-row.mine {
+    margin-bottom: 12px; /* Space for seen avatar */
 }
 
 /* STICKER MENU */
@@ -767,14 +1103,20 @@ body.messenger-body {
     border-left: 1px solid var(--msg-border);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
-    overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    position: absolute; /* Keep absolute but animate transform */
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 20;
+    transform: translateX(0);
+    opacity: 1;
 }
 
 .chat-info-sidebar.hidden {
-    width: 0;
-    min-width: 0;
-    border-left: none;
+    transform: translateX(100%); /* Slide out to right */
+    opacity: 0;
+    pointer-events: none;
 }
 
 .info-header {

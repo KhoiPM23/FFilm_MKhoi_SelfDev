@@ -29,8 +29,11 @@
     let remoteStream = null;
     let callTimerInterval = null;
     let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar }
+    let typingTimeout = null;
+    let lastSeenMessageId = null;
 
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
+    const notificationSound = new Audio('/sounds/message-notification.mp3');
 
     // --- CẤU HÌNH STICKER NỘI BỘ ---
     let currentStickerCollection = 'popular';
@@ -520,125 +523,73 @@
 
     // --- 4. RENDER UI (DÙNG CẤU TRÚC FILE CŨ CỦA BẠN) ---
     function appendMessageToUI(msg, forceMine = false) {
-        // [LOGIC CŨ] Xác định mine/other dựa trên so sánh với partnerId
-        // Nếu người gửi KHÔNG PHẢI partner -> Thì là Mình. (Logic này hoạt động tốt cho chat 1-1)
         const myId = parseInt(currentUser.userID);
-        const senderId = parseInt(msg.senderId);
-        let isMine = forceMine;
-        if (!forceMine) {
-            // So sánh lỏng (==) để tránh lỗi string/int
-            isMine = (msg.senderId != currentPartnerId);
-        }
-
+        let isMine = forceMine || (msg.senderId != currentPartnerId);
         const typeClass = isMine ? 'mine' : 'other';
         const msgId = msg.id || 'temp-' + Date.now();
         
-        // Xử lý nội dung (Media)
-        let contentHtml = '';
-        // 1. Xử lý Ảnh & Sticker
-        if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
-            const imgClass = msg.type === 'STICKER' ? 'sticker-img' : 'msg-image';
-            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
-        } 
-        // 2. Xử lý Audio (Ghi âm)
-        else if (msg.type === 'AUDIO') {
-            contentHtml = `
-                <audio controls style="height:32px; max-width:240px; margin-top:5px;">
-                    <source src="${msg.content}" type="audio/webm">
-                    <source src="${msg.content}" type="audio/mp3">
-                    File ghi âm
-                </audio>`;
+        // Reply block
+        let replyHtml = '';
+        if (msg.replyTo) {
+            const rName = (msg.replyTo.senderId === myId) ? 'Bạn' : currentPartnerName;
+            let rContent = msg.replyTo.type === 'TEXT' ? msg.replyTo.content : '[Đính kèm]';
+            if (rContent.length > 40) rContent = rContent.substring(0, 40) + '...';
+            
+            replyHtml = `
+                <div class="reply-block" onclick="scrollToMessage(${msg.replyTo.id})">
+                    <div class="reply-name">${rName}</div>
+                    <div>${rContent}</div>
+                </div>
+            `;
         }
-        // 3. [FIX] Xử lý File đính kèm (Hiện ra text link)
-        else if (msg.type === 'FILE') {
-            // Tách tên file từ URL (nếu có)
-            const fileName = decodeURIComponent(msg.content.split('/').pop()); // ← THÊM decode
-            const safeUrl = msg.content.replace(/ /g, '%20'); // ← Encode space
+
+        // Content
+        let contentHtml = '';
+        if (msg.isDeleted) {
+            contentHtml = '<div class="bubble" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>';
+        } else if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
+            const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : 'msg-image';
+            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
+        } else if (msg.type === 'AUDIO') {
+            contentHtml = renderAudioPlayer(msg.content);
+        } else if (msg.type === 'FILE') {
+            const fileName = decodeURIComponent(msg.content.split('/').pop());
             contentHtml = `
-                <div class="msg-file" style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:8px;">
+                <div class="msg-file">
                     <i class="fas fa-file-alt fa-2x"></i>
                     <div>
                         <div style="font-size:12px; font-weight:bold;">${fileName}</div>
-                        <a href="${safeUrl}" target="_blank" style="color:#0084ff; font-size:11px; text-decoration:underline;">Tải xuống</a>
+                        <a href="${msg.content}" download style="color:#0084ff; font-size:11px;">Tải xuống</a>
                     </div>
-                </div>`;
+                </div>
+            `;
+        } else {
+            contentHtml = `<div class="bubble">${replyHtml}${msg.content}</div>`;
         }
-        // 4. Text thường
-        else {
-            contentHtml = `<div class="bubble" title="${msg.formattedTime || ''}">${msg.content}</div>`;
-        }
 
-        // // --- 1. Xử lý Nội dung (Đã xóa / Media) ---
-        // if (msg.isDeleted) {
-        //     contentHtml = 'Tin nhắn đã bị thu hồi';
-        // } else if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
-        //      const cls = (msg.type === 'STICKER') ? 'sticker-img' : 'msg-image';
-        //      contentHtml = `<img src="${msg.content}" class="${cls}" style="max-width:200px; border-radius:10px; cursor:pointer;" onclick="window.open('${msg.content}')">`;
-        // } else if (msg.type === 'AUDIO') {
-        //     contentHtml = `<audio controls style="height:30px;"><source src="${msg.content}" type="audio/webm"></audio>`;
-        // } else {
-        //     contentHtml = msg.content;
-        // }
-
-        // // --- 2. Xử lý Reply Block (Nếu tin này đang trả lời tin khác) ---
-        // let replyHtml = '';
-        // if (msg.replyTo) {
-        //     const rName = (msg.replyTo.senderId === myId) ? 'Bạn' : currentPartnerName;
-        //     let rContent = msg.replyTo.type === 'TEXT' ? msg.replyTo.content : '[Đính kèm]';
-        //     replyHtml = `
-        //         <div class="reply-block" onclick="scrollToMessage(${msg.replyTo.id})">
-        //             <div class="reply-name">Đang trả lời ${rName}</div>
-        //             <div class="text-truncate">${rContent}</div>
-        //         </div>
-        //     `;
-        // }
-
-        // --- 3. Xử lý Menu Actions (Hover) ---
-        // Nút Unsend chỉ hiện cho tin của mình và chưa xóa
+        // Actions
         const unsendBtn = (isMine && !msg.isDeleted) 
             ? `<div class="action-btn" onclick="window.unsendMessage(${msgId})" title="Thu hồi"><i class="fas fa-trash"></i></div>` 
             : '';
         
         const actionsHtml = `
             <div class="msg-actions">
-                <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.type === 'TEXT' ? msg.content.substring(0,20) : '[File]' }')" title="Trả lời"><i class="fas fa-reply"></i></div>
+                <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')" title="Trả lời"><i class="fas fa-reply"></i></div>
                 ${unsendBtn}
             </div>
         `;
 
-        // // Avatar
-        // const avatarUrl = $('#headerAvatar').attr('src');
-        // const avatarHtml = isMine ? '' : `<img src="${avatarUrl}" class="msg-avatar" style="width:28px; height:28px; border-radius:50%; margin-right:8px;">`;
-        // const bubbleClass = msg.isDeleted ? 'msg-content deleted' : 'msg-content';
-        // const bubbleStyle = msg.isDeleted ? '' : (isMine ? 'background:#0084ff; color:#fff;' : 'background:#3e4042; color:#eee;');
-
-        // const html = `
-        //     <div class="msg-row ${typeClass}" id="msg-${msgId}" style="display:flex; margin-bottom:10px; ${isMine ? 'justify-content:flex-end' : ''}">
-        //         ${isMine ? actionsHtml : avatarHtml} 
-                
-        //         <div class="${bubbleClass}" style="padding:8px 12px; border-radius:15px; max-width:70%; ${bubbleStyle}">
-        //             ${replyHtml}
-        //             ${contentHtml}
-        //         </div>
-                
-        //         ${!isMine ? actionsHtml : ''}
-        //     </div>
-        // `;
-        // $('#messagesContainer').append(html);
-        // scrollToBottom();
-
-        // Avatar (Chỉ hiện cho 'other')
+        // Avatar
         let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
 
-        // [CẤU TRÚC HTML CHUẨN CŨ]
-        let html = `
-            <div class="msg-row ${typeClass}" data-msg-id="${msg.id || Date.now()}">
-            ${isMine ? actionsHtml : avatarHtml} 
+        const html = `
+            <div class="msg-row ${typeClass}" id="msg-${msgId}" data-msg-id="${msgId}">
+                ${avatarHtml}
                 <div class="msg-content">${contentHtml}</div>
-
-                ${!isMine ? actionsHtml : ''}
+                ${actionsHtml}
             </div>
         `;
+        
         $('#messagesContainer').append(html);
         scrollToBottom();
     }
@@ -649,6 +600,29 @@
     }
 
     // --- 5. ACTIONS ---
+
+
+    // --- FIX 3: REPLY LOGIC ---
+    let replyToId = null;
+
+    window.startReply = function(msgId, senderName, content) {
+        replyToId = msgId;
+        const previewText = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        
+        $('#replyingBar').addClass('active').html(`
+            <div>
+                <div style="font-weight:bold; color:#0084ff;">Trả lời ${senderName}</div>
+                <div style="color:#aaa; font-size:12px;">${previewText}</div>
+            </div>
+            <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;"></i>
+        `);
+        $('#msgInput').focus();
+    };
+
+    window.cancelReply = function() {
+        replyToId = null;
+        $('#replyingBar').removeClass('active');
+    };
 
     // Gán vào window để HTML gọi được
     window.sendTextMessage = function() {
@@ -1386,7 +1360,7 @@
         });
     });
     // --- REPLY & UNSEND LOGIC ---
-    let replyToId = null; // Biến lưu trạng thái đang reply
+    
 
     window.startReply = function(msgId, name, content) {
         replyToId = msgId;
@@ -1417,30 +1391,25 @@
 
     // [CẬP NHẬT HÀM GỬI TIN] Để kèm replyToId
     window.sendTextMessage = function() {
+        const content = $('#msgInput').val().trim();
+
         if (pendingFile) {
-            uploadAndSend(pendingFile.file, pendingFile.type, $('#msgInput').val().trim());
+            uploadAndSend(pendingFile.file, pendingFile.type, content);
             return;
         }
-        const input = $('#msgInput');
-        const content = input.val().trim();
-        if (!content || !currentPartnerId) return;
 
-        // Payload có thêm replyToId
-        const payload = { 
-            receiverId: currentPartnerId, 
-            content: content, 
-            type: 'TEXT',
-            replyToId: replyToId // [MỚI]
-        };
-        
-        // Reset Input & Reply
-        input.val('');
-        window.cancelReply();
-
-        sendApiRequest(payload);
-        
-        // Optimistic UI (Cần xử lý kỹ hơn cho Reply, tạm thời chờ server trả về để render đúng context)
-        // Nếu muốn hiện ngay: cần truyền object replyTo vào appendMessageToUI
+        if (content && currentPartnerId) {
+            const payload = { 
+                receiverId: currentPartnerId, 
+                content: content, 
+                type: 'TEXT',
+                replyToId: replyToId
+            };
+            
+            sendApiRequest(payload);
+            $('#msgInput').val('').focus();
+            window.cancelReply();
+        }
     };
 
 
@@ -1451,13 +1420,17 @@
     // Toggle Sidebar
     window.toggleChatInfo = function() {
         const sidebar = $('#chatInfoSidebar');
+        const chatArea = $('.msg-chat-area');
         const btn = $('#btnToggleInfo');
         
         if (sidebar.hasClass('hidden')) {
             sidebar.removeClass('hidden');
+            chatArea.addClass('info-open');
             btn.addClass('active');
+            loadSharedMedia();
         } else {
             sidebar.addClass('hidden');
+            chatArea.removeClass('info-open');
             btn.removeClass('active');
         }
     };
@@ -1467,6 +1440,40 @@
         $('#infoName').text(name);
         $('#infoAvatar').attr('src', avatar);
         // Có thể gọi thêm API lấy ảnh đã gửi để render vào .media-grid sau
+    }
+
+    // --- FIX 2: ONLINE STATUS UPDATE ---
+    function updateOnlineStatus(partnerId, isOnline, lastActive) {
+        const statusDiv = $('#chatHeaderStatus');
+        
+        if (isCurrentPartnerFriend) {
+            if (isOnline) {
+                statusDiv.html(`<small class="online-status"><i class="fas fa-circle"></i> Đang hoạt động</small>`);
+            } else {
+                statusDiv.html(`<small class="offline-status">${lastActive || 'Không hoạt động'}</small>`);
+            }
+        } else {
+            statusDiv.empty();
+        }
+
+        // Update conversation list
+        const convItem = $(`.conv-item[data-partner-id="${partnerId}"]`);
+        const onlineDot = convItem.find('.online-dot');
+        const lastActiveBadge = convItem.find('.last-active-badge');
+        
+        if (isOnline) {
+            onlineDot.addClass('is-online');
+            lastActiveBadge.remove();
+        } else {
+            onlineDot.removeClass('is-online');
+            if (lastActive && lastActive !== 'Không hoạt động') {
+                if (lastActiveBadge.length) {
+                    lastActiveBadge.text(lastActive);
+                } else {
+                    convItem.find('.avatar-wrapper').append(`<div class="last-active-badge">${lastActive}</div>`);
+                }
+            }
+        }
     }
 
 
