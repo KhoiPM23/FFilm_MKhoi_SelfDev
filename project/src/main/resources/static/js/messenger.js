@@ -55,8 +55,8 @@
         connectWebSocket();
         loadConversations();
         bindEvents();
-        initPeerJS();
         initStickerMenu();
+        initPeerJS();        
         setupStickerSuggestions();
         renderRecentStickers();
     });
@@ -267,6 +267,24 @@
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
         stompClient.connect({}, function() {
+            stompClient.subscribe('/user/queue/private', function(payload) {
+                const msg = JSON.parse(payload.body);
+                
+                if (msg.type === 'TYPING') {
+                    showTypingIndicator();
+                    return;
+                }
+                if (msg.type === 'STOP_TYPING') {
+                    hideTypingIndicator();
+                    return;
+                }
+                if (msg.type === 'SEEN') {
+                    updateSeenAvatar(msg.messageId);
+                    return;
+                }
+                
+                handleSocketMessage(msg);
+            });
             // Lắng nghe cuộc gọi (PeerJS cũng cần socket để signaling ban đầu)
             myPeer.on('call', (call) => {
                 // Trường hợp A gọi B -> B Accept -> B gọi A.
@@ -280,9 +298,10 @@
                     });
             });
 
-            stompClient.subscribe('/user/queue/private', function(payload) {
-                const msg = JSON.parse(payload.body);
-                handleSocketMessage(msg);
+            
+            stompClient.subscribe('/user/queue/online-status', function(payload) {
+                const data = JSON.parse(payload.body);
+                updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
             });
         });
     }
@@ -314,11 +333,29 @@
             return;
         }
 
+        if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
+            appendMessageToUI(msg);
+            
+            // Mark as seen if chat is open
+            if (msg.senderId == currentPartnerId) {
+                markAsRead(msg.id);
+            }
+        }
+
         // 2. Xử lý Chat thường (Text, Image, Audio)
         if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
             appendMessageToUI(msg);
         }
         loadConversations();
+    }
+
+    function markAsRead(messageId) {
+        if (!stompClient || !stompClient.connected) return;
+        
+        stompClient.send('/app/mark-seen', {}, JSON.stringify({
+            messageId: messageId,
+            userId: currentUser.userID
+        }));
     }
 
     // --- 4. UI HELPERS ---
@@ -434,13 +471,49 @@
                             </div>
                         </div>
                         
-                        ${c.unreadCount > 0 ? `<div class="badge bg-primary rounded-pill ms-2">${c.unreadCount}</div>` : ''}
+                        ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
                     </div>
                 `);
             });
             checkUrlAndOpenChat(data);
         });
     }
+
+    // --- FIX 11: STRANGER BANNER LOGIC ---
+    window.sendFriendRequest = function(partnerId, btnElement) {
+        const originalHtml = btnElement.innerHTML;
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btnElement.disabled = true;
+
+        fetch(`/social/add-friend/${partnerId}`, { method: 'POST' })
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(() => {
+                btnElement.innerHTML = '<i class="fas fa-clock"></i> Đã gửi';
+                btnElement.classList.add('btn-stranger-pending');
+                btnElement.onclick = () => window.cancelFriendRequest(partnerId, btnElement);
+                btnElement.disabled = false;
+            })
+            .catch(() => {
+                btnElement.innerHTML = originalHtml;
+                btnElement.disabled = false;
+                alert('Lỗi gửi lời mời');
+            });
+    };
+
+    window.cancelFriendRequest = function(partnerId, btnElement) {
+        if (!confirm('Hủy lời mời kết bạn?')) return;
+        
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        fetch(`/social/unfriend/${partnerId}`, { method: 'POST' })
+            .then(res => {
+                if (res.ok) {
+                    btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Kết bạn';
+                    btnElement.classList.remove('btn-stranger-pending');
+                    btnElement.onclick = () => window.sendFriendRequest(partnerId, btnElement);
+                }
+            });
+    };
 
     // --- 3. SELECT CONVERSATION ---
     window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive) {
@@ -758,6 +831,11 @@
         $('#previewImg').attr('src', '');
     };
 
+    // Expose necessary functions
+    window.messengerInit = function() {
+        console.log("Messenger initialized with all fixes");
+    };
+
     // Timer Helper
     let timerInterval = null;
     function startTimer() {
@@ -997,6 +1075,72 @@
         
         if(mediaRecorder && mediaRecorder.stream) {
             mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        }
+    }
+
+
+    // --- FIX 9: TYPING INDICATOR ---
+    function showTypingIndicator() {
+        const indicator = $('#typingIndicator');
+        if (!indicator.length) {
+            const html = `
+                <div id="typingIndicator" class="typing-indicator">
+                    <img src="${$('#headerAvatar').attr('src')}" style="width:20px; height:20px; border-radius:50%;">
+                    <div class="typing-dots">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                </div>
+            `;
+            $('#messagesContainer').append(html);
+        } else {
+            indicator.addClass('active');
+        }
+        
+        scrollToBottom();
+        notificationSound.play().catch(() => {});
+    }
+
+    function hideTypingIndicator() {
+        $('#typingIndicator').removeClass('active');
+    }
+
+    // Send typing event via WebSocket
+    $('#msgInput').on('input', function() {
+        if (!currentPartnerId) return;
+        
+        clearTimeout(typingTimeout);
+        
+        if (stompClient && stompClient.connected) {
+            stompClient.send('/app/typing', {}, JSON.stringify({
+                receiverId: currentPartnerId,
+                senderId: currentUser.userID
+            }));
+        }
+        
+        typingTimeout = setTimeout(() => {
+            if (stompClient && stompClient.connected) {
+                stompClient.send('/app/stop-typing', {}, JSON.stringify({
+                    receiverId: currentPartnerId
+                }));
+            }
+        }, 2000);
+    });
+
+    // --- FIX 10: SEEN AVATAR ---
+    function updateSeenAvatar(messageId) {
+        if (!messageId || lastSeenMessageId === messageId) return;
+        
+        // Remove old seen avatar
+        $('.msg-seen-avatar').remove();
+        
+        // Add new seen avatar
+        const msgRow = $(`#msg-${messageId}`);
+        if (msgRow.length && msgRow.hasClass('mine')) {
+            const avatar = $('#headerAvatar').attr('src');
+            msgRow.find('.msg-content').append(`<img src="${avatar}" class="msg-seen-avatar">`);
+            lastSeenMessageId = messageId;
         }
     }
     
@@ -1246,54 +1390,87 @@
 
     // Initialize Sticker Menu HTML
     function initStickerMenu() {
-        if (!window.STICKER_COLLECTIONS) return;
-        const menu = $('#stickerMenu');
-        
-        if (menu.find('.sticker-collections').length === 0) {
-            const html = `
-                <div class="sticker-header">
-                    <div class="sticker-tabs">
-                        <button class="tab-btn active" onclick="window.switchStickerTab('stickers')">
-                            <i class="fas fa-sticky-note"></i> Stickers
-                        </button>
-                        <button class="tab-btn" onclick="window.switchStickerTab('gifs')">
-                            <i class="fas fa-film"></i> GIFs
-                        </button>
-                    </div>
-                    <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
-                </div>
-                
-                <div class="sticker-search">
-                    <input type="text" id="stickerSearchInput" 
-                        placeholder="Tìm kiếm stickers..." 
-                        onkeyup="window.searchStickers(this.value)">
-                    <i class="fas fa-search"></i>
-                </div>
-                
-                <div class="sticker-collections">
-                    ${Object.entries(STICKER_COLLECTIONS).map(([id, collection]) => `
-                        <button class="collection-btn ${id === 'popular' ? 'active' : ''}" 
-                                onclick="window.switchStickerCollection('${id}', this)">
-                            ${collection.name}
-                        </button>
-                    `).join('')}
-                </div>
-                
-                ${recentStickers.length > 0 ? `
-                <div class="recent-stickers">
-                    <h4><i class="fas fa-history"></i> Gần đây</h4>
-                    <div class="recent-stickers-grid"></div>
-                </div>
-                ` : ''}
-                
-                <div class="sticker-grid-container">
-                    <div id="stickerGrid" class="sticker-grid"></div>
-                </div>
-            `;
-            
-            menu.html(html);
+        if (!window.STICKER_COLLECTIONS) {
+            console.error("STICKER_COLLECTIONS not loaded");
+            return;
         }
+        
+        const menu = $('#stickerMenu');
+        if (menu.find('.sticker-collections').length > 0) return; // Already init
+
+        const collectionsHtml = Object.entries(window.STICKER_COLLECTIONS)
+            .map(([id, col]) => `<button class="collection-btn ${id === 'popular' ? 'active' : ''}" onclick="window.switchStickerCollection('${id}', this)">${col.name}</button>`)
+            .join('');
+
+        menu.html(`
+            <div class="sticker-header">
+                <div class="sticker-tabs">
+                    <button class="tab-btn active">Stickers</button>
+                </div>
+                <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
+            </div>
+            <div class="sticker-search">
+                <input type="text" placeholder="Tìm kiếm..." onkeyup="window.searchStickers(this.value)">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="sticker-collections">${collectionsHtml}</div>
+            <div class="sticker-grid" id="stickerGrid"></div>
+        `);
+
+        renderStickerCollection('popular');
     }
+
+    function renderStickerCollection(collectionId) {
+        const grid = $('#stickerGrid');
+        const collection = window.STICKER_COLLECTIONS[collectionId];
+        
+        if (!collection) return;
+        
+        grid.empty();
+        collection.items.forEach(sticker => {
+            const item = $(`<img src="${sticker.url}" class="sticker-item" style="width:80px; height:80px; cursor:pointer; border-radius:4px; padding:5px; transition:0.2s;">`);
+            item.on('click', function() {
+                window.sendSticker(sticker.url);
+            });
+            grid.append(item);
+        });
+    }
+
+    window.switchStickerCollection = function(id, btn) {
+        $('.collection-btn').removeClass('active');
+        $(btn).addClass('active');
+        renderStickerCollection(id);
+    };
+
+    window.searchStickers = function(query) {
+        if (!query.trim()) {
+            renderStickerCollection('popular');
+            return;
+        }
+        
+        const grid = $('#stickerGrid');
+        grid.empty();
+        
+        let found = [];
+        Object.values(window.STICKER_COLLECTIONS).forEach(col => {
+            col.items.forEach(s => {
+                if (s.tags.some(tag => tag.includes(query.toLowerCase()))) {
+                    found.push(s);
+                }
+            });
+        });
+        
+        if (found.length === 0) {
+            grid.html('<div class="text-center p-3">Không tìm thấy</div>');
+            return;
+        }
+        
+        found.forEach(s => {
+            const item = $(`<img src="${s.url}" class="sticker-item" style="width:80px; height:80px; cursor:pointer;">`);
+            item.on('click', () => window.sendSticker(s.url));
+            grid.append(item);
+        });
+    };
 
     // Enhanced Message Input with Sticker Suggestions
     function setupStickerSuggestions() {
@@ -1352,13 +1529,6 @@
         };
         appendMessageToUI(fakeMsg, true);
     };
-
-    // Initialize in document ready
-    // $(document).ready(function() {
-    //     initStickerMenu();
-    //     setupStickerSuggestions();
-    //     renderRecentStickers();
-    // });
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
     // messenger.js - checkUrlAndOpenChat()
