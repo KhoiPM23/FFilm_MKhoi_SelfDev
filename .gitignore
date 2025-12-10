@@ -1,0 +1,13 @@
+# Chặn file cấu hình chứa Key
+application.properties
+src/main/resources/application.properties
+project/src/main/resources/application.properties
+**/*.properties
+**/*.env
+
+# Chặn file rác hệ thống
+.DS_Store
+.vscode/
+target/
+build/
+bin/
