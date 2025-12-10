@@ -544,7 +544,7 @@
                 // KHÔNG sửa c.partnerName
                 let strangerBadge = '';
                 if (c.friend === false) {
-                    strangerBadge = `<span class="badge-stranger-icon" title="Người lạ">👤</span>`;
+                    strangerBadge = `<span class="badge-stranger-icon" title="Người lạ">(Người lạ)</span>`;
                 }
 
                 const isFriendStr = c.friend ? 'true' : 'false';
