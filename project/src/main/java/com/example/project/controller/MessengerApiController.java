@@ -1,25 +1,17 @@
 package com.example.project.controller;
 
 import com.example.project.dto.MessengerDto;
-import com.example.project.dto.MessengerDto.MessageDto;
 import com.example.project.dto.UserSessionDto;
-import com.example.project.model.MessengerMessage;
-import com.example.project.model.CallLog;
 import com.example.project.service.MessengerService;
 import com.example.project.service.OnlineStatusService;
 import com.example.project.service.UserService; 
 import jakarta.servlet.http.HttpSession;
-import lombok.Data;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/messenger")
@@ -134,95 +126,5 @@ public class MessengerApiController {
         return ResponseEntity.ok(messengerService.getSharedMedia(user.getId(), partnerId));
     }
 
-    // New endpoint for call logs
-    @PostMapping("/call-log")
-    public ResponseEntity<?> saveCallLog(@RequestBody CallLogRequest request, HttpSession session) {
-        UserSessionDto user = getUserFromSession(session);
-        if (user == null) return ResponseEntity.status(401).build();
-        
-        // Save call log to database
-        CallLog log = new CallLog();
-        log.setUserId(user.getId());
-        log.setPartnerId(request.getPartnerId());
-        log.setPartnerName(request.getPartnerName());
-        log.setCallType(request.getCallType());
-        log.setDuration(request.getDuration());
-        log.setTimestamp(LocalDateTime.parse(request.getTimestamp()));
-        log.setCallStatus("COMPLETED");
-        
-        // Save to database (you need to create CallLog entity and repository)
-        // callLogRepository.save(log);
-        
-        return ResponseEntity.ok().build();
-    }
     
-    // Endpoint for message search
-    @GetMapping("/search")
-    public ResponseEntity<List<MessageDto>> searchMessages(
-            @RequestParam Integer partnerId,
-            @RequestParam String query,
-            HttpSession session) {
-        
-        UserSessionDto user = getUserFromSession(session);
-        if (user == null) return ResponseEntity.status(401).build();
-        
-        List<MessengerMessage> messages = messengerRepository.searchMessages(
-            user.getId(), partnerId, query
-        );
-        
-        List<MessageDto> result = messages.stream()
-            .map(this::convertToMessageDto)
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(result);
-    }
-    
-    // Endpoint for pin/unpin message
-    @PostMapping("/pin/{messageId}")
-    public ResponseEntity<?> togglePinMessage(@PathVariable Long messageId, HttpSession session) {
-        UserSessionDto user = getUserFromSession(session);
-        if (user == null) return ResponseEntity.status(401).build();
-        
-        MessengerMessage message = messengerRepository.findById(messageId).orElseThrow();
-        
-        if (!message.getSender().getId().equals(user.getId()) && 
-            !message.getReceiver().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).build();
-        }
-        
-        message.setPinned(!message.isPinned());
-        messengerRepository.save(message);
-        
-        return ResponseEntity.ok(Map.of("pinned", message.isPinned()));
-    }
-    
-    // Endpoint to get pinned messages
-    @GetMapping("/pinned/{partnerId}")
-    public ResponseEntity<List<MessageDto>> getPinnedMessages(
-            @PathVariable Integer partnerId,
-            HttpSession session) {
-        
-        UserSessionDto user = getUserFromSession(session);
-        if (user == null) return ResponseEntity.status(401).build();
-        
-        List<MessengerMessage> pinned = messengerRepository.findPinnedMessages(
-            user.getId(), partnerId
-        );
-        
-        List<MessageDto> result = pinned.stream()
-            .map(this::convertToMessageDto)
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(result);
-    }
-    
-    // DTO for call log request
-    @Data
-    public static class CallLogRequest {
-        private Integer partnerId;
-        private String partnerName;
-        private String callType;
-        private Integer duration;
-        private String timestamp;
-    }
 }
