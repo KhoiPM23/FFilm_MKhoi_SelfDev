@@ -13,6 +13,12 @@
     --header-height: 70px;
 }
 
+#chatInterface {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* QUAN TRỌNG: Chiếm full height */
+}
+
 /* LAYOUT CHÍNH */
 body.messenger-body {
     background-color: var(--msg-bg);
@@ -236,6 +242,11 @@ body.messenger-body {
     background: var(--msg-bg);
     position: relative;
     transition: margin-right 0.3s ease; /* Smooth push effect */
+    overflow: hidden; /* Ngăn scroll toàn bộ chat area */
+}
+
+.msg-chat-area.info-open {
+    margin-right: 320px; /* Push content khi sidebar mở */
 }
 
 .empty-state {

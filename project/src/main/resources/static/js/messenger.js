@@ -70,6 +70,24 @@
             }
         });
 
+        // [FIX] Typing indicator
+        $('#msgInput').off('input').on('input', function() {
+            if (!currentPartnerId || !stompClient) return;
+            
+            clearTimeout(typingTimeout);
+            
+            stompClient.send('/app/typing', {}, JSON.stringify({
+                receiverId: currentPartnerId,
+                senderId: currentUser.userID
+            }));
+            
+            typingTimeout = setTimeout(() => {
+                stompClient.send('/app/stop-typing', {}, JSON.stringify({
+                    receiverId: currentPartnerId
+                }));
+            }, 2000);
+        });
+
         // Upload ảnh - CHỈ GÁN SỰ KIỆN 1 LẦN
         $('#imageInput').off('change').on('change', function() {
             if (this.files && this.files[0]) {
@@ -92,6 +110,15 @@
         
         // Nút gửi
         $('#sendBtn').off('click').on('click', window.sendTextMessage);
+
+        // Search conversations
+        $('#convSearchInput').off('input').on('input', function() {
+            const query = $(this).val().toLowerCase();
+            $('.conv-item').each(function() {
+                const name = $(this).find('.conv-name').text().toLowerCase();
+                $(this).toggle(name.includes(query));
+            });
+        });
         
         // Emoji
         initEmojiPicker();
@@ -283,7 +310,7 @@
                     return;
                 }
                 
-                handleSocketMessage(msg);
+                handleIncomingMessage(msg);
             });
             // Lắng nghe cuộc gọi (PeerJS cũng cần socket để signaling ban đầu)
             myPeer.on('call', (call) => {
@@ -417,13 +444,31 @@
         }
     }
 
-    function handleIncomingMessage(message) {
-        // Logic cũ: Nếu đang chat với người đó thì append
-        if (currentPartnerId && (message.senderId == currentPartnerId || message.receiverId == currentPartnerId)) {
-            appendMessageToUI(message); // Không forceMine để nó tự tính toán
-            scrollToBottom();
+    function handleIncomingMessage(msg) {
+        if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
+            appendMessageToUI(msg);
+            
+            if (msg.senderId == currentPartnerId) {
+                markAsRead(msg.id);
+            }
         }
-        loadConversations();
+        
+        // [FIX] CHỈ UPDATE CONVERSATION LIST, KHÔNG RELOAD CHAT
+        updateConversationPreview(msg);
+    }
+
+    // [FIX] Update conversation list WITHOUT reload
+    function updateConversationPreview(msg) {
+        const partnerId = (msg.senderId == currentUser.userID) ? msg.receiverId : msg.senderId;
+        const convItem = $(`.conv-item[onclick*="${partnerId}"]`);
+        
+        if (convItem.length) {
+            const preview = msg.type === 'TEXT' ? msg.content : 'Đã gửi file';
+            convItem.find('.conv-preview').text(preview);
+            convItem.prependTo('#conversationList'); // Move to top
+        } else {
+            loadConversations(); // Only reload if new conversation
+        }
     }
 
     // --- 2. CORE LOGIC: LOAD LIST ---
