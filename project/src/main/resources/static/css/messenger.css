@@ -1326,13 +1326,319 @@ body.messenger-body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: #000;
     z-index: 9999;
     display: none;
+}
+
+.call-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: blur(20px) brightness(0.6);
+    opacity: 0.8;
+}
+
+.call-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
+/* Remote Video */
+.remote-video-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#remoteVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remote-info-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+#remoteVideo:not([src]) ~ .remote-info-overlay,
+#remoteVideo[src=""] ~ .remote-info-overlay {
+    opacity: 1;
+}
+
+.partner-avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 48px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+}
+
+.partner-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.partner-name {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.call-status {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 5px;
+}
+
+.call-timer {
+    font-size: 18px;
+    font-weight: 500;
+    color: #4CAF50;
+}
+
+/* Local Video */
+.local-video-container {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    width: 160px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    background: #000;
+}
+
+#localVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.local-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Call Controls */
+.call-controls {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 15px 30px;
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+}
+
+.call-control-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.call-control-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.call-control-btn .control-label {
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+.call-control-btn.off {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.end-call-btn {
+    background: #ff4757;
+}
+
+.end-call-btn:hover {
+    background: #ff6b81;
+}
+
+/* Incoming Call Modal */
+.incoming-call-modal {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(30, 30, 30, 0.95);
+    border-radius: 20px;
+    padding: 25px;
+    width: 320px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    animation: slideInRight 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.incoming-call-content {
+    text-align: center;
+}
+
+.caller-avatar {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 20px;
+}
+
+.caller-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #0084ff;
+}
+
+.caller-ring {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+}
+
+.ring-circle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid #0084ff;
+    border-radius: 50%;
+    animation: ringPulse 2s infinite;
+}
+
+.ring-circle:nth-child(2) { animation-delay: 0.5s; }
+.ring-circle:nth-child(3) { animation-delay: 1s; }
+
+@keyframes ringPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+.caller-info h3 {
+    color: white;
+    margin: 0 0 5px 0;
+    font-size: 20px;
+}
+
+.caller-info p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 20px 0;
+}
+
+.incoming-call-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.call-action-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.decline-btn {
+    background: #ff4757;
+}
+
+.decline-btn:hover {
+    background: #ff6b81;
+}
+
+.accept-btn {
+    background: #2ecc71;
+    animation: acceptPulse 2s infinite;
+}
+
+.accept-btn:hover {
+    background: #27ae60;
+}
+
+@keyframes acceptPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.call-action-btn span {
+    font-size: 10px;
+    margin-top: 4px;
+}
+/* 
 .video-grid {
     position: relative;
     width: 100%;
@@ -1464,7 +1770,7 @@ body.messenger-body {
 
 .btn-decline {
     background: #ff4757;
-}
+} */
 
 @keyframes slideInRight {
     from {
@@ -1526,4 +1832,216 @@ body.messenger-body {
         width: 280px;
         height: 350px;
     }
+}
+
+/* --- IN-CHAT SEARCH --- */
+.chat-search-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9990;
+    backdrop-filter: blur(5px);
+}
+
+.chat-search-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90%;
+    max-height: 80%;
+    background: var(--msg-sidebar);
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: 9991;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.search-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--msg-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.close-search {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-search:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.search-input-container {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--msg-border);
+    display: flex;
+    gap: 10px;
+}
+
+#chatSearchInput {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: white;
+    font-size: 14px;
+}
+
+#chatSearchInput:focus {
+    outline: none;
+    border-color: #0084ff;
+    box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.2);
+}
+
+.search-input-container button {
+    background: #0084ff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 20px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.search-input-container button:hover {
+    background: #0073e6;
+}
+
+.search-results {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.no-results {
+    padding: 40px 20px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.no-results i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.results-list {
+    padding: 10px 0;
+}
+
+.search-result-item {
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-result-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.search-result-item.active {
+    background: rgba(0, 132, 255, 0.1);
+    border-left: 3px solid #0084ff;
+}
+
+.result-preview {
+    flex: 1;
+    min-width: 0;
+}
+
+.result-text {
+    display: block;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-date {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.search-result-item .fa-chevron-right {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 12px;
+}
+
+.search-highlight-mark {
+    background: #ffeb3b;
+    color: #000;
+    padding: 0 2px;
+    border-radius: 2px;
+    font-weight: bold;
+}
+
+.search-navigation {
+    padding: 15px 24px;
+    border-top: 1px solid var(--msg-border);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.search-navigation button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search-navigation button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+#searchCounter {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 60px;
+    text-align: center;
 }

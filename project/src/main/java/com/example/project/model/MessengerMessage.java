@@ -58,6 +58,26 @@ public class MessengerMessage {
         }
     }
 
+    @Column(name = "is_pinned", columnDefinition = "bit default 0")
+    private boolean isPinned = false;
+    
+    @Column(name = "forwarded_from")
+    private String forwardedFrom;
+    
+    @Column(name = "original_message_id")
+    private Long originalMessageId;
+    
+    @Column(name = "call_duration")
+    private Integer callDuration;
+    
+    @Column(name = "call_status")
+    @Enumerated(EnumType.STRING)
+    private CallStatus callStatus;
+    
+    public enum CallStatus {
+        MISSED, ANSWERED, REJECTED, COMPLETED
+    }
+
     public enum MessageType {
         TEXT, 
         IMAGE, 

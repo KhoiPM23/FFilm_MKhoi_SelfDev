@@ -32,11 +32,20 @@
     let typingTimeout = null;
     let lastSeenMessageId = null;
 
+    let availableCameras = [];
+    let currentCameraIndex = 0;
+
     let messageQueue = [];
     let isProcessingQueue = false;
 
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
     const notificationSound = new Audio('/sounds/message-notification.mp3');
+
+    let searchResults = [];
+    let currentSearchIndex = -1;
+
+    let selectedMessageToForward = null;
+    let forwardTimeout = null;
 
     // --- CẤU HÌNH STICKER NỘI BỘ ---
     let currentStickerCollection = 'popular';
@@ -129,61 +138,143 @@
 
     // --- 1. PEERJS SETUP (WEB RTC) ---
     function initPeerJS() {
-        // Tạo PeerID ngẫu nhiên hoặc dựa trên UserID (nhưng PeerJS yêu cầu unique string)
-        // Ta dùng UserID + timestamp để đảm bảo unique mỗi lần F5
+        if (!window.Peer) {
+            console.error('PeerJS library not loaded');
+            return;
+        }
+        
         myPeerId = `user_${currentUser.userID}_${Date.now()}`;
         
         myPeer = new Peer(myPeerId, {
-            // debug: 3, // Bật nếu cần debug
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' }
+                ]
+            },
+            debug: 0
         });
-
+        
         myPeer.on('open', (id) => {
             console.log('✅ PeerJS Connected. My ID:', id);
         });
-
-        // Xử lý khi có người gọi đến (PeerJS signal)
+        
         myPeer.on('call', (call) => {
-            // Đây là bước 2 của luồng nhận cuộc gọi. 
-            // Bước 1 là nhận Socket Message CALL_REQ để hiện popup.
-            // Khi người dùng bấm "Trả lời", ta sẽ answer call này.
+            console.log('📞 Incoming call from:', call.peer);
             
-            // Lưu tạm call instance để xử lý sau khi user bấm Accept
-            // Tuy nhiên, logic chuẩn: A gọi B -> B nhận Socket -> B Accept -> B gửi Socket Accept -> A gọi Peer -> B nhận Peer Call -> B answer.
-            // Nên ở đây ta cứ answer nếu đã có trạng thái "Accepting".
-            
-            // Cách đơn giản nhất cho người dùng: 
-            // A gửi Socket "Tao gọi mày nè, PeerID tao là X" -> B hiện Popup.
-            // B bấm Nghe -> B gọi lại A (hoặc B chờ A gọi?).
-            
-            // CHUẨN:
-            // 1. A gửi Socket CALL_REQ kèm A_PeerID.
-            // 2. B nhận. Bấm Nghe.
-            // 3. B lấy A_PeerID gọi A.
-            
-            // Hoặc:
-            // 1. A gửi Socket.
-            // 2. B nhận. Bấm Nghe.
-            // 3. B gửi Socket CALL_ACCEPT kèm B_PeerID.
-            // 4. A nhận. A gọi B.
-            
-            // Ta dùng cách: A gọi B (Peer) ngay lập tức? Không, phải chờ B online.
-            // Chọn cách: A gửi Socket CALL_REQ (kèm PeerID).
-            // B nhận -> Popup -> Bấm Nghe -> B gọi lại cho A qua PeerJS.
+            // Answer the call with user's media
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    document.getElementById('localVideo').srcObject = stream;
+                    
+                    call.answer(stream);
+                    currentCall = call;
+                    
+                    // Setup call handlers
+                    setupCallHandlers(call);
+                })
+                .catch(err => {
+                    console.error('Error accessing media:', err);
+                    call.close();
+                });
         });
         
-        // Handle call error
-        myPeer.on('error', (err) => console.error('Peer Error:', err));
+        myPeer.on('error', (err) => {
+            console.error('PeerJS Error:', err);
+            showToast('Lỗi kết nối PeerJS: ' + err.type, 'error');
+        });
     }
 
     // --- 2. LOGIC GỌI ĐIỆN (CALL LOGIC) ---
 
     // A. Người gọi (Caller)
     window.startVideoCall = function() {
-        startCall('VIDEO');
+        if (!currentPartnerId) {
+            showToast('Vui lòng chọn người để gọi', 'error');
+            return;
+        }
+        
+        if (!myPeer || !myPeer.id) {
+            showToast('Đang khởi tạo kết nối...', 'info');
+            setTimeout(() => startVideoCall(), 1000);
+            return;
+        }
+        
+        // Get user media first
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                localStream = stream;
+                document.getElementById('localVideo').srcObject = stream;
+                
+                // Show calling UI
+                showCallModal(true);
+                
+                // Send call request via WebSocket
+                const callData = {
+                    type: 'CALL_REQ',
+                    senderId: currentUser.userID,
+                    senderName: currentUser.name,
+                    senderAvatar: $('#headerAvatar').attr('src'),
+                    receiverId: currentPartnerId,
+                    peerId: myPeer.id,
+                    callType: 'VIDEO',
+                    timestamp: new Date().toISOString()
+                };
+                
+                stompClient.send('/app/call', {}, JSON.stringify(callData));
+                
+                // Start call timeout (30 seconds)
+                callTimeout = setTimeout(() => {
+                    if (!currentCall) {
+                        endCall();
+                        showToast('Không có phản hồi từ người nhận', 'error');
+                    }
+                }, 30000);
+                
+            })
+            .catch(err => {
+                console.error('Error accessing media:', err);
+                showToast('Không thể truy cập camera/microphone', 'error');
+            });
     };
 
     window.startVoiceCall = function() {
-        startCall('AUDIO');
+        // Similar to startVideoCall but audio only
+        if (!currentPartnerId) return;
+        
+        navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+            .then(stream => {
+                localStream = stream;
+                
+                // Show voice call UI
+                showCallModal(false);
+                
+                const callData = {
+                    type: 'CALL_REQ',
+                    senderId: currentUser.userID,
+                    senderName: currentUser.name,
+                    senderAvatar: $('#headerAvatar').attr('src'),
+                    receiverId: currentPartnerId,
+                    peerId: myPeer.id,
+                    callType: 'AUDIO',
+                    timestamp: new Date().toISOString()
+                };
+                
+                stompClient.send('/app/call', {}, JSON.stringify(callData));
+                
+                callTimeout = setTimeout(() => {
+                    if (!currentCall) endCall();
+                }, 30000);
+            })
+            .catch(err => {
+                console.error('Error accessing microphone:', err);
+                showToast('Không thể truy cập microphone', 'error');
+            });
     };
 
     function startCall(type) {
@@ -219,74 +310,111 @@
     // C. Xử lý chấp nhận/từ chối
     window.acceptCall = function() {
         $('#incomingCallModal').hide();
-        document.getElementById("incomingCallRingtone")?.pause(); // Tắt nhạc chuông nếu có
-
+        
         if (!incomingCallData) return;
-
-        // 1. Bật Camera/Mic của mình
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(stream => {
-                localStream = stream;
-                // Hiện UI Gọi
-                showCallModal(true, "Đang kết nối...", stream);
-
-                // 2. Gọi lại cho người kia bằng PeerID của họ (đã nhận từ Socket)
-                const call = myPeer.call(incomingCallData.peerId, stream);
-                handleCallStream(call);
-            })
-            .catch(err => {
-                alert("Không thể truy cập Camera/Mic: " + err.message);
-                rejectCall();
-            });
+        
+        const callType = incomingCallData.callType || 'VIDEO';
+        
+        navigator.mediaDevices.getUserMedia({ 
+            video: callType === 'VIDEO', 
+            audio: true 
+        }).then(stream => {
+            localStream = stream;
+            document.getElementById('localVideo').srcObject = stream;
+            
+            // Show call UI
+            showCallModal(callType === 'VIDEO');
+            
+            // Call the other peer
+            const call = myPeer.call(incomingCallData.peerId, stream);
+            currentCall = call;
+            
+            setupCallHandlers(call);
+            
+            // Send call accepted notification
+            stompClient.send('/app/call-accepted', {}, JSON.stringify({
+                receiverId: incomingCallData.senderId,
+                peerId: myPeer.id
+            }));
+            
+        }).catch(err => {
+            console.error('Error accessing media:', err);
+            showToast('Lỗi truy cập thiết bị', 'error');
+            rejectCall();
+        });
     };
 
     window.rejectCall = function() {
         $('#incomingCallModal').hide();
-        // Gửi tín hiệu từ chối
+        
         if (incomingCallData) {
-            sendApiRequest({
+            stompClient.send('/app/call-rejected', {}, JSON.stringify({
                 receiverId: incomingCallData.senderId,
-                content: "BUSY",
-                type: 'CALL_DENY'
-            });
+                reason: 'USER_BUSY'
+            }));
         }
+        
         incomingCallData = null;
+        showToast('Đã từ chối cuộc gọi', 'info');
     };
 
     window.endCall = function() {
-        // Tắt stream
-        if (localStream) localStream.getTracks().forEach(track => track.stop());
-        if (currentCall) currentCall.close();
+        if (callTimeout) clearTimeout(callTimeout);
         
-        // Gửi tín hiệu kết thúc
-        if (currentPartnerId) {
-            sendApiRequest({ receiverId: currentPartnerId, content: "END", type: 'CALL_END' });
+        // Stop local stream
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
         }
         
-        closeCallModal();
+        // Close current call
+        if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+        }
+        
+        // Send end call notification
+        if (currentPartnerId) {
+            stompClient.send('/app/call-ended', {}, JSON.stringify({
+                receiverId: currentPartnerId,
+                duration: callDuration || 0
+            }));
+        }
+        
+        // Save call log
+        saveCallLog();
+        
+        // Hide call modal
+        $('#videoCallModal').hide();
+        
+        // Reset call variables
+        callDuration = 0;
+        if (callTimerInterval) {
+            clearInterval(callTimerInterval);
+            callTimerInterval = null;
+        }
     };
 
-    // D. Helper xử lý Stream PeerJS
-    function handleCallStream(call) {
-        currentCall = call;
-        
-        // Khi nhận stream từ đối phương
-        call.on('stream', (userVideoStream) => {
-            remoteStream = userVideoStream;
-            document.getElementById('remoteVideo').srcObject = userVideoStream;
-            $('#callStatusText').text("Đang trong cuộc gọi");
+    function setupCallHandlers(call) {
+        call.on('stream', (remoteStream) => {
+            remoteStream = remoteStream;
+            document.getElementById('remoteVideo').srcObject = remoteStream;
+            
+            // Update UI - hide avatar, show video
+            $('.remote-info-overlay').fadeOut();
+            
+            // Start call timer
             startCallTimer();
-            $('.call-avatar-container').hide();
-        });
-
-        call.on('close', () => {
-            endCall(); // Đóng UI khi kết thúc
         });
         
-        call.on('error', (e) => {
-            console.error(e);
-            alert("Lỗi kết nối cuộc gọi");
+        call.on('close', () => {
             endCall();
+        });
+        
+        call.on('error', (err) => {
+            console.error('Call error:', err);
+            endCall();
+            showToast('Cuộc gọi bị lỗi', 'error');
         });
     }
 
@@ -443,20 +571,40 @@
 
     // --- 4. UI HELPERS ---
     function showIncomingCallModal(data) {
+        $('#incomingAvatar').attr('src', data.senderAvatar);
         $('#incomingName').text(data.senderName);
-        $('#incomingAvatar').attr('src', data.senderAvatar || '/images/placeholder-user.jpg');
-        $('#incomingCallModal').show().css('display', 'flex'); // Flex để căn giữa
-        // Play sound if needed
+        $('#incomingCallType').text(data.callType === 'VIDEO' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
+        
+        $('#incomingCallModal').show();
+        
+        // Play ringtone
+        const ringtone = new Audio('/sounds/ringtone.mp3');
+        ringtone.loop = true;
+        ringtone.play().catch(() => {});
+        
+        // Store for later use
+        incomingCallData = data;
+        incomingCallData.ringtone = ringtone;
     }
 
-    function showCallModal(isVideo, status, localStream) {
-        $('#videoCallModal').show().css('display', 'flex');
-        $('#callStatusText').text(status);
-        if (localStream) {
-            document.getElementById('localVideo').srcObject = localStream;
-        }
-        // Set avatar partner
-        $('#callPartnerAvatar').attr('src', $('#headerAvatar').attr('src'));
+    function showCallModal(isVideo) {
+        const modal = $('#videoCallModal');
+        const partnerAvatar = $('#headerAvatar').attr('src');
+        const partnerName = currentPartnerName;
+        
+        // Set partner info
+        $('#callPartnerName').text(partnerName);
+        $('#callPartnerAvatar').html(`<img src="${partnerAvatar}" alt="${partnerName}">`);
+        
+        // Set background from avatar
+        $('#callBackground').css('background-image', `url(${partnerAvatar})`);
+        
+        // Show modal
+        modal.show();
+        
+        // Update status
+        $('#callStatusText').text(isVideo ? 'Đang gọi...' : 'Đang gọi thoại...');
+        $('#callDuration').text('00:00');
     }
 
     function closeCallModal() {
@@ -470,15 +618,27 @@
     }
 
     function startCallTimer() {
-        let sec = 0;
-        clearInterval(callTimerInterval);
+        let seconds = 0;
+        
+        if (callTimerInterval) clearInterval(callTimerInterval);
+        
         callTimerInterval = setInterval(() => {
-            sec++;
-            let m = Math.floor(sec / 60).toString().padStart(2, '0');
-            let s = (sec % 60).toString().padStart(2, '0');
-            $('#callDuration').text(`${m}:${s}`);
+            seconds++;
+            callDuration = seconds;
+            
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            $('#callDuration').text(`${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+            
+            // Update status text
+            if (seconds < 5) {
+                $('#callStatusText').text('Đang kết nối...');
+            } else {
+                $('#callStatusText').text('Đang trong cuộc gọi');
+            }
         }, 1000);
     }
+
     function stopCallTimer() {
         clearInterval(callTimerInterval);
         $('#callDuration').text("00:00");
@@ -486,18 +646,86 @@
     
     // Toggle Cam/Mic
     window.toggleCallMic = function() {
-        if(localStream) {
-            const track = localStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            $('#btnToggleMic').toggleClass('off');
+        if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                const btn = $('#btnToggleMic');
+                btn.toggleClass('off');
+                btn.find('i').toggleClass('fa-microphone fa-microphone-slash');
+                btn.find('.control-label').text(audioTrack.enabled ? 'Tắt mic' : 'Bật mic');
+            }
         }
-    }
+    };
+
     window.toggleCallCam = function() {
-        if(localStream) {
-            const track = localStream.getVideoTracks()[0];
-            track.enabled = !track.enabled;
-            $('#btnToggleCam').toggleClass('off');
+        if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                const btn = $('#btnToggleCam');
+                btn.toggleClass('off');
+                btn.find('i').toggleClass('fa-video fa-video-slash');
+                btn.find('.control-label').text(videoTrack.enabled ? 'Tắt camera' : 'Bật camera');
+                
+                // Show/hide local video
+                $('#localVideo').toggle(videoTrack.enabled);
+            }
         }
+    };
+
+    function switchCamera() {
+        if (!localStream || availableCameras.length < 2) return;
+        
+        currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+        const newCamera = availableCameras[currentCameraIndex];
+        
+        navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: newCamera.deviceId } },
+            audio: true
+        }).then(newStream => {
+            // Replace video track
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const oldVideoTrack = localStream.getVideoTracks()[0];
+            
+            oldVideoTrack.stop();
+            localStream.removeTrack(oldVideoTrack);
+            localStream.addTrack(newVideoTrack);
+            
+            // Update local video
+            document.getElementById('localVideo').srcObject = localStream;
+            
+            // Update current call if exists
+            if (currentCall && currentCall.peerConnection) {
+                const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newVideoTrack);
+            }
+        }).catch(err => {
+            console.error('Error switching camera:', err);
+        });
+    }
+
+    function saveCallLog() {
+        if (!currentPartnerId || callDuration < 3) return;
+        
+        const callLog = {
+            partnerId: currentPartnerId,
+            partnerName: currentPartnerName,
+            type: incomingCallData ? 'INCOMING' : 'OUTGOING',
+            duration: callDuration,
+            timestamp: new Date().toISOString(),
+            callType: incomingCallData ? incomingCallData.callType : 'VIDEO'
+        };
+        
+        // Save to localStorage
+        let callHistory = JSON.parse(localStorage.getItem('callHistory') || '[]');
+        callHistory.unshift(callLog);
+        if (callHistory.length > 50) callHistory = callHistory.slice(0, 50);
+        localStorage.setItem('callHistory', JSON.stringify(callHistory));
+        
+        // Send to server
+        $.post('/api/v1/messenger/call-log', callLog)
+            .fail(err => console.error('Error saving call log:', err));
     }
 
     function handleIncomingMessage(msg) {
@@ -885,6 +1113,217 @@
         });
     }
 
+    // --- FORWARD MESSAGE SYSTEM ---
+    window.forwardMessage = function(messageId) {
+        const messageElement = $(`#msg-${messageId}`);
+        if (!messageElement.length) return;
+        
+        selectedMessageToForward = {
+            id: messageId,
+            content: messageElement.find('.bubble').text(),
+            type: messageElement.data('type') || 'TEXT',
+            sender: currentUser.name
+        };
+        
+        // Show forward modal
+        showForwardModal();
+    };
+
+    function showForwardModal() {
+        if (!selectedMessageToForward) return;
+        
+        const modal = $('<div class="forward-modal-overlay"></div>');
+        const content = $(`
+            <div class="forward-modal">
+                <div class="forward-header">
+                    <h3><i class="fas fa-share"></i> Chuyển tiếp tin nhắn</h3>
+                    <button class="close-forward" onclick="closeForwardModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="forward-preview">
+                    <div class="preview-label">Tin nhắn sẽ chuyển tiếp:</div>
+                    <div class="preview-content">
+                        ${selectedMessageToForward.content.length > 100 ? 
+                        selectedMessageToForward.content.substring(0, 100) + '...' : 
+                        selectedMessageToForward.content}
+                    </div>
+                </div>
+                <div class="forward-search">
+                    <input type="text" id="forwardSearchInput" placeholder="Tìm người để chuyển tiếp...">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="forward-recipients" id="forwardRecipients">
+                    <div class="loading-recipients">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Đang tải danh sách...</span>
+                    </div>
+                </div>
+                <div class="forward-actions">
+                    <button class="btn-cancel" onclick="closeForwardModal()">Hủy</button>
+                    <button class="btn-forward" onclick="executeForward()" disabled>
+                        Chuyển tiếp
+                    </button>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+        
+        // Load conversation list for forwarding
+        loadForwardRecipients();
+        
+        // Search functionality
+        $('#forwardSearchInput').on('input', function() {
+            filterForwardRecipients($(this).val());
+        });
+    }
+
+    function closeForwardModal() {
+        $('.forward-modal-overlay, .forward-modal').remove();
+        selectedMessageToForward = null;
+        
+        if (forwardTimeout) {
+            clearTimeout(forwardTimeout);
+            forwardTimeout = null;
+        }
+    }
+
+    function loadForwardRecipients() {
+        $.get('/api/v1/messenger/conversations').done(function(conversations) {
+            const container = $('#forwardRecipients');
+            
+            if (!conversations || conversations.length === 0) {
+                container.html('<div class="no-conversations">Không có cuộc trò chuyện nào</div>');
+                return;
+            }
+            
+            let html = '<div class="recipients-list">';
+            conversations.forEach(conv => {
+                if (conv.partnerId === currentPartnerId) return; // Skip current chat
+                
+                html += `
+                    <div class="recipient-item" data-id="${conv.partnerId}">
+                        <label class="recipient-select">
+                            <input type="checkbox" name="forwardTo" value="${conv.partnerId}">
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="recipient-info">
+                            <img src="${conv.partnerAvatar}" class="recipient-avatar">
+                            <div class="recipient-details">
+                                <div class="recipient-name">${conv.partnerName}</div>
+                                <div class="recipient-last-message">${conv.lastMessage || 'Chưa có tin nhắn'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.html(html);
+            
+            // Enable/disable forward button based on selection
+            $('input[name="forwardTo"]').on('change', function() {
+                const hasSelection = $('input[name="forwardTo"]:checked').length > 0;
+                $('.btn-forward').prop('disabled', !hasSelection);
+            });
+        });
+    }
+
+    function filterForwardRecipients(query) {
+        if (!query) {
+            $('.recipient-item').show();
+            return;
+        }
+        
+        query = query.toLowerCase();
+        $('.recipient-item').each(function() {
+            const name = $(this).find('.recipient-name').text().toLowerCase();
+            $(this).toggle(name.includes(query));
+        });
+    }
+
+    function executeForward() {
+        const selectedRecipients = [];
+        $('input[name="forwardTo"]:checked').each(function() {
+            selectedRecipients.push($(this).val());
+        });
+        
+        if (selectedRecipients.length === 0 || !selectedMessageToForward) return;
+        
+        const forwardBtn = $('.btn-forward');
+        forwardBtn.prop('disabled', true);
+        forwardBtn.html('<i class="fas fa-spinner fa-spin"></i> Đang chuyển tiếp...');
+        
+        // Send to each recipient
+        let completed = 0;
+        const total = selectedRecipients.length;
+        
+        selectedRecipients.forEach(recipientId => {
+            const payload = {
+                receiverId: parseInt(recipientId),
+                content: selectedMessageToForward.content,
+                type: 'TEXT',
+                metadata: {
+                    forwarded: true,
+                    originalSender: selectedMessageToForward.sender,
+                    originalMessageId: selectedMessageToForward.id
+                }
+            };
+            
+            $.ajax({
+                url: '/api/v1/messenger/send',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function() {
+                    completed++;
+                    
+                    if (completed === total) {
+                        // All forwards completed
+                        showForwardSuccess();
+                    }
+                },
+                error: function() {
+                    completed++;
+                    // Continue even if some fail
+                }
+            });
+        });
+        
+        // Show undo option for 5 seconds
+        let countdown = 5;
+        forwardBtn.html(`Đã gửi (Hoàn tác ${countdown}s)`);
+        forwardBtn.addClass('sent');
+        
+        forwardTimeout = setInterval(() => {
+            countdown--;
+            
+            if (countdown > 0) {
+                forwardBtn.html(`Đã gửi (Hoàn tác ${countdown}s)`);
+            } else {
+                clearInterval(forwardTimeout);
+                closeForwardModal();
+                showToast(`Đã chuyển tiếp tin nhắn đến ${selectedRecipients.length} người`, 'success');
+            }
+        }, 1000);
+        
+        // Allow undo
+        forwardBtn.off('click').on('click', function() {
+            if (countdown > 0) {
+                clearInterval(forwardTimeout);
+                showToast('Đã hủy chuyển tiếp', 'info');
+                closeForwardModal();
+            }
+        });
+    }
+
+    function showForwardSuccess() {
+        const forwardBtn = $('.btn-forward');
+        forwardBtn.removeClass('sent');
+        forwardBtn.html('<i class="fas fa-check"></i> Đã chuyển tiếp');
+        forwardBtn.css('background', '#2ecc71');
+    }
     // --- FIX: TYPING INDICATOR REAL-TIME ---
     function setupTypingIndicator() {
         $('#msgInput').off('input').on('input', function() {
@@ -1146,6 +1585,185 @@
         $(`#${playerId}-progress`).css('width', '0%');
         $(`#${playerId}-current-time`).text('0:00');
     };
+
+    // --- IN-CHAT SEARCH FEATURE ---
+    window.openChatSearch = function() {
+        const searchOverlay = $('<div class="chat-search-overlay"></div>');
+        const searchModal = $(`
+            <div class="chat-search-modal">
+                <div class="search-modal-header">
+                    <h3><i class="fas fa-search"></i> Tìm kiếm trong đoạn chat</h3>
+                    <button class="close-search" onclick="closeChatSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="search-input-container">
+                    <input type="text" id="chatSearchInput" placeholder="Nhập từ khóa để tìm...">
+                    <button onclick="performChatSearch()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="search-results" id="chatSearchResults">
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <p>Nhập từ khóa để tìm kiếm tin nhắn</p>
+                    </div>
+                </div>
+                <div class="search-navigation" style="display: none;">
+                    <button onclick="prevSearchResult()">
+                        <i class="fas fa-chevron-up"></i> Trước
+                    </button>
+                    <span id="searchCounter">0/0</span>
+                    <button onclick="nextSearchResult()">
+                        Sau <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(searchOverlay).append(searchModal);
+        
+        // Focus input
+        setTimeout(() => $('#chatSearchInput').focus(), 100);
+        
+        // Enter key to search
+        $('#chatSearchInput').on('keypress', function(e) {
+            if (e.which === 13) performChatSearch();
+        });
+    };
+
+    function closeChatSearch() {
+        $('.chat-search-overlay, .chat-search-modal').remove();
+        removeHighlights();
+    }
+
+    function performChatSearch() {
+        const query = $('#chatSearchInput').val().trim();
+        if (!query) return;
+        
+        searchResults = [];
+        currentSearchIndex = -1;
+        
+        // Find messages containing query
+        $('.msg-row').each(function() {
+            const messageText = $(this).find('.bubble').text() || 
+                            $(this).find('.msg-file .file-name').text() ||
+                            '';
+            
+            if (messageText.toLowerCase().includes(query.toLowerCase())) {
+                const messageId = $(this).data('msg-id');
+                if (messageId) {
+                    searchResults.push({
+                        id: messageId,
+                        element: $(this),
+                        text: messageText
+                    });
+                }
+            }
+        });
+        
+        // Display results
+        const resultsContainer = $('#chatSearchResults');
+        const navigation = $('.search-navigation');
+        
+        if (searchResults.length === 0) {
+            resultsContainer.html(`
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <p>Không tìm thấy kết quả cho "${query}"</p>
+                </div>
+            `);
+            navigation.hide();
+        } else {
+            // Highlight search results
+            removeHighlights();
+            highlightSearchResults(query);
+            
+            // Show results list
+            let resultsHtml = '<div class="results-list">';
+            searchResults.forEach((result, index) => {
+                const shortText = result.text.length > 60 ? 
+                    result.text.substring(0, 60) + '...' : result.text;
+                const date = result.element.find('.msg-timestamp').text();
+                
+                resultsHtml += `
+                    <div class="search-result-item" onclick="goToSearchResult(${index})">
+                        <div class="result-preview">
+                            <span class="result-text">${highlightText(shortText, query)}</span>
+                            <span class="result-date">${date}</span>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                `;
+            });
+            resultsHtml += '</div>';
+            
+            resultsContainer.html(resultsHtml);
+            navigation.show();
+            updateSearchCounter();
+            
+            // Go to first result
+            if (searchResults.length > 0) {
+                goToSearchResult(0);
+            }
+        }
+    }
+
+    function highlightSearchResults(query) {
+        searchResults.forEach(result => {
+            const bubble = result.element.find('.bubble');
+            const originalHtml = bubble.html();
+            const highlightedHtml = highlightText(originalHtml, query);
+            bubble.html(highlightedHtml);
+            bubble.addClass('search-highlight');
+        });
+    }
+
+    function highlightText(text, query) {
+        if (!query) return text;
+        
+        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return text.replace(regex, '<mark class="search-highlight-mark">$1</mark>');
+    }
+
+    function removeHighlights() {
+        $('.search-highlight-mark').each(function() {
+            $(this).replaceWith($(this).text());
+        });
+        $('.bubble').removeClass('search-highlight');
+    }
+
+    function goToSearchResult(index) {
+        if (index < 0 || index >= searchResults.length) return;
+        
+        currentSearchIndex = index;
+        const result = searchResults[index];
+        
+        // Scroll to message
+        scrollToMessage(result.id);
+        
+        // Highlight current result
+        $('.search-result-item').removeClass('active');
+        $(`.search-result-item:eq(${index})`).addClass('active');
+        
+        updateSearchCounter();
+    }
+
+    function prevSearchResult() {
+        if (searchResults.length === 0) return;
+        currentSearchIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+        goToSearchResult(currentSearchIndex);
+    }
+
+    function nextSearchResult() {
+        if (searchResults.length === 0) return;
+        currentSearchIndex = (currentSearchIndex + 1) % searchResults.length;
+        goToSearchResult(currentSearchIndex);
+    }
+
+    function updateSearchCounter() {
+        $('#searchCounter').text(`${currentSearchIndex + 1}/${searchResults.length}`);
+    }
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
     // --- INIT EMOJI PICKER (Native Web Component) ---
