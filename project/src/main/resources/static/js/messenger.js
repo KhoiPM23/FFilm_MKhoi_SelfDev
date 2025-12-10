@@ -6,6 +6,14 @@
 (function() {
     'use strict';
 
+    // Fallback for global UI helpers in case script order changes during development.
+    if (typeof window.showToast !== 'function') {
+        window.showToast = function(message, type='info') {
+            // Minimal non-blocking fallback: log to console so code that calls showToast doesn't throw.
+            console.log('[showToast - fallback]', type, message);
+        };
+    }
+
     // --- KHAI BÁO BIẾN ---
     let stompClient = null;
     let currentPartnerId = null;
@@ -1331,53 +1339,65 @@
     // --- 2. CORE LOGIC: LOAD LIST ---
     // --- CẬP NHẬT: loadConversations (Truyền đủ tham số Online/Active) ---
     function loadConversations() {
-        $.get('/api/v1/messenger/conversations', function(data) {
-            const list = $('#conversationList');
-            list.empty();
-            if(!data) return;
+        $.ajax({
+            url: '/api/v1/messenger/conversations',
+            method: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                const list = $('#conversationList');
+                list.empty();
+                if (!data || !Array.isArray(data)) return;
 
-            data.forEach(c => {
-                const active = (c.partnerId == currentPartnerId) ? 'active' : '';
-                const unread = (c.unreadCount > 0) ? 'unread' : '';
-                const avatar = c.partnerAvatar || `https://ui-avatars.com/api/?name=${c.partnerName}`;
-                
-                // [FIX] Tạo HTML Badge Người Lạ (Chỉ là icon/chữ nhỏ bên cạnh)
-                // KHÔNG sửa c.partnerName
-                let strangerBadge = '';
-                if (c.friend === false) {
-                    strangerBadge = `<span class="badge-stranger-icon" title="Người lạ">(Người lạ)</span>`;
+                data.forEach(c => {
+                    const active = (c.partnerId == currentPartnerId) ? 'active' : '';
+                    const unread = (c.unreadCount > 0) ? 'unread' : '';
+                    const avatar = c.partnerAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.partnerName)}`;
+
+                    let strangerBadge = '';
+                    if (c.friend === false) {
+                        strangerBadge = `<span class="badge-stranger-icon" title="Người lạ">(Người lạ)</span>`;
+                    }
+
+                    const isFriendStr = c.friend ? 'true' : 'false';
+
+                    list.append(`
+                        <div class="conv-item ${active} ${unread} d-flex align-items-center p-2"
+                            onclick="window.selectConversation(${c.partnerId}, '${c.partnerName.replace(/'/g, "\\'")}', '${avatar}', '${isFriendStr}')"
+                            style="cursor:pointer; border-bottom:1px solid #333;">
+
+                            <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
+                                <img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+                                ${c.online ? '<div class="online-dot"></div>' : ''}
+                            </div>
+
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                        ${c.partnerName} ${strangerBadge}
+                                    </strong>
+                                    <small class="text-muted" style="font-size:0.75rem;">${c.timeAgo || ''}</small>
+                                </div>
+                                <div class="text-muted small text-truncate" style="color:#aaa;">
+                                    ${c.lastMessageMine ? 'Bạn: ' : ''}${c.lastMessage || 'Hình ảnh'}
+                                </div>
+                            </div>
+
+                            ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
+                        </div>
+                    `);
+                });
+
+                checkUrlAndOpenChat(data);
+            },
+            error: function(xhr, status, err) {
+                console.error('loadConversations() failed:', xhr.status, xhr.statusText, xhr.responseText);
+                // Helpful toast for debugging
+                if (typeof window.showToast === 'function') {
+                    showToast('Lỗi tải danh sách hội thoại. Kiểm tra console/server logs.', 'error');
+                } else {
+                    console.error('[showToast missing] Lỗi tải danh sách hội thoại.');
                 }
-
-                const isFriendStr = c.friend ? 'true' : 'false';
-                // Truyền tham số vào onclick
-                
-                list.append(`
-                    <div class="conv-item ${active} ${unread} d-flex align-items-center p-2" 
-                         onclick="window.selectConversation(${c.partnerId}, '${c.partnerName.replace(/'/g, "\\'")}', '${avatar}', '${isFriendStr}')" 
-                         style="cursor:pointer; border-bottom:1px solid #333;">
-                        
-                        <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
-                            <img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
-                            ${c.online ? '<div class="online-dot"></div>' : ''}
-                        </div>
-                        
-                        <div class="flex-grow-1" style="min-width:0;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <strong style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                    ${c.partnerName} ${strangerBadge}
-                                </strong>
-                                <small class="text-muted" style="font-size:0.75rem;">${c.timeAgo || ''}</small>
-                            </div>
-                            <div class="text-muted small text-truncate" style="color:#aaa;">
-                                ${c.lastMessageMine ? 'Bạn: ' : ''}${c.lastMessage || 'Hình ảnh'}
-                            </div>
-                        </div>
-                        
-                        ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
-                    </div>
-                `);
-            });
-            checkUrlAndOpenChat(data);
+            }
         });
     }
 
@@ -3578,20 +3598,30 @@
         $('#recentStickersSection').toggle(recentStickers.length > 0);
     }
 
-    // Render Recent Stickers
+    // Render Recent Stickers - tolerant to both string and object entries
     function renderRecentStickers() {
         const grid = $('#recentStickersGrid');
         if (!grid.length) return;
-        
+
+        if (!recentStickers || recentStickers.length === 0) {
+            grid.html('<div class="text-muted small">Chưa có sticker gần đây</div>');
+            return;
+        }
+
         let html = '';
         recentStickers.slice(0, 8).forEach((sticker, index) => {
+            // sticker may be a plain string (saved previously) or an object { url: ... }
+            const url = (typeof sticker === 'string') ? sticker : (sticker && (sticker.url || sticker));
+            if (!url) return;
+            // escape single quotes in URL if any
+            const safeUrl = url.replace(/'/g, "\\'");
             html += `
-                <div class="sticker-item" onclick="sendSticker('${sticker.url}', 'recent', ${index})">
-                    <img src="${sticker.url}" alt="Sticker">
+                <div class="sticker-item" onclick="sendSticker('${safeUrl}', 'recent', ${index})">
+                    <img src="${safeUrl}" alt="Sticker">
                 </div>
             `;
         });
-        
+
         grid.html(html || '<div class="text-muted small">Chưa có sticker gần đây</div>');
     }
 

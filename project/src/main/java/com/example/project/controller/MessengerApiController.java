@@ -218,9 +218,12 @@ public class MessengerApiController {
                 return ResponseEntity.status(403).build();
             }
             
-            message.setPinned(!message.isPinned());
+            // read current value safely (may be null)
+            Boolean currentPinned = message.isPinned();
+            boolean newPinned = !(currentPinned != null && currentPinned.booleanValue());
+            message.setIsPinned(newPinned);
             messengerService.saveMessage(message);
-            
+
             return ResponseEntity.ok(Map.of("pinned", message.isPinned()));
         } catch (Exception e) {
             e.printStackTrace();
