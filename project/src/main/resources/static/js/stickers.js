@@ -1,6 +1,3 @@
-// stickers.js - FIX 1: Tenor API Integration
-window.TENOR_API_KEY = 'AIzaSyBNVZvpIRhcXe5N0m-O6uy1fCu7WzHIwzI'; // Từ application.properties
-window.TENOR_CLIENT_KEY = 'FFilm_Connect';
 
 // Categories cho Tenor (tương tự Zalo)
 window.TENOR_CATEGORIES = {

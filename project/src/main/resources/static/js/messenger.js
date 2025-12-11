@@ -3289,36 +3289,57 @@
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
     function initEmojiPicker() {
+        if (typeof customElements === 'undefined' || !customElements.get('emoji-picker')) {
+            console.warn('Emoji picker element not loaded');
+            return;
+        }
+        
         const trigger = $('#emojiTrigger');
         const input = $('#msgInput');
         
         if (!trigger.length || !input.length) return;
-
-        // Đợi Web Component load xong
-        customElements.whenDefined('emoji-picker').then(() => {
-            let pickerContainer = $('#emojiPickerContainer');
-            if (!pickerContainer.length) {
-                pickerContainer = $('<div id="emojiPickerContainer"></div>');
-                pickerContainer.css({
-                    position: 'fixed',
-                    bottom: '100px',
-                    right: '20px',
-                    display: 'none',
-                    zIndex: 9999
-                });
-                $('body').append(pickerContainer);
-                pickerContainer.html('<emoji-picker></emoji-picker>');
-            }
-
-            trigger.off('click').on('click', (e) => {
-                e.stopPropagation();
-                pickerContainer.toggle();
-            });
-
-            pickerContainer.on('emoji-click', (e) => {
-                input.val(input.val() + e.originalEvent.detail.unicode);
+        
+        // Create picker container if not exists
+        if (!$('#emojiPickerContainer').length) {
+            $('body').append(`
+                <div id="emojiPickerContainer" style="
+                    position: fixed;
+                    bottom: 100px;
+                    right: 20px;
+                    width: 350px;
+                    height: 400px;
+                    display: none;
+                    z-index: 10000;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                ">
+                    <emoji-picker style="width:100%;height:100%;"></emoji-picker>
+                </div>
+            `);
+        }
+        
+        const pickerContainer = $('#emojiPickerContainer');
+        const picker = pickerContainer.find('emoji-picker')[0];
+        
+        if (picker) {
+            picker.addEventListener('emoji-click', event => {
+                input.val(input.val() + event.detail.unicode);
                 input.focus();
             });
+        }
+        
+        // Toggle picker
+        trigger.off('click').on('click', function(e) {
+            e.stopPropagation();
+            pickerContainer.toggle();
+        });
+        
+        // Close when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#emojiPickerContainer, #emojiTrigger').length) {
+                pickerContainer.hide();
+            }
         });
     }
 
