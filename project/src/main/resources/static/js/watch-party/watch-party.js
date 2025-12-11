@@ -1,7 +1,4 @@
 // watch-party.js - Ultimate Version (Giphy Integrated)
-
-// --- CẤU HÌNH ---
-const GIPHY_API_KEY = '79jQGsmrNhvWRKAytBeikpRkve4u2m0K'; // <-- THAY KEY CỦA BẠN VÀO ĐÂY (Đăng ký tại developers.giphy.com)
 // Nếu chưa có key, dùng tạm list backup này để test
 const BACKUP_STICKERS = [
     "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
