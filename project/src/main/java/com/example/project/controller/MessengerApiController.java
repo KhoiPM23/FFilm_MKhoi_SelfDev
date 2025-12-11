@@ -94,7 +94,7 @@ public class MessengerApiController {
             if (receiverUsername != null) {
                 // Gửi tới: /user/{username}/queue/private
                 messagingTemplate.convertAndSendToUser(
-                    receiverUsername, 
+                    request.getReceiverId().toString(), 
                     "/queue/private", 
                     sentMessage
                 );
@@ -102,7 +102,7 @@ public class MessengerApiController {
             
             // 3. Bắn lại cho chính mình (để sync các tab khác)
              messagingTemplate.convertAndSendToUser(
-                user.getUserName(),
+                String.valueOf(user.getId()),
                 "/queue/private",
                 sentMessage
             );

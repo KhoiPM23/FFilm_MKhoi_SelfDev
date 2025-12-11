@@ -24,8 +24,8 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
-    let recordTimerInterval = null;
-    let recordStartTime = 0;
+    let recordingTimer = null;
+    let recordingStartTime = 0;
     let pendingFile = null; // Lưu file đang chọn để preview
     let emojiPicker = null; // Instance của Emoji Button
 
@@ -79,6 +79,7 @@
         initPeerJS();        
         setupStickerSuggestions();
         renderRecentStickers();
+        setTimeout(initEmojiPicker, 1000); // Delay xíu để thư viện load
     });
 
     function bindEvents() {
@@ -125,8 +126,22 @@
         // Ghi âm - SỬA: DÙNG NÚT ĐÚNG
         $('#micBtn').off('click').on('click', window.toggleRecording);
         
-        // Sticker Toggle
-        $('#stickerBtn').off('click').on('click', window.toggleStickers);
+        // Sticker button với animation
+        $('#stickerBtn').off('click').on('click', function() {
+            $(this).addClass('active');
+            setTimeout(() => $(this).removeClass('active'), 300);
+            window.toggleStickers();
+        });
+        
+        // Init sticker suggestions
+        initStickerSuggestions();
+        
+        // Close suggestions khi click outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.sticker-suggestions, #msgInput').length) {
+                hideStickerSuggestions();
+            }
+        });
         
         // Nút gửi
         $('#sendBtn').off('click').on('click', window.sendTextMessage);
@@ -356,10 +371,18 @@
         $('#incomingCallModal').hide();
         
         if (incomingCallData) {
-            stompClient.send('/app/call-rejected', {}, JSON.stringify({
+            // Gửi thông báo từ chối cuộc gọi
+            stompClient.send('/app/call', {}, JSON.stringify({
+                type: 'CALL_REJECT',
                 receiverId: incomingCallData.senderId,
-                reason: 'USER_BUSY'
+                senderId: currentUser.userID
             }));
+        }
+        
+        // Dừng âm thanh chuông
+        if (incomingCallData && incomingCallData.ringtone) {
+            incomingCallData.ringtone.pause();
+            incomingCallData.ringtone.currentTime = 0;
         }
         
         incomingCallData = null;
@@ -367,40 +390,36 @@
     };
 
     window.endCall = function() {
+        // Dừng timer
         if (callTimeout) clearTimeout(callTimeout);
+        if (callTimerInterval) clearInterval(callTimerInterval);
         
-        // Stop local stream
+        // Dừng local stream
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
         
-        // Close current call
+        // Đóng call
         if (currentCall) {
             currentCall.close();
             currentCall = null;
         }
         
-        // Send end call notification
+        // Gửi thông báo kết thúc cuộc gọi
         if (currentPartnerId) {
-            stompClient.send('/app/call-ended', {}, JSON.stringify({
+            stompClient.send('/app/call', {}, JSON.stringify({
+                type: 'CALL_END',
                 receiverId: currentPartnerId,
-                duration: callDuration || 0
+                senderId: currentUser.userID
             }));
         }
         
-        // Save call log
-        saveCallLog();
-        
-        // Hide call modal
+        // Ẩn modal
         $('#videoCallModal').hide();
+        $('#incomingCallModal').hide();
         
-        // Reset call variables
-        callDuration = 0;
-        if (callTimerInterval) {
-            clearInterval(callTimerInterval);
-            callTimerInterval = null;
-        }
+        showToast('Đã kết thúc cuộc gọi', 'info');
     };
 
     function setupCallHandlers(call) {
@@ -442,13 +461,13 @@
             console.log('✅ WebSocket Connected:', frame);
             
             // Subscribe đến private messages
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/private`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.name}/queue/private`, function(payload) {
                 const msg = JSON.parse(payload.body);
                 handleSocketMessage(msg);
             });
             
             // Subscribe đến typing notifications
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/typing`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.name}/queue/typing`, function(payload) {
                 const data = JSON.parse(payload.body);
                 if (data.senderId === currentPartnerId) {
                     if (data.type === 'TYPING') {
@@ -460,13 +479,13 @@
             });
             
             // Subscribe đến seen notifications
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/seen`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.name}/queue/seen`, function(payload) {
                 const data = JSON.parse(payload.body);
                 updateSeenAvatar(data.messageId);
             });
             
             // Subscribe đến online status
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/online-status`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.name}/queue/online-status`, function(payload) {
                 const data = JSON.parse(payload.body);
                 updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
             });
@@ -528,12 +547,14 @@
     }
 
     function handleSocketMessage(msg) {
+        console.log("Socket message received:", msg);
+        
         // 1. Xử lý Tín hiệu Gọi
         if (msg.type === 'CALL_REQ') {
             incomingCallData = { 
                 peerId: msg.content,
                 senderId: msg.senderId,
-                senderName: msg.senderName || 'Người dùng FFilm',
+                senderName: msg.senderName || 'Người dùng',
                 senderAvatar: msg.senderAvatar 
             };
             showIncomingCallModal(incomingCallData);
@@ -549,20 +570,22 @@
             return;
         }
 
-        // 2. Chat messages
+        // 2. Chat messages - LUÔN HIỆN NGAY KHI NHẬN
         const senderId = msg.senderId;
-        const receiverId = msg.receiverId;
-        const partnerId = (senderId === currentUser.userID) ? receiverId : senderId;
+        const partnerId = (senderId === currentUser.userID) ? msg.receiverId : senderId;
 
-        // Append to UI if viewing this conversation
-        if (currentPartnerId && currentPartnerId === partnerId) {
+        // Nếu đang xem chat này, append ngay
+        if (currentPartnerId && currentPartnerId == partnerId) {
             appendMessageToUI(msg);
-            if (senderId !== currentUser.userID) {
-                markAsRead(msg.id); // Mark as seen
+            if (senderId != currentUser.userID) {
+                markAsRead(msg.id);
             }
+            
+            // Phát âm thanh thông báo
+            notificationSound.play().catch(() => {});
         }
 
-        // Always update conversation list preview WITHOUT full reload
+        // Cập nhật conversation list mà không reload
         updateConversationPreview(msg);
     }
 
@@ -1580,15 +1603,49 @@
             contentHtml = `<div class="bubble">${replyHtml}${msg.content}</div>`;
         }
 
+        // Around line 1585, find the action buttons section and update to:
+        let actionButtons = '';
+        if (isMine) {
+            actionButtons = `
+                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage(${msgId})">
+                    <i class="fas fa-share"></i>
+                </div>
+                <div class="action-btn" title="Ghim" onclick="window.togglePinMessage(${msgId})">
+                    <i class="fas fa-thumbtack"></i>
+                </div>
+                <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, 'Bạn', '${msg.content?.substring(0,50) || '[File]'}')">
+                    <i class="fas fa-reply"></i>
+                </div>
+                <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage(${msgId})">
+                    <i class="fas fa-trash"></i>
+                </div>
+            `;
+        } else {
+            actionButtons = `
+                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage(${msgId})">
+                    <i class="fas fa-share"></i>
+                </div>
+                <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, '${currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')">
+                    <i class="fas fa-reply"></i>
+                </div>
+            `;
+        }
+
         // Actions
         const unsendBtn = (isMine && !msg.isDeleted) 
             ? `<div class="action-btn" onclick="window.unsendMessage(${msgId})" title="Thu hồi"><i class="fas fa-trash"></i></div>` 
             : '';
         
+        // const actionsHtml = `
+        //     <div class="msg-actions">
+        //         <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')" title="Trả lời"><i class="fas fa-reply"></i></div>
+        //         ${unsendBtn}
+        //     </div>
+        // `;
+
         const actionsHtml = `
             <div class="msg-actions">
-                <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')" title="Trả lời"><i class="fas fa-reply"></i></div>
-                ${unsendBtn}
+                ${actionButtons}
             </div>
         `;
 
@@ -2610,15 +2667,21 @@
 
     // --- FORWARD MESSAGE SYSTEM ---
     window.forwardMessage = function(messageId) {
+        console.log("Forward clicked for:", messageId);
         const messageElement = $(`#msg-${messageId}`);
-        if (!messageElement.length) return;
+        if (!messageElement.length) {
+            console.error("Message not found:", messageId);
+            return;
+        }
         
         selectedMessageToForward = {
             id: messageId,
-            content: messageElement.find('.bubble').text(),
+            content: messageElement.find('.msg-content').text() || messageElement.find('.bubble').text(),
             type: messageElement.data('type') || 'TEXT',
             sender: currentUser.name
         };
+        
+        console.log("Selected message to forward:", selectedMessageToForward);
         
         // Show forward modal
         showForwardModal();
@@ -2956,12 +3019,12 @@
                 $('.input-actions').hide();
                 $('.recording-ui').addClass('show').css('display', 'flex'); // Force flex
 
-                if (timerInterval) clearInterval(timerInterval);
-                
+                if (recordingTimer) clearInterval(recordingTimer);
+
                 // Timer
                 let sec = 0;
                 $('#recordTimer').text("00:00");
-                timerInterval = setInterval(() => {
+                recordingTimer = setInterval(() => {
                     sec++;
                     const m = Math.floor(sec/60).toString().padStart(2,'0');
                     const s = (sec%60).toString().padStart(2,'0');
@@ -3225,36 +3288,37 @@
     }
 
     // Khởi tạo Emoji Picker (Thư viện đầy đủ)
-    // --- INIT EMOJI PICKER (Native Web Component) ---
-    // messenger.js - Thay function initEmojiPicker()
     function initEmojiPicker() {
         const trigger = $('#emojiTrigger');
         const input = $('#msgInput');
         
         if (!trigger.length || !input.length) return;
 
-        // Dùng emoji-picker-element (Web Component hiện đại)
-        let picker = document.querySelector('emoji-picker');
-        if (!picker) {
-            picker = document.createElement('emoji-picker');
-            picker.style.cssText = 'position:absolute; bottom:80px; right:20px; display:none; z-index:9999;';
-            document.body.appendChild(picker);
-        }
-
-        trigger.on('click', (e) => {
-            e.stopPropagation();
-            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
-        });
-
-        picker.addEventListener('emoji-click', (e) => {
-            input.val(input.val() + e.detail.unicode);
-            input.focus();
-        });
-
-        $(document).on('click', (e) => {
-            if (!picker.contains(e.target) && !trigger.is(e.target)) {
-                picker.style.display = 'none';
+        // Đợi Web Component load xong
+        customElements.whenDefined('emoji-picker').then(() => {
+            let pickerContainer = $('#emojiPickerContainer');
+            if (!pickerContainer.length) {
+                pickerContainer = $('<div id="emojiPickerContainer"></div>');
+                pickerContainer.css({
+                    position: 'fixed',
+                    bottom: '100px',
+                    right: '20px',
+                    display: 'none',
+                    zIndex: 9999
+                });
+                $('body').append(pickerContainer);
+                pickerContainer.html('<emoji-picker></emoji-picker>');
             }
+
+            trigger.off('click').on('click', (e) => {
+                e.stopPropagation();
+                pickerContainer.toggle();
+            });
+
+            pickerContainer.on('emoji-click', (e) => {
+                input.val(input.val() + e.originalEvent.detail.unicode);
+                input.focus();
+            });
         });
     }
 
@@ -3344,7 +3408,7 @@
 
     function resetRecordingUI() {
         isRecording = false;
-        recordingStartTime = null;
+        recordingStartTime = 0;
         
         // Clear timer
         if (recordingTimer) {
@@ -3353,8 +3417,8 @@
         }
         
         // Reset UI
-        $('#recordingState').hide();
-        $('#normalInputState').show();
+        $('.recording-ui').removeClass('show').hide();
+        $('.input-actions').show();
         $('#recordTimer').text('00:00');
     }
 
@@ -3598,32 +3662,85 @@
         $('#recentStickersSection').toggle(recentStickers.length > 0);
     }
 
-    // Render Recent Stickers - tolerant to both string and object entries
+    // Render recent stickers
     function renderRecentStickers() {
+        const recentStickers = window.getRecentStickers();
         const grid = $('#recentStickersGrid');
-        if (!grid.length) return;
-
-        if (!recentStickers || recentStickers.length === 0) {
-            grid.html('<div class="text-muted small">Chưa có sticker gần đây</div>');
+        
+        if (recentStickers.length === 0) {
+            $('#recentStickersSection').hide();
             return;
         }
-
+        
         let html = '';
-        recentStickers.slice(0, 8).forEach((sticker, index) => {
-            // sticker may be a plain string (saved previously) or an object { url: ... }
-            const url = (typeof sticker === 'string') ? sticker : (sticker && (sticker.url || sticker));
-            if (!url) return;
-            // escape single quotes in URL if any
-            const safeUrl = url.replace(/'/g, "\\'");
+        recentStickers.forEach(sticker => {
             html += `
-                <div class="sticker-item" onclick="sendSticker('${safeUrl}', 'recent', ${index})">
-                    <img src="${safeUrl}" alt="Sticker">
+                <div class="sticker-item recent" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
+                    <img src="${sticker.preview || sticker.url}" alt="Sticker">
                 </div>
             `;
         });
-
-        grid.html(html || '<div class="text-muted small">Chưa có sticker gần đây</div>');
+        
+        grid.html(html);
     }
+
+    // Debounced search
+    let searchTimeout;
+    function searchStickersDebounced(query) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            performStickerSearch(query);
+        }, 300);
+    }
+
+    // Tìm kiếm stickers
+    async function performStickerSearch(query) {
+        const grid = $('#stickerGrid');
+        
+        if (!query || query.trim() === '') {
+            // Quay lại category hiện tại
+            const activeCategory = $('.tab-btn.active').data('category') || 'popular';
+            loadStickerCategory(activeCategory);
+            return;
+        }
+        
+        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tìm kiếm...</p></div>');
+        
+        const stickers = await window.searchTenorStickers(query);
+        renderStickerGrid(stickers);
+    }
+
+    // Gửi sticker từ Tenor
+    window.sendTenorSticker = function(stickerId, stickerData) {
+        try {
+            const sticker = JSON.parse(decodeURIComponent(stickerData));
+            
+            // Thêm vào recent
+            window.addToRecentStickers(sticker);
+            
+            // Đóng menu
+            $('#stickerMenu').hide();
+            
+            // Gửi qua API
+            if (currentPartnerId) {
+                const payload = {
+                    receiverId: currentPartnerId,
+                    content: sticker.url,
+                    type: 'STICKER',
+                    metadata: {
+                        source: 'tenor',
+                        stickerId: sticker.id,
+                        width: sticker.width,
+                        height: sticker.height
+                    }
+                };
+                
+                sendApiRequest(payload);
+            }
+        } catch (error) {
+            console.error('Lỗi gửi sticker:', error);
+        }
+    };
 
     // Add to Recent Stickers
     function addToRecentStickers(stickerUrl) {
@@ -3740,11 +3857,30 @@
 
     // --- 9. STICKER SUGGESTIONS (ZALO STYLE) ---
 
-    // Show/Hide Sticker Suggestions
-    function showStickerSuggestions(keywords) {
-        const suggestions = findStickerSuggestions(keywords);
+    // messenger.js - FIX 4: Real-time Sticker Suggestions
+    let suggestionDebounce;
+
+    function initStickerSuggestions() {
+        const msgInput = $('#msgInput');
         
-        if (suggestions.length === 0) {
+        msgInput.on('input', async function() {
+            const message = $(this).val().trim();
+            
+            clearTimeout(suggestionDebounce);
+            
+            if (message.length >= 2) {
+                suggestionDebounce = setTimeout(async () => {
+                    const suggestions = await window.getStickerSuggestions(message);
+                    showStickerSuggestions(suggestions);
+                }, 500);
+            } else {
+                hideStickerSuggestions();
+            }
+        });
+    }
+
+    function showStickerSuggestions(stickers) {
+        if (!stickers || stickers.length === 0) {
             hideStickerSuggestions();
             return;
         }
@@ -3754,28 +3890,21 @@
         
         grid.empty();
         
-        suggestions.slice(0, 12).forEach(sticker => {
-            const item = $(`
-                <img src="${sticker.url}" class="suggestion-sticker" 
-                    data-url="${sticker.url}" 
-                    title="${sticker.tags.join(', ')}">
+        stickers.slice(0, 12).forEach(sticker => {
+            grid.append(`
+                <div class="sticker-item" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
+                    <img src="${sticker.preview || sticker.url}" alt="Sticker">
+                </div>
             `);
-            
-            item.on('click', function() {
-                sendSticker(sticker.url);
-                addToRecentStickers(sticker);
-                hideStickerSuggestions();
-                $('#msgInput').val('').focus();
-            });
-            
-            grid.append(item);
         });
         
-        container.addClass('show').css('display', 'flex');
+        container.css('display', 'block');
+        setTimeout(() => container.css('opacity', 1), 10);
     }
 
     function hideStickerSuggestions() {
-        $('#stickerSuggestions').removeClass('show').hide();
+        $('#stickerSuggestions').css('opacity', 0);
+        setTimeout(() => $('#stickerSuggestions').hide(), 300);
     }
 
     // Find Sticker Suggestions by Keywords
@@ -3832,45 +3961,102 @@
     function initStickerMenu() {
         const menu = $('#stickerMenu');
         
-        // Tạo HTML cho sticker menu
-        const collections = Object.entries(window.STICKER_COLLECTIONS || {});
-        const collectionsHtml = collections.map(([id, col]) => `
-            <button class="collection-btn ${id === 'popular' ? 'active' : ''}" 
-                    onclick="switchStickerCollection('${id}', this)">
-                ${col.name}
-            </button>
-        `).join('');
-        
+        // HTML mới với design như Zalo
         menu.html(`
             <div class="sticker-header">
-                <div class="sticker-collections">${collectionsHtml}</div>
-                <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
-            </div>
-            <div class="sticker-search">
-                <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm sticker...">
-                <i class="fas fa-search"></i>
-            </div>
-            <div class="sticker-grid" id="stickerGrid">
-                <div class="text-center text-muted p-4">
-                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                <div class="sticker-tabs" id="stickerTabs">
+                    ${Object.entries(window.TENOR_CATEGORIES).map(([id, cat]) => `
+                        <button class="tab-btn ${id === 'popular' ? 'active' : ''}" 
+                                data-category="${id}" 
+                                onclick="switchStickerCategory('${id}', this)">
+                            ${cat.name}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="sticker-header-actions">
+                    <div class="sticker-search-box">
+                        <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm stickers..." 
+                            onkeyup="searchStickersDebounced(this.value)">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
                 </div>
             </div>
-            <div class="recent-stickers" id="recentStickersSection" style="display: none;">
-                <div class="sticker-section-title">Gần đây</div>
-                <div class="recent-stickers-grid" id="recentStickersGrid"></div>
+            
+            <div class="sticker-content">
+                <div class="sticker-grid" id="stickerGrid">
+                    <div class="loading-stickers">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải stickers...</p>
+                    </div>
+                </div>
+                
+                <div class="recent-stickers-section" id="recentStickersSection" style="display: none;">
+                    <div class="section-title">
+                        <i class="fas fa-history"></i>
+                        <span>Gần đây</span>
+                    </div>
+                    <div class="recent-stickers-grid" id="recentStickersGrid"></div>
+                </div>
             </div>
         `);
         
-        // Load stickers
-        setTimeout(() => {
-            renderStickerCollection('popular');
+        // Load stickers phổ biến đầu tiên
+        loadStickerCategory('popular');
+        renderRecentStickers();
+    }
+
+    // Hàm load category mới
+    async function loadStickerCategory(category) {
+        const grid = $('#stickerGrid');
+        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tải...</p></div>');
+        
+        const stickers = await window.loadTenorStickers(category);
+        renderStickerGrid(stickers);
+        
+        // Hiện recent section nếu có
+        const recentStickers = window.getRecentStickers();
+        if (recentStickers.length > 0) {
+            $('#recentStickersSection').show();
             renderRecentStickers();
-            
-            // Search functionality
-            $('#stickerSearchInput').on('input', function() {
-                searchStickers($(this).val());
-            });
-        }, 100);
+        }
+    }
+
+    // Render sticker grid
+    function renderStickerGrid(stickers) {
+        const grid = $('#stickerGrid');
+        
+        if (!stickers || stickers.length === 0) {
+            grid.html('<div class="no-stickers"><i class="fas fa-image"></i><p>Không có stickers</p></div>');
+            return;
+        }
+        
+        let html = '';
+        stickers.forEach(sticker => {
+            html += `
+                <div class="sticker-item" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
+                    <img src="${sticker.preview || sticker.url}" 
+                        data-src="${sticker.url}" 
+                        alt="Sticker" 
+                        loading="lazy"
+                        class="sticker-gif">
+                    <div class="sticker-hover">
+                        <i class="fas fa-paper-plane"></i>
+                    </div>
+                </div>
+            `;
+        });
+        
+        grid.html(html);
+        
+        // Lazy load ảnh
+        $('.sticker-gif').each(function() {
+            const img = $(this);
+            if (img.attr('data-src')) {
+                img.attr('src', img.attr('data-src'));
+                img.removeAttr('data-src');
+            }
+        });
     }
 
     function renderStickerCollection(collectionId) {
@@ -4142,37 +4328,109 @@
 
     // --- FIX 2: ONLINE STATUS UPDATE ---
     function updateOnlineStatus(partnerId, isOnline, lastActive) {
-        const statusDiv = $('#chatHeaderStatus');
+        // Cập nhật trong conversation list
+        $(`.conv-item[onclick*="${partnerId}"] .online-dot`).toggle(isOnline);
         
-        if (isCurrentPartnerFriend) {
-            if (isOnline) {
-                statusDiv.html(`<small class="online-status"><i class="fas fa-circle"></i> Đang hoạt động</small>`);
-            } else {
-                statusDiv.html(`<small class="offline-status">${lastActive || 'Không hoạt động'}</small>`);
-            }
-        } else {
-            statusDiv.empty();
-        }
-
-        // Update conversation list
-        const convItem = $(`.conv-item[data-partner-id="${partnerId}"]`);
-        const onlineDot = convItem.find('.online-dot');
-        const lastActiveBadge = convItem.find('.last-active-badge');
-        
-        if (isOnline) {
-            onlineDot.addClass('is-online');
-            lastActiveBadge.remove();
-        } else {
-            onlineDot.removeClass('is-online');
-            if (lastActive && lastActive !== 'Không hoạt động') {
-                if (lastActiveBadge.length) {
-                    lastActiveBadge.text(lastActive);
+        // Cập nhật trong chat header nếu đang chat với người này
+        if (currentPartnerId == partnerId) {
+            const statusDiv = $('#chatHeaderStatus');
+            if (statusDiv.length) {
+                if (isOnline) {
+                    statusDiv.html(`<small class="text-success"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`);
                 } else {
-                    convItem.find('.avatar-wrapper').append(`<div class="last-active-badge">${lastActive}</div>`);
+                    const timeAgo = lastActive ? formatTimeAgo(lastActive) : 'Không hoạt động';
+                    statusDiv.html(`<small class="text-muted">${timeAgo}</small>`);
                 }
             }
         }
     }
+
+    function formatTimeAgo(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffMs = now - time;
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays} ngày trước`;
+    }
+
+    // ============= BACKGROUND PICKER FUNCTION =============
+    window.openBackgroundPicker = function() {
+        if (!currentPartnerId) return;
+        
+        const modal = $('<div class="background-modal-overlay"></div>');
+        const content = $(`
+            <div class="background-modal">
+                <div class="background-modal-header">
+                    <h3><i class="fas fa-image"></i> Đổi nền chat</h3>
+                    <button class="close-background-modal" onclick="window.closeBackgroundPicker()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="background-options">
+                    <div class="background-colors">
+                        <h4>Màu sắc</h4>
+                        <div class="color-grid">
+                            <div class="bg-option" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="window.applyBackground('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')"></div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);" onclick="window.applyBackground('linear-gradient(135deg, #f093fb 0%, #f5576c 100%)')"></div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);" onclick="window.applyBackground('linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)')"></div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);" onclick="window.applyBackground('linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)')"></div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);" onclick="window.applyBackground('linear-gradient(135deg, #fa709a 0%, #fee140 100%)')"></div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);" onclick="window.applyBackground('linear-gradient(135deg, #30cfd0 0%, #330867 100%)')"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="background-patterns">
+                        <h4>Mẫu</h4>
+                        <div class="pattern-grid">
+                            <div class="bg-option" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23f5f5f5%22 width=%22100%22 height=%22100%22/><circle cx=%2250%22 cy=%2250%22 r=%2220%22 fill=%22%23ddd%22/></svg>');" onclick="window.applyBackground('url(data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23f5f5f5%22 width=%22100%22 height=%22100%22/><circle cx=%2250%22 cy=%2250%22 r=%2220%22 fill=%22%23ddd%22/></svg>)')"></div>
+                        </div>
+                    </div>
+
+                    <div class="background-default">
+                        <h4>Mặc định</h4>
+                        <button class="default-btn" onclick="window.applyBackground('default')">
+                            <i class="fas fa-redo"></i> Khôi phục nền mặc định
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal).append(content);
+    };
+
+    window.closeBackgroundPicker = function() {
+        $('.background-modal-overlay, .background-modal').remove();
+    };
+
+    window.applyBackground = function(background) {
+        // Save to localStorage
+        localStorage.setItem(`chatBg_${currentPartnerId}`, background);
+        
+        // Apply to current chat
+        if (background === 'default') {
+            $('#messagesContainer').css('background', '');
+        } else {
+            $('#messagesContainer').css('background', background);
+        }
+        
+        // Save to server (optional)
+        $.post('/api/v1/messenger/settings/background', {
+            partnerId: currentPartnerId,
+            background: background
+        });
+        
+        showToast('Đã cập nhật nền chat', 'success');
+        window.closeBackgroundPicker();
+    };
 
 
     // --- 9. SIDEBAR & SETTINGS LOGIC ---
