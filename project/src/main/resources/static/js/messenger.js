@@ -1417,12 +1417,12 @@
 
                             <div class="flex-grow-1" style="min-width:0;">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <strong style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    <strong class="conv-name" style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                                         ${c.partnerName} ${strangerBadge}
                                     </strong>
                                     <small class="text-muted" style="font-size:0.75rem;">${c.timeAgo || ''}</small>
                                 </div>
-                                <div class="text-muted small text-truncate" style="color:#aaa;">
+                                <div class="conv-preview text-muted small text-truncate" style="color:#aaa;">
                                     ${c.lastMessageMine ? 'Bạn: ' : ''}${c.lastMessage || 'Hình ảnh'}
                                 </div>
                             </div>
@@ -2575,6 +2575,10 @@
     $(document).ready(function() {
         $('head').append(`<style>${themeAndNicknameCSS}</style>`);
     });
+
+    window.closeModal = function() {
+        $('.modal-overlay, .theme-modal, .nickname-modal, .background-modal, .stats-modal').remove();
+    };
 
     // ============= FIX 3: THÊM MODAL NICKNAME =============
     window.openNicknameModal = function() {
@@ -6712,8 +6716,8 @@
         $('#infoName').text(name);
         $('#infoAvatar').attr('src', avatar);
         
-        // Thêm các nút chức năng mới
-        $('.accordion-content:first').html(`
+        // FIX: Render đúng HTML cho accordion-content đầu tiên
+        $('.accordion-item:first .accordion-content').html(`
             <div class="info-action-btn" onclick="window.openThemePicker()">
                 <i class="fas fa-palette" style="color: var(--msg-blue);"></i> Đổi chủ đề
             </div>
@@ -6727,7 +6731,71 @@
                 <i class="fas fa-chart-bar"></i> Thống kê đoạn chat
             </div>
         `);
+        
+        // FIX: Thêm các action buttons vào info-header-actions
+        $('.info-header-actions').html(`
+            <button class="info-action-btn" onclick="viewProfile(${currentPartnerId})" title="Xem trang cá nhân">
+                <i class="fas fa-user-circle"></i>
+            </button>
+            <button class="info-action-btn" onclick="openChatSearch()" title="Tìm kiếm tin nhắn">
+                <i class="fas fa-search"></i>
+            </button>
+            <button class="info-action-btn" onclick="toggleNotifications(${currentPartnerId})" title="Tắt thông báo">
+                <i class="fas fa-bell"></i>
+            </button>
+            <button class="info-action-btn" onclick="openPinnedMessagesModal()" title="Tin nhắn đã ghim">
+                <i class="fas fa-thumbtack"></i>
+            </button>
+            <button class="info-action-btn" onclick="openCallHistory()" title="Lịch sử cuộc gọi">
+                <i class="fas fa-history"></i>
+            </button>
+        `);
     }
+
+    // FIX 3.2: Thêm CSS cho modal overlays
+    // Thêm vào messenger.css hoặc inline style
+    const modalCSS = `
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+    }
+
+    .theme-modal, .nickname-modal, .background-modal, .stats-modal {
+        background: #242526;
+        border-radius: 16px;
+        width: 500px;
+        max-width: 90%;
+        max-height: 80%;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: modalAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes modalAppear {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    `;
+
+    // Thêm CSS vào document
+    $(document).ready(function() {
+        $('head').append(`<style>${modalCSS}</style>`);
+    });
 
     // --- FIX 2: ONLINE STATUS UPDATE ---
     function updateOnlineStatus(partnerId, isOnline, lastActive) {
@@ -6938,7 +7006,11 @@
             const nameElement = $(this).find('.conv-name');
             const name = nameElement.text().toLowerCase();
             
-            if (name.includes(query)) {
+            // Also search in preview text
+            const previewElement = $(this).find('.conv-preview');
+            const preview = previewElement.text().toLowerCase();
+            
+            if (name.includes(query) || preview.includes(query)) {
                 $(this).show();
             } else {
                 $(this).hide();
