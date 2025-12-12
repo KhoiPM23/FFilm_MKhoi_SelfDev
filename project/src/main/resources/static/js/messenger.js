@@ -5734,6 +5734,166 @@
         `;
     }
 
+    // Reaction system
+    window.initReactionSystem = function() {
+        // Add reaction button to messages
+        $('.msg-row').each(function() {
+            if (!$(this).find('.reaction-btn').length) {
+                $(this).append(`
+                    <div class="reaction-btn" onclick="showReactionPicker(this)">
+                        <i class="far fa-smile"></i>
+                    </div>
+                `);
+            }
+        });
+    };
+
+    window.showReactionPicker = function(button) {
+        // Remove any existing picker
+        $('.reaction-picker').remove();
+        
+        const msgRow = $(button).closest('.msg-row');
+        const msgId = msgRow.data('msg-id');
+        
+        const picker = $(`
+            <div class="reaction-picker active">
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '👍')">👍</span>
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '❤️')">❤️</span>
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😮')">😮</span>
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😢')">😢</span>
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😂')">😂</span>
+                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😠')">😠</span>
+                <span class="reaction-emoji" onclick="showFullReactionPicker(${msgId})">
+                    <i class="fas fa-plus"></i>
+                </span>
+            </div>
+        `);
+        
+        msgRow.append(picker);
+        
+        // Close picker when clicking outside
+        setTimeout(() => {
+            $(document).on('click.reaction', function(e) {
+                if (!$(e.target).closest('.reaction-picker, .reaction-btn').length) {
+                    $('.reaction-picker').remove();
+                    $(document).off('click.reaction');
+                }
+            });
+        }, 100);
+    };
+
+    window.addReaction = function(messageId, emoji) {
+        $.post('/api/v1/messenger/reaction', {
+            messageId: messageId,
+            emoji: emoji
+        }).done(function(response) {
+            updateMessageReactions(messageId, response.reactions);
+            $('.reaction-picker').remove();
+        });
+    };
+
+    window.updateMessageReactions = function(messageId, reactions) {
+        const msgRow = $(`#msg-${messageId}`);
+        let reactionsHtml = '';
+        
+        if (reactions && Object.keys(reactions).length > 0) {
+            reactionsHtml = '<div class="message-reactions">';
+            Object.entries(reactions).forEach(([emoji, count]) => {
+                reactionsHtml += `
+                    <div class="reaction-item" onclick="showReactionDetails(${messageId}, '${emoji}')">
+                        <span>${emoji}</span>
+                        <span class="reaction-count">${count}</span>
+                    </div>
+                `;
+            });
+            reactionsHtml += '</div>';
+        }
+        
+        msgRow.find('.message-reactions').remove();
+        msgRow.find('.msg-content').append(reactionsHtml);
+    };
+
+    // Pinned messages system
+    window.loadPinnedMessages = function() {
+        if (!currentPartnerId) return;
+        
+        $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
+            .done(function(messages) {
+                displayPinnedMessages(messages);
+            });
+    };
+
+    window.displayPinnedMessages = function(messages) {
+        // Remove existing banner
+        $('.pinned-banner').remove();
+        
+        if (messages && messages.length > 0) {
+            const latest = messages[0];
+            const content = latest.content.length > 50 ? 
+                latest.content.substring(0, 50) + '...' : latest.content;
+            
+            const banner = $(`
+                <div class="pinned-banner" onclick="openPinnedMessagesModal()">
+                    <div class="pinned-content">
+                        <i class="fas fa-thumbtack"></i>
+                        <strong>Tin nhắn đã ghim:</strong> ${content}
+                    </div>
+                    <button class="btn-view-pinned">Xem tất cả (${messages.length})</button>
+                </div>
+            `);
+            
+            $('#messagesContainer').prepend(banner);
+        }
+    };
+
+    window.openPinnedMessagesModal = function() {
+        const modal = $(`
+            <div class="modal-overlay">
+                <div class="theme-modal pinned-modal">
+                    <div class="theme-modal-header">
+                        <h3><i class="fas fa-thumbtack"></i> Tin nhắn đã ghim</h3>
+                        <button class="close-modal" onclick="closeModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="pinned-list" id="pinnedList">
+                        <div class="loading-pinned">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Đang tải...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(modal);
+        
+        $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
+            .done(function(messages) {
+                let html = '';
+                if (messages.length === 0) {
+                    html = '<p class="text-muted text-center">Chưa có tin nhắn nào được ghim</p>';
+                } else {
+                    messages.forEach(msg => {
+                        const time = new Date(msg.timestamp).toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        html += `
+                            <div class="pinned-message-item" onclick="scrollToMessage(${msg.id})">
+                                <div class="pinned-message-sender">
+                                    ${msg.senderId === currentUser.userID ? 'Bạn' : currentPartnerName}
+                                </div>
+                                <div class="pinned-message-text">${msg.content}</div>
+                                <div class="pinned-message-time">${time}</div>
+                            </div>
+                        `;
+                    });
+                }
+                $('#pinnedList').html(html);
+            });
+    };
+
     // --- FIX 9: TYPING INDICATOR ---
     function showTypingIndicator() {
         const indicator = $('#typingIndicator');
