@@ -3,6 +3,14 @@
 <head>
     <title>Messenger - FFilm Connect</title>
     <meta charset="UTF-8">
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@emoji-mart/css@latest/emoji-mart.css">
+    <script src="https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emoji-mart/web@latest/emoji-mart.js"></script> -->
+
+    <!-- Preload emoji data -->
+    <!-- <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="prefetch" href="https://unpkg.com/emoji-datasource-twitter/emoji.json" as="fetch" crossorigin> -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/messenger.css">
@@ -332,11 +340,13 @@
         const currentUser = /*[[${userJson}]]*/ {};
     </script>
 
-    <!-- Unicode Emoji Picker Library -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1.14.0"></script> -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.0.0/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.0.0/index.js"></script>
+    <!-- Full Emoji Picker with Categories & Search -->
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.0.0/styles.css">
+    <script src="https://unpkg.com/emoji-picker-element"></script> -->
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.0.0/index.js"></script> -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <script src="/js/emoji-data.js"></script>
     <script src="/js/script.js"></script>
     <script src="/js/stickers.js"></script>
     <script src="/js/messenger.js"></script>
@@ -348,6 +358,22 @@
             }
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
+    <script>
+    // Debug: Kiểm tra xem emoji data có được tải không
+    window.addEventListener('load', function() {
+        console.log('Page loaded, checking emoji data...');
+        console.log('EMOJI_DATA exists:', !!window.EMOJI_DATA);
+        console.log('EMOJI_CATEGORIES exists:', !!window.EMOJI_CATEGORIES);
+        
+        if (window.EMOJI_DATA) {
+            console.log('EMOJI_DATA length:', window.EMOJI_DATA.length);
+            console.log('First emoji:', window.EMOJI_DATA[0]);
+        }
+        
+        if (window.EMOJI_CATEGORIES) {
+            console.log('EMOJI_CATEGORIES length:', window.EMOJI_CATEGORIES.length);
+        }
+    });
+    </script>
 </body>
 </html>
