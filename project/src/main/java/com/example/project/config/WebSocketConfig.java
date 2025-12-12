@@ -1,3 +1,4 @@
+// WebSocketConfig.java - SỬA HOÀN TOÀN
 package com.example.project.config;
 
 import com.example.project.dto.UserSessionDto;
@@ -22,15 +23,9 @@ import java.util.Map;
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final OnlineStatusService onlineStatusService;
-
-    public WebSocketConfig(OnlineStatusService onlineStatusService) {
-        this.onlineStatusService = onlineStatusService;
-    }
-
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue", "/user");
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
@@ -38,51 +33,59 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .addInterceptors(new AuthHandshake())       
-                .setHandshakeHandler(new CustomHandshake()) 
+                .addInterceptors(new HttpSessionHandshakeInterceptor())
+                .setHandshakeHandler(new UserHandshakeHandler())
                 .withSockJS();
     }
 
-    // Lấy User từ HttpSession bỏ vào Attributes
-    private class AuthHandshake implements HandshakeInterceptor {
+    private class HttpSessionHandshakeInterceptor implements HandshakeInterceptor {
         @Override
-        public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+        public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, 
+                                     WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
             if (request instanceof ServletServerHttpRequest) {
                 ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
-                HttpSession session = servletRequest.getServletRequest().getSession();
-                Object user = session.getAttribute("user");
-                if (user == null) user = session.getAttribute("moderator");
-                if (user == null) user = session.getAttribute("admin");
-                
-                if (user != null) {
-                    UserSessionDto userDto = (UserSessionDto) user;
-                    attributes.put("userSession", userDto);
-                    onlineStatusService.markOnline(userDto.getId());
+                HttpSession session = servletRequest.getServletRequest().getSession(false);
+                if (session != null) {
+                    Object user = session.getAttribute("user");
+                    if (user instanceof UserSessionDto) {
+                        UserSessionDto userDto = (UserSessionDto) user;
+                        attributes.put("userId", userDto.getId());
+                        attributes.put("userName", userDto.getUserName());
+                    }
                 }
             }
             return true;
         }
+
         @Override
-        public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Exception exception) {}
+        public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, 
+                                 WebSocketHandler wsHandler, Exception exception) {
+            // Do nothing
+        }
     }
 
-    //  Dùng User trong Attributes để đặt tên cho kết nối (Principal)
-    private class CustomHandshake extends DefaultHandshakeHandler {
+    private class UserHandshakeHandler extends DefaultHandshakeHandler {
         @Override
-        protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
-            UserSessionDto user = (UserSessionDto) attributes.get("userSession");
-            if (user != null) {
-                return new StompPrincipal(user.getUserName()); 
+        protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, 
+                                        Map<String, Object> attributes) {
+            Object userId = attributes.get("userId");
+            if (userId != null) {
+                return new StompPrincipal(userId.toString());
             }
             return null;
         }
     }
-    
-    // Class định danh
-    private class StompPrincipal implements Principal {
-        private String name;
-        public StompPrincipal(String name) { this.name = name; }
+
+    private static class StompPrincipal implements Principal {
+        private final String name;
+
+        public StompPrincipal(String name) {
+            this.name = name;
+        }
+
         @Override
-        public String getName() { return name; }
+        public String getName() {
+            return name;
+        }
     }
 }

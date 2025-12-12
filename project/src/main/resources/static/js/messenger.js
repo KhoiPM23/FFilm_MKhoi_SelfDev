@@ -476,22 +476,17 @@
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
         
-        const headers = {
-            'X-User-Id': currentUser.userID,
-            'X-User-Name': currentUser.name
-        };
-        
-        stompClient.connect(headers, function(frame) {
+        stompClient.connect({}, function(frame) {
             console.log('✅ WebSocket Connected:', frame);
             
-            // Subscribe đến private messages
-            stompClient.subscribe(`/user/${currentUser.userName}/queue/private`, function(payload) {
+            // Subscribe đến private messages - DÙNG userId
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/private`, function(payload) {
                 const msg = JSON.parse(payload.body);
                 handleSocketMessage(msg);
             });
             
             // Subscribe đến typing notifications
-            stompClient.subscribe(`/user/${currentUser.userName}/queue/typing`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/typing`, function(payload) {
                 const data = JSON.parse(payload.body);
                 if (data.senderId === currentPartnerId) {
                     if (data.type === 'TYPING') {
@@ -503,36 +498,34 @@
             });
             
             // Subscribe đến seen notifications
-            stompClient.subscribe(`/user/${currentUser.userName}/queue/seen`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/seen`, function(payload) {
                 const data = JSON.parse(payload.body);
                 updateSeenAvatar(data.messageId, data.seenBy);
             });
             
-            // Subscribe đến online status
-            stompClient.subscribe(`/user/${currentUser.userName}/queue/online-status`, function(payload) {
+            // Subscribe đến online status updates
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/online-status`, function(payload) {
                 const data = JSON.parse(payload.body);
                 updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
             });
 
-            // Lắng nghe cuộc gọi (PeerJS cũng cần socket để signaling ban đầu)
-            myPeer.on('call', (call) => {
-                // Trường hợp A gọi B -> B Accept -> B gọi A.
-                // Lúc này A nhận được cuộc gọi từ B. A phải trả lời (answer)
-                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                    .then(stream => {
-                        localStream = stream;
-                        document.getElementById('localVideo').srcObject = stream;
-                        call.answer(stream); // Trả lời với stream của mình
-                        handleCallStream(call);
-                    });
+            // Subscribe đến call notifications
+            stompClient.subscribe(`/user/${currentUser.userID}/queue/call`, function(payload) {
+                const data = JSON.parse(payload.body);
+                handleIncomingCall(data);
             });
+            
+            // Gửi ping để báo online
+            stompClient.send('/app/online/ping', {}, JSON.stringify({
+                userId: currentUser.userID
+            }));
             
             // Thông báo kết nối thành công
             showToast("Đã kết nối thời gian thực", "success");
             
         }, function(error) {
             console.error('WebSocket Error:', error);
-            setTimeout(connectWebSocket, 5000); // Reconnect sau 5s
+            setTimeout(connectWebSocket, 5000);
         });
     }
 
@@ -626,7 +619,7 @@
 
     // --- 4. UI HELPERS ---
     function showIncomingCallModal(data) {
-        $('#incomingAvatar').attr('src', data.senderAvatar);
+        $('#incomingAvatar').attr('src', data.senderAvatar || '/images/placeholder-user.jpg');
         $('#incomingName').text(data.senderName);
         $('#incomingCallType').text(data.callType === 'VIDEO' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
         
@@ -637,8 +630,6 @@
         ringtone.loop = true;
         ringtone.play().catch(() => {});
         
-        // Store for later use
-        incomingCallData = data;
         incomingCallData.ringtone = ringtone;
     }
 
@@ -920,6 +911,21 @@
         }
         closeCallHistory();
     };
+
+    function handleIncomingCall(callData) {
+        console.log('📞 Incoming call:', callData);
+        
+        // Lưu call data
+        incomingCallData = {
+            peerId: callData.peerId,
+            senderId: callData.senderId,
+            senderName: callData.senderName || 'Người dùng',
+            callType: callData.type || 'VIDEO'
+        };
+        
+        // Hiện modal incoming call
+        showIncomingCallModal(incomingCallData);
+    }
 
     // Thêm các CSS cần thiết
     const additionalCSS = `

@@ -96,23 +96,18 @@ public class MessengerApiController {
         // 1. Lưu vào DB
         MessengerDto.MessageDto sentMessage = messengerService.sendMessage(user.getId(), request);
 
-        // 2. Bắn Socket cho người nhận (Realtime)
+        // 2. Bắn Socket cho người nhận (Realtime) - DÙNG userId
         try {
-            // FIX: Lấy username người nhận để gửi socket
-            String receiverUsername = userService.getUserById(request.getReceiverId()).getUserName();
-            
-            if (receiverUsername != null) {
-                // Gửi tới: /user/{username}/queue/private
-                messagingTemplate.convertAndSendToUser(
-                    receiverUsername, 
-                    "/queue/private", 
-                    sentMessage
-                );
-            }
+            // Gửi tới: /user/{userId}/queue/private
+            messagingTemplate.convertAndSendToUser(
+                request.getReceiverId().toString(), 
+                "/queue/private", 
+                sentMessage
+            );
             
             // 3. Bắn lại cho chính mình (để sync các tab khác)
             messagingTemplate.convertAndSendToUser(
-                user.getUserName(),
+                String.valueOf(user.getId()),
                 "/queue/private",
                 sentMessage
             );

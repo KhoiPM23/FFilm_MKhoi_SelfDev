@@ -1,14 +1,17 @@
 package com.example.project.controller;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 @RestController
@@ -54,10 +57,25 @@ public class TenorController {
     private ResponseEntity<?> proxyToTenor(String url) {
         try {
             RestTemplate restTemplate = new RestTemplate();
-            String response = restTemplate.getForObject(url, String.class);
-            return ResponseEntity.ok(response);
+            restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
+                @Override
+                public boolean hasError(ClientHttpResponse response) throws IOException {
+                    // Don't throw exception on 4xx/5xx
+                    return false;
+                }
+            });
+            
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.ok(response.getBody());
+            } else {
+                // Return empty results instead of error
+                return ResponseEntity.ok("{\"results\":[],\"next\":\"0\"}");
+            }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching from Tenor");
+            // Return empty results
+            return ResponseEntity.ok("{\"results\":[],\"next\":\"0\",\"error\":\"Service unavailable\"}");
         }
     }
 }

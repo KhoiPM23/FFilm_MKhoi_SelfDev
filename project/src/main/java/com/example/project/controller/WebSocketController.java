@@ -1,13 +1,11 @@
-// WebSocketController.java
+// WebSocketController.java - SỬA TẤT CẢ CÁC HÀM
 package com.example.project.controller;
 
-import com.example.project.dto.MessengerDto;
 import com.example.project.service.OnlineStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
@@ -19,14 +17,13 @@ public class WebSocketController {
     @Autowired private SimpMessagingTemplate messagingTemplate;
     @Autowired private OnlineStatusService onlineStatusService;
     
-    // Typing indicator
     @MessageMapping("/typing")
     public void handleTyping(@Payload Map<String, Object> payload) {
         Integer receiverId = (Integer) payload.get("receiverId");
         Integer senderId = (Integer) payload.get("senderId");
         String senderName = (String) payload.get("senderName");
         
-        // Gửi đến người nhận
+        // Gửi đến người nhận bằng userId
         messagingTemplate.convertAndSendToUser(
             receiverId.toString(),
             "/queue/typing",
@@ -39,7 +36,6 @@ public class WebSocketController {
         );
     }
     
-    // Stop typing
     @MessageMapping("/stop-typing")
     public void handleStopTyping(@Payload Map<String, Object> payload) {
         Integer receiverId = (Integer) payload.get("receiverId");
@@ -51,15 +47,11 @@ public class WebSocketController {
         );
     }
     
-    // Mark as seen
     @MessageMapping("/mark-seen")
     public void handleMarkSeen(@Payload Map<String, Object> payload) {
         Long messageId = Long.valueOf(payload.get("messageId").toString());
         Integer userId = (Integer) payload.get("userId");
         Integer partnerId = (Integer) payload.get("partnerId");
-        
-        // Cập nhật DB (gọi service)
-        // messengerService.markMessageAsSeen(messageId, userId);
         
         // Thông báo cho người gửi
         messagingTemplate.convertAndSendToUser(
