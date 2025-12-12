@@ -68,4 +68,23 @@ public class WebSocketController {
             Map.of("messageId", messageId, "seenBy", userId)
         );
     }
+
+    @MessageMapping("/call")
+    public void handleCall(@Payload Map<String, Object> payload) {
+        String type = (String) payload.get("type");
+        Integer receiverId = (Integer) payload.get("receiverId");
+        Integer senderId = (Integer) payload.get("senderId");
+        
+        // Gửi call request đến receiver
+        messagingTemplate.convertAndSendToUser(
+            receiverId.toString(),
+            "/queue/call",
+            Map.of(
+                "type", type,
+                "senderId", senderId,
+                "peerId", payload.get("peerId"),
+                "timestamp", LocalDateTime.now()
+            )
+        );
+    }
 }

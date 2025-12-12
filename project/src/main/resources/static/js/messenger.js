@@ -10,7 +10,7 @@
     if (typeof window.showToast !== 'function') {
         window.showToast = function(message, type='info') {
             // Minimal non-blocking fallback: log to console so code that calls showToast doesn't throw.
-            console.log('[showToast - fallback]', type, message);
+            console.log('[showToast - fallback]', type, message);indow.filterConversations 
         };
     }
 
@@ -91,6 +91,9 @@
             }
         });
 
+        // Thêm sự kiện cho search input
+        $('#convSearchInput').off('input').on('input', window.filterConversations);
+
         // [FIX] Typing indicator
         $('#msgInput').off('input').on('input', function() {
             if (!currentPartnerId || !stompClient) return;
@@ -154,9 +157,6 @@
                 $(this).toggle(name.includes(query));
             });
         });
-        
-        // Emoji
-        initEmojiPicker();
 
         // Emoji trigger với animation
         $('#emojiTrigger').off('click').on('click', function(e) {
@@ -469,7 +469,6 @@
     }
 
     // --- 1. WEBSOCKET ---
-    // --- FIX: WEBSOCKET CONNECTION IMPROVED ---
     function connectWebSocket() {
         const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
@@ -5645,29 +5644,25 @@
             return;
         }
         
-        // Create FormData
         const formData = new FormData();
         const fileName = `audio_${Date.now()}.webm`;
         formData.append('file', audioBlob, fileName);
-        formData.append('type', 'AUDIO');
         
         // Show uploading indicator
         const tempId = 'audio-upload-' + Date.now();
         $('#messagesContainer').append(`
             <div id="${tempId}" class="msg-row mine">
                 <div class="msg-content">
-                    <div class="bubble uploading-audio">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span>Đang tải lên...</span>
+                    <div class="bubble">
+                        <i class="fas fa-spinner fa-spin"></i> Đang tải lên...
                     </div>
                 </div>
             </div>
         `);
         scrollToBottom();
         
-        // Upload to server
         $.ajax({
-            url: '/api/upload/audio', // Cần tạo endpoint này
+            url: '/api/upload/audio',
             type: 'POST',
             data: formData,
             processData: false,
@@ -5676,35 +5671,33 @@
                 $(`#${tempId}`).remove();
                 
                 if (response.url) {
-                    // Send message with audio URL
+                    // Send message với type AUDIO
                     const payload = {
                         receiverId: currentPartnerId,
                         content: response.url,
                         type: 'AUDIO',
                         metadata: {
-                            duration: response.duration || 0,
-                            size: response.size || 0
+                            size: response.size,
+                            duration: 0
                         }
                     };
                     
+                    // Optimistic UI
+                    appendMessageToUI({
+                        id: 'temp-audio',
+                        senderId: currentUser.userID,
+                        content: response.url,
+                        type: 'AUDIO',
+                        formattedTime: 'Đang gửi...'
+                    }, true);
+                    
+                    // Send to server
                     sendApiRequest(payload);
                 }
             },
             error: function(err) {
                 console.error('Upload audio error:', err);
-                $(`#${tempId}`).remove();
-                
-                const errorId = 'audio-error-' + Date.now();
-                $('#messagesContainer').append(`
-                    <div id="${errorId}" class="msg-row mine">
-                        <div class="msg-content">
-                            <div class="bubble error">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>Lỗi tải lên file âm thanh</span>
-                            </div>
-                        </div>
-                    </div>
-                `);
+                $(`#${tempId}`).html('<span class="text-danger">Lỗi tải lên</span>');
             }
         });
     }
@@ -6722,9 +6715,12 @@
 
     // --- 10. LIVE SEARCH CONVERSATIONS (Left Sidebar) ---
     window.filterConversations = function() {
-        const query = $('#convSearchInput').val().toLowerCase();
+        const query = $('#convSearchInput').val().toLowerCase().trim();
+        
         $('.conv-item').each(function() {
-            const name = $(this).find('.conv-name').text().toLowerCase();
+            const nameElement = $(this).find('.conv-name');
+            const name = nameElement.text().toLowerCase();
+            
             if (name.includes(query)) {
                 $(this).show();
             } else {
