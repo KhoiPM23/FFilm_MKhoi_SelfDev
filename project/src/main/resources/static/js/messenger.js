@@ -1609,7 +1609,10 @@
             const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : 'msg-image';
             contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
         } else if (msg.type === 'AUDIO') {
+            // FIX: Thêm xử lý cho AUDIO type
             contentHtml = renderAudioPlayer(msg.content);
+            // Thêm auto-init sau khi append
+            setTimeout(() => initAudioPlayerForMessage(msg.id, msg.content), 100);
         } else if (msg.type === 'FILE') {
             const fileName = decodeURIComponent(msg.content.split('/').pop());
             contentHtml = `
@@ -1657,13 +1660,6 @@
         const unsendBtn = (isMine && !msg.isDeleted) 
             ? `<div class="action-btn" onclick="window.unsendMessage(${msgId})" title="Thu hồi"><i class="fas fa-trash"></i></div>` 
             : '';
-        
-        // const actionsHtml = `
-        //     <div class="msg-actions">
-        //         <div class="action-btn" onclick="window.startReply(${msgId}, '${isMine ? 'Bạn' : currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')" title="Trả lời"><i class="fas fa-reply"></i></div>
-        //         ${unsendBtn}
-        //     </div>
-        // `;
 
         const actionsHtml = `
             <div class="msg-actions">
@@ -1689,6 +1685,26 @@
     function scrollToBottom() {
         let d = $('#messagesContainer');
         d.scrollTop(d[0].scrollHeight);
+    }
+
+    // FIX 1.2: Thêm hàm init audio player
+    function initAudioPlayerForMessage(messageId, audioUrl) {
+        const playerId = `audio-player-${messageId}`;
+        const audioElement = document.getElementById(`${playerId}-audio`);
+        
+        if (audioElement) {
+            audioElement.onloadedmetadata = function() {
+                const duration = Math.floor(audioElement.duration);
+                const mins = Math.floor(duration / 60);
+                const secs = duration % 60;
+                document.getElementById(`${playerId}-duration`).textContent = 
+                    `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            audioElement.onerror = function() {
+                console.error('Lỗi tải audio:', audioUrl);
+            };
+        }
     }
 
     // --- 5. ACTIONS ---
@@ -3069,18 +3085,27 @@
     };
 
     // --- FIX 6: AUDIO PLAYER ---
-    function renderAudioPlayer(audioUrl) {
-        const playerId = 'audio-' + Date.now();
+    function renderAudioPlayer(audioUrl, messageId = null) {
+        const playerId = messageId ? `audio-player-${messageId}` : `audio-player-${Date.now()}`;
+        
         return `
             <div class="msg-audio-player" id="${playerId}">
                 <button class="audio-play-btn" onclick="toggleAudioPlay('${playerId}')">
                     <i class="fas fa-play"></i>
                 </button>
-                <div class="audio-progress-bar" onclick="seekAudio(event, '${playerId}')">
-                    <div class="audio-progress-fill" id="${playerId}-progress"></div>
+                <div class="audio-progress-container" onclick="seekAudio(event, '${playerId}')">
+                    <div class="audio-progress-bar">
+                        <div class="audio-progress-fill" id="${playerId}-progress"></div>
+                    </div>
+                    <div class="audio-time-display">
+                        <span id="${playerId}-current-time">0:00</span>
+                        <span id="${playerId}-duration">0:00</span>
+                    </div>
                 </div>
-                <span class="audio-time" id="${playerId}-time">0:00</span>
-                <audio id="${playerId}-audio" preload="metadata">
+                <audio id="${playerId}-audio" preload="metadata"
+                    onloadedmetadata="initAudioDuration('${playerId}')"
+                    ontimeupdate="updateAudioProgress('${playerId}')"
+                    onended="onAudioEnded('${playerId}')">
                     <source src="${audioUrl}" type="audio/webm">
                     <source src="${audioUrl}" type="audio/mpeg">
                 </audio>
@@ -3090,6 +3115,18 @@
             </div>
         `;
     }
+
+    // FIX 1.4: Thêm hàm initAudioDuration
+    window.initAudioDuration = function(playerId) {
+        const audio = document.getElementById(playerId + '-audio');
+        if (!audio || !audio.duration) return;
+        
+        const duration = Math.floor(audio.duration);
+        const mins = Math.floor(duration / 60);
+        const secs = duration % 60;
+        document.getElementById(playerId + '-duration').textContent = 
+            `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     window.toggleAudioPlay = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
