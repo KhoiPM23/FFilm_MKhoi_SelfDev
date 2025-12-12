@@ -1,6 +1,7 @@
 package com.example.project.service;
 
 import com.example.project.dto.MessengerDto;
+import com.example.project.model.MessengerMessage.MessageType;
 import com.example.project.model.FriendRequest; // [MỚI] Thêm import này
 import com.example.project.model.MessengerMessage;
 import com.example.project.model.User;
@@ -191,6 +192,11 @@ public class MessengerService {
         if (request.getReplyToId() != null) {
             MessengerMessage parent = messengerRepository.findById(request.getReplyToId()).orElse(null);
             msg.setReplyTo(parent);
+        }
+
+        if (request.getType() == MessageType.AUDIO) {
+            // Lưu thêm metadata cho audio
+            msg.setMetadata("{'type':'audio'}");
         }
         
         MessengerMessage saved = messengerRepository.save(msg);

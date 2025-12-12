@@ -246,4 +246,9 @@ public class MessengerMessage {
     public enum MessageStatus {
         SENT, DELIVERED, READ
     }
+
+    public void setMetadata(String string) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setMetadata'");
+    }
 }

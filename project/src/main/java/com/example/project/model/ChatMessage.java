@@ -23,7 +23,7 @@ public class ChatMessage {
     private String status;
 
     public enum MessageType {
-        CHAT, LOCK, UNLOCK, JOIN
+        CHAT, LOCK, UNLOCK, JOIN, AUDIO
     }
 
     public Long getId() {

@@ -1612,10 +1612,13 @@
             const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : 'msg-image';
             contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
         } else if (msg.type === 'AUDIO') {
-            // FIX: Thêm xử lý cho AUDIO type
-            contentHtml = renderAudioPlayer(msg.content);
-            // Thêm auto-init sau khi append
-            setTimeout(() => initAudioPlayerForMessage(msg.id, msg.content), 100);
+            contentHtml = renderAudioPlayer(msg.content, msg.id);
+            // Auto-init sau khi append
+            setTimeout(() => {
+                if (msg.id) {
+                    initAudioDuration(`audio-player-${msg.id}`);
+                }
+            }, 100);
         } else if (msg.type === 'FILE') {
             const fileName = decodeURIComponent(msg.content.split('/').pop());
             contentHtml = `
@@ -3137,7 +3140,7 @@
                     </div>
                     <div class="audio-time-display">
                         <span id="${playerId}-current-time">0:00</span>
-                        <span id="${playerId}-duration">0:00</span>
+                        <span id="${playerId}-duration">--:--</span>
                     </div>
                 </div>
                 <audio id="${playerId}-audio" preload="metadata"
@@ -3146,6 +3149,7 @@
                     onended="onAudioEnded('${playerId}')">
                     <source src="${audioUrl}" type="audio/webm">
                     <source src="${audioUrl}" type="audio/mpeg">
+                    Your browser does not support the audio element.
                 </audio>
                 <a href="${audioUrl}" download class="audio-download-btn" title="Tải xuống">
                     <i class="fas fa-download"></i>
@@ -3157,14 +3161,33 @@
     // FIX 1.4: Thêm hàm initAudioDuration
     window.initAudioDuration = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        if (!audio || !audio.duration) return;
+        if (!audio) return;
         
-        const duration = Math.floor(audio.duration);
-        const mins = Math.floor(duration / 60);
-        const secs = duration % 60;
-        document.getElementById(playerId + '-duration').textContent = 
-            `${mins}:${secs.toString().padStart(2, '0')}`;
+        // Đợi metadata load
+        if (audio.readyState >= 1) {
+            updateAudioDuration(playerId, audio.duration);
+        } else {
+            audio.addEventListener('loadedmetadata', () => {
+                updateAudioDuration(playerId, audio.duration);
+            });
+            // Force load
+            audio.load();
+        }
     };
+
+    function updateAudioDuration(playerId, duration) {
+        if (!duration || isNaN(duration) || duration === Infinity) {
+            console.warn('Invalid audio duration');
+            return;
+        }
+        
+        const mins = Math.floor(duration / 60);
+        const secs = Math.floor(duration % 60);
+        const durationElement = document.getElementById(playerId + '-duration');
+        if (durationElement) {
+            durationElement.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
 
     window.toggleAudioPlay = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
