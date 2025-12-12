@@ -11,6 +11,7 @@ public class OnlineStatusService {
     
     private final Map<Integer, LocalDateTime> userLastActive = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> userOnlineStatus = new ConcurrentHashMap<>();
+    private final Map<Integer, String> userNames = new ConcurrentHashMap<>();
     
     public void markOnline(Integer userId) {
         userOnlineStatus.put(userId, true);
@@ -23,12 +24,22 @@ public class OnlineStatusService {
     }
     
     public boolean isOnline(Integer userId) {
-        return userOnlineStatus.getOrDefault(userId, false);
+        Boolean status = userOnlineStatus.get(userId);
+        if (status == null) {
+            // Check if recently active (within 2 minutes)
+            LocalDateTime lastActive = userLastActive.get(userId);
+            if (lastActive != null) {
+                Duration duration = Duration.between(lastActive, LocalDateTime.now());
+                return duration.toMinutes() < 2;
+            }
+            return false;
+        }
+        return status;
     }
     
     public String getLastActive(Integer userId) {
         LocalDateTime lastActive = userLastActive.get(userId);
-        if (lastActive == null) return null;
+        if (lastActive == null) return "Chưa từng online";
         
         Duration duration = Duration.between(lastActive, LocalDateTime.now());
         long minutes = duration.toMinutes();
@@ -37,5 +48,13 @@ public class OnlineStatusService {
         if (minutes < 60) return minutes + " phút trước";
         if (minutes < 1440) return (minutes / 60) + " giờ trước";
         return (minutes / 1440) + " ngày trước";
+    }
+    
+    public void setUserName(Integer userId, String userName) {
+        userNames.put(userId, userName);
+    }
+    
+    public String getUserName(Integer userId) {
+        return userNames.getOrDefault(userId, "User#" + userId);
     }
 }
