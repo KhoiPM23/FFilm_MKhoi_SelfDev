@@ -98,21 +98,21 @@ public class MessengerApiController {
 
         // 2. Bắn Socket cho người nhận (Realtime)
         try {
-            // Lấy username người nhận để gửi socket
-             String receiverUsername = userService.getUserById(request.getReceiverId()).getUserName();
+            // FIX: Lấy username người nhận để gửi socket
+            String receiverUsername = userService.getUserById(request.getReceiverId()).getUserName();
             
             if (receiverUsername != null) {
                 // Gửi tới: /user/{username}/queue/private
                 messagingTemplate.convertAndSendToUser(
-                    request.getReceiverId().toString(), 
+                    receiverUsername, 
                     "/queue/private", 
                     sentMessage
                 );
             }
             
             // 3. Bắn lại cho chính mình (để sync các tab khác)
-             messagingTemplate.convertAndSendToUser(
-                String.valueOf(user.getId()),
+            messagingTemplate.convertAndSendToUser(
+                user.getUserName(),
                 "/queue/private",
                 sentMessage
             );

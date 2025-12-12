@@ -483,17 +483,17 @@
             console.log('✅ WebSocket Connected:', frame);
             
             // Subscribe đến private messages
-            stompClient.subscribe(`/user/${currentUser.name}/queue/private`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userName}/queue/private`, function(payload) {
                 const msg = JSON.parse(payload.body);
                 handleSocketMessage(msg);
             });
             
             // Subscribe đến typing notifications
-            stompClient.subscribe(`/user/${currentUser.name}/queue/typing`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userName}/queue/typing`, function(payload) {
                 const data = JSON.parse(payload.body);
                 if (data.senderId === currentPartnerId) {
                     if (data.type === 'TYPING') {
-                        showTypingIndicator();
+                        showTypingIndicator(data.senderName);
                     } else {
                         hideTypingIndicator();
                     }
@@ -501,13 +501,13 @@
             });
             
             // Subscribe đến seen notifications
-            stompClient.subscribe(`/user/${currentUser.name}/queue/seen`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userName}/queue/seen`, function(payload) {
                 const data = JSON.parse(payload.body);
-                updateSeenAvatar(data.messageId);
+                updateSeenAvatar(data.messageId, data.seenBy);
             });
             
             // Subscribe đến online status
-            stompClient.subscribe(`/user/${currentUser.name}/queue/online-status`, function(payload) {
+            stompClient.subscribe(`/user/${currentUser.userName}/queue/online-status`, function(payload) {
                 const data = JSON.parse(payload.body);
                 updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
             });
@@ -2955,6 +2955,31 @@
                 }));
             }, 2000);
         });
+    }
+
+    function showTypingIndicator(senderName) {
+        // Remove existing indicator
+        $('#typingIndicator').remove();
+        
+        const indicator = $(`
+            <div id="typingIndicator" class="typing-indicator">
+                <div class="typing-dots">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+                <span style="margin-left: 8px; color: #aaa; font-size: 12px;">
+                    ${senderName} đang soạn tin...
+                </span>
+            </div>
+        `);
+        
+        $('#messagesContainer').append(indicator);
+        scrollToBottom();
+        
+        // Auto hide after 5 seconds
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(hideTypingIndicator, 5000);
     }
 
     // Upload (Fix URL)
@@ -5979,48 +6004,63 @@
     }
 
     function hideTypingIndicator() {
-        $('#typingIndicator').removeClass('active');
+        $('#typingIndicator').remove();
     }
 
     // Send typing event via WebSocket
     $('#msgInput').on('input', function() {
-        if (!currentPartnerId) return;
+        if (!currentPartnerId || !stompClient) return;
         
         clearTimeout(typingTimeout);
         
-        if (stompClient && stompClient.connected) {
-            stompClient.send('/app/typing', {}, JSON.stringify({
-                receiverId: currentPartnerId,
-                senderId: currentUser.userID
-            }));
-        }
+        // Send typing event
+        stompClient.send('/app/typing', {}, JSON.stringify({
+            receiverId: currentPartnerId,
+            senderId: currentUser.userID,
+            senderName: currentUser.userName,
+            type: 'TYPING'
+        }));
         
+        // Stop typing after 2 seconds of inactivity
         typingTimeout = setTimeout(() => {
-            if (stompClient && stompClient.connected) {
-                stompClient.send('/app/stop-typing', {}, JSON.stringify({
-                    receiverId: currentPartnerId
-                }));
-            }
+            stompClient.send('/app/stop-typing', {}, JSON.stringify({
+                receiverId: currentPartnerId
+            }));
         }, 2000);
     });
 
     // --- FIX 10: SEEN AVATAR ---
-    function updateSeenAvatar(messageId) {
-        if (!messageId || lastSeenMessageId === messageId) return;
+    function updateSeenAvatar(messageId, seenByUserId) {
+        const messageElement = $(`#msg-${messageId}`);
         
-        // Remove old seen avatar
-        $('.msg-seen-avatar').remove();
-        
-        // Add new seen avatar
-        const msgRow = $(`#msg-${messageId}`);
-        if (msgRow.length && msgRow.hasClass('mine')) {
-            const avatar = $('#headerAvatar').attr('src');
-            msgRow.find('.msg-content').append(`<img src="${avatar}" class="msg-seen-avatar">`);
-            lastSeenMessageId = messageId;
+        if (messageElement.length && seenByUserId === currentPartnerId) {
+            // Add seen avatar
+            const partnerAvatar = $('#headerAvatar').attr('src');
+            messageElement.find('.msg-content').append(`
+                <img src="${partnerAvatar}" class="msg-seen-avatar" 
+                    title="Đã xem" style="width:16px; height:16px; border-radius:50%;">
+            `);
         }
     }
+
+    // FIX 7.6: Send seen events
+    function sendSeenEvent(messageId) {
+        if (!stompClient || !currentPartnerId) return;
+        
+        stompClient.send('/app/mark-seen', {}, JSON.stringify({
+            messageId: messageId,
+            userId: currentUser.userID,
+            partnerId: currentPartnerId
+        }));
+    }
     
-    
+    // Call sendSeenEvent khi tin nhắn hiển thị trong viewport
+    $(document).ready(function() {
+        $('#messagesContainer').on('scroll', function() {
+            // Implement logic để kiểm tra tin nhắn nào đang visible
+            // và gọi sendSeenEvent cho tin nhắn cuối cùng
+        });
+    });
 
     // --- 8. STICKER LOGIC (MESSENGER STYLE) ---
 
