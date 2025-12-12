@@ -1576,6 +1576,9 @@
             }
             msgs.forEach(m => appendMessageToUI(m));
             scrollToBottom();
+
+            // FIX: Khởi tạo reaction system sau khi load tin nhắn
+            initReactionSystem();
         });
     }
 
@@ -1641,6 +1644,9 @@
                 <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, 'Bạn', '${msg.content?.substring(0,50) || '[File]'}')">
                     <i class="fas fa-reply"></i>
                 </div>
+                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="showReactionPicker(this, ${msgId})">
+                    <i class="far fa-smile"></i>
+                </div>
                 <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage(${msgId})">
                     <i class="fas fa-trash"></i>
                 </div>
@@ -1652,6 +1658,9 @@
                 </div>
                 <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, '${currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')">
                     <i class="fas fa-reply"></i>
+                </div>
+                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="showReactionPicker(this, ${msgId})">
+                    <i class="far fa-smile"></i>
                 </div>
             `;
         }
@@ -5773,14 +5782,25 @@
 
     // Reaction system
     window.initReactionSystem = function() {
-        // Add reaction button to messages
+        // Thêm reaction button cho các message chưa có
         $('.msg-row').each(function() {
             if (!$(this).find('.reaction-btn').length) {
-                $(this).append(`
-                    <div class="reaction-btn" onclick="showReactionPicker(this)">
-                        <i class="far fa-smile"></i>
-                    </div>
-                `);
+                const msgId = $(this).data('msg-id');
+                if (msgId) {
+                    $(this).append(`
+                        <div class="reaction-btn" onclick="showReactionPicker(this, ${msgId})">
+                            <i class="far fa-smile"></i>
+                        </div>
+                    `);
+                }
+            }
+        });
+        
+        // Hiển thị existing reactions nếu có
+        $('.msg-row').each(function() {
+            const msgId = $(this).data('msg-id');
+            if (msgId) {
+                loadMessageReactions(msgId);
             }
         });
     };
