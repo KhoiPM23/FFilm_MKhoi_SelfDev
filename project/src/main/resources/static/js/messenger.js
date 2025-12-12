@@ -80,6 +80,8 @@
         setupStickerSuggestions();
         renderRecentStickers();
         setTimeout(initEmojiPicker, 1000); // Delay xíu để thư viện load
+        const allModalCSS = forwardModalCSS + themeAndNicknameCSS + additionalCSS;
+        $('head').append(`<style>${allModalCSS}</style>`);
     });
 
     function bindEvents() {
@@ -2744,6 +2746,9 @@
     function showForwardModal() {
         if (!selectedMessageToForward) return;
         
+        // Xóa modal cũ nếu có
+        $('.forward-modal-overlay, .forward-modal').remove();
+        
         const modal = $('<div class="forward-modal-overlay"></div>');
         const content = $(`
             <div class="forward-modal">
@@ -2790,6 +2795,11 @@
             filterForwardRecipients($(this).val());
         });
     }
+
+
+function loadForwardRecipients() {
+    
+}
 
     function closeForwardModal() {
         $('.forward-modal-overlay, .forward-modal').remove();
@@ -2936,6 +2946,257 @@
         forwardBtn.html('<i class="fas fa-check"></i> Đã chuyển tiếp');
         forwardBtn.css('background', '#2ecc71');
     }
+
+    // messenger.js - THÊM VÀO ĐẦU FILE (sau 'use strict')
+    const forwardModalCSS = `
+    .forward-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+    }
+
+    .forward-modal {
+        background: #242526;
+        border-radius: 16px;
+        width: 500px;
+        max-width: 90%;
+        max-height: 80%;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: modalAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .forward-header {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .forward-header h3 {
+        margin: 0;
+        color: #fff;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .close-forward {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-forward:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .forward-preview {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+    }
+
+    .preview-label {
+        color: #aaa;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .preview-content {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 12px;
+        color: #fff;
+        font-size: 14px;
+        border-left: 3px solid var(--msg-blue);
+    }
+
+    .forward-search {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+        position: relative;
+    }
+
+    #forwardSearchInput {
+        width: 100%;
+        background: #3a3b3c;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 12px 12px 12px 40px;
+        color: #fff;
+        font-size: 14px;
+    }
+
+    .forward-search i {
+        position: absolute;
+        left: 32px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #aaa;
+    }
+
+    .forward-recipients {
+        padding: 20px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .recipients-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .recipient-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .recipient-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .recipient-select {
+        position: relative;
+    }
+
+    .recipient-select input[type="checkbox"] {
+        opacity: 0;
+        position: absolute;
+    }
+
+    .checkmark {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #555;
+        border-radius: 4px;
+        display: inline-block;
+        position: relative;
+    }
+
+    .recipient-select input:checked ~ .checkmark {
+        background: var(--msg-blue);
+        border-color: var(--msg-blue);
+    }
+
+    .recipient-select input:checked ~ .checkmark::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 12px;
+    }
+
+    .recipient-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+    }
+
+    .recipient-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .recipient-details {
+        flex: 1;
+    }
+
+    .recipient-name {
+        color: #fff;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .recipient-last-message {
+        color: #aaa;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .forward-actions {
+        padding: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-cancel {
+        background: #3a3b3c;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-forward {
+        background: #0084ff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-forward:disabled {
+        background: #3a3b3c;
+        color: #aaa;
+        cursor: not-allowed;
+    }
+
+    .btn-forward.sent {
+        background: #2ecc71;
+    }
+
+    .loading-recipients, .no-conversations {
+        text-align: center;
+        padding: 40px;
+        color: #aaa;
+    }
+    `;
+
+    // Thêm CSS vào document
+    $(document).ready(function() {
+        $('head').append(`<style>${forwardModalCSS}</style>`);
+    });
+
+
     // --- FIX: TYPING INDICATOR REAL-TIME ---
     function setupTypingIndicator() {
         $('#msgInput').off('input').on('input', function() {
