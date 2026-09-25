@@ -158,6 +158,7 @@ public class WatchPartyService {
         private Map<String, RoomMember> members = new ConcurrentHashMap<>();
         private Map<String, RoomMember> waitingList = new ConcurrentHashMap<>();
         private List<SocketMessage> chatHistory = Collections.synchronizedList(new ArrayList<>());
+        private Set<Integer> approvedUserIds = ConcurrentHashMap.newKeySet();
 
         public WatchRoomRuntime(String roomId, String hostSessionId) {
             this.roomId = roomId;
@@ -181,6 +182,9 @@ public class WatchPartyService {
         runtime.setHostName(host.getUserName());
         runtime.setHostAvatar(host.getAvatar());
         runtime.getMembers().put(host.getSessionId(), host);
+        if (host.getUserId() != null) {
+            runtime.getApprovedUserIds().add(host.getUserId());
+        }
         activeRooms.put(roomId, runtime);
         updateRoomActiveStatus(Long.valueOf(roomId), true);
     }
@@ -191,13 +195,20 @@ public class WatchPartyService {
         if (runtime == null) return "NOT_FOUND";
         
         WatchRoom dbRoom = getRoomInfo(Long.valueOf(roomId));
-        boolean needApproval = "PRIVATE".equals(dbRoom.getAccessType());
+        if (dbRoom == null) return "NOT_FOUND";
 
-        if (needApproval) {
+        boolean isHost = (runtime.getHostUserId() != null && runtime.getHostUserId().equals(member.getUserId()))
+                || (dbRoom.getOwner() != null && dbRoom.getOwner().getUserID() == member.getUserId());
+        boolean isApproved = member.getUserId() != null && runtime.getApprovedUserIds().contains(member.getUserId());
+
+        if ("PRIVATE".equals(dbRoom.getAccessType()) && !isHost && !isApproved) {
             runtime.getWaitingList().put(member.getSessionId(), member);
             return "WAITING";
         } else {
             runtime.getMembers().put(member.getSessionId(), member);
+            if (member.getUserId() != null) {
+                runtime.getApprovedUserIds().add(member.getUserId());
+            }
             return "JOINED";
         }
     }
@@ -207,6 +218,20 @@ public class WatchPartyService {
         if (runtime != null && runtime.getWaitingList().containsKey(sessionId)) {
             RoomMember member = runtime.getWaitingList().remove(sessionId);
             runtime.getMembers().put(sessionId, member);
+            if (member.getUserId() != null) {
+                runtime.getApprovedUserIds().add(member.getUserId());
+            }
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", runtime.getWaitingList().values());
+            return true;
+        }
+        return false;
+    }
+
+    public boolean rejectMember(String roomId, String sessionId) {
+        WatchRoomRuntime runtime = activeRooms.get(roomId);
+        if (runtime != null && runtime.getWaitingList().containsKey(sessionId)) {
+            runtime.getWaitingList().remove(sessionId);
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", runtime.getWaitingList().values());
             return true;
         }
         return false;
@@ -215,9 +240,21 @@ public class WatchPartyService {
     public void kickMember(String roomId, String sessionId) {
         WatchRoomRuntime runtime = activeRooms.get(roomId);
         if (runtime != null) {
-            runtime.getMembers().remove(sessionId);
+            RoomMember member = runtime.getMembers().remove(sessionId);
+            if (member != null && member.getUserId() != null) {
+                runtime.getApprovedUserIds().remove(member.getUserId());
+            }
             runtime.getWaitingList().remove(sessionId);
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", runtime.getWaitingList().values());
         }
+    }
+
+    public boolean closeRoom(String roomId) {
+        WatchRoomRuntime runtime = activeRooms.remove(roomId);
+        try {
+            updateRoomActiveStatus(Long.valueOf(roomId), false);
+        } catch (Exception ignored) {}
+        return runtime != null;
     }
 
     public WatchRoomRuntime getRuntimeRoom(String roomId) {
@@ -254,6 +291,9 @@ public class WatchPartyService {
                         room.setHostUserId(newHost.getUserId());
                         room.setHostName(newHost.getUserName());
                         room.setHostAvatar(newHost.getAvatar());
+                        if (newHost.getUserId() != null) {
+                            room.getApprovedUserIds().add(newHost.getUserId());
+                        }
                         
                         // Broadcast host changed
                         Map<String, Object> hostMsg = new HashMap<>();
@@ -469,10 +509,12 @@ public class WatchPartyService {
         WatchRoom savedRoom = roomRepository.save(room);
 
         // [LOGIC VIPRO] Khởi tạo Runtime RAM để hiện ngay lên Lobby
-        // Use existing constructor; hostSessionId unknown at creation time -> pass null
         WatchRoomRuntime runtime = new WatchRoomRuntime(String.valueOf(savedRoom.getId()), null);
+        runtime.setHostUserId(ownerId);
+        userRepository.findById(ownerId).ifPresent(u -> runtime.setHostName(u.getUserName()));
+        runtime.getApprovedUserIds().add(ownerId);
         
-        // Khởi tạo các list rỗng để tránh lỗi Null (class already initializes them, but ensure safe defaults)
+        // Khởi tạo các list rỗng để tránh lỗi Null
         runtime.setMembers(new java.util.concurrent.ConcurrentHashMap<>());
         runtime.setWaitingList(new java.util.concurrent.ConcurrentHashMap<>());
         runtime.setChatHistory(java.util.Collections.synchronizedList(new java.util.ArrayList<>()));

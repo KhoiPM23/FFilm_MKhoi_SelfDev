@@ -215,10 +215,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
 
-        function deleteRoom(id) { /* Logic cũ */ 
-            if(!confirm("Bạn có chắc muốn giải tán phòng này không?")) return;
+        function deleteRoom(id) {
+            if(!confirm("Bạn có chắc muốn xóa phòng chiếu này không?")) return;
             fetch(`/api/party/delete/${id}`, { method: 'DELETE' })
-            .then(res => { if(res.ok) window.location.reload(); });
+            .then(res => {
+                if(res.ok) {
+                    window.location.reload();
+                } else {
+                    res.json().then(data => alert(data.error || "Không thể xóa phòng."));
+                }
+            })
+            .catch(err => alert("Lỗi kết nối khi xóa phòng: " + err));
         }
     </script>
 </body>

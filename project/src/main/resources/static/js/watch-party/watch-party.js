@@ -16,23 +16,27 @@ stompClient.debug = null;
 var isSyncing = false; 
 var isSidebarOpen = true;
 var currentReply = null;
+var roomMembers = {};
+var currentWaitingUsers = [];
 
 // --- PEERJS CONFIG (VIDEO CALL) ---
-// Sử dụng server cloud miễn phí của PeerJS. Nếu lag thì cần dựng server riêng.
 var myPeer = new Peer(undefined, {
     host: 'peerjs-server.herokuapp.com',
     secure: true,
     port: 443
 });
 
+myPeer.on('error', function(err) {
+    console.warn("PeerJS non-fatal error:", err.type || err);
+});
+
 var myStream;
 var peers = {}; // Danh sách kết nối
-var isSyncing = false;
 var searchPage = 0; // Pagination cho search
 
 // --- KẾT NỐI SOCKET ---
 stompClient.connect({}, function (frame) {
-    console.log('Connected');
+    console.log('Connected to Watch Party WebSocket');
     
     // Gửi tín hiệu JOIN để server thêm vào members hoặc waitingList
     stompClient.send("/app/party/" + roomId + "/join", {}, JSON.stringify({sessionId: sessionId}));
@@ -40,11 +44,13 @@ stompClient.connect({}, function (frame) {
     if (typeof joinStatus !== 'undefined' && joinStatus === 'WAITING') {
         stompClient.subscribe('/topic/party/' + roomId + '/approval/' + sessionId, function(msg) {
             if (msg.body === 'APPROVED') {
-                var lockScreen = document.querySelector('div[style*="fa-lock"]');
-                if(lockScreen) lockScreen.parentNode.remove();
+                var waitingScreen = document.getElementById('waitingScreen');
+                if (waitingScreen) waitingScreen.remove();
                 
                 var noMovieState = document.getElementById('noMovieState');
-                if(noMovieState) noMovieState.style.display = 'block';
+                if (noMovieState && (!video || !video.src || video.style.display === 'none')) {
+                    noMovieState.style.display = 'block';
+                }
                 
                 initFullFeatures(); 
             } else if (msg.body === 'REJECTED') {
@@ -93,19 +99,28 @@ function initFullFeatures() {
         window.location.href = "/watch-party";
     });
 
-    // 4. System Events (Join, Leave, Host Changed, Peer Registered)
+    // 4. System Events (Join, Leave, Host Changed, Peer Registered, Room Closed)
     stompClient.subscribe('/topic/party/' + roomId + '/system', function (payload) {
         var msg = JSON.parse(payload.body);
         if (msg.type === 'MEMBER_JOINED') {
-            console.log(msg.userName + " joined the room.");
+            roomMembers[msg.sessionId] = {
+                sessionId: msg.sessionId,
+                userName: msg.userName,
+                userId: msg.userId,
+                isHost: false
+            };
+            renderMembersList();
+            drawSystemMessage(msg.userName + " đã tham gia phòng chiếu.");
         } else if (msg.type === 'MEMBER_LEFT') {
-            console.log(msg.userName + " left the room.");
+            delete roomMembers[msg.sessionId];
+            renderMembersList();
+            drawSystemMessage(msg.userName + " đã rời phòng chiếu.");
             // Cleanup PeerJS call and video
             if (msg.sessionId) {
                 var leftPeerId = sessionToPeerId[msg.sessionId];
                 if (leftPeerId) {
                     if (peers[leftPeerId]) {
-                        peers[leftPeerId].close();
+                        try { peers[leftPeerId].close(); } catch(e) {}
                         delete peers[leftPeerId];
                     }
                     var videoEl = document.getElementById('video-' + leftPeerId);
@@ -116,19 +131,24 @@ function initFullFeatures() {
                 }
             }
         } else if (msg.type === 'HOST_CHANGED') {
-            console.log("Host changed to: " + msg.newHostName);
-            if (msg.newHostUserId == sessionId || msg.newHostSessionId === sessionId || msg.newHostName === username) {
+            drawSystemMessage("Chủ phòng mới: " + msg.newHostName);
+            Object.values(roomMembers).forEach(m => m.isHost = false);
+            if (roomMembers[msg.newHostSessionId]) {
+                roomMembers[msg.newHostSessionId].isHost = true;
+            }
+            renderMembersList();
+            if (msg.newHostUserId == userId || msg.newHostSessionId === sessionId || msg.newHostName === username) {
                 alert("Chủ phòng đã rời đi. Bạn đã được chọn làm Chủ Phòng mới!");
-                window.location.reload(); // Reload để nhận đặc quyền host từ Thymeleaf
+                window.location.reload();
             } else {
                 showFloatingBubble({sender: "System", content: "Chủ phòng mới: " + msg.newHostName, type: "CHAT"});
             }
+        } else if (msg.type === 'ROOM_CLOSED') {
+            alert(msg.message || "Chủ phòng đã giải tán phòng chiếu.");
+            window.location.href = "/watch-party";
         } else if (msg.type === 'PEER_REGISTERED') {
-            console.log("Peer registered: " + msg.userName + " -> " + msg.peerId);
             sessionToPeerId[msg.sessionId] = msg.peerId;
-            // Nếu không phải là mình, gọi họ
             if (msg.sessionId !== sessionId && myStream && msg.peerId) {
-                // Đợi 1 chút để đảm bảo họ đã ready
                 setTimeout(() => connectToNewUser(msg.peerId, myStream), 1000);
             }
         }
@@ -137,36 +157,36 @@ function initFullFeatures() {
     // Nhận danh sách members hiện tại
     stompClient.subscribe('/topic/party/' + roomId + '/members/' + sessionId, function (payload) {
         var members = JSON.parse(payload.body);
+        roomMembers = {};
         members.forEach(member => {
+            roomMembers[member.sessionId] = member;
             if (member.sessionId !== sessionId && member.peerId) {
                 sessionToPeerId[member.sessionId] = member.peerId;
             }
         });
+        renderMembersList();
     });
-}
 
-// Subscribe waiting list updates (Host only)
-if (isHost) {
-    stompClient.subscribe('/topic/party/' + roomId + '/waitingUpdate', (payload) => {
-        const waitingUsers = JSON.parse(payload.body);
-        if (waitingUsers.length > 0) {
-            document.getElementById('waitingNotif').style.display = 'block';
-        } else {
-            document.getElementById('waitingNotif').style.display = 'none';
-        }
-    });
+    // Subscribe waiting list updates (Host only)
+    if (isHost) {
+        stompClient.subscribe('/topic/party/' + roomId + '/waitingUpdate', (payload) => {
+            try {
+                currentWaitingUsers = JSON.parse(payload.body) || [];
+                updateWaitingNotifUI();
+            } catch(e) {}
+        });
+        stompClient.send("/app/party/" + roomId + "/waitingList", {}, {});
+    }
 }
 
 var sessionToPeerId = {}; // Map sessionId -> peerId
 
 // --- WEBSOCKET & PEERJS LINK ---
 myPeer.on('open', id => {
-    // Gửi PeerID của mình lên Server
     console.log("My PeerJS ID is: " + id);
     if (stompClient && stompClient.connected) {
         stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
     } else {
-        // Nếu STOMP chưa connect, đợi connect xong rồi gửi (handle trong connect callback)
         var checkStomp = setInterval(() => {
             if (stompClient && stompClient.connected) {
                 stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
@@ -178,14 +198,12 @@ myPeer.on('open', id => {
 
 // Nhận cuộc gọi
 myPeer.on('call', call => {
-    // Nếu chưa có stream, lấy stream mặc định (chỉ audio nếu không bật cam)
     if (!myStream) {
         navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
             myStream = stream;
             answerCall(call);
         }).catch(err => {
             console.error("Could not get media for answering call", err);
-            // Vẫn trả lời nhưng không gửi stream
             call.answer();
             handleIncomingStream(call);
         });
@@ -212,7 +230,7 @@ function handleIncomingStream(call) {
 }
 
 function connectToNewUser(userId, stream) {
-    if (peers[userId]) return; // Đã kết nối
+    if (peers[userId]) return;
     const call = myPeer.call(userId, stream);
     const video = document.createElement('video');
     video.id = 'video-' + userId;
@@ -229,7 +247,6 @@ function addVideoStream(video, stream) {
     video.srcObject = stream;
     video.addEventListener('loadedmetadata', () => { video.play().catch(e=>{}); });
     
-    // Tạo khung hiển thị cam người khác
     if (!document.getElementById(video.id)) {
         const div = document.createElement('div');
         div.className = 'user-cam';
@@ -242,45 +259,74 @@ function addVideoStream(video, stream) {
 function toggleCam() {
     const btn = document.getElementById('btnCam');
     const container = document.getElementById('localCamContainer');
+    const localVideo = document.getElementById('localVideo');
     
     if (btn.classList.contains('active')) {
-        // Tắt Cam
+        // Tắt Cam (disable video track only, DO NOT destroy audio)
         btn.classList.remove('active');
         btn.innerHTML = '<i class="fas fa-video-slash"></i>';
-        if(myStream) {
-            myStream.getTracks().forEach(track => track.stop());
-            container.style.display = 'none';
+        if (myStream) {
+            myStream.getVideoTracks().forEach(track => { track.enabled = false; });
         }
+        if (container) container.style.display = 'none';
     } else {
         // Bật Cam
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-            myStream = stream;
-            const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject = stream;
-            container.style.display = 'block';
-            
+        if (myStream && myStream.getVideoTracks().length > 0) {
+            myStream.getVideoTracks().forEach(track => { track.enabled = true; });
+            if (localVideo) {
+                localVideo.srcObject = myStream;
+                localVideo.muted = true;
+            }
+            if (container) container.style.display = 'block';
             btn.classList.add('active');
             btn.innerHTML = '<i class="fas fa-video"></i>';
-            
-            // Tắt âm thanh local để không vang
-            localVideo.muted = true; 
-        });
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                myStream = stream;
+                if (localVideo) {
+                    localVideo.srcObject = stream;
+                    localVideo.muted = true;
+                }
+                if (container) container.style.display = 'block';
+                btn.classList.add('active');
+                btn.innerHTML = '<i class="fas fa-video"></i>';
+                
+                Object.keys(peers).forEach(peerId => {
+                    connectToNewUser(peerId, myStream);
+                });
+            }).catch(err => {
+                console.warn("Could not access camera:", err);
+                alert("Không thể truy cập camera: " + err.message);
+            });
+        }
     }
 }
 
 function toggleMic() {
     const btn = document.getElementById('btnMic');
-    if(myStream) {
+    if (myStream && myStream.getAudioTracks().length > 0) {
         const audioTrack = myStream.getAudioTracks()[0];
-        if(audioTrack.enabled) {
-            audioTrack.enabled = false;
-            btn.classList.remove('active-mic');
-            btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-        } else {
-            audioTrack.enabled = true;
+        audioTrack.enabled = !audioTrack.enabled;
+        if (audioTrack.enabled) {
             btn.classList.add('active-mic');
             btn.innerHTML = '<i class="fas fa-microphone"></i>';
+        } else {
+            btn.classList.remove('active-mic');
+            btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
         }
+    } else {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            if (myStream) {
+                stream.getAudioTracks().forEach(t => myStream.addTrack(t));
+            } else {
+                myStream = stream;
+            }
+            btn.classList.add('active-mic');
+            btn.innerHTML = '<i class="fas fa-microphone"></i>';
+        }).catch(err => {
+            console.warn("Could not access microphone:", err);
+            alert("Không thể truy cập micro: " + err.message);
+        });
     }
 }
 
@@ -516,32 +562,270 @@ function showFloatingEmoji(emoji) {
     setTimeout(() => el.remove(), 2000);
 }
 
-// VIDEO PLAYER
+// VIDEO PLAYER & SYNCHRONIZATION
 var video = document.getElementById('partyPlayer');
-if (isHost) {
-    ['play', 'pause', 'seeked'].forEach(event => {
-        video.addEventListener(event, () => {
-            if(!isSyncing) sendSync(event.toUpperCase());
-        });
+var seekDebounceTimer = null;
+
+if (isHost && video) {
+    video.addEventListener('play', function() {
+        if (!isSyncing) sendSync('PLAY');
     });
+    video.addEventListener('pause', function() {
+        if (!isSyncing) sendSync('PAUSE');
+    });
+    video.addEventListener('seeked', function() {
+        if (!isSyncing) {
+            clearTimeout(seekDebounceTimer);
+            seekDebounceTimer = setTimeout(function() {
+                sendSync('SEEK');
+            }, 150);
+        }
+    });
+
+    // Periodic heartbeat every 5s while playing to keep all members tightly synced
+    setInterval(function() {
+        if (video && !video.paused && !isSyncing && stompClient && stompClient.connected) {
+            sendSync('HEARTBEAT');
+        }
+    }, 5000);
 }
+
 function sendSync(type) {
-    stompClient.send("/app/party/" + roomId + "/sync", {}, JSON.stringify({ type: type, currentTime: video.currentTime, sender: username }));
+    if (!stompClient || !stompClient.connected) return;
+    stompClient.send("/app/party/" + roomId + "/sync", {}, JSON.stringify({
+        type: type,
+        currentTime: video.currentTime,
+        sender: username,
+        playbackStatus: video.paused ? 'PAUSE' : 'PLAY'
+    }));
 }
+
 function handleVideoSync(action) {
+    if (isHost || !video) return;
     isSyncing = true;
-    if (Math.abs(video.currentTime - action.currentTime) > 2) video.currentTime = action.currentTime;
-    if (action.type === 'PLAY') video.play().catch(e=>{});
-    else if (action.type === 'PAUSE') video.pause();
-    setTimeout(() => isSyncing = false, 500);
+    
+    var targetTime = typeof action.currentTime === 'number' ? action.currentTime : parseFloat(action.currentTime);
+    
+    if (action.type === 'PLAY') {
+        if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 1.5) {
+            video.currentTime = targetTime;
+        }
+        video.play().catch(function(e) { console.warn("Autoplay blocked:", e); });
+    } else if (action.type === 'PAUSE') {
+        video.pause();
+        if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 0.5) {
+            video.currentTime = targetTime;
+        }
+    } else if (action.type === 'SEEK' || action.type === 'SEEKED') {
+        if (!isNaN(targetTime)) {
+            video.currentTime = targetTime;
+        }
+        if (action.playbackStatus === 'PLAY') {
+            video.play().catch(function(e) {});
+        } else if (action.playbackStatus === 'PAUSE') {
+            video.pause();
+        }
+    } else if (action.type === 'HEARTBEAT') {
+        // Continuous smooth drift correction
+        if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 2.0) {
+            video.currentTime = targetTime;
+        }
+        if (action.playbackStatus === 'PLAY' && video.paused) {
+            video.play().catch(function(e) {});
+        } else if (action.playbackStatus === 'PAUSE' && !video.paused) {
+            video.pause();
+        }
+    }
+    
+    setTimeout(function() { isSyncing = false; }, 300);
 }
+
 function loadMovie(url, title) {
-    document.getElementById('noMovieState').style.display = 'none';
+    var noMovieState = document.getElementById('noMovieState');
+    if (noMovieState) noMovieState.style.display = 'none';
     var v = document.getElementById('partyPlayer');
-    v.style.display = 'block';
-    v.src = url || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"; 
-    v.play();
+    if (v) {
+        v.style.display = 'block';
+        v.src = url || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"; 
+        v.play().catch(function(e) { console.warn("Video play error:", e); });
+    }
 }
+
+// --- SYSTEM MESSAGES & SIDEBAR TABS ---
+function drawSystemMessage(text) {
+    var chatBox = document.getElementById('chatBox');
+    if (!chatBox) return;
+    var div = document.createElement('div');
+    div.style.cssText = "text-align:center; margin: 8px 0; font-size: 0.8rem; color: #888; font-style: italic;";
+    div.innerHTML = `<span style="background: rgba(255,255,255,0.08); padding: 3px 12px; border-radius: 12px;"><i class="fas fa-info-circle me-1 text-danger"></i>${escapeHtml(text)}</span>`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+window.switchSidebarTab = function(tabName) {
+    var chatTab = document.getElementById('chatTabContent');
+    var membersTab = document.getElementById('membersTabContent');
+    var tabChatBtn = document.getElementById('tabChatBtn');
+    var tabMembersBtn = document.getElementById('tabMembersBtn');
+    
+    if (tabName === 'chat') {
+        if (chatTab) chatTab.style.display = 'flex';
+        if (membersTab) membersTab.style.display = 'none';
+        if (tabChatBtn) {
+            tabChatBtn.classList.add('active');
+            tabChatBtn.style.color = '#fff';
+            tabChatBtn.style.borderBottom = '2px solid #e50914';
+        }
+        if (tabMembersBtn) {
+            tabMembersBtn.classList.remove('active');
+            tabMembersBtn.style.color = '#888';
+            tabMembersBtn.style.borderBottom = '2px solid transparent';
+        }
+    } else {
+        if (chatTab) chatTab.style.display = 'none';
+        if (membersTab) membersTab.style.display = 'flex';
+        if (tabMembersBtn) {
+            tabMembersBtn.classList.add('active');
+            tabMembersBtn.style.color = '#fff';
+            tabMembersBtn.style.borderBottom = '2px solid #e50914';
+        }
+        if (tabChatBtn) {
+            tabChatBtn.classList.remove('active');
+            tabChatBtn.style.color = '#888';
+            tabChatBtn.style.borderBottom = '2px solid transparent';
+        }
+    }
+};
+
+function renderMembersList() {
+    var container = document.getElementById('membersContainer');
+    var countBadge = document.getElementById('memberCountBadge');
+    if (!container) return;
+    
+    var members = Object.values(roomMembers);
+    if (countBadge) countBadge.innerText = members.length;
+    
+    if (members.length === 0) {
+        container.innerHTML = '<div class="text-muted small text-center py-3">Không có thành viên.</div>';
+        return;
+    }
+    
+    var html = '';
+    members.forEach(function(m) {
+        var isThisMe = m.sessionId === sessionId || m.userName === username;
+        var safeName = escapeHtml(m.userName || 'User');
+        var avatarChar = safeName.charAt(0).toUpperCase();
+        var isMemberHost = m.isHost || (m.userId && m.userId == userId && isHost);
+        
+        html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#1c1c1c; padding:8px 12px; border-radius:8px; border:1px solid #2a2a2a;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="avatar" style="width:30px; height:30px; font-size:0.75rem;">${avatarChar}</div>
+                    <div>
+                        <div style="font-weight:600; font-size:0.9rem; color:#fff;">
+                            ${safeName} ${isThisMe ? '<span style="font-size:0.75rem; color:#888;">(Bạn)</span>' : ''}
+                        </div>
+                        ${isMemberHost ? '<span style="font-size:0.75rem; color:#ffd700;"><i class="fas fa-crown"></i> Chủ phòng</span>' : '<span style="font-size:0.75rem; color:#888;">Thành viên</span>'}
+                    </div>
+                </div>
+                ${(isHost && !isThisMe) ? `
+                    <button onclick="kickUser('${escapeHtml(m.sessionId)}')" style="background:rgba(229,9,20,0.15); border:1px solid #e50914; color:#ff4d5a; padding:4px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Mời ra khỏi phòng">
+                        <i class="fas fa-user-times"></i> Kick
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// --- WAITING LIST & MODERATION (HOST) ---
+function updateWaitingNotifUI() {
+    var notif = document.getElementById('waitingNotif');
+    var countSpan = document.getElementById('waitingCount');
+    if (!notif) return;
+    if (currentWaitingUsers && currentWaitingUsers.length > 0) {
+        notif.style.display = 'block';
+        if (countSpan) countSpan.innerText = currentWaitingUsers.length;
+        renderWaitingList();
+    } else {
+        notif.style.display = 'none';
+        closeWaitingListModal();
+    }
+}
+
+window.showWaitingList = function() {
+    var modal = document.getElementById('waitingListModal');
+    if (modal) modal.style.display = 'flex';
+    renderWaitingList();
+};
+
+window.closeWaitingListModal = function() {
+    var modal = document.getElementById('waitingListModal');
+    if (modal) modal.style.display = 'none';
+};
+
+function renderWaitingList() {
+    var list = document.getElementById('waitingUsersList');
+    if (!list) return;
+    if (!currentWaitingUsers || currentWaitingUsers.length === 0) {
+        list.innerHTML = '<div class="text-center text-muted py-4">Không có người nào đang chờ duyệt.</div>';
+        return;
+    }
+    
+    var html = '';
+    currentWaitingUsers.forEach(function(u) {
+        var safeName = escapeHtml(u.userName || 'Người dùng');
+        var safeSessionId = escapeHtml(u.sessionId);
+        html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px 14px; border-radius:8px; border:1px solid #333;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="avatar" style="width:32px; height:32px; font-size:0.75rem;">${safeName.charAt(0).toUpperCase()}</div>
+                    <span style="font-weight:600;">${safeName}</span>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button onclick="approveUser('${safeSessionId}')" style="background:#4cd137; border:none; color:#fff; padding:5px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:bold;">
+                        <i class="fas fa-check"></i> Duyệt
+                    </button>
+                    <button onclick="rejectUser('${safeSessionId}')" style="background:#e50914; border:none; color:#fff; padding:5px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer;">
+                        <i class="fas fa-times"></i> Từ chối
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+window.approveUser = function(targetSessionId) {
+    if (stompClient && stompClient.connected) {
+        stompClient.send("/app/party/" + roomId + "/admin/approve", {}, JSON.stringify({sessionId: targetSessionId}));
+    }
+};
+
+window.rejectUser = function(targetSessionId) {
+    if (stompClient && stompClient.connected) {
+        stompClient.send("/app/party/" + roomId + "/admin/reject", {}, JSON.stringify({sessionId: targetSessionId}));
+    }
+};
+
+window.kickUser = function(targetSessionId) {
+    if (confirm("Bạn có chắc muốn mời người này ra khỏi phòng chiếu?")) {
+        if (stompClient && stompClient.connected) {
+            stompClient.send("/app/party/" + roomId + "/admin/kick", {}, JSON.stringify({sessionId: targetSessionId}));
+        }
+    }
+};
+
+window.closeRoom = function() {
+    if (confirm("Bạn có chắc chắn muốn giải tán phòng chiếu này? Mọi người sẽ bị ngắt kết nối.")) {
+        if (stompClient && stompClient.connected) {
+            stompClient.send("/app/party/" + roomId + "/admin/close", {}, {});
+        }
+        setTimeout(() => { window.location.href = '/watch-party'; }, 400);
+    }
+};
+
 function toggleSidebar() {
     var sidebar = document.getElementById('sidebar');
     var icon = document.getElementById('toggleIcon');
@@ -559,7 +843,6 @@ function openSearchModal() { document.getElementById('searchModal').style.displa
 function closeSearchModal() { document.getElementById('searchModal').style.display = 'none'; }
 function performSearch() {
     var query = document.getElementById('searchInput').value;
-    // Mock Search (Bạn thay bằng API thật sau)
     var mockHtml = `
         <div onclick="selectMovie(1, 'Big Buck Bunny (Demo)', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')" 
              style="padding:10px; border-bottom:1px solid #333; cursor:pointer; color:white;">
@@ -569,7 +852,6 @@ function performSearch() {
     document.getElementById('searchResults').innerHTML = mockHtml;
 }
 function selectMovie(id, title, url) {
-    // [FIX] Lấy poster từ backend hoặc dùng placeholder
     fetch(`/api/movie/${id}/info`)
         .then(res => res.json())
         .then(data => {
@@ -590,10 +872,15 @@ window.viewImage = function(src) {
     w.document.write(`<img src="${src}" style="width:100%">`);
 }
 
-function showWaitingList() {
-    const users = [...document.querySelectorAll('#waitingNotif')]; // Mock - cần gọi API thực
-    alert("Danh sách chờ đang được phát triển");
-}
+// Clean up WebRTC on page unload
+window.addEventListener('beforeunload', function() {
+    if (myStream) {
+        myStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+    }
+    Object.values(peers).forEach(call => {
+        try { call.close(); } catch(e){}
+    });
+});
 // [THAY THẾ] Hàm debounceRoomSearch và performRoomSearch cũ bằng logic mới này
 
 let roomSearchTimeout;

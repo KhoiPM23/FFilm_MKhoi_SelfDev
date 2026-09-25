@@ -95,31 +95,75 @@ public class WatchPartyController {
              if (dbRoom.getOwner().getUserID() == user.getId()) {
                  // Mock object member để start
                  com.example.project.dto.RoomMember hostMember = new com.example.project.dto.RoomMember(
-                     session.getId(), user.getId(), user.getUserName(), null, null, true, false
+                     session.getId(), user.getId(), user.getUserName(), null, null, false, false
                  );
                  partyService.startRoom(runtimeId, hostMember);
                  runtime = partyService.getRuntimeRoom(runtimeId);
              } else {
                  return "redirect:/watch-party?error=room_not_active";
              }
+        } else if (runtime.getHostUserId() == null && dbRoom.getOwner().getUserID() == user.getId()) {
+             runtime.setHostUserId(user.getId());
+             runtime.setHostName(user.getUserName());
+             runtime.getApprovedUserIds().add(user.getId());
         }
 
         model.addAttribute("room", dbRoom);
         model.addAttribute("user", user);
         
-        // Check quyền Host
-        boolean isHost = dbRoom.getOwner().getUserID() == user.getId();
+        // Check quyền Host: Check runtime host first, fallback to DB owner
+        boolean isHost = (runtime != null && runtime.getHostUserId() != null)
+                ? runtime.getHostUserId().equals(user.getId())
+                : dbRoom.getOwner().getUserID() == user.getId();
         model.addAttribute("isHost", isHost);
         
         // Check trạng thái Join (Waiting/Joined)
         String joinStatus = "JOINED";
         if (!isHost && "PRIVATE".equals(dbRoom.getAccessType())) {
-             // Logic check waiting list sẽ nằm ở JS socket connection
-             joinStatus = "WAITING"; 
+             if (runtime == null || !runtime.getApprovedUserIds().contains(user.getId())) {
+                 joinStatus = "WAITING"; 
+             }
         }
         model.addAttribute("joinStatus", joinStatus); 
         
         return "watch-party/room";
+    }
+
+    @DeleteMapping("/api/party/delete/{roomId}")
+    @ResponseBody
+    public ResponseEntity<?> deleteRoomApi(@PathVariable Long roomId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        try {
+            partyService.deleteRoom(user.getId(), roomId);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/party/close/{roomId}")
+    @ResponseBody
+    public ResponseEntity<?> closeRoomApi(@PathVariable Long roomId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        
+        WatchRoom dbRoom = partyService.getRoomInfo(roomId);
+        if (dbRoom == null) return ResponseEntity.notFound().build();
+        
+        String runtimeId = String.valueOf(roomId);
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(runtimeId);
+        boolean isHost = (runtime != null && runtime.getHostUserId() != null)
+                ? runtime.getHostUserId().equals(user.getId())
+                : dbRoom.getOwner().getUserID() == user.getId();
+                
+        if (!isHost) return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+        
+        Map<String, Object> closeMsg = Map.of("type", "ROOM_CLOSED", "message", "Chủ phòng đã đóng phòng chiếu.");
+        messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", closeMsg);
+        
+        partyService.closeRoom(runtimeId);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     // --- WEBSOCKET HANDLERS ---
@@ -237,6 +281,27 @@ public class WatchPartyController {
         }
     }
 
+    @MessageMapping("/party/{roomId}/admin/reject")
+    public void rejectUser(@DestinationVariable String roomId, @Payload Map<String, String> payload, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+        if (isHost(headerAccessor, runtime)) {
+            String targetSessionId = payload.get("sessionId");
+            if (partyService.rejectMember(roomId, targetSessionId)) {
+                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/approval/" + targetSessionId, "REJECTED");
+            }
+        }
+    }
+
+    @MessageMapping("/party/{roomId}/admin/close")
+    public void closeRoomStomp(@DestinationVariable String roomId, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+        if (isHost(headerAccessor, runtime)) {
+            Map<String, Object> closeMsg = Map.of("type", "ROOM_CLOSED", "message", "Chủ phòng đã đóng phòng chiếu.");
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", closeMsg);
+            partyService.closeRoom(roomId);
+        }
+    }
+
     @MessageMapping("/party/{roomId}/waitingList")
     public void getWaitingList(@DestinationVariable String roomId, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
@@ -251,7 +316,12 @@ public class WatchPartyController {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
         if (isHost(headerAccessor, runtime)) {
             if (action.containsKey("type")) {
-                runtime.setPlaybackStatus((String) action.get("type"));
+                String type = (String) action.get("type");
+                if ("PLAY".equals(type) || "PAUSE".equals(type)) {
+                    runtime.setPlaybackStatus(type);
+                } else if (action.containsKey("playbackStatus")) {
+                    runtime.setPlaybackStatus((String) action.get("playbackStatus"));
+                }
             }
             if (action.containsKey("currentTime")) {
                 Object ct = action.get("currentTime");

@@ -24,6 +24,7 @@ public class WebSocketEventListener {
         
         if (sessionAttrs != null) {
             Object userObj = sessionAttrs.get("userSession");
+            if (userObj == null) userObj = sessionAttrs.get("userDto");
             if (userObj instanceof com.example.project.dto.UserSessionDto) {
                 com.example.project.dto.UserSessionDto user = (com.example.project.dto.UserSessionDto) userObj;
                 onlineStatusService.markOnline(user.getId());
@@ -42,6 +43,7 @@ public class WebSocketEventListener {
         
         if (sessionAttrs != null) {
             Object userObj = sessionAttrs.get("userSession");
+            if (userObj == null) userObj = sessionAttrs.get("userDto");
             if (userObj instanceof com.example.project.dto.UserSessionDto) {
                 com.example.project.dto.UserSessionDto user = (com.example.project.dto.UserSessionDto) userObj;
                 onlineStatusService.markOffline(user.getId());

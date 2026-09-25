@@ -169,30 +169,28 @@
         <div style="flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
             <div class="floating-bubbles-area" id="floatArea"></div>
 
-        <div th:if="${joinStatus == 'WAITING'}" style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999;">
-            <i class="fas fa-lock fa-4x mb-4" style="color:#e50914;"></i>
-            <h2 style="color:#fff;">Chờ chủ phòng duyệt...</h2>
-            <p style="color:#888;">Bạn đang ở trong hàng đợi</p>
-        </div>
+            <div id="waitingScreen" th:if="${joinStatus == 'WAITING'}" style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999;">
+                <i class="fas fa-lock fa-4x mb-4" style="color:#e50914;"></i>
+                <h2 style="color:#fff;">Chờ chủ phòng duyệt...</h2>
+                <p style="color:#888;">Bạn đang ở trong hàng đợi phòng riêng tư</p>
+                <a href="/watch-party" class="btn btn-outline-light mt-3" style="border: 1px solid #555; padding: 8px 16px; border-radius: 20px; text-decoration: none; color: #ccc;">
+                    <i class="fas fa-arrow-left me-1"></i> Quay lại Sảnh
+                </a>
+            </div>
 
-        <!-- Phần này CHỈ RENDER khi đã JOINED -->
-        <div th:if="${joinStatus != 'WAITING'}">
-            <!-- Cinema Area, Controls, Video Player... -->
-        </div>
+            <div id="noMovieState" th:style="${room.currentMovieId == null ? 'text-align: center;' : 'text-align: center; display: none;'}">
+                <h1 style="font-size: 4rem; margin-bottom: 20px;">🎬</h1>
+                <h3 style="color: #aaa;">Phòng chiếu đang trống</h3>
+                <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 0 20px; border-radius: 8px; margin-top: 20px;">
+                    <i class="fas fa-search me-2"></i> Chọn Phim Ngay
+                </button>
+            </div>
 
-        <div id="noMovieState" th:if="${room.currentMovieId == null && joinStatus != 'WAITING'}" style="text-align: center;">
-            <h1 style="font-size: 4rem; margin-bottom: 20px;">🎬</h1>
-            <h3 style="color: #aaa;">Phòng chiếu đang trống</h3>
-            <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 0 20px; border-radius: 8px; margin-top: 20px;">
-                <i class="fas fa-search me-2"></i> Chọn Phim Ngay
-            </button>
-        </div>
-
-        <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-height: calc(100vh - 120px);"></video>
+            <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-height: calc(100vh - 120px);"></video>
         </div>
 
         <!-- Participant / Call Strip -->
-        <div class="participant-strip" id="videoGrid" th:if="${joinStatus != 'WAITING'}" style="width: 100%;">
+        <div class="participant-strip" id="videoGrid" style="width: 100%;">
             <div class="user-cam" id="localCamContainer" style="display:none;">
                 <video id="localVideo" muted autoplay playsinline></video>
                 <div class="label">Bạn</div>
@@ -205,15 +203,15 @@
             <div style="display:flex; align-items:center; gap:10px;">
                 <i class="fas fa-user-clock fa-2x"></i>
                 <div>
-                    <div style="font-weight:bold;">Có người chờ duyệt!</div>
-                    <button onclick="showWaitingList()" style="margin-top:5px; background:#fff; color:#e50914; border:none; padding:5px 15px; border-radius:5px; cursor:pointer;">
+                    <div style="font-weight:bold;">Có người chờ duyệt! (<span id="waitingCount">0</span>)</div>
+                    <button onclick="showWaitingList()" style="margin-top:5px; background:#fff; color:#e50914; border:none; padding:5px 15px; border-radius:5px; cursor:pointer; font-weight: bold;">
                         Xem danh sách
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="controls-bar" th:if="${joinStatus != 'WAITING'}">
+        <div class="controls-bar">
             <button class="btn-control" title="Bật/Tắt Mic" id="btnMic" onclick="toggleMic()"><i class="fas fa-microphone-slash"></i></button>
             <button class="btn-control" title="Bật/Tắt Cam" id="btnCam" onclick="toggleCam()"><i class="fas fa-video-slash"></i></button>
             <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
@@ -222,7 +220,7 @@
             <button class="btn-control" onclick="sendReaction('😮')">😮</button>
             <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
             <button th:if="${isHost}" class="btn-control" title="Chọn Phim" onclick="openSearchModal()"><i class="fas fa-film"></i></button>
-            <button th:if="${isHost}" class="btn-control text-danger" title="Giải tán phòng"><i class="fas fa-power-off"></i></button>
+            <button th:if="${isHost}" class="btn-control text-danger" title="Giải tán phòng" onclick="closeRoom()"><i class="fas fa-power-off"></i></button>
         </div>
 
         <div id="emojiContainer"></div>
@@ -237,49 +235,70 @@
             <div style="font-weight: bold; color: #e50914;">
                 <i class="fas fa-hashtag"></i> <span th:text="${room.name}">Room</span>
             </div>
-            <a href="/my-rooms" class="text-secondary"><i class="fas fa-sign-out-alt"></i></a>
+            <a href="/watch-party" class="text-secondary" onclick="return confirm('Bạn có chắc muốn rời khỏi phòng chiếu?')"><i class="fas fa-sign-out-alt"></i></a>
         </div>
 
-        <div class="chat-box" id="chatBox">
-            <div class="text-center text-muted small mt-3">
-                Bắt đầu cuộc trò chuyện...
-            </div>
+        <!-- Sidebar Tabs: Chat & Members -->
+        <div class="sidebar-tabs" style="display: flex; border-bottom: 1px solid #333; background: #181818;">
+            <button id="tabChatBtn" class="sidebar-tab active" onclick="switchSidebarTab('chat')" style="flex:1; padding:10px; background:none; border:none; color:#fff; font-weight:600; cursor:pointer; border-bottom: 2px solid #e50914;">
+                <i class="fas fa-comments me-1"></i> Trò chuyện
+            </button>
+            <button id="tabMembersBtn" class="sidebar-tab" onclick="switchSidebarTab('members')" style="flex:1; padding:10px; background:none; border:none; color:#888; font-weight:600; cursor:pointer; border-bottom: 2px solid transparent;">
+                <i class="fas fa-users me-1"></i> Thành viên (<span id="memberCountBadge">1</span>)
+            </button>
         </div>
 
-        <div id="replyPreview" style="display:none; background:#222; padding:10px; border-top:1px solid #333; font-size:0.85rem; color:#aaa; position: relative;">
-            <div style="font-weight:bold; color:#e50914; margin-bottom:2px;">Đang trả lời <span id="replyTargetUser">...</span></div>
-            <div id="replyContent" class="text-truncate">...</div>
-            <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:#fff;"><i class="fas fa-times"></i></button>
-        </div>
-
-        <div class="chat-input-area">
-            <label class="chat-btn" style="cursor: pointer;">
-                <i class="fas fa-image"></i>
-                <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="uploadImage()">
-            </label>
-            
-            <div class="dropdown">
-                <button class="chat-btn" data-bs-toggle="dropdown"><i class="fas fa-smile"></i></button>
-                <div class="dropdown-menu bg-dark p-2" style="width:300px; max-height:300px; overflow-y:auto;">
-                    <div class="d-flex flex-wrap gap-2" id="stickerList"></div>
+        <!-- Tab 1: Chat -->
+        <div id="chatTabContent" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+            <div class="chat-box" id="chatBox">
+                <div class="text-center text-muted small mt-3">
+                    Bắt đầu cuộc trò chuyện...
                 </div>
             </div>
 
-            <input type="text" id="msgInput" class="chat-input" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
-            <button class="chat-btn text-primary" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+            <div id="replyPreview" style="display:none; background:#222; padding:10px; border-top:1px solid #333; font-size:0.85rem; color:#aaa; position: relative;">
+                <div style="font-weight:bold; color:#e50914; margin-bottom:2px;">Đang trả lời <span id="replyTargetUser">...</span></div>
+                <div id="replyContent" class="text-truncate">...</div>
+                <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:#fff;"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="chat-input-area">
+                <label class="chat-btn" style="cursor: pointer;">
+                    <i class="fas fa-image"></i>
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="uploadImage()">
+                </label>
+                
+                <div class="dropdown">
+                    <button class="chat-btn" data-bs-toggle="dropdown"><i class="fas fa-smile"></i></button>
+                    <div class="dropdown-menu bg-dark p-2" style="width:300px; max-height:300px; overflow-y:auto;">
+                        <div class="d-flex flex-wrap gap-2" id="stickerList"></div>
+                    </div>
+                </div>
+
+                <input type="text" id="msgInput" class="chat-input" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
+                <button class="chat-btn text-primary" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Tab 2: Members -->
+        <div id="membersTabContent" style="display:none; flex-direction:column; flex:1; overflow-y:auto; padding:15px; gap:10px;">
+            <div class="text-muted small mb-2">DANH SÁCH THÀNH VIÊN</div>
+            <div id="membersContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
     </div>
 
-    <!-- <div class="modal-box">
-        <h4 class="mb-3">Tìm Phim</h4>
-        <input type="text" id="searchInput" class="chat-input" placeholder="Nhập tên phim..." 
-            oninput="debounceRoomSearch()" style="background:#333; margin-bottom:15px;">
-        
-        <div id="searchResults" style="max-height:350px; overflow-y:auto;">
+    <!-- Waiting List Modal (Host Only) -->
+    <div id="waitingListModal" class="modal-overlay" style="display:none;">
+        <div class="modal-box" style="width: 450px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px;">
+                <h3 class="mb-0" style="font-size: 1.2rem;"><i class="fas fa-user-clock text-danger me-2"></i> Danh sách chờ duyệt</h3>
+                <button onclick="closeWaitingListModal()" style="background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="waitingUsersList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                <div class="text-center text-muted py-4">Không có người nào đang chờ duyệt.</div>
+            </div>
         </div>
-        
-        <button onclick="closeSearchModal()" class="btn-control mt-3" style="width:100%; background:#333;">Đóng</button>
-    </div> -->
+    </div>
 
     <div id="searchModal" class="modal-overlay">
         <div class="modal-box">
@@ -302,11 +321,12 @@
 
     <script th:inline="javascript">
         const roomId = /*[[${room.id}]]*/ '0';
-        const isHost = /*[[${isHost}]]*/ false;
+        let isHost = /*[[${isHost}]]*/ false;
         const username = /*[[${user.userName}]]*/ 'User';
+        const userId = /*[[${user.id}]]*/ 0;
         const sessionId = /*[[${session.id}]]*/ '';
         const joinStatus = /*[[${joinStatus}]]*/ 'JOINED';
-        const currentMovieUrl = /*[[${room.currentMovieId}]]*/ null; // Logic cũ dùng ID, cần sửa Controller trả về URL nếu có
+        const currentMovieUrl = /*[[${room.currentMovieId}]]*/ null;
     </script>
     
     <script src="/js/watch-party/watch-party.js"></script>
