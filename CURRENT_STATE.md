@@ -25,9 +25,10 @@ This file records the MOST RECENT verified operational state of the project.
 - **Hardcoded Configs**: Cleaned up unused vnp_ReturnUrl from VnPayConfig. [FIXED]
 
 ## AI
-- **Gemini Wiring**: Verified. Spring handles configuration and constructs correct API parameters. [FACT]
-- **AI Search**: Cannot be verified due to invalid Gemini key. [BLOCKED]
-- **AI Chatbot**: Cannot be verified due to invalid Gemini key. [BLOCKED]
+- **Gemini Model**: `gemini-2.5-flash` active and operational. [FACT]
+- **RestTemplate Timeout**: Configured to 5s connect timeout / 30s read timeout (resolved false-positive auth failure caused by 10s socket timeout). [FIXED]
+- **AI Search**: Verified working via `/api/ai-search/suggest` (HTTP 200 OK). [FACT]
+- **AI Chatbot**: Verified working via `/api/ai-agent/chat` (HTTP 200 OK). [FACT]
 
 ## DOCUMENTATION
 - `WORK_LOG.md`: Present and updated. [FACT]
@@ -39,6 +40,7 @@ This file records the MOST RECENT verified operational state of the project.
 
 ## OPEN RISKS
 - Historical exposure of API keys (TMDB, Tenor) on remote repositories if not purged/rotated.
+- Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
 ## NEXT TASK
-- **Provide a valid local Gemini API Key** and execute the Git history purge (after key rotation).
+- Human rotation of exposed Gemini API key; proceed to source cleanup and technical debt reduction.

@@ -95,3 +95,14 @@
   - **Chat Sender Spoofing**: Added server-side enforcement of `msg.sender` in `WatchPartyController.java` to prevent clients from impersonating other users via WebSocket payload manipulation.
   - **XSS Image Injection**: Verified `escapeHtml()` correctness and added URL scheme validation (`http://`, `https://`, `/`) for `mediaUrl` in `watch-party.js` to mitigate `javascript:` URI attacks in image `src` tags.
 - **Verification**: All Watch Party WebSocket endpoints now correctly authenticate actions based on `Principal` identity. Front-end mitigations against XSS are robust.
+
+## 2026-09-25 - Gemini Model Regression Correction & AI Gate Closure
+- **Task**: Restore supported Gemini model (`gemini-2.5-flash`), verify RestTemplate timeout (5s connect / 30s read), and safely test runtime AI endpoints.
+- **Root Cause Analysis**: The previously reported "API_KEY_INVALID" / socket failure was traced to a 10-second `RestTemplate` read timeout masquerading as failure. With a 30s read timeout, Gemini responds successfully.
+- **Model Restored**: Reverted `gemini-1.5-flash` back to `gemini-2.5-flash` in `AISearchService.java` and `AIAgentService.java`.
+- **Runtime Verification**:
+  - `POST /api/ai-agent/chat` responded HTTP 200 OK (elapsed ~3.4s) using `gemini-2.5-flash`.
+  - `POST /api/ai-search/suggest` responded HTTP 200 OK (elapsed ~5.7s) using `gemini-2.5-flash`.
+  - Maven tests: `BUILD SUCCESS` (1 test run, 0 failures).
+- **Security Warning**:
+  - `[SECURITY] Gemini credential exposure detected in diagnostic command transcript — HUMAN ACTION REQUIRED: revoke/rotate credential.`
