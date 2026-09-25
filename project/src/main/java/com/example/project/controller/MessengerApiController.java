@@ -21,10 +21,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/v1/messenger")
 public class MessengerApiController {
+
+    private static final Logger log = LoggerFactory.getLogger(MessengerApiController.class);
 
     @Autowired private MessengerService messengerService;
     @Autowired private UserService userService;
@@ -56,7 +60,7 @@ public class MessengerApiController {
             conv.setLastActive(lastActive);
         });
         
-        return ResponseEntity.ok(messengerService.getRecentConversations(user.getId()));
+        return ResponseEntity.ok(conversations);
     }
 
     // 2. API lấy lịch sử chat
@@ -109,7 +113,7 @@ public class MessengerApiController {
             );
             
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to broadcast private message via WebSocket", e);
         }
 
         return ResponseEntity.ok(sentMessage);
@@ -170,7 +174,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to save call log for user {}", user.getId(), e);
             return ResponseEntity.status(500).body("Lỗi lưu call log");
         }
     }
@@ -196,7 +200,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to search messages for user {} and partner {}", user.getId(), partnerId, e);
             return ResponseEntity.status(500).body(List.of());
         }
     }
@@ -227,7 +231,7 @@ public class MessengerApiController {
 
             return ResponseEntity.ok(Map.of("pinned", message.isPinned()));
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to toggle pin for messageId {}", messageId, e);
             return ResponseEntity.status(404).body("Không tìm thấy tin nhắn");
         }
     }
@@ -252,7 +256,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get pinned messages for user {} and partner {}", user.getId(), partnerId, e);
             return ResponseEntity.status(500).body(List.of());
         }
     }
@@ -278,7 +282,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok(settings);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get conversation settings for user {} and partner {}", user.getId(), partnerId, e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -305,7 +309,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to update theme color for user {} and partner {}", user.getId(), request.getPartnerId(), e);
             return ResponseEntity.status(500).body("Lỗi cập nhật theme");
         }
     }
@@ -331,7 +335,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to update nickname for user {} and partner {}", user.getId(), request.getPartnerId(), e);
             return ResponseEntity.status(500).body("Lỗi cập nhật nickname");
         }
     }
@@ -358,7 +362,7 @@ public class MessengerApiController {
             
             return ResponseEntity.ok(Map.of("enabled", settings.isNotificationEnabled()));
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to toggle notification for user {} and partner {}", user.getId(), request.getPartnerId(), e);
             return ResponseEntity.status(500).body("Lỗi cập nhật thông báo");
         }
     }
@@ -385,7 +389,7 @@ public class MessengerApiController {
                 return ResponseEntity.ok(logs);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get call history for user {}", user.getId(), e);
             return ResponseEntity.status(500).body(List.of());
         }
     }
@@ -403,7 +407,7 @@ public class MessengerApiController {
             Long missedCount = messengerService.countMissedCallsSince(user.getId(), since);
             return ResponseEntity.ok(missedCount);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to count missed calls for user {}", user.getId(), e);
             return ResponseEntity.ok(0L);
         }
     }
@@ -421,7 +425,7 @@ public class MessengerApiController {
             Map<String, Object> stats = messengerService.getChatStats(user.getId(), partnerId);
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get chat stats for user {} and partner {}", user.getId(), partnerId, e);
             return ResponseEntity.ok(Map.of(
                 "totalMessages", 0,
                 "mediaCount", 0,

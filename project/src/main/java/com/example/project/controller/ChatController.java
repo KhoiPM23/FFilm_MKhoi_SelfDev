@@ -19,8 +19,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class ChatController {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -83,7 +88,7 @@ public class ChatController {
                 messagingTemplate.convertAndSend("/topic/moderator/" + assignedMod, saved);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing user chat message in chat.sendToUser", e);
         }
     }
 
@@ -177,7 +182,7 @@ public class ChatController {
         if(msg.getId() == null) msg.setId(java.util.UUID.randomUUID().toString());
         msg.setTimestamp(java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
 
-        // 2. LƯU VÀO DATABASE (QUAN TRỌNG: Cần convert SocketMessage -> ChatMessage Entity)
+        // 2. LƯU VÀO DATABASE VÀ GỬI
         try {
             ChatMessage entity = new ChatMessage();
             entity.setSenderEmail(msg.getSender()); // Người gửi
@@ -192,22 +197,22 @@ public class ChatController {
             }
 
             chatMessageService.saveChatMessage(entity);
+            
+            // 3. Gửi cho người nhận (Realtime) - chỉ gửi khi lưu thành công
+            messagingTemplate.convertAndSendToUser(
+                msg.getReplyToId(), // Username người nhận
+                "/queue/private", 
+                msg
+            );
+            
+            // 4. Gửi lại cho người gửi (để UI cập nhật realtime không cần F5)
+            messagingTemplate.convertAndSendToUser(
+                msg.getSender(), 
+                "/queue/private", 
+                msg
+            );
         } catch (Exception e) {
-            System.err.println("Lỗi lưu tin nhắn riêng tư: " + e.getMessage());
+            log.error("Lỗi lưu tin nhắn riêng tư", e);
         }
-
-        // 3. Gửi cho người nhận (Realtime)
-        messagingTemplate.convertAndSendToUser(
-            msg.getReplyToId(), // Username người nhận
-            "/queue/private", 
-            msg
-        );
-        
-        // 4. Gửi lại cho người gửi (để UI cập nhật realtime không cần F5)
-        messagingTemplate.convertAndSendToUser(
-            msg.getSender(), 
-            "/queue/private", 
-            msg
-        );
     }
 }

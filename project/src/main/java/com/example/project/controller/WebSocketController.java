@@ -8,7 +8,9 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @Controller
@@ -18,9 +20,10 @@ public class WebSocketController {
     @Autowired private OnlineStatusService onlineStatusService;
     
     @MessageMapping("/typing")
-    public void handleTyping(@Payload Map<String, Object> payload) {
-        Integer receiverId = (Integer) payload.get("receiverId");
-        Integer senderId = (Integer) payload.get("senderId");
+    public void handleTyping(@Payload Map<String, Object> payload, Principal principal) {
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+        if (receiverId == null || principal == null) return;
+        Integer senderId = parseInteger(principal.getName());
         String senderName = (String) payload.get("senderName");
         
         // Gửi đến người nhận bằng userId
@@ -37,8 +40,9 @@ public class WebSocketController {
     }
     
     @MessageMapping("/stop-typing")
-    public void handleStopTyping(@Payload Map<String, Object> payload) {
-        Integer receiverId = (Integer) payload.get("receiverId");
+    public void handleStopTyping(@Payload Map<String, Object> payload, Principal principal) {
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+        if (receiverId == null || principal == null) return;
         
         messagingTemplate.convertAndSendToUser(
             receiverId.toString(),
@@ -48,10 +52,17 @@ public class WebSocketController {
     }
     
     @MessageMapping("/mark-seen")
-    public void handleMarkSeen(@Payload Map<String, Object> payload) {
-        Long messageId = Long.valueOf(payload.get("messageId").toString());
-        Integer userId = (Integer) payload.get("userId");
-        Integer partnerId = (Integer) payload.get("partnerId");
+    public void handleMarkSeen(@Payload Map<String, Object> payload, Principal principal) {
+        if (payload.get("messageId") == null || principal == null) return;
+        Long messageId;
+        try {
+            messageId = Long.valueOf(payload.get("messageId").toString());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        Integer userId = parseInteger(principal.getName());
+        Integer partnerId = parseInteger(payload.get("partnerId"));
+        if (partnerId == null || userId == null) return;
         
         // Thông báo cho người gửi
         messagingTemplate.convertAndSendToUser(
@@ -61,22 +72,55 @@ public class WebSocketController {
         );
     }
 
+    private Integer parseInteger(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number) return ((Number) obj).intValue();
+        try {
+            return Integer.valueOf(obj.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     @MessageMapping("/call")
-    public void handleCall(@Payload Map<String, Object> payload) {
+    public void handleCall(@Payload Map<String, Object> payload, Principal principal) {
+        if (payload == null) return;
+
         String type = (String) payload.get("type");
-        Integer receiverId = (Integer) payload.get("receiverId");
-        Integer senderId = (Integer) payload.get("senderId");
-        
-        // Gửi call request đến receiver
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+
+        Integer senderId = null;
+        if (principal != null) {
+            try {
+                senderId = Integer.valueOf(principal.getName());
+            } catch (NumberFormatException ignored) {}
+        }
+
+        if (type == null || receiverId == null || senderId == null) {
+            return;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", type);
+        response.put("senderId", senderId);
+        if (payload.get("peerId") != null) {
+            response.put("peerId", payload.get("peerId"));
+        }
+        if (payload.get("callType") != null) {
+            response.put("callType", payload.get("callType"));
+        }
+        if (payload.get("senderName") != null) {
+            response.put("senderName", payload.get("senderName"));
+        }
+        if (payload.get("senderAvatar") != null) {
+            response.put("senderAvatar", payload.get("senderAvatar"));
+        }
+        response.put("timestamp", LocalDateTime.now().toString());
+
         messagingTemplate.convertAndSendToUser(
             receiverId.toString(),
             "/queue/call",
-            Map.of(
-                "type", type,
-                "senderId", senderId,
-                "peerId", payload.get("peerId"),
-                "timestamp", LocalDateTime.now()
-            )
+            response
         );
     }
 }

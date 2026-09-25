@@ -75,4 +75,10 @@ public class UserFavoriteService {
         return favoriteRepository.findMovieIdsByUserID(userId);
     }
 
+    public boolean isFavorite(Integer userId, Integer movieId) {
+        if (userId == null || movieId == null) {
+            return false;
+        }
+        return favoriteRepository.existsByUserIDAndMovieID(userId, movieId);
+    }
 }

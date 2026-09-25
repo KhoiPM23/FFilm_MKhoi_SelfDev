@@ -3,8 +3,7 @@ package com.example.project.controller;
 import com.example.project.service.MovieService;
 
 import com.example.project.dto.UserSessionDto; // [THÊM] Import UserSessionDto
-import com.example.project.repository.FavoriteRepository; // [THÊM] Import Repo
-import com.example.project.repository.SubscriptionRepository;
+import com.example.project.service.UserFavoriteService;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -16,8 +15,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import org.springframework.web.client.RestTemplate;
-
 import jakarta.servlet.http.HttpSession;
 
 import java.util.ArrayList;
@@ -27,14 +24,19 @@ import java.util.Map;
 
 import com.example.project.service.SubscriptionService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class MovieDetailController {
+
+    private static final Logger log = LoggerFactory.getLogger(MovieDetailController.class);
 
     @Autowired
     private MovieService movieService;
 
     @Autowired
-    private FavoriteRepository favoriteRepository;
+    private UserFavoriteService userFavoriteService;
 
     @Autowired
     private SubscriptionService subscriptionService;
@@ -83,7 +85,7 @@ public class MovieDetailController {
             boolean isFavorite = false;
             boolean isVip = false;
             if (userSession != null) {
-                isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
+                isFavorite = userFavoriteService.isFavorite(userSession.getId(), movieID);
                 isVip = subscriptionService.checkActiveSubscription(userSession.getId());
             }
             model.addAttribute("isFavorite", isFavorite);
@@ -99,7 +101,7 @@ public class MovieDetailController {
             return "movie/movie-detail";
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to load movie detail for id {}", finalIdStr, e);
             // Fallback nếu lỗi
             return createClientSideFallback(finalIdStr, model);
         }

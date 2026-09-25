@@ -7,9 +7,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/ai-search")
 public class AISearchController {
+
+    private static final Logger log = LoggerFactory.getLogger(AISearchController.class);
 
     @Autowired
     private AISearchService aiSearchService;
@@ -49,7 +54,7 @@ public class AISearchController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing AI search recommendation", e);
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("message", "Có lỗi xảy ra: " + e.getMessage());

@@ -45,7 +45,7 @@ public class FileUploadController {
 
         } catch (IOException e) {
             return ResponseEntity.internalServerError()
-                .body(Map.of("error", "Upload failed: " + e.getMessage()));
+                .body(Map.of("error", "Upload failed due to a server error."));
         }
     }
 
@@ -77,7 +77,7 @@ public class FileUploadController {
 
         } catch (IOException e) {
             return ResponseEntity.internalServerError()
-                .body(Map.of("error", "Upload failed: " + e.getMessage()));
+                .body(Map.of("error", "Upload failed due to a server error."));
         }
     }
 }

@@ -3,6 +3,8 @@ package com.example.project.service;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -24,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class TmdbSyncService {
+
+    private static final Logger log = LoggerFactory.getLogger(TmdbSyncService.class);
 
     @Autowired private MovieService movieService;
     @Autowired private TmdbClient tmdbClient;
@@ -289,7 +293,7 @@ public class TmdbSyncService {
         } catch (HttpClientErrorException.NotFound e) {
             throw new RuntimeException("TMDB ID " + tmdbId + " không tồn tại trên hệ thống TMDB!");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to import movie from TMDB for tmdbId {}", tmdbId, e);
             throw new RuntimeException("Lỗi import: " + e.getMessage());
         }
     }

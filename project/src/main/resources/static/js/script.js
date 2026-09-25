@@ -11,10 +11,6 @@
   // 1. CẤU HÌNH VÀ BIẾN TOÀN CỤC (GLOBAL CONFIG AND STATE)
   // =========================================================================
 
-  // API & Keys
-  const TMDB_API_KEY = "";
-  const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
   // Core State Variables
   let heroPlayer = null;
   let videoTimeout = null;
@@ -707,13 +703,21 @@
     const playerId = hoverCard.querySelector(".hover-player")?.id;
     if (!playerId) return;
 
-    if (hoverPlayerMap[playerId] && hoverPlayerMap[playerId].player) {
-      hoverPlayerMap[playerId].player.destroy();
+    if (hoverPlayerMap[playerId]) {
+      if (hoverPlayerMap[playerId].fadeTimeout) {
+        clearTimeout(hoverPlayerMap[playerId].fadeTimeout);
+      }
+      if (hoverPlayerMap[playerId].player && typeof hoverPlayerMap[playerId].player.destroy === "function") {
+        hoverPlayerMap[playerId].player.destroy();
+      }
       clearInterval(hoverPlayerMap[playerId].monitorInterval);
     }
 
     const playerContainer = hoverCard.querySelector(".hover-player-container");
-    if (playerContainer) playerContainer.style.opacity = "0";
+    if (playerContainer) {
+      playerContainer.style.transition = "none";
+      playerContainer.style.opacity = "0";
+    }
 
     const player = new YT.Player(playerId, {
       height: "100%",
@@ -741,6 +745,7 @@
       player: player,
       container: playerContainer,
       monitorInterval: null,
+      fadeTimeout: null,
     };
   }
 
@@ -762,8 +767,13 @@
         }
         if (hoverPlayerData.container) {
           hoverPlayerData.container.style.transition = "opacity 0.4s ease-out";
-          setTimeout(() => {
-            hoverPlayerData.container.style.opacity = "1";
+          if (hoverPlayerData.fadeTimeout) {
+            clearTimeout(hoverPlayerData.fadeTimeout);
+          }
+          hoverPlayerData.fadeTimeout = setTimeout(() => {
+            if (hoverPlayerMap[playerId]) {
+              hoverPlayerData.container.style.opacity = "1";
+            }
           }, 300);
         }
         const duration = player.getDuration();
@@ -801,6 +811,9 @@
     const playerId = card.querySelector(".hover-player")?.id;
     if (playerId && hoverPlayerMap[playerId]) {
       const data = hoverPlayerMap[playerId];
+      if (data.fadeTimeout) {
+        clearTimeout(data.fadeTimeout);
+      }
       if (data.monitorInterval) {
         clearInterval(data.monitorInterval);
       }

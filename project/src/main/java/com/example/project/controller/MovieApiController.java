@@ -12,9 +12,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/movie")
 public class MovieApiController {
+
+    private static final Logger log = LoggerFactory.getLogger(MovieApiController.class);
 
     @Autowired private MovieService movieService;
     
@@ -134,7 +139,7 @@ public class MovieApiController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             // Fallback an toàn nếu lỗi
-            e.printStackTrace();
+            log.error("Failed to load recommended movies for movieId: {}", movieID, e);
             response.put("title", "✨ Có Thể Bạn Thích");
             response.put("movies", new ArrayList<>());
             return ResponseEntity.ok(response);

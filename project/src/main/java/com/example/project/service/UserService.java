@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.example.project.dto.UserProfileUpdateDto; 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -22,6 +24,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
@@ -129,10 +133,8 @@ public class UserService {
             // 4. Gửi email
             try {
                 emailService.sendResetPasswordEmail(user.getEmail(), token);
-            } catch (Exception e) { // <-- Thay vì chỉ bắt MailException
-                // Ghi log lỗi vào console để bạn biết (Vui lòng kiểm tra log này!)
-                System.err.println("LỖI KHÔNG XÁC ĐỊNH TRONG GỬI EMAIL: " + e.getMessage());
-                e.printStackTrace(); // In toàn bộ Stack Trace gốc
+            } catch (Exception e) {
+                log.error("Failed to send reset password email to {}", user.getEmail(), e);
                 // KHÔNG THROW: để luồng vẫn trả về true, tránh lỗi 500 cho người dùng.
             }
 

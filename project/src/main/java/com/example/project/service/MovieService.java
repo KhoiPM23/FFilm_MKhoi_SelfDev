@@ -33,8 +33,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import com.example.project.model.Collection;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class MovieService {
+
+    private static final Logger log = LoggerFactory.getLogger(MovieService.class);
 
     // ---- 1. CẤU HÌNH & REPOSITORY ----
 
@@ -56,11 +61,6 @@ public class MovieService {
 
     @Autowired
     private TmdbClient tmdbClient;
-
-    // Cho phép Controller truy cập Repository
-    public MovieRepository getMovieRepository() {
-        return movieRepository;
-    }
 
     public List<Map<String, Object>> getMoviesMapByPersonId(int personId) {
         List<MoviePerson> mps = moviePersonRepository.findByPersonID(personId);
@@ -785,7 +785,7 @@ public class MovieService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error in Layer 1 (Collection) recommendation for movie: {}", movie.getTitle(), e);
         }
 
         finalRecommendations.clear();
@@ -894,7 +894,7 @@ public class MovieService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error in Layer 4 (Genre) recommendation for movie: {}", movie.getTitle(), e);
         }
 
         // ----- LỚP 5: FALLBACK (Phim Hot - Cuối cùng)
