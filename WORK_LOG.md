@@ -256,3 +256,31 @@
   4. Restrict advice targeting to `@RestController` to protect Thymeleaf MVC controllers.
 - **Note on Code Changes**:
   - **NO CODE IMPLEMENTATION WAS PERFORMED IN THIS TURN.** All existing controllers and services remain 100% untouched.
+
+## 2026-09-25 - Batch 4B — Implement REST Exception Handling Strategy (Issue #3)
+- **Issue**: #3 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/3)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+- **Objective**:
+  - Implement standardized REST exception handling in `GlobalExceptionHandler.java` based on the completed Batch 4B audit.
+- **Changes**:
+  - `GlobalExceptionHandler.java`:
+    - Scoped `@RestControllerAdvice` to `annotations = RestController.class` to protect Thymeleaf MVC `@Controller` views from intercepting REST error payloads.
+    - Added SLF4J logger: `private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);`.
+    - Standardized dual-compatible error response envelope: `{"success": false, "message": msg, "error": msg}` (with `errors` map preserved for validation exceptions).
+    - Standardized HTTP semantics:
+      - 400 Bad Request: `MethodArgumentNotValidException` (DTO validation errors) and `IllegalArgumentException` (invalid request arguments).
+      - 403 Forbidden: `AccessDeniedException` (Spring Security access violations).
+      - 404 Not Found: `EntityNotFoundException` (missing database/JPA resources).
+      - 500 Internal Server Error: `Exception.class` (uncaught runtime/checked exceptions) with server-side SLF4J stack trace logging (`log.error("Unhandled REST exception", ex)`) and sanitized generic message (`"Đã có lỗi xảy ra trên hệ thống"`).
+- **Behavior Preserved**:
+  - Zero controller try/catch removals in this batch (reserved for Batch 4C / Issue #4).
+  - Full backward compatibility for frontend clients reading `data.message` (`comment-handler.js`, `search.js`), `data.error` (`footer.html` AI chat), and `data.success`.
+  - Thymeleaf MVC controllers continue handling view redirects, flash attributes, and error templates without interference from REST advice.
+- **Verification**:
+  - Maven tests: `.\mvnw.cmd test` passed cleanly (`BUILD SUCCESS`, 1/1 tests passed, 0 failures, 0 errors).
+  - Git diff check: `git diff --check` passed cleanly (zero whitespace or syntax issues).
+  - Code changes: Strictly confined to `GlobalExceptionHandler.java`.
+- **Security & Regression Result**:
+  - Sanitized 500 response prevents database schema, SQL errors, or stack trace leakage to clients.
+  - Authentication, authorization, IDOR, ownership, and WebSocket security controls remain fully intact.

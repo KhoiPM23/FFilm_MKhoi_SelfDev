@@ -1,27 +1,31 @@
-package com.example.project.exception; // Hoặc package tương ứng của bạn
+package com.example.project.exception;
 
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@RestControllerAdvice
+@RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
 
-    // Bắt lỗi validation (@Valid)
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * Bắt lỗi validation (@Valid DTO) -> 400 Bad Request
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        
-        // Lấy danh sách lỗi và nối thành chuỗi
-        // Ví dụ: "Tiêu đề không được trống, Ngày phát hành không hợp lệ"
         String errorMessage = ex.getBindingResult().getAllErrors().stream()
                 .map(error -> {
                     if (error instanceof FieldError) {
@@ -31,25 +35,86 @@ public class GlobalExceptionHandler {
                 })
                 .collect(Collectors.joining(", "));
 
-        // Frontend đang đọc field "message" hoặc "errors"
-        response.put("message", errorMessage); 
-        
-        // Trả về map errors chi tiết nếu frontend cần (tùy chọn)
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessageStr = error.getDefaultMessage();
             errors.put(fieldName, errorMessageStr);
         });
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", errorMessage);
+        response.put("error", errorMessage);
         response.put("errors", errors);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // Bắt các lỗi Runtime khác (như lỗi logic Service)
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("success", false, "message", ex.getMessage()));
+    /**
+     * Bắt lỗi tham số không hợp lệ -> 400 Bad Request
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Yêu cầu không hợp lệ";
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", message);
+        response.put("error", message);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * Bắt lỗi phân quyền Spring Security -> 403 Forbidden
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException ex) {
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Truy cập bị từ chối";
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", message);
+        response.put("error", message);
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    /**
+     * Bắt lỗi không tìm thấy tài nguyên JPA/DB -> 404 Not Found
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleEntityNotFoundException(EntityNotFoundException ex) {
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Không tìm thấy tài nguyên";
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", message);
+        response.put("error", message);
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    /**
+     * Bắt tất cả các lỗi không mong muốn khác -> 500 Internal Server Error
+     * Ghi log stack trace server-side bằng SLF4J, khử nhạy cảm message gửi về client.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleAllUncaughtException(Exception ex) {
+        log.error("Unhandled REST exception", ex);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", "Đã có lỗi xảy ra trên hệ thống");
+        response.put("error", "Đã có lỗi xảy ra trên hệ thống");
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }
