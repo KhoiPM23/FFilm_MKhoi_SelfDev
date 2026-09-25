@@ -14,6 +14,7 @@ This file records the MOST RECENT verified operational state of the project.
 - **External Integration Boundaries**: TMDB via `TmdbClient`, Gemini via `GeminiClient`, Tenor via `TenorService`. [FIXED]
 - **Messenger Performance**: `MessengerApiController.getConversations()` returns decorated list without duplicate query. `MessengerService.getChatStats()` calculates counts and earliest message directly at database level. [FIXED]
 - **Frontend Constants**: Stale empty `TMDB_API_KEY` and `TMDB_BASE_URL` constants removed from `script.js` and `player.js`. [FIXED]
+- **Error Handling & Logging (Batch 4A-4C)**: 100% of `e.printStackTrace()` eliminated and standardized to SLF4J; `GlobalExceptionHandler` standardized for REST controllers with dual-compatible envelope and sanitized 500 responses; 13 truly redundant controller try/catch blocks safely removed. [FIXED]
 
 ## SCHEMA
 - **Synchronized User Privacy Columns**: `isPublicFavorites`, `isPublicFriendList`, `isPublicWatchHistory` [FIXED]
@@ -38,10 +39,10 @@ This file records the MOST RECENT verified operational state of the project.
 - **AI Chatbot**: Verified working via `/api/ai-agent/chat` (HTTP 200 OK). [FACT]
 
 ## DOCUMENTATION & WORKFLOW
-- `WORK_LOG.md`: Present and updated through Batch 3C. [FACT]
+- `WORK_LOG.md`: Present and updated through Batch 4C. [FACT]
 - Migration File: Present. [FACT]
 - Project Memory Files: Established and tracked. [FACT]
-- GitHub Issues Workflow: Issue #1 created, tracked across sub-batches, and closed upon verification. [FACT]
+- GitHub Issues Workflow: Issues #1, #2, #3, #4 completed; Issue #5 open for Batch 4D. [FACT]
 
 ## GIT
 - **Branch**: `refactor/batch-3-quick-wins` [FACT]
@@ -52,4 +53,5 @@ This file records the MOST RECENT verified operational state of the project.
 - Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
 ## NEXT TASK
-- Batch 4 — Centralized Error Handling & SLF4J Logging (replace `e.printStackTrace()` and un-bypass `GlobalExceptionHandler`).
+- Batch 4D: Final backend error-handling consistency audit (Issue #5).
+- Following Batch 4D: STOP controlled backend cleanup. Transition to Phase 5 — Product Stabilization & Modernization.

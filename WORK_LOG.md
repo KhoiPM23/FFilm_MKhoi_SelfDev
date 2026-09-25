@@ -284,3 +284,51 @@
 - **Security & Regression Result**:
   - Sanitized 500 response prevents database schema, SQL errors, or stack trace leakage to clients.
   - Authentication, authorization, IDOR, ownership, and WebSocket security controls remain fully intact.
+
+## 2026-09-25 - Batch 4C — Remove Truly Redundant Controller Exception Handling (Issue #4)
+- **Issue**: #4 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/4)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+
+### Completed in Batch 4C
+- **13 Category A Truly Redundant Catch Blocks Removed Across 4 Controllers**:
+  1. `AdminSubscriptionPlanController.java`:
+     - `createPlan`: Removed try/catch. DTO validation errors handled by `GlobalExceptionHandler` (`MethodArgumentNotValidException` -> 400).
+     - `updatePlan`: Removed try/catch. Response typed to `ResponseEntity<SubscriptionPlan>`.
+     - `deactivatePlan`: Removed try/catch. Response typed to `ResponseEntity<Void>`.
+     - Cleaned up unused `java.util.Map` import.
+  2. `ContentMovieController.java`:
+     - `createMovie`: Removed try/catch. Preserved `@Valid @RequestBody` -> handled by `GlobalExceptionHandler`.
+     - `updateMovie`: Removed try/catch. Response typed to `ResponseEntity<Movie>`.
+     - `deleteMovie`: Removed try/catch. Response typed to `ResponseEntity<Void>`.
+     - `syncMoviesByIds`: Removed try/catch. Clean delegation to `movieService.syncTmdbIds`.
+  3. `UserManageController.java`:
+     - `createUser`: Removed try/catch. `IllegalArgumentException` ("Email đã được sử dụng") handled by `GlobalExceptionHandler` -> 400 Bad Request.
+     - `updateUser`: Removed try/catch. Response typed to `ResponseEntity<UserManageDTO>`.
+     - `deleteUser`: Removed try/catch. `IllegalArgumentException` ("User not found") handled by `GlobalExceptionHandler` -> 400 Bad Request.
+  4. `SocialController.java`:
+     - `followUser`: Removed redundant try/catch.
+     - `sendFriendRequest`: Removed redundant try/catch.
+     - `acceptFriend`: Removed redundant try/catch.
+- **Behavior Preserved**:
+  - Category B (contract-specific 403, 404, 500, Thymeleaf redirects and views), Category C (recovery/fallback), and Category D (WebSocket) strictly preserved and untouched.
+  - Zero changes to frontend code, database, security filters, or services.
+- **Verification**:
+  - Maven tests: `.\mvnw.cmd test` passed cleanly (`BUILD SUCCESS`, 1/1 tests passed, 0 failures, 0 errors).
+  - Diff check: `git diff --check` passed with 0 errors.
+
+### Still Pending (Explicitly Deferred)
+- **Batch 4D**:
+  - Final backend error-handling consistency audit (Issue #5).
+- **Phase 5 — Product Stabilization & Modernization (NOT started in this batch)**:
+  - Watch Party/Messenger realtime stabilization
+  - WebSocket/STOMP lifecycle, reconnect, and state synchronization
+  - WebRTC audit
+  - YouTube movie preview / autoplay / native play-overlay bug
+  - UI/UX regression audit
+  - Browser console / network error audit
+  - Frontend performance audit
+  - `messenger.js` monolith (~7,000+ lines)
+  - JS/CSS modularization
+  - Stale/dead frontend code cleanup
+  - Modernization evaluation & selective library adoption
