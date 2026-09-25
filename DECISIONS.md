@@ -9,3 +9,6 @@
 | **Local Internal IDs for Relational Tables** | `tmdbId` is an external reference and not a primary key in `Movie`. All satellite tables (Favorites, History, Reactions) MUST join using the internal `movieID`. | `GUIDELINE_DEV_Id_Handle.md` | Active |
 | **Credential Rotation & History Purge Requires Authorization** | Erasing Git history or revoking active credentials is a destructive action that requires human oversight to avoid crippling dependent services. | Task constraint (2026-09-25) | Active |
 | **Do not refactor unrelated code** | Focus must be kept strictly on the objective at hand to avoid introducing unintentional side effects. | Project workflow rules (2026-09-25) | Active |
+
+## Runtime Configuration
+- [DECISION] FFilm local development runtime uses port 8081 because host port 8080 is occupied by MiniTool ShadowMaker AgentService.

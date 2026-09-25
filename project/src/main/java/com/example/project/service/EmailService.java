@@ -5,14 +5,16 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Service
 public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
 
-    // Thay đổi nếu deploy, hoặc cấu hình từ application.properties
-    private final String APP_BASE_URL = "http://localhost:8080"; 
+    @Value("${app.base.url}")
+    private String APP_BASE_URL; 
 
     public void sendResetPasswordEmail(String toEmail, String token) {
         SimpleMailMessage message = new SimpleMailMessage();

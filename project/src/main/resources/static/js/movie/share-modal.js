@@ -3,7 +3,7 @@
  * @returns {string} Base URL của ứng dụng
  */
 function getBaseUrl() {
-    // Trong môi trường development/local: http://localhost:8080
+    // Trong môi trường development/local: http://localhost:8081
     // Trong môi trường production: https://yourdomain.com
     const protocol = window.location.protocol;
     const host = window.location.host;

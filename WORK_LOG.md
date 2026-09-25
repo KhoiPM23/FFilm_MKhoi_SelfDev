@@ -57,3 +57,22 @@
   - No secret values written to any documentation files (used `[OMITTED]`).
 - **Status**: Completed successfully.
 - **Current Blockers**: AI Search/Chatbot integration still blocked by invalid local Gemini credential. Git history purge pending human authorization.
+## 2026-09-25 - Standardize Development Port
+- **Task**: Standardize local development runtime port to 8081.
+- **Objective**: Resolve port 8080 conflict with MiniTool ShadowMaker AgentService.
+- **Files Modified**:
+  - `application.properties` (added `server.port=8081` and updated `app.base.url`)
+  - `EmailService.java` (refactored to use `@Value("${app.base.url}")` instead of hardcoded 8080)
+  - `VnPayConfig.java` (updated return URL to port 8081)
+  - `ManageAccount.html` (changed absolute `http://localhost:8080` fetch to relative `/api/users/${id}`)
+  - `share-modal.js` (updated comment reference)
+- **Verification**: `mvn test` passed. Spring Boot app starts successfully on port 8081.
+- **Security Check**:
+  - `application.properties` remains safely ignored.
+  - No secret values exposed in commit or logs.
+  - [FACT] Current Gemini credential is not present in Git history.
+  - [FACT] Current TMDB credential does not match the historical exposed TMDB credential.
+  - [FACT] Current Tenor credential does not match the historical exposed Tenor credential.
+  - [PENDING] Historical TMDB credential provider-side revocation requires human verification.
+  - [PENDING] Historical Tenor credential provider-side revocation requires human verification.
+  - [PENDING] Git history purge requires explicit owner authorization.
