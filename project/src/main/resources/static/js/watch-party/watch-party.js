@@ -93,15 +93,28 @@ function initFullFeatures() {
         window.location.href = "/watch-party";
     });
 
-    // 4. System Events (Join, Leave, Host Changed)
+    // 4. System Events (Join, Leave, Host Changed, Peer Registered)
     stompClient.subscribe('/topic/party/' + roomId + '/system', function (payload) {
         var msg = JSON.parse(payload.body);
         if (msg.type === 'MEMBER_JOINED') {
             console.log(msg.userName + " joined the room.");
-            // UI Update code can be added here
         } else if (msg.type === 'MEMBER_LEFT') {
             console.log(msg.userName + " left the room.");
-            // UI Update code can be added here
+            // Cleanup PeerJS call and video
+            if (msg.sessionId) {
+                var leftPeerId = sessionToPeerId[msg.sessionId];
+                if (leftPeerId) {
+                    if (peers[leftPeerId]) {
+                        peers[leftPeerId].close();
+                        delete peers[leftPeerId];
+                    }
+                    var videoEl = document.getElementById('video-' + leftPeerId);
+                    if (videoEl && videoEl.parentNode) {
+                        videoEl.parentNode.remove();
+                    }
+                    delete sessionToPeerId[msg.sessionId];
+                }
+            }
         } else if (msg.type === 'HOST_CHANGED') {
             console.log("Host changed to: " + msg.newHostName);
             if (msg.newHostUserId == sessionId || msg.newHostSessionId === sessionId || msg.newHostName === username) {
@@ -110,13 +123,25 @@ function initFullFeatures() {
             } else {
                 showFloatingBubble({sender: "System", content: "Chủ phòng mới: " + msg.newHostName, type: "CHAT"});
             }
+        } else if (msg.type === 'PEER_REGISTERED') {
+            console.log("Peer registered: " + msg.userName + " -> " + msg.peerId);
+            sessionToPeerId[msg.sessionId] = msg.peerId;
+            // Nếu không phải là mình, gọi họ
+            if (msg.sessionId !== sessionId && myStream && msg.peerId) {
+                // Đợi 1 chút để đảm bảo họ đã ready
+                setTimeout(() => connectToNewUser(msg.peerId, myStream), 1000);
+            }
         }
     });
 
-    // WebRTC: Lắng nghe user mới vào để gọi video
-    stompClient.subscribe('/topic/party/' + roomId + '/user-connected', (payload) => {
-        var userId = payload.body; // PeerID của user mới
-        if(myStream) connectToNewUser(userId, myStream);
+    // Nhận danh sách members hiện tại
+    stompClient.subscribe('/topic/party/' + roomId + '/members/' + sessionId, function (payload) {
+        var members = JSON.parse(payload.body);
+        members.forEach(member => {
+            if (member.sessionId !== sessionId && member.peerId) {
+                sessionToPeerId[member.sessionId] = member.peerId;
+            }
+        });
     });
 }
 
@@ -132,43 +157,85 @@ if (isHost) {
     });
 }
 
+var sessionToPeerId = {}; // Map sessionId -> peerId
+
 // --- WEBSOCKET & PEERJS LINK ---
 myPeer.on('open', id => {
-    // Gửi PeerID của mình lên Server để broadcast cho người khác biết
-    // (Cần thêm endpoint này ở Controller nếu chưa có, hoặc dùng kênh chat 'JOIN' để gửi kèm PeerID)
-    // Ở đây ta giả lập việc gửi PeerID qua kênh Chat hệ thống ẩn
+    // Gửi PeerID của mình lên Server
+    console.log("My PeerJS ID is: " + id);
+    if (stompClient && stompClient.connected) {
+        stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
+    } else {
+        // Nếu STOMP chưa connect, đợi connect xong rồi gửi (handle trong connect callback)
+        var checkStomp = setInterval(() => {
+            if (stompClient && stompClient.connected) {
+                stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
+                clearInterval(checkStomp);
+            }
+        }, 500);
+    }
 });
 
 // Nhận cuộc gọi
 myPeer.on('call', call => {
-    call.answer(myStream); // Trả lời bằng stream của mình
-    const video = document.createElement('video');
-    call.on('stream', userVideoStream => {
-        addVideoStream(video, userVideoStream);
-    });
+    // Nếu chưa có stream, lấy stream mặc định (chỉ audio nếu không bật cam)
+    if (!myStream) {
+        navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
+            myStream = stream;
+            answerCall(call);
+        }).catch(err => {
+            console.error("Could not get media for answering call", err);
+            // Vẫn trả lời nhưng không gửi stream
+            call.answer();
+            handleIncomingStream(call);
+        });
+    } else {
+        answerCall(call);
+    }
 });
 
-function connectToNewUser(userId, stream) {
-    const call = myPeer.call(userId, stream);
+function answerCall(call) {
+    call.answer(myStream);
+    handleIncomingStream(call);
+}
+
+function handleIncomingStream(call) {
     const video = document.createElement('video');
+    video.id = 'video-' + call.peer;
     call.on('stream', userVideoStream => {
         addVideoStream(video, userVideoStream);
     });
     call.on('close', () => {
-        video.remove();
+        if (video.parentNode) video.parentNode.remove();
+    });
+    peers[call.peer] = call;
+}
+
+function connectToNewUser(userId, stream) {
+    if (peers[userId]) return; // Đã kết nối
+    const call = myPeer.call(userId, stream);
+    const video = document.createElement('video');
+    video.id = 'video-' + userId;
+    call.on('stream', userVideoStream => {
+        addVideoStream(video, userVideoStream);
+    });
+    call.on('close', () => {
+        if (video.parentNode) video.parentNode.remove();
     });
     peers[userId] = call;
 }
 
 function addVideoStream(video, stream) {
     video.srcObject = stream;
-    video.addEventListener('loadedmetadata', () => { video.play(); });
+    video.addEventListener('loadedmetadata', () => { video.play().catch(e=>{}); });
     
     // Tạo khung hiển thị cam người khác
-    const div = document.createElement('div');
-    div.className = 'user-cam';
-    div.appendChild(video);
-    document.getElementById('videoGrid').appendChild(div);
+    if (!document.getElementById(video.id)) {
+        const div = document.createElement('div');
+        div.className = 'user-cam';
+        div.appendChild(video);
+        document.getElementById('videoGrid').appendChild(div);
+    }
 }
 
 // --- CAM/MIC CONTROLS ---

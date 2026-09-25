@@ -40,6 +40,10 @@ This file records the MOST RECENT verified operational state of the project.
   - Automated tests pass.
   - However, genuine two-browser runtime E2E has NOT been performed in the current automated environment.
   - Therefore: P6-A.5 = IMPLEMENTED / PARTIAL ACCEPTANCE / NEEDS REPRO for multi-session runtime. Do not assume Watch Party lifecycle is fully runtime-certified.
+- **WebRTC Signaling & Movie Sync (P6-A.6, P6-A.7)**: Implementation complete.
+  - WebRTC PeerJS IDs are registered via STOMP and broadcasted. Auto-call mesh networking implemented.
+  - Movie Sync stores current timestamp and state in server RAM for late joiner catch-up.
+- **Watch Party UX (P6-A.9)**: Room layout modernized with dedicated participant camera strip.
 
 ## AI
 - **Gemini Model**: `gemini-2.5-flash` active and operational. [FACT]
@@ -61,7 +65,8 @@ This file records the MOST RECENT verified operational state of the project.
 - Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
 ## NEXT TASKS
-- P6-A.6 WebRTC Signaling & Call Lifecycle
-- P6-A.7 Movie Synchronization Hardening
 - P6-A.8 Watch Party Chat / Reactions
-- P6-A.9 Watch Party Layout / UX
+- P6-A.10 Loading / Perceived Performance
+- P6-A.11 Messenger Modularization
+- P6-A.12 AI Search Runtime
+- P6-A.13 AI Chatbot Runtime

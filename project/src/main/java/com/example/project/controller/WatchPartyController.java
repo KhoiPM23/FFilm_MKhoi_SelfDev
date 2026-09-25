@@ -95,7 +95,7 @@ public class WatchPartyController {
              if (dbRoom.getOwner().getUserID() == user.getId()) {
                  // Mock object member để start
                  com.example.project.dto.RoomMember hostMember = new com.example.project.dto.RoomMember(
-                     session.getId(), user.getId(), user.getUserName(), null, true, false
+                     session.getId(), user.getId(), user.getUserName(), null, null, true, false
                  );
                  partyService.startRoom(runtimeId, hostMember);
                  runtime = partyService.getRuntimeRoom(runtimeId);
@@ -146,7 +146,7 @@ public class WatchPartyController {
         
         if (httpSessionId == null || user == null) return;
 
-        RoomMember member = new RoomMember(httpSessionId, user.getId(), user.getUserName(), null, false, false);
+        RoomMember member = new RoomMember(httpSessionId, user.getId(), user.getUserName(), null, null, false, false);
         String status = partyService.requestJoin(roomId, member);
 
         if ("WAITING".equals(status)) {
@@ -176,13 +176,28 @@ public class WatchPartyController {
             
             // 2. [QUAN TRỌNG] Trả về phim đang chiếu để đồng bộ người mới vào
             if (runtime.getCurrentMovieUrl() != null) {
+                // Calculate estimated current time based on last sync if it was playing
+                double currentEstimatedTime = runtime.getCurrentPlaybackTime();
+                if ("PLAY".equals(runtime.getPlaybackStatus())) {
+                    currentEstimatedTime += (System.currentTimeMillis() - runtime.getLastSyncTimestamp()) / 1000.0;
+                }
+                
                 Map<String, Object> movieData = Map.of(
                     "id", runtime.getCurrentMovieId() != null ? runtime.getCurrentMovieId() : 0,
                     "title", runtime.getCurrentMovieTitle() != null ? runtime.getCurrentMovieTitle() : "",
                     "url", runtime.getCurrentMovieUrl()
                 );
                 messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie", movieData);
+                
+                Map<String, Object> syncData = new HashMap<>();
+                syncData.put("type", runtime.getPlaybackStatus());
+                syncData.put("currentTime", currentEstimatedTime);
+                syncData.put("sender", "System");
+                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", syncData);
             }
+            
+            // 3. Trả về danh sách thành viên hiện tại (để WebRTC kết nối)
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/members/" + userSessionId, runtime.getMembers().values());
         }
     }
 
@@ -235,6 +250,16 @@ public class WatchPartyController {
     public void syncPlayer(@DestinationVariable String roomId, @Payload Map<String, Object> action, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
         if (isHost(headerAccessor, runtime)) {
+            if (action.containsKey("type")) {
+                runtime.setPlaybackStatus((String) action.get("type"));
+            }
+            if (action.containsKey("currentTime")) {
+                Object ct = action.get("currentTime");
+                if (ct instanceof Number) {
+                    runtime.setCurrentPlaybackTime(((Number) ct).doubleValue());
+                }
+            }
+            runtime.setLastSyncTimestamp(System.currentTimeMillis());
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", action);
         }
     }
@@ -249,6 +274,28 @@ public class WatchPartyController {
             runtime.setCurrentMoviePoster((String) movieData.getOrDefault("poster", "/images/placeholder.jpg"));
             
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie", movieData);
+        }
+    }
+    
+    @MessageMapping("/party/{roomId}/webrtc/register")
+    public void registerPeerId(@DestinationVariable String roomId, @Payload Map<String, String> payload, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        String httpSessionId = (String) headerAccessor.getSessionAttributes().get("httpSessionId");
+        String peerId = payload.get("peerId");
+        if (httpSessionId != null && peerId != null) {
+            WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+            if (runtime != null && runtime.getMembers().containsKey(httpSessionId)) {
+                RoomMember member = runtime.getMembers().get(httpSessionId);
+                member.setPeerId(peerId);
+                
+                // Broadcast that this member has registered their WebRTC peer ID
+                Map<String, Object> msg = new HashMap<>();
+                msg.put("type", "PEER_REGISTERED");
+                msg.put("sessionId", httpSessionId);
+                msg.put("userId", member.getUserId());
+                msg.put("userName", member.getUserName());
+                msg.put("peerId", peerId);
+                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", msg);
+            }
         }
     }
 }

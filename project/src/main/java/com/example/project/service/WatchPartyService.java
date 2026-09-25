@@ -151,6 +151,9 @@ public class WatchPartyService {
         private String currentMovieUrl;
         private String currentMovieTitle;
         private String currentMoviePoster;
+        private Double currentPlaybackTime = 0.0;
+        private String playbackStatus = "PAUSE";
+        private Long lastSyncTimestamp = System.currentTimeMillis();
         
         private Map<String, RoomMember> members = new ConcurrentHashMap<>();
         private Map<String, RoomMember> waitingList = new ConcurrentHashMap<>();

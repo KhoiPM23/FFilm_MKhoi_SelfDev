@@ -25,6 +25,24 @@
         }
         .sidebar.collapsed { width: 0; border: none; overflow: hidden; }
 
+        /* --- WEBRTC CAMERAS --- */
+        .participant-strip {
+            height: 120px; background: #111; border-top: 1px solid #333;
+            display: flex; align-items: center; padding: 0 15px; gap: 15px;
+            overflow-x: auto;
+        }
+        .participant-strip::-webkit-scrollbar { height: 6px; }
+        .participant-strip::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+        
+        .user-cam {
+            width: 160px; height: 90px; background: #000; border-radius: 8px;
+            overflow: hidden; position: relative; border: 2px solid transparent;
+            transition: 0.2s; flex-shrink: 0;
+        }
+        .user-cam:hover { border-color: #e50914; }
+        .user-cam video { width: 100%; height: 100%; object-fit: cover; }
+        .user-cam .label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
+
         /* --- CHAT COMPONENTS --- */
         .room-header { padding: 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         .chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; scrollbar-color: #444 #121212; }
@@ -148,7 +166,8 @@
 <body>
 
     <div class="cinema-area" id="cinemaArea">
-        <div class="floating-bubbles-area" id="floatArea"></div>
+        <div style="flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+            <div class="floating-bubbles-area" id="floatArea"></div>
 
         <div th:if="${joinStatus == 'WAITING'}" style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999;">
             <i class="fas fa-lock fa-4x mb-4" style="color:#e50914;"></i>
@@ -169,7 +188,17 @@
             </button>
         </div>
 
-        <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8);"></video>
+        <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-height: calc(100vh - 120px);"></video>
+        </div>
+
+        <!-- Participant / Call Strip -->
+        <div class="participant-strip" id="videoGrid" th:if="${joinStatus != 'WAITING'}" style="width: 100%;">
+            <div class="user-cam" id="localCamContainer" style="display:none;">
+                <video id="localVideo" muted autoplay playsinline></video>
+                <div class="label">Bạn</div>
+            </div>
+            <!-- Remote cams will be added here via JS -->
+        </div>
 
         <!-- Waiting Notification (Host Only) -->
         <div th:if="${isHost}" id="waitingNotif" style="position:fixed; top:80px; right:20px; background:#e50914; color:#fff; padding:15px 20px; border-radius:10px; display:none; z-index:1000; box-shadow:0 5px 20px rgba(0,0,0,0.5);">
@@ -185,8 +214,8 @@
         </div>
 
         <div class="controls-bar" th:if="${joinStatus != 'WAITING'}">
-            <button class="btn-control" title="Bật/Tắt Mic" onclick="toggleBtn(this)"><i class="fas fa-microphone"></i></button>
-            <button class="btn-control" title="Bật/Tắt Cam" onclick="toggleBtn(this)"><i class="fas fa-video"></i></button>
+            <button class="btn-control" title="Bật/Tắt Mic" id="btnMic" onclick="toggleMic()"><i class="fas fa-microphone-slash"></i></button>
+            <button class="btn-control" title="Bật/Tắt Cam" id="btnCam" onclick="toggleCam()"><i class="fas fa-video-slash"></i></button>
             <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
             <button class="btn-control" onclick="sendReaction('❤️')">❤️</button>
             <button class="btn-control" onclick="sendReaction('😂')">😂</button>

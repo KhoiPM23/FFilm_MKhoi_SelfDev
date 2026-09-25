@@ -444,3 +444,26 @@ efactor/batch-3-quick-wins
   - Host auto-reclaim after reconnect: `[PENDING DECISION]`.
   - Private room rejection capability: `[PENDING]`.
 - **Next Step**: P6-A.6 WebRTC Signaling & Call Lifecycle.
+
+## 2026-09-26 - Phase 6 / Parallel Workstreams A, B, D (P6-A.6, P6-A.7, P6-A.9)
+- **Task**: Implement WebRTC signaling, harden movie sync, modernize Room UI.
+- **Problem**: Missing STOMP signaling for WebRTC peer IDs, late joiners desync on movie time, Room UI lacked participant camera space.
+- **Implementation**:
+  - Conducted Broad Discovery on all 11 workstreams, created `.ai-local/FINDINGS.md`.
+  - Added STOMP `/webrtc/register` endpoint in `WatchPartyController` to register PeerJS IDs in `WatchRoomRuntime`.
+  - Wired `PEER_REGISTERED` and `/members` STOMP channels in `watch-party.js` to automatically call new peers and clean up disconnected peers.
+  - Added `currentPlaybackTime` and `playbackStatus` to `WatchRoomRuntime`. Server intercepts `/sync` to store state, and extrapolates time upon `getHistory` for late joiners.
+  - Revamped `room.html` layout, moving chat to right sidebar, movie to main center, and added a horizontal scrollable `participant-strip` at the bottom for WebRTC video feeds.
+- **Files Changed**:
+  - `RoomMember.java`
+  - `WatchPartyController.java`
+  - `WatchPartyService.java`
+  - `watch-party.js`
+  - `room.html`
+- **Security Considerations**:
+  - WebRTC signaling relies on server-authenticated STOMP sessions, preventing arbitrary PeerID injection.
+- **Automated Verification**:
+  - Maven tests: `BUILD SUCCESS` (1 test, 0 failures, 0 errors).
+- **Runtime Limitation**:
+  - Multi-session browser E2E unavailable in current automated environment (`[NEEDS REPRO]` for actual video call rendering and precise movie sync delta).
+- **Next Step**: Messenger Modularization & Deep Audit (Workstream F) / P6-A.11.

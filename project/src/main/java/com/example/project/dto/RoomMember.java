@@ -12,6 +12,7 @@ public class RoomMember {
     private Integer userId;     // ID trong Database
     private String userName;
     private String avatar;
+    private String peerId;      // WebRTC PeerJS ID
     
     // Trạng thái thiết bị
     private boolean isMuted;
