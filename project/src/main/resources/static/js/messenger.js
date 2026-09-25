@@ -343,14 +343,34 @@
     }
 
     // --- 2. CORE LOGIC: LOAD LIST ---
+    function renderConversationSkeletons(count = 6) {
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            html += `
+                <div class="loading-skeleton">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-text">
+                        <div class="skeleton-line" style="width: ${65 + (i % 3) * 12}%;"></div>
+                        <div class="skeleton-line short"></div>
+                    </div>
+                </div>
+            `;
+        }
+        return html;
+    }
+
     // --- CẬP NHẬT: loadConversations (Truyền đủ tham số Online/Active) ---
     function loadConversations() {
+        const list = $('#conversationList');
+        if (list.children('.conv-item').length === 0) {
+            list.html(renderConversationSkeletons(6));
+        }
+
         $.ajax({
             url: '/api/v1/messenger/conversations',
             method: 'GET',
             dataType: 'json',
             success: function(data) {
-                const list = $('#conversationList');
                 list.empty();
                 if (!data || !Array.isArray(data)) return;
 
@@ -531,7 +551,15 @@
 
     function loadChatHistory(partnerId) {
         let container = $('#messagesContainer');
-        container.html('<div class="text-center mt-5 text-muted"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>');
+        container.html(`
+            <div class="chat-skeleton-container">
+                <div class="skeleton-bubble-row other"><div class="skeleton-bubble" style="width: 50%; height: 42px;"></div></div>
+                <div class="skeleton-bubble-row mine"><div class="skeleton-bubble" style="width: 38%; height: 38px;"></div></div>
+                <div class="skeleton-bubble-row other"><div class="skeleton-bubble" style="width: 65%; height: 56px;"></div></div>
+                <div class="skeleton-bubble-row mine"><div class="skeleton-bubble" style="width: 48%; height: 42px;"></div></div>
+                <div class="skeleton-bubble-row other"><div class="skeleton-bubble" style="width: 35%; height: 36px;"></div></div>
+            </div>
+        `);
 
         $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
             container.empty();

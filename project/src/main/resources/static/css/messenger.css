@@ -1996,6 +1996,40 @@ body.messenger-body {
     }
 }
 
+/* Chat Message Skeleton Bubbles */
+.chat-skeleton-container {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.skeleton-bubble-row {
+    display: flex;
+    width: 100%;
+}
+
+.skeleton-bubble-row.mine {
+    justify-content: flex-end;
+}
+
+.skeleton-bubble-row.other {
+    justify-content: flex-start;
+}
+
+.skeleton-bubble {
+    border-radius: 18px;
+    background: linear-gradient(90deg, #222428 25%, #30333a 50%, #222428 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-bubble-row.mine .skeleton-bubble {
+    background: linear-gradient(90deg, rgba(0, 132, 255, 0.2) 25%, rgba(0, 132, 255, 0.38) 50%, rgba(0, 132, 255, 0.2) 75%);
+    background-size: 200% 100%;
+}
+
 /* ============= FIX 20: THÊM TRANSITION CHO THEME ============= */
 .msg-chat-area, .msg-sidebar, .chat-info-sidebar, .bubble {
     transition: background-color 0.3s ease, border-color 0.3s ease;

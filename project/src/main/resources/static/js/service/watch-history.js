@@ -17,6 +17,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (page === 0) {
+            let skeletonHtml = '';
+            for (let i = 0; i < 8; i++) {
+                skeletonHtml += `
+                    <div class="movie-card-skeleton" style="margin: 8px;">
+                        <div class="skeleton-poster"></div>
+                        <div class="skeleton-badge"></div>
+                        <div class="skeleton-info-overlay">
+                            <div class="skeleton-title-line"></div>
+                            <div class="skeleton-meta-line"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            historyListContainer.innerHTML = skeletonHtml;
+        }
+
         try {
             const response = await fetch(`/api/history?page=${page}&size=20`, {
                 method: 'GET',
@@ -40,6 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             totalPages = pageData.totalPages;
             currentPage = pageData.number + 1; // pageData.number là 0-based
+
+            if (page === 0) {
+                historyListContainer.innerHTML = '';
+            }
 
             if (pageData.content.length > 0) {
                 renderMovies(pageData.content);

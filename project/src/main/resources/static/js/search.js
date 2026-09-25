@@ -283,6 +283,27 @@
             // 2. Nếu không có Cache thì mới gọi API
             if (abortController) abortController.abort();
             abortController = new AbortController();
+
+            // Hiển thị skeleton suggestions trong khi chờ API
+            liveSuggestions.innerHTML = `
+                <div style="padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <div style="width:40px; height:56px; border-radius:4px; background:linear-gradient(90deg, #1f2228 25%, #2a2e36 50%, #1f2228 75%); background-size:200% 100%; animation:skeleton-shimmer 1.6s infinite;"></div>
+                        <div style="flex:1;">
+                            <div style="height:12px; width:70%; border-radius:3px; background:#2a2e36; margin-bottom:6px;"></div>
+                            <div style="height:9px; width:40%; border-radius:3px; background:#22252c;"></div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <div style="width:40px; height:56px; border-radius:4px; background:linear-gradient(90deg, #1f2228 25%, #2a2e36 50%, #1f2228 75%); background-size:200% 100%; animation:skeleton-shimmer 1.6s infinite;"></div>
+                        <div style="flex:1;">
+                            <div style="height:12px; width:55%; border-radius:3px; background:#2a2e36; margin-bottom:6px;"></div>
+                            <div style="height:9px; width:35%; border-radius:3px; background:#22252c;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            liveSuggestions.style.display = 'block';
             
             try {
                 const response = await fetch(
@@ -735,6 +756,22 @@
              */
             async function loadTrendingCarousel() {
                 try {
+                    // Hiển thị skeleton loaders trong khi tải danh sách
+                    let skeletonHtml = '';
+                    for (let i = 0; i < 6; i++) {
+                        skeletonHtml += `
+                            <div class="movie-card-skeleton">
+                                <div class="skeleton-poster"></div>
+                                <div class="skeleton-badge"></div>
+                                <div class="skeleton-info-overlay">
+                                    <div class="skeleton-title-line"></div>
+                                    <div class="skeleton-meta-line"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    trendingCarousel.innerHTML = skeletonHtml;
+
                     // Gọi API nội bộ lấy danh sách phim hot (Top 10)
                     // ID '0' là dummy vì endpoint này không cần ID cụ thể
                     const response = await fetch('/api/movie/0/trending');
