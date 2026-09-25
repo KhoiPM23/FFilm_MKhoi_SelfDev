@@ -387,3 +387,30 @@ efactor/batch-3-quick-wins
 - **Task**: Perform a final regression audit after all Phase 5B fixes.
 - **Action**: Compiled the project and ran all backend unit/integration tests with dynamic agent loading enabled.
 - **Result**: Tests run: 1, Failures: 0, Errors: 0, Skipped: 0. Build Success. No regressions found.
+
+## 2026-09-26 - Phase 6 / P6-A.1: Watch Party & My Rooms HTTP 500 Root Cause
+- **Task**: Investigate runtime HTTP 500 errors on `/watch-party` and `/my-rooms`.
+- **Root Cause**: SQLServerException: Invalid object name 'WatchRoom'. Missing tables in `FFilm3` database.
+- **Result**: Documented root cause and required schema changes.
+
+## 2026-09-26 - Phase 6 / P6-A.2: Watch Party Database Schema Synchronization
+- **Task**: Synchronize missing Watch Party tables with SQL Server database `FFilm3`.
+- **Action**: Executed `migration-p6a2-watch-party-schema.sql` creating `WatchRoom`, `FriendRequests`, `Notification`, and `UserFollow`.
+- **Result**: Commit `66a576f`. Endpoints `/watch-party` and `/my-rooms` return HTTP 200.
+
+## 2026-09-26 - Phase 6 / P6-A.3: Restore Watch Party Room Creation Flow
+- **Task**: Fix frontend blockers preventing room creation from `/watch-party` and `/my-rooms` using the existing backend contract.
+- **Root Cause Blocker A (`/watch-party`)**: Button `+ Tạo Phòng Ngay` called `openCreateModal()`, which was undeclared in `lobby.html`. Also `closeCreateModal()`, `togglePassword()`, and `joinRoom()` were missing.
+- **Root Cause Blocker B (`/my-rooms`)**: Modal "Khởi Tạo" button triggered `submitCreateRoom()`, which attempted to call non-existent JSON endpoint `POST /api/party/create`, lacked required `accessType` parameter, and "Vào Phòng" link pointed to 404 `/watch-party/{id}` instead of `/watch-party/room/{id}`.
+- **Fixes Applied**:
+  - `lobby.html`: Implemented `openCreateModal`, `closeCreateModal`, `togglePassword`, `joinRoom`, and safe window click listener.
+  - `my-rooms.html`: Integrated modal form directly with `POST /watch-party/create` (`application/x-www-form-urlencoded`), dynamically computed `accessType` ('PRIVATE' if password provided, else 'PUBLIC'), and rewired room enter link to `/watch-party/room/{id}`.
+- **Automated Tests**: Maven `.\mvnw.cmd test` passed (`BUILD SUCCESS`, 1 test, 0 failures, 0 errors).
+- **Runtime Verification**:
+  - Flow A: `/watch-party` -> "+ Tạo Phòng Ngay" opens modal without errors -> created room `Phong Cine VIP 1` (id=1) -> navigated to `/watch-party/room/1`.
+  - Flow B: `/my-rooms` lists `Phong Cine VIP 1` -> "+ Tạo Phòng Mới" opens modal -> created room `Phong My Room 2` (id=2) -> navigated to `/watch-party/room/2`.
+  - Flow C: `/my-rooms` lists both rooms -> "Vào Phòng" on `Phong My Room 2` navigates cleanly to `/watch-party/room/2`.
+  - SQL Server persistence verified: 2 rows in `WatchRoom` table.
+- **Future AI Validation Backlog**:
+  - [PENDING] Future AI Search runtime validation.
+  - [PENDING] Future AI Chatbot runtime validation.

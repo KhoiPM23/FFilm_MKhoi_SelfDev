@@ -400,13 +400,40 @@
 <div th:replace="~{fragments/footer :: footer}"></div>
 
 <script>
-    // Đóng modal khi click ngoài
-    window.onclick = function(event) {
+    function openCreateModal() {
         const modal = document.getElementById('createRoomModal');
-        if (event.target == modal) {
-            closeCreateModal();
+        if (modal) {
+            modal.style.display = 'flex';
         }
     }
+
+    function closeCreateModal() {
+        const modal = document.getElementById('createRoomModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function togglePassword(select) {
+        const passGroup = document.getElementById('passGroup');
+        if (passGroup) {
+            passGroup.style.display = select.value === 'PRIVATE' ? 'block' : 'none';
+        }
+    }
+
+    function joinRoom(roomId) {
+        if (roomId) {
+            window.location.href = '/watch-party/room/' + roomId;
+        }
+    }
+
+    // Đóng modal khi click ngoài
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('createRoomModal');
+        if (event.target === modal) {
+            closeCreateModal();
+        }
+    });
 </script>
 <script src="/js/script.js"></script>
 

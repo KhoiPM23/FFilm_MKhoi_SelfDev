@@ -32,26 +32,31 @@ This file records the MOST RECENT verified operational state of the project.
 - **XSS Vulnerability**: Fixed Stored/Reflected XSS in WatchPartyController chat (added escapeHtml to user messages and names). [FIXED]
 - **Hardcoded Configs**: Cleaned up unused vnp_ReturnUrl from VnPayConfig. [FIXED]
 
+## WATCH PARTY & ROOM MANAGEMENT (PHASE 6)
+- **Schema Synchronization (P6-A.2)**: `WatchRoom`, `FriendRequests`, `Notification`, `UserFollow` synchronized in SQL Server `FFilm3` via `migration-p6a2-watch-party-schema.sql` (commit `66a576f`). [FACT]
+- **Create Room Flow (P6-A.3)**: Restored and operational on both `/watch-party` and `/my-rooms` without framework rewrite. [FIXED]
+  - Fixed Blocker A in `lobby.html`: modal open/close/toggle handlers implemented.
+  - Fixed Blocker B in `my-rooms.html`: form submission connected to `POST /watch-party/create`, dynamic `accessType` assignment, enter link rewired to `/watch-party/room/{id}`.
+  - End-to-end verified with authenticated account in browser. [FACT]
+
 ## AI
 - **Gemini Model**: `gemini-2.5-flash` active and operational. [FACT]
 - **RestTemplate Timeout**: Configured to 5s connect timeout / 30s read timeout. [FIXED]
-- **AI Search**: Verified working via `/api/ai-search/suggest` (HTTP 200 OK). [FACT]
-- **AI Chatbot**: Verified working via `/api/ai-agent/chat` (HTTP 200 OK). [FACT]
+- **[PENDING] Future AI Search Runtime Validation**: Full validation backlog recorded for future execution. [PENDING]
+- **[PENDING] Future AI Chatbot Runtime Validation**: Full validation backlog recorded for future execution. [PENDING]
 
 ## DOCUMENTATION & WORKFLOW
-- `WORK_LOG.md`: Present and updated through Batch 4C. [FACT]
+- `WORK_LOG.md`: Present and updated through P6-A.3. [FACT]
 - Migration File: Present. [FACT]
 - Project Memory Files: Established and tracked. [FACT]
-- GitHub Issues Workflow: Issues #1, #2, #3, #4 completed; Issue #5 open for Batch 4D. [FACT]
 
 ## GIT
-- **Branch**: `refactor/batch-3-quick-wins` [FACT]
-- **Remote**: Synchronized with `origin/refactor/batch-3-quick-wins`. [FACT]
+- **Branch**: `main` [FACT]
+- **Remote**: Synchronized with `origin/main`. [FACT]
 
 ## OPEN RISKS
 - Historical exposure of API keys (TMDB, Tenor) on remote repositories if not purged/rotated.
 - Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
 ## NEXT TASK
-- Phase 5A: WebRTC Call Signaling Lifecycle & Media Cleanup [COMPLETED]
-- Phase 5B+: YouTube trailer overlay bug, Watch Party disconnect hooks, controller exception detail leaks.
+- Phase 6 / P6-A.4: Watch Party Room Realtime & Social Member Synchronization. [PROPOSED]
