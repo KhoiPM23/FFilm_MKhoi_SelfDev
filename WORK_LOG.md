@@ -42,3 +42,18 @@
   - Provide a valid `gemini.api.key` in `application.properties`.
   - Rotate/revoke the previously exposed TMDB credential.
   - Approve and execute Git history purge to erase historical credential exposure.
+
+## 2026-09-25 - Establish Project Memory and Operational Workflow
+- **Task**: Establish durable project-memory and AI-agent operating system for future continuity.
+- **Objective**: Consolidate findings, architecture, and current state into Git-tracked Markdown files and create `.ai-local` workspace.
+- **Files Created**:
+  - `PROJECT_CONTEXT.md` (Tech stack, purpose, agent rules)
+  - `ARCHITECTURE.md` (Current components and data flows)
+  - `DECISIONS.md` (Architectural and security decisions)
+  - `CURRENT_STATE.md` (Operational baseline)
+  - `.ai-local/` structure (Local agent context, logs, and handoffs)
+- **Verification**:
+  - `.ai-local` explicitly ignored via `.gitignore` to prevent secret leaks.
+  - No secret values written to any documentation files (used `[OMITTED]`).
+- **Status**: Completed successfully.
+- **Current Blockers**: AI Search/Chatbot integration still blocked by invalid local Gemini credential. Git history purge pending human authorization.

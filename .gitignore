@@ -15,3 +15,5 @@ bin/
 # --- THÊM MỚI: Chặn file uploads của Chat ---
 src/main/resources/static/uploads/chat/
 **/uploads/chat/
+# Ignore AI working memory
+.ai-local/
