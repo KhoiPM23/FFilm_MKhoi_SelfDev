@@ -20,9 +20,10 @@ public class WebSocketController {
     @Autowired private OnlineStatusService onlineStatusService;
     
     @MessageMapping("/typing")
-    public void handleTyping(@Payload Map<String, Object> payload) {
-        Integer receiverId = (Integer) payload.get("receiverId");
-        Integer senderId = (Integer) payload.get("senderId");
+    public void handleTyping(@Payload Map<String, Object> payload, Principal principal) {
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+        if (receiverId == null || principal == null) return;
+        Integer senderId = parseInteger(principal.getName());
         String senderName = (String) payload.get("senderName");
         
         // Gửi đến người nhận bằng userId
@@ -39,8 +40,9 @@ public class WebSocketController {
     }
     
     @MessageMapping("/stop-typing")
-    public void handleStopTyping(@Payload Map<String, Object> payload) {
-        Integer receiverId = (Integer) payload.get("receiverId");
+    public void handleStopTyping(@Payload Map<String, Object> payload, Principal principal) {
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+        if (receiverId == null || principal == null) return;
         
         messagingTemplate.convertAndSendToUser(
             receiverId.toString(),
@@ -50,10 +52,17 @@ public class WebSocketController {
     }
     
     @MessageMapping("/mark-seen")
-    public void handleMarkSeen(@Payload Map<String, Object> payload) {
-        Long messageId = Long.valueOf(payload.get("messageId").toString());
-        Integer userId = (Integer) payload.get("userId");
-        Integer partnerId = (Integer) payload.get("partnerId");
+    public void handleMarkSeen(@Payload Map<String, Object> payload, Principal principal) {
+        if (payload.get("messageId") == null || principal == null) return;
+        Long messageId;
+        try {
+            messageId = Long.valueOf(payload.get("messageId").toString());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        Integer userId = parseInteger(principal.getName());
+        Integer partnerId = parseInteger(payload.get("partnerId"));
+        if (partnerId == null || userId == null) return;
         
         // Thông báo cho người gửi
         messagingTemplate.convertAndSendToUser(
@@ -85,9 +94,6 @@ public class WebSocketController {
             try {
                 senderId = Integer.valueOf(principal.getName());
             } catch (NumberFormatException ignored) {}
-        }
-        if (senderId == null) {
-            senderId = parseInteger(payload.get("senderId"));
         }
 
         if (type == null || receiverId == null || senderId == null) {
