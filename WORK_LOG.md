@@ -138,3 +138,16 @@
   - Maven tests: .\mvnw.cmd test passed (BUILD SUCCESS, 0 errors, 0 failures).
   - Search: Zero active TMDB_API_KEY / TMDB_BASE_URL constants remaining across static/js.
   - Diff check: git diff --check passed cleanly.
+
+## 2026-09-25 - Batch 3C — Count Messenger Stats at Database Level
+- **Issue**: #1 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/1)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+- **Changes**:
+  - MessengerRepository.java: Added countConversationMessages (JPQL COUNT), countConversationMediaMessages (JPQL COUNT filtering out TEXT type), and findFirstMessageInConversation (Pageable limit 1 ordered by timestamp ASC).
+  - MessengerService.java: Replaced full conversation entity collection loading with database-level counts and single-message lookup for getChatStats.
+- **Behavior Preserved**:
+  - Exact semantic equivalence: identical sender/receiver conditions, media filtering, earliest message lookup, and response map shape (totalMessages, mediaCount, firstMessage).
+- **Verification**:
+  - Maven tests: .\mvnw.cmd test passed (BUILD SUCCESS, 0 errors, 0 failures).
+  - Diff check: git diff --check passed cleanly.

@@ -93,5 +93,15 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
            "m.sender.userID = :senderId AND m.receiver.userID = :receiverId " +
            "ORDER BY m.timestamp DESC")
     List<MessengerMessage> findBySenderAndReceiver(@Param("senderId") Integer senderId, 
-                                                  @Param("receiverId") Integer receiverId);                                       
+                                                  @Param("receiverId") Integer receiverId);
+
+    // ============= Chat Stats Queries =============
+    @Query("SELECT COUNT(m) FROM MessengerMessage m WHERE (m.sender = :user1 AND m.receiver = :user2) OR (m.sender = :user2 AND m.receiver = :user1)")
+    long countConversationMessages(@Param("user1") User user1, @Param("user2") User user2);
+
+    @Query("SELECT COUNT(m) FROM MessengerMessage m WHERE ((m.sender = :user1 AND m.receiver = :user2) OR (m.sender = :user2 AND m.receiver = :user1)) AND m.type <> :excludeType")
+    long countConversationMediaMessages(@Param("user1") User user1, @Param("user2") User user2, @Param("excludeType") MessengerMessage.MessageType excludeType);
+
+    @Query("SELECT m FROM MessengerMessage m WHERE (m.sender = :user1 AND m.receiver = :user2) OR (m.sender = :user2 AND m.receiver = :user1) ORDER BY m.timestamp ASC")
+    List<MessengerMessage> findFirstMessageInConversation(@Param("user1") User user1, @Param("user2") User user2, org.springframework.data.domain.Pageable pageable);
 }

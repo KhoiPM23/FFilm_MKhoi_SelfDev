@@ -55,31 +55,30 @@ public class MessengerService {
     
     public Map<String, Object> getChatStats(Integer userId, Integer partnerId) {
         Map<String, Object> stats = new HashMap<>();
-        
-        // Đếm tổng số tin nhắn
-        List<MessengerMessage> allMessages = messengerRepository.findConversation(
-            userRepository.findById(userId).orElseThrow(),
-            userRepository.findById(partnerId).orElseThrow()
-        );
-        
-        stats.put("totalMessages", allMessages.size());
-        
-        // Đếm media
-        long mediaCount = allMessages.stream()
-            .filter(m -> m.getType() != MessengerMessage.MessageType.TEXT)
-            .count();
+
+        User user1 = userRepository.findById(userId).orElseThrow();
+        User user2 = userRepository.findById(partnerId).orElseThrow();
+
+        // Đếm tổng số tin nhắn tại tầng database
+        long totalMessages = messengerRepository.countConversationMessages(user1, user2);
+        stats.put("totalMessages", totalMessages);
+
+        // Đếm media (khác TEXT) tại tầng database
+        long mediaCount = messengerRepository.countConversationMediaMessages(user1, user2, MessengerMessage.MessageType.TEXT);
         stats.put("mediaCount", mediaCount);
-        
-        // Tin nhắn đầu tiên
-        Optional<MessengerMessage> firstMessage = allMessages.stream()
-            .min(Comparator.comparing(MessengerMessage::getTimestamp));
-        
-        if (firstMessage.isPresent()) {
+
+        // Tin nhắn đầu tiên (chỉ load 1 entity thay vì toàn bộ lịch sử)
+        List<MessengerMessage> firstMessageList = messengerRepository.findFirstMessageInConversation(
+            user1, user2, org.springframework.data.domain.PageRequest.of(0, 1)
+        );
+
+        if (!firstMessageList.isEmpty()) {
+            MessengerMessage firstMessage = firstMessageList.get(0);
             Map<String, Object> firstMsgInfo = new HashMap<>();
-            firstMsgInfo.put("id", firstMessage.get().getId());
-            firstMsgInfo.put("content", firstMessage.get().getContent());
-            firstMsgInfo.put("timestamp", firstMessage.get().getTimestamp());
-            firstMsgInfo.put("sender", firstMessage.get().getSender().getUserName());
+            firstMsgInfo.put("id", firstMessage.getId());
+            firstMsgInfo.put("content", firstMessage.getContent());
+            firstMsgInfo.put("timestamp", firstMessage.getTimestamp());
+            firstMsgInfo.put("sender", firstMessage.getSender().getUserName());
             stats.put("firstMessage", firstMsgInfo);
         }
         
