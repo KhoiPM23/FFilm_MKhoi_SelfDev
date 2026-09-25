@@ -1,12 +1,7 @@
 package com.example.project.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -15,22 +10,11 @@ import java.util.*;
 @Service
 public class AISearchService {
 
-    // API key đọc từ application.properties hoặc env (gemini.api.key)
-    @Value("${gemini.api.key:}")
-    private String geminiApiKey;
+    private final GeminiClient geminiClient;
 
-    // Base URL cho model (gemini-2.5-flash)
-    private static final String GEMINI_API_URL_BASE =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
-
-    private final RestTemplate restTemplate;
-
-    public AISearchService() {
-        // cấu hình RestTemplate với timeout
-        SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
-        rf.setConnectTimeout(5000);
-        rf.setReadTimeout(30000);
-        this.restTemplate = new RestTemplate(rf);
+    @Autowired
+    public AISearchService(GeminiClient geminiClient) {
+        this.geminiClient = geminiClient;
     }
 
     /**
@@ -128,154 +112,118 @@ public class AISearchService {
     }
 
     private String callGeminiAPI(String prompt) throws Exception {
-        JSONObject requestBody = new JSONObject();
-        JSONArray contents = new JSONArray();
-        JSONObject content = new JSONObject();
-        JSONArray parts = new JSONArray();
-        JSONObject part = new JSONObject();
-        part.put("text", prompt);
-        parts.put(part);
-        content.put("parts", parts);
-        contents.put(content);
-        requestBody.put("contents", contents);
-
         JSONObject generationConfig = new JSONObject();
         generationConfig.put("temperature", 0.7);
         generationConfig.put("maxOutputTokens", 2048);
         generationConfig.put("topP", 0.9);
-        requestBody.put("generationConfig", generationConfig);
 
-        String apiUrl = GEMINI_API_URL_BASE + geminiApiKey;
+        JSONObject requestBody = geminiClient.buildRequestBody(prompt, generationConfig, null);
+        JSONObject json = geminiClient.call(requestBody);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(requestBody.toString(), headers);
+        // DEV debug: in raw response để biết chính xác API trả gì (sau khi ổn thì gỡ)
+        System.out.println("Gemini raw response: " + json.toString());
 
-        try {
-            ResponseEntity<String> resp = restTemplate.exchange(apiUrl, HttpMethod.POST, entity, String.class);
-            String responseBody = resp.getBody();
+        // Robust extraction of text from various response shapes (avoid picking up "role":"model")
+        String extractedText = null;
 
-            if (responseBody == null || responseBody.isEmpty()) {
-                throw new Exception("Gemini API returned empty response body (HTTP " + resp.getStatusCode() + ")");
-            }
+        // 1) candidates -> content.parts[*].text OR candidate.text
+        if (json.has("candidates")) {
+            JSONArray candidates = json.getJSONArray("candidates");
+            for (int ci = 0; ci < candidates.length() && extractedText == null; ci++) {
+                JSONObject cand = candidates.getJSONObject(ci);
 
-            // DEV debug: in raw response để biết chính xác API trả gì (sau khi ổn thì gỡ)
-            System.out.println("Gemini raw response (status=" + resp.getStatusCode() + "): " + responseBody);
-
-            JSONObject json = new JSONObject(responseBody);
-
-            // Robust extraction of text from various response shapes (avoid picking up "role":"model")
-            String extractedText = null;
-
-            // 1) candidates -> content.parts[*].text OR candidate.text
-            if (json.has("candidates")) {
-                JSONArray candidates = json.getJSONArray("candidates");
-                for (int ci = 0; ci < candidates.length() && extractedText == null; ci++) {
-                    JSONObject cand = candidates.getJSONObject(ci);
-
-                    // candidate.text (some responses)
-                    if (cand.has("text")) {
-                        String t = cand.optString("text", "").trim();
-                        if (!t.isEmpty() && !t.equalsIgnoreCase("model")) extractedText = t;
-                    }
-
-                    // candidate.content.parts[*].text
-                    if (extractedText == null && cand.has("content")) {
-                        JSONObject contentObj = cand.getJSONObject("content");
-
-                        if (contentObj.has("parts")) {
-                            JSONArray partsArr = contentObj.getJSONArray("parts");
-                            for (int pi = 0; pi < partsArr.length() && extractedText == null; pi++) {
-                                JSONObject p = partsArr.optJSONObject(pi);
-                                if (p != null) {
-                                    String t = p.optString("text", "").trim();
-                                    if (!t.isEmpty()) extractedText = t;
-                                }
-                            }
-                        }
-
-                        // fallback: content.text (rare)
-                        if (extractedText == null && contentObj.has("text")) {
-                            String t = contentObj.optString("text", "").trim();
-                            if (!t.isEmpty()) extractedText = t;
-                        }
-
-                        // fallback: scan content values but IGNORE keys like "role" and values equal "model"
-                        if (extractedText == null) {
-                            Iterator<String> keys = contentObj.keys();
-                            while (keys.hasNext() && extractedText == null) {
-                                String k = keys.next();
-                                if (k.equalsIgnoreCase("role")) continue; // skip
-                                try {
-                                    Object val = contentObj.get(k);
-                                    if (val instanceof String) {
-                                        String t = ((String) val).trim();
-                                        if (!t.isEmpty() && !t.equalsIgnoreCase("model")) extractedText = t;
-                                    }
-                                } catch (Exception ignore) { }
-                            }
-                        }
-                    }
+                // candidate.text (some responses)
+                if (cand.has("text")) {
+                    String t = cand.optString("text", "").trim();
+                    if (!t.isEmpty() && !t.equalsIgnoreCase("model")) extractedText = t;
                 }
-            }
 
-            // 2) output style
-            if (extractedText == null && json.has("output")) {
-                JSONArray output = json.getJSONArray("output");
-                for (int oi = 0; oi < output.length() && extractedText == null; oi++) {
-                    JSONObject o0 = output.getJSONObject(oi);
+                // candidate.content.parts[*].text
+                if (extractedText == null && cand.has("content")) {
+                    JSONObject contentObj = cand.getJSONObject("content");
 
-                    if (o0.has("content")) {
-                        JSONArray contentArr = o0.getJSONArray("content");
-                        for (int ci = 0; ci < contentArr.length() && extractedText == null; ci++) {
-                            JSONObject c = contentArr.getJSONObject(ci);
-                            if (c.has("text")) {
-                                String t = c.optString("text", "").trim();
+                    if (contentObj.has("parts")) {
+                        JSONArray partsArr = contentObj.getJSONArray("parts");
+                        for (int pi = 0; pi < partsArr.length() && extractedText == null; pi++) {
+                            JSONObject p = partsArr.optJSONObject(pi);
+                            if (p != null) {
+                                String t = p.optString("text", "").trim();
                                 if (!t.isEmpty()) extractedText = t;
                             }
                         }
                     }
-                    if (extractedText == null && o0.has("text")) {
-                        String t = o0.optString("text", "").trim();
+
+                    // fallback: content.text (rare)
+                    if (extractedText == null && contentObj.has("text")) {
+                        String t = contentObj.optString("text", "").trim();
                         if (!t.isEmpty()) extractedText = t;
                     }
-                }
-            }
 
-            // 3) top-level text
-            if (extractedText == null && json.has("text")) {
-                String t = json.optString("text", "").trim();
-                if (!t.isEmpty()) extractedText = t;
-            }
-
-            // 4) If still null, inspect finishReason to give clearer message
-            if (extractedText == null) {
-                if (json.has("candidates")) {
-                    JSONArray candidates = json.getJSONArray("candidates");
-                    if (candidates.length() > 0) {
-                        JSONObject first = candidates.getJSONObject(0);
-                        String finishReason = first.optString("finishReason", "");
-                        if (!finishReason.isEmpty()) {
-                            throw new Exception("Gemini finished early: " + finishReason + "; raw=" + responseBody);
+                    // fallback: scan content values but IGNORE keys like "role" and values equal "model"
+                    if (extractedText == null) {
+                        Iterator<String> keys = contentObj.keys();
+                        while (keys.hasNext() && extractedText == null) {
+                            String k = keys.next();
+                            if (k.equalsIgnoreCase("role")) continue; // skip
+                            try {
+                                Object val = contentObj.get(k);
+                                if (val instanceof String) {
+                                    String t = ((String) val).trim();
+                                    if (!t.isEmpty() && !t.equalsIgnoreCase("model")) extractedText = t;
+                                }
+                            } catch (Exception ignore) { }
                         }
                     }
                 }
-                throw new Exception("Cannot parse Gemini response structure; raw=" + responseBody);
             }
-
-            // Return the extracted text
-            return extractedText;
-
-
-
-        } catch (HttpClientErrorException e) {
-            System.err.println("Gemini HTTP error: status=" + e.getStatusCode());
-            System.err.println("Gemini response body: " + e.getResponseBodyAsString());
-            throw new Exception("Gemini API returned HTTP error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
-        } catch (RestClientException e) {
-            e.printStackTrace();
-            throw new Exception("Network error calling Gemini API: " + e.getMessage());
         }
+
+        // 2) output style
+        if (extractedText == null && json.has("output")) {
+            JSONArray output = json.getJSONArray("output");
+            for (int oi = 0; oi < output.length() && extractedText == null; oi++) {
+                JSONObject o0 = output.getJSONObject(oi);
+
+                if (o0.has("content")) {
+                    JSONArray contentArr = o0.getJSONArray("content");
+                    for (int ci = 0; ci < contentArr.length() && extractedText == null; ci++) {
+                        JSONObject c = contentArr.getJSONObject(ci);
+                        if (c.has("text")) {
+                            String t = c.optString("text", "").trim();
+                            if (!t.isEmpty()) extractedText = t;
+                        }
+                    }
+                }
+                if (extractedText == null && o0.has("text")) {
+                    String t = o0.optString("text", "").trim();
+                    if (!t.isEmpty()) extractedText = t;
+                }
+            }
+        }
+
+        // 3) top-level text
+        if (extractedText == null && json.has("text")) {
+            String t = json.optString("text", "").trim();
+            if (!t.isEmpty()) extractedText = t;
+        }
+
+        // 4) If still null, inspect finishReason to give clearer message
+        if (extractedText == null) {
+            if (json.has("candidates")) {
+                JSONArray candidates = json.getJSONArray("candidates");
+                if (candidates.length() > 0) {
+                    JSONObject first = candidates.getJSONObject(0);
+                    String finishReason = first.optString("finishReason", "");
+                    if (!finishReason.isEmpty()) {
+                        throw new Exception("Gemini finished early: " + finishReason + "; raw=" + json.toString());
+                    }
+                }
+            }
+            throw new Exception("Cannot parse Gemini response structure; raw=" + json.toString());
+        }
+
+        // Return the extracted text
+        return extractedText;
     }
 
     private Map<String, Object> parseAIResponse(String aiText) {
@@ -429,6 +377,6 @@ public class AISearchService {
     }
 
     public boolean isConfigured() {
-        return geminiApiKey != null && !geminiApiKey.trim().isEmpty();
+        return geminiClient.isConfigured();
     }
 }

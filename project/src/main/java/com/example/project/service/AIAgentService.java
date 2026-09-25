@@ -11,15 +11,9 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-// --- KHU VỰC IMPORT QUAN TRỌNG ĐỂ FIX LỖI ---
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpMethod;
-// --------------------------------------------
+
+
 
 import java.io.InputStream;
 import java.util.*;
@@ -33,13 +27,9 @@ import com.example.project.service.AISearchService; // Import service tìm kiế
 @Service
 public class AIAgentService {
 
-    // ---- CẤU HÌNH ----
-    @Value("${gemini.api.key:}")
-    private String geminiApiKey;
+    private final GeminiClient geminiClient;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
 
-    private final RestTemplate restTemplate;
     private final SubscriptionPlanRepository planRepository;
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
@@ -54,8 +44,7 @@ public class AIAgentService {
 
     @Autowired
     public AIAgentService(
-            @Value("${gemini.api.key:}") String geminiApiKey,
-            RestTemplate restTemplate,
+            GeminiClient geminiClient,
             SubscriptionPlanRepository planRepository,
             MovieRepository movieRepository,
             GenreRepository genreRepository,
@@ -64,8 +53,7 @@ public class AIAgentService {
             CacheManager cacheManager,
             AISearchService aiSearchService,
             AIChatHistoryRepository chatHistoryRepository) {
-        this.geminiApiKey = geminiApiKey;
-        this.restTemplate = restTemplate;
+        this.geminiClient = geminiClient;
         this.planRepository = planRepository;
         this.movieRepository = movieRepository;
         this.genreRepository = genreRepository;
@@ -1227,49 +1215,21 @@ public class AIAgentService {
     }
 
     private JSONObject buildGeminiRequest_Simple(String prompt) {
-        JSONObject body = new JSONObject();
-        JSONArray contents = new JSONArray();
-        JSONObject content = new JSONObject();
-        JSONArray parts = new JSONArray();
-        JSONObject part = new JSONObject();
-        part.put("text", prompt);
-        parts.put(part);
-        content.put("parts", parts);
-        contents.put(content);
-        body.put("contents", contents);
         JSONObject config = new JSONObject();
         config.put("temperature", 0.1);
         config.put("maxOutputTokens", 2048);
-        body.put("generationConfig", config);
         JSONArray safety = new JSONArray();
         safety.put(new JSONObject().put("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT").put("threshold",
                 "BLOCK_LOW_AND_ABOVE"));
-        body.put("safetySettings", safety);
-        return body;
+        return geminiClient.buildRequestBody(prompt, config, safety);
     }
 
     private JSONObject callGeminiAPI(JSONObject body) throws Exception {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
-            ResponseEntity<String> resp = restTemplate.exchange(GEMINI_API_URL + geminiApiKey, HttpMethod.POST, entity,
-                    String.class);
-            return new JSONObject(resp.getBody());
-        } catch (org.springframework.web.client.HttpClientErrorException e) {
-            if (e.getStatusCode().value() == 429)
-                throw new Exception("Hệ thống đang bận, vui lòng thử lại sau giây lát.");
-            throw e;
-        }
+        return geminiClient.call(body);
     }
 
     private String extractTextResponse(JSONObject json) {
-        try {
-            return json.getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts")
-                    .getJSONObject(0).getString("text");
-        } catch (Exception e) {
-            return "";
-        }
+        return geminiClient.extractText(json);
     }
 
     private String formatGenresResponse(List<Genre> genres, String reason) {
@@ -1279,7 +1239,7 @@ public class AIAgentService {
     }
 
     public boolean isConfigured() {
-        return geminiApiKey != null && !geminiApiKey.isEmpty();
+        return geminiClient.isConfigured();
     }
 
     private void loadWebsiteContext() {
