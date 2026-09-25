@@ -15,7 +15,7 @@ public class RecommenedMovieController {
     @Autowired
     private RecommendationService recommendationService;
 
-    @GetMapping("/recommnended")
+    @GetMapping("/recommended")
     public String getMethodName(@SessionAttribute("user") UserSessionDto userSession, Model model) {
         List<Movie> recommendations = recommendationService.getRecommendations(userSession.getId());
         model.addAttribute("recommendations", recommendations);

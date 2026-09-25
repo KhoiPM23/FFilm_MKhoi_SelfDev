@@ -192,32 +192,6 @@ public class UserManageController {
 
 
 
-    @PostMapping("/update-privacy")
 
-    public String updatePrivacy(@RequestParam(defaultValue = "false") boolean publicFriend,
-
-                                @RequestParam(defaultValue = "false") boolean publicFav,
-
-                                @RequestParam(defaultValue = "false") boolean publicHistory,
-
-                                HttpSession session) {
-
-
-
-        UserSessionDto sessionUser = (UserSessionDto) session.getAttribute("user");
-
-        if (sessionUser == null) return "redirect:/login";
-
-
-
-        // [FIX] Lấy trực tiếp từ Repository thông qua Service
-
-        userService.updatePrivacy(sessionUser.getId(), publicFriend, publicFav, publicHistory);
-
-
-
-        return "redirect:/profile?success=privacy_updated";
-
-    }
 
 }

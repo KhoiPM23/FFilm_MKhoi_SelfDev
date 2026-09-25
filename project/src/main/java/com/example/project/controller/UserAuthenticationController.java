@@ -268,7 +268,8 @@ public class UserAuthenticationController {
                 currentUser.getUserID(),
                 currentUser.getUserName(),
                 currentUser.getEmail(),
-                currentUser.getPhoneNumber());
+                currentUser.getPhoneNumber(),
+                "");
         model.addAttribute("userProfile", updateDto);
 
         return "User/profile";
@@ -339,5 +340,20 @@ public class UserAuthenticationController {
         }
 
         return "User/update-success";
+    }
+
+    // --- 9. Cập nhật Quyền riêng tư ---
+    @PostMapping("/update-privacy")
+    public String updatePrivacy(@RequestParam(defaultValue = "false") boolean publicFriend,
+                                @RequestParam(defaultValue = "false") boolean publicFav,
+                                @RequestParam(defaultValue = "false") boolean publicHistory,
+                                HttpSession session) {
+
+        UserSessionDto sessionUser = (UserSessionDto) session.getAttribute("user");
+        if (sessionUser == null) return "redirect:/login";
+
+        userService.updatePrivacy(sessionUser.getId(), publicFriend, publicFav, publicHistory);
+
+        return "redirect:/profile?success=privacy_updated";
     }
 }

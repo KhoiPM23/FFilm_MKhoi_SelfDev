@@ -27,4 +27,7 @@ public class UserProfileUpdateDto {
     @NotBlank(message = "Số điện thoại không được để trống")
     @Pattern(regexp = "^[0-9]{10}$", message = "Số điện thoại phải bao gồm đúng 10 chữ số")
     private String phoneNumber;
+
+    @NotBlank(message = "Vui lòng nhập mật khẩu hiện tại để xác nhận")
+    private String currentPassword;
 }

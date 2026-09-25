@@ -178,6 +178,11 @@ public class UserService {
     @Transactional
 public boolean updateProfile(UserProfileUpdateDto dto) {
     User existingUser = getUserById(dto.getId());
+
+    if (!passwordEncoder.matches(dto.getCurrentPassword(), existingUser.getPassword())) {
+        throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác.");
+    }
+
     boolean emailChanged = !existingUser.getEmail().equalsIgnoreCase(dto.getEmail());
 
     // 1. KIỂM TRA RÀNG BUỘC (EMAIL VÀ SỐ ĐIỆN THOẠI)
@@ -213,5 +218,14 @@ public String getInitials(String userName) {
             return "U"; // Chữ cái mặc định
         }
         return userName.trim().substring(0, 1).toUpperCase();
+    }
+
+    public void updatePrivacy(int id, boolean publicFriend, boolean publicFav, boolean publicHistory) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setPublicFriendList(publicFriend);
+        user.setPublicFavorites(publicFav);
+        user.setPublicWatchHistory(publicHistory);
+        userRepository.save(user);
     }
 }
