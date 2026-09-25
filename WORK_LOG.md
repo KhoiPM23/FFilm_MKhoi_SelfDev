@@ -106,3 +106,20 @@
   - Maven tests: `BUILD SUCCESS` (1 test run, 0 failures).
 - **Security Warning**:
   - `[SECURITY] Gemini credential exposure detected in diagnostic command transcript — HUMAN ACTION REQUIRED: revoke/rotate credential.`
+
+## 2026-09-25 - Batch 3A — Close Controller Boundary & Messenger Bug
+- **Issue**: #1 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/1)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+- **Changes**:
+  - MovieDetailController.java: Removed direct FavoriteRepository injection and unused imports (FavoriteRepository, SubscriptionRepository, RestTemplate). Delegated favorite check to UserFavoriteService.isFavorite(userId, movieId).
+  - UserFavoriteService.java: Added isFavorite(Integer userId, Integer movieId) helper delegating to favoriteRepository.existsByUserIDAndMovieID.
+  - MessengerApiController.java: Fixed /conversations returning an undecorated second query. Now returns the decorated conversations list preserving isOnline and lastActive.
+- **Behavior Preserved**:
+  - Movie detail page favorite status rendering and access control unchanged.
+  - Messenger conversation JSON response shape preserved with online status properly attached.
+- **Verification**:
+  - Maven tests: .\mvnw.cmd test passed (BUILD SUCCESS).
+  - Diff check: git diff --check passed cleanly.
+- **Known Limitations**:
+  - Full MovieService and messenger.js decomposition are reserved for later phases.

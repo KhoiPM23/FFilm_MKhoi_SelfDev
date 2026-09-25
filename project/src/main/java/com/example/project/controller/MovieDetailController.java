@@ -3,8 +3,7 @@ package com.example.project.controller;
 import com.example.project.service.MovieService;
 
 import com.example.project.dto.UserSessionDto; // [THÊM] Import UserSessionDto
-import com.example.project.repository.FavoriteRepository; // [THÊM] Import Repo
-import com.example.project.repository.SubscriptionRepository;
+import com.example.project.service.UserFavoriteService;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,8 +14,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -34,7 +31,7 @@ public class MovieDetailController {
     private MovieService movieService;
 
     @Autowired
-    private FavoriteRepository favoriteRepository;
+    private UserFavoriteService userFavoriteService;
 
     @Autowired
     private SubscriptionService subscriptionService;
@@ -83,7 +80,7 @@ public class MovieDetailController {
             boolean isFavorite = false;
             boolean isVip = false;
             if (userSession != null) {
-                isFavorite = favoriteRepository.existsByUserIDAndMovieID(userSession.getId(), movieID);
+                isFavorite = userFavoriteService.isFavorite(userSession.getId(), movieID);
                 isVip = subscriptionService.checkActiveSubscription(userSession.getId());
             }
             model.addAttribute("isFavorite", isFavorite);

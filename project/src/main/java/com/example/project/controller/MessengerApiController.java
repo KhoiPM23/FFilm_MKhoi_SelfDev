@@ -56,7 +56,7 @@ public class MessengerApiController {
             conv.setLastActive(lastActive);
         });
         
-        return ResponseEntity.ok(messengerService.getRecentConversations(user.getId()));
+        return ResponseEntity.ok(conversations);
     }
 
     // 2. API lấy lịch sử chat
