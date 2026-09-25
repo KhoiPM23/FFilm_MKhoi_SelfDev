@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
+
 
 import com.example.project.model.Genre;
 import com.example.project.model.Movie;
@@ -26,15 +26,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TmdbSyncService {
 
     @Autowired private MovieService movieService;
-    @Autowired private RestTemplate restTemplate;
+    @Autowired private TmdbClient tmdbClient;
     @Autowired private GenreRepository genreRepository;
     @Autowired private MovieRepository movieRepository;
-
-    @Value("${tmdb.api.key}")
-    private String apiKey;
-
-    private final String BASE_URL = "https://api.themoviedb.org/3";
-    
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
@@ -50,10 +44,10 @@ public class TmdbSyncService {
         if (isRunning.get()) {
             return CompletableFuture.completedFuture("Tiến trình đang chạy...");
         }
-        
+
         isRunning.set(true);
         stopRequested.set(false); // Reset cờ dừng
-        
+
         long startTime = System.currentTimeMillis();
         int totalImported = 0;
         int TARGET_LIMIT = 20000;
@@ -63,37 +57,37 @@ public class TmdbSyncService {
             Set<Integer> processedIds = new HashSet<>();
 
             System.out.println("[PHASE 1] Quét phim Việt Nam & Collections...");
-            
-            String vietUrl = BASE_URL + "/discover/movie?api_key=" + apiKey 
-                           + "&language=vi-VN&with_original_language=vi&sort_by=release_date.desc";
-            totalImported += scanPages(vietUrl, 30, processedIds); 
-            
+
+            String vietPath = "/discover/movie";
+            String vietQuery = "language=vi-VN&with_original_language=vi&sort_by=release_date.desc";
+            totalImported += scanPages(vietPath, vietQuery, 30, processedIds);
+
             if (stopRequested.get()) return stopResult();
 
-            String marvelUrl = BASE_URL + "/discover/movie?api_key=" + apiKey 
-                             + "&language=vi-VN&with_companies=420&sort_by=revenue.desc";
-            totalImported += scanPages(marvelUrl, 5, processedIds); 
-            
+            String marvelPath = "/discover/movie";
+            String marvelQuery = "language=vi-VN&with_companies=420&sort_by=revenue.desc";
+            totalImported += scanPages(marvelPath, marvelQuery, 5, processedIds);
+
             if (stopRequested.get()) return stopResult();
 
             System.out.println("[PHASE 2] Cân bằng thể loại...");
             List<Genre> allGenres = genreRepository.findAll();
-            
+
             for (Genre genre : allGenres) {
                 if (stopRequested.get()) break;
-                
+
                 int pages = (movieRepository.count() > TARGET_LIMIT) ? 1 : 25;
-                
+
                 System.out.println("   -> Quét thể loại: " + genre.getName() + " (" + pages + " trang)");
-                
-                String genreUrl = BASE_URL + "/discover/movie?api_key=" + apiKey 
-                                + "&language=vi-VN&with_genres=" + genre.getTmdbGenreId()
-                                + "&sort_by=vote_count.desc"; 
-                
-                totalImported += scanPages(genreUrl, pages, processedIds);
-                Thread.sleep(100); 
+
+                String genrePath = "/discover/movie";
+                String genreQuery = "language=vi-VN&with_genres=" + genre.getTmdbGenreId()
+                                  + "&sort_by=vote_count.desc";
+
+                totalImported += scanPages(genrePath, genreQuery, pages, processedIds);
+                Thread.sleep(100);
             }
-            
+
             if (stopRequested.get()) return stopResult();
 
         long currentDbCount = movieRepository.count();
@@ -108,10 +102,11 @@ public class TmdbSyncService {
 
             System.out.println("   -> Hệ thống sẽ quét sâu " + pagesNeeded + " trang từ danh sách Popular...");
 
-            String popularUrl = BASE_URL + "/movie/popular?api_key=" + apiKey + "&language=vi-VN";
-            
-            int filledCount = scanPages(popularUrl, pagesNeeded, processedIds);
-            
+            String popularPath = "/movie/popular";
+            String popularQuery = "language=vi-VN";
+
+            int filledCount = scanPages(popularPath, popularQuery, pagesNeeded, processedIds);
+
             totalImported += filledCount;
             System.out.println("[PHASE 3] Đã lấp thêm được " + filledCount + " phim.");
         } else {
@@ -133,21 +128,23 @@ public class TmdbSyncService {
     @Async
     public CompletableFuture<String> scanDailyUpdate() {
         if (isRunning.get()) return CompletableFuture.completedFuture("Hệ thống bận...");
-        
+
         isRunning.set(true);
         stopRequested.set(false);
         System.out.println("[DAILY SCAN] Bắt đầu cập nhật phim mới...");
 
         try {
             Set<Integer> processedIds = new HashSet<>();
-            
-            String trendingUrl = BASE_URL + "/trending/movie/day?api_key=" + apiKey + "&language=vi-VN";
-            scanPages(trendingUrl, 10, processedIds);
-            
+
+            String trendingPath = "/trending/movie/day";
+            String trendingQuery = "language=vi-VN";
+            scanPages(trendingPath, trendingQuery, 10, processedIds);
+
             if (stopRequested.get()) return stopResult();
 
-            String nowPlayingUrl = BASE_URL + "/movie/now_playing?api_key=" + apiKey + "&language=vi-VN";
-            scanPages(nowPlayingUrl, 10, processedIds);
+            String nowPlayingPath = "/movie/now_playing";
+            String nowPlayingQuery = "language=vi-VN";
+            scanPages(nowPlayingPath, nowPlayingQuery, 10, processedIds);
 
         } catch (Exception e) {
             System.err.println("[DAILY SCAN] Lỗi: " + e.getMessage());
@@ -155,38 +152,37 @@ public class TmdbSyncService {
             isRunning.set(false);
             stopRequested.set(false);
         }
-        
+
         return CompletableFuture.completedFuture("Đã hoàn tất cập nhật hàng ngày.");
     }
 
 
-    private int scanPages(String baseUrl, int maxPages, Set<Integer> processedIds) throws InterruptedException {
+    private int scanPages(String path, String queryParams, int maxPages, Set<Integer> processedIds) throws InterruptedException {
         int count = 0;
         for (int i = 1; i <= maxPages; i++) {
             if (stopRequested.get()) {
                 System.out.println("Phát hiện lệnh DỪNG khi đang quét trang " + i);
                 break;
             }
-            
-            String separator = baseUrl.contains("?") ? "&" : "?";
-            String url = baseUrl + separator + "page=" + i;
-            
-            count += processPage(url, processedIds);
+
+            String pageQuery = queryParams + "&page=" + i;
+
+            count += processPage(path, pageQuery, processedIds);
             Thread.sleep(100); // Tránh DDOS
         }
         return count;
     }
 
-    private int processPage(String url, Set<Integer> processedIds) {
+    private int processPage(String path, String queryParams, Set<Integer> processedIds) {
         int count = 0;
         try {
-            String resp = restTemplate.getForObject(url, String.class);
+            String resp = tmdbClient.get(path, queryParams);
             if (resp == null) return 0;
 
             JSONObject json = new JSONObject(resp);
             JSONArray results = json.optJSONArray("results");
             if (results == null) return 0;
-            
+
             LocalDate today = LocalDate.now();
 
             for (int i = 0; i < results.length(); i++) {
@@ -204,7 +200,7 @@ public class TmdbSyncService {
                 if (releaseDateStr != null && !releaseDateStr.isEmpty()) {
                     try {
                         LocalDate releaseDate = LocalDate.parse(releaseDateStr);
-                        if (releaseDate.isAfter(today)) continue; 
+                        if (releaseDate.isAfter(today)) continue;
                     } catch (DateTimeParseException e) { continue; }
                 }
 
@@ -228,47 +224,48 @@ public class TmdbSyncService {
                         count++;
                         String action = isUpdate ? " Updated" : " Inserted";
                     }
-                    
+
                     Thread.sleep(250);
                 } catch (Exception e) {
                     System.err.println("Lỗi xử lý ID " + tmdbId + ": " + e.getMessage());
                 }
             }
-        } catch (Exception e) { 
+        } catch (Exception e) {
             System.err.println("Lỗi processPage: " + e.getMessage());
         }
         return count;
     }
 
-    
+
     private CompletableFuture<String> stopResult() {
         isRunning.set(false);
         return CompletableFuture.completedFuture("Đã tạm dừng theo lệnh Admin.");
     }
 
-    // Giữ lại hàm Bulk Scan cũ 
+    // Giữ lại hàm Bulk Scan cũ
     @Async
     public CompletableFuture<String> startBulkScan(int startPage, int endPage) {
         if (isRunning.get()) return CompletableFuture.completedFuture("Bận...");
         isRunning.set(true);
         stopRequested.set(false);
-        
+
         try {
             Set<Integer> processedIds = new HashSet<>();
             for (int page = startPage; page <= endPage; page++) {
                 if (stopRequested.get()) break;
-                String url = BASE_URL + "/movie/popular?api_key=" + apiKey + "&language=vi-VN&page=" + page;
-                processPage(url, processedIds);
+                String path = "/movie/popular";
+                String query = "language=vi-VN&page=" + page;
+                processPage(path, query, processedIds);
                 Thread.sleep(200);
             }
         } catch(Exception e) {} finally { isRunning.set(false); }
         return CompletableFuture.completedFuture("Đã quét xong.");
     }
-    
+
 
     @Async
     public void syncDailyUpdates() {
-        scanDailyUpdate(); 
+        scanDailyUpdate();
     }
 
     public boolean isScanning() {
@@ -284,7 +281,7 @@ public class TmdbSyncService {
 
         try {
             Movie savedMovie = movieService.fetchAndSaveMovieDetail(tmdbId.intValue(), null);
-            
+
             if (savedMovie == null) {
                  throw new RuntimeException("Không tìm thấy phim trên TMDB hoặc lỗi khi lưu dữ liệu.");
             }
@@ -296,5 +293,5 @@ public class TmdbSyncService {
             throw new RuntimeException("Lỗi import: " + e.getMessage());
         }
     }
-  
+
 }

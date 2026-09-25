@@ -55,11 +55,7 @@ public class MovieService {
 
 
     @Autowired
-    private RestTemplate restTemplate;
-
-    @Value("${tmdb.api.key}")
-    private String API_KEY;
-    private final String BASE_URL = "https://api.themoviedb.org/3";
+    private TmdbClient tmdbClient;
 
     // Cho phép Controller truy cập Repository
     public MovieRepository getMovieRepository() {
@@ -386,11 +382,11 @@ public class MovieService {
     public Movie fetchAndSaveMovieDetail(int tmdbId, Movie movieToUpdate) {
         try {
 
-            String url = BASE_URL + "/movie/" + tmdbId + "?api_key=" + API_KEY
-                    + "&language=vi-VN&append_to_response=credits,videos,images,keywords,release_dates"
-                    + "&include_image_language=vi,en,null&include_video_language=vi,en,null&include_adult=true";
+            String path = "/movie/" + tmdbId;
+            String query = "language=vi-VN&append_to_response=credits,videos,images,keywords,release_dates"
+                         + "&include_image_language=vi,en,null&include_video_language=vi,en,null&include_adult=true";
 
-            String resp = restTemplate.getForObject(url, String.class);
+            String resp = tmdbClient.get(path, query);
             JSONObject json = new JSONObject(resp);
             
             // 1. Kiểm tra Thời lượng
@@ -603,8 +599,9 @@ public class MovieService {
     @Transactional
     private Person fetchAndSavePersonDetail(int tmdbId, Person personToUpdate) {
         try {
-            String url = BASE_URL + "/person/" + tmdbId + "?api_key=" + API_KEY + "&language=vi-VN";
-            String resp = restTemplate.getForObject(url, String.class);
+            String path = "/person/" + tmdbId;
+            String query = "language=vi-VN";
+            String resp = tmdbClient.get(path, query);
             JSONObject json = new JSONObject(resp);
 
             Person p = (personToUpdate != null) ? personToUpdate : new Person();
@@ -1146,8 +1143,9 @@ public class MovieService {
 
         for (Integer id : idsToFetch) {
             try {
-                String url = BASE_URL + "/movie/" + id + "?api_key=" + API_KEY + "&language=vi-VN&include_adult=false";
-                String resp = restTemplate.getForObject(url, String.class);
+                String path = "/movie/" + id;
+                String query = "language=vi-VN&include_adult=false";
+                String resp = tmdbClient.get(path, query);
                 if (resp != null)
                     syncMovieFromList(new JSONObject(resp));
             } catch (Exception e) {
@@ -1714,8 +1712,8 @@ public class MovieService {
     // Helper: Tải thông tin Studio từ TMDB
     private ProductionCompany fetchAndSaveCompany(int tmdbId) {
         try {
-            String url = BASE_URL + "/company/" + tmdbId + "?api_key=" + API_KEY;
-            String resp = restTemplate.getForObject(url, String.class);
+            String path = "/company/" + tmdbId;
+            String resp = tmdbClient.get(path, null);
             JSONObject json = new JSONObject(resp);
 
             ProductionCompany comp = new ProductionCompany();

@@ -12,7 +12,7 @@ import org.springframework.ui.Model;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate;
+
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
@@ -37,13 +37,9 @@ public class SearchController {
 
     //---- 1. CẤU HÌNH & REPOSITORY ----
 
-    @Value("${tmdb.api.key}")
-    private String API_KEY;
-    private final String BASE_URL = "https://api.themoviedb.org/3";
     private static final int PAGE_SIZE = 20;
 
     @Autowired private MovieService movieService;
-    @Autowired private RestTemplate restTemplate;
 
     //---- 2. MAIN SEARCH LOGIC ----
 
