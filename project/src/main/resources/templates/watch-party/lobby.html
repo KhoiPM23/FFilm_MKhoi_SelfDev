@@ -361,79 +361,16 @@
 
 </div>
 
-<div id="createRoomModal" class="modal-overlay">
-    <div class="modal-box">
-        <h2 style="margin-bottom: 20px; text-align: center;">🎬 Tạo Phòng Chiếu</h2>
-        <form action="/watch-party/create" method="post">
-            <div class="form-group">
-                <label>Tên Phòng</label>
-                <input type="text" name="name" class="form-control" required placeholder="Ví dụ: Hội yêu phim kinh dị...">
-            </div>
-            <div class="form-group">
-                <label>Số lượng thành viên</label>
-                <select name="maxUsers" class="form-control">
-                    <option value="10">10 Người (Nhóm nhỏ)</option>
-                    <option value="25">25 Người (Lớp học)</option>
-                    <option value="100">100 Người (Rạp chiếu)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Loại Phòng</label>
-                <select name="accessType" class="form-control" onchange="togglePassword(this)">
-                    <option value="PUBLIC">Công Khai (Ai cũng vào được)</option>
-                    <option value="PRIVATE">Riêng Tư (Cần mật khẩu)</option>
-                </select>
-            </div>
-            <div class="form-group" id="passGroup" style="display:none;">
-                <label>Mật Khẩu</label>
-                <input type="password" name="password" class="form-control" placeholder="Nhập pass...">
-            </div>
-            
-            <div style="display: flex; gap: 10px;">
-                <button type="button" onclick="closeCreateModal()" style="flex:1; background:#444; border:none; color:#fff; padding:12px; border-radius:6px; cursor:pointer;">Hủy</button>
-                <button type="submit" class="btn-submit" style="flex:2;">Tạo Ngay</button>
-            </div>
-        </form>
-    </div>
-</div>
+<div th:replace="~{fragments/watch-party-create-room :: createRoomModal}"></div>
 
 <div th:replace="~{fragments/footer :: footer}"></div>
 
 <script>
-    function openCreateModal() {
-        const modal = document.getElementById('createRoomModal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    }
-
-    function closeCreateModal() {
-        const modal = document.getElementById('createRoomModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
-    function togglePassword(select) {
-        const passGroup = document.getElementById('passGroup');
-        if (passGroup) {
-            passGroup.style.display = select.value === 'PRIVATE' ? 'block' : 'none';
-        }
-    }
-
     function joinRoom(roomId) {
         if (roomId) {
             window.location.href = '/watch-party/room/' + roomId;
         }
     }
-
-    // Đóng modal khi click ngoài
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('createRoomModal');
-        if (event.target === modal) {
-            closeCreateModal();
-        }
-    });
 </script>
 <script src="/js/script.js"></script>
 

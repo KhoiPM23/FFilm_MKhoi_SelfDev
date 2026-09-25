@@ -33,12 +33,23 @@ var searchPage = 0; // Pagination cho search
 // --- KẾT NỐI SOCKET ---
 stompClient.connect({}, function (frame) {
     console.log('Connected');
+    
+    // Gửi tín hiệu JOIN để server thêm vào members hoặc waitingList
+    stompClient.send("/app/party/" + roomId + "/join", {}, JSON.stringify({sessionId: sessionId}));
+
     if (typeof joinStatus !== 'undefined' && joinStatus === 'WAITING') {
         stompClient.subscribe('/topic/party/' + roomId + '/approval/' + sessionId, function(msg) {
             if (msg.body === 'APPROVED') {
-                document.getElementById('waitingScreen').remove();
-                document.getElementById('noMovieState').style.display = 'block';
+                var lockScreen = document.querySelector('div[style*="fa-lock"]');
+                if(lockScreen) lockScreen.parentNode.remove();
+                
+                var noMovieState = document.getElementById('noMovieState');
+                if(noMovieState) noMovieState.style.display = 'block';
+                
                 initFullFeatures(); 
+            } else if (msg.body === 'REJECTED') {
+                alert("Yêu cầu vào phòng bị từ chối!");
+                window.location.href = "/watch-party";
             }
         });
         return; 
@@ -79,7 +90,27 @@ function initFullFeatures() {
     
     stompClient.subscribe('/topic/party/' + roomId + '/kick/' + sessionId, function (msg) {
         alert("Bạn đã bị mời ra khỏi phòng!");
-        window.location.href = "/";
+        window.location.href = "/watch-party";
+    });
+
+    // 4. System Events (Join, Leave, Host Changed)
+    stompClient.subscribe('/topic/party/' + roomId + '/system', function (payload) {
+        var msg = JSON.parse(payload.body);
+        if (msg.type === 'MEMBER_JOINED') {
+            console.log(msg.userName + " joined the room.");
+            // UI Update code can be added here
+        } else if (msg.type === 'MEMBER_LEFT') {
+            console.log(msg.userName + " left the room.");
+            // UI Update code can be added here
+        } else if (msg.type === 'HOST_CHANGED') {
+            console.log("Host changed to: " + msg.newHostName);
+            if (msg.newHostUserId == sessionId || msg.newHostSessionId === sessionId || msg.newHostName === username) {
+                alert("Chủ phòng đã rời đi. Bạn đã được chọn làm Chủ Phòng mới!");
+                window.location.reload(); // Reload để nhận đặc quyền host từ Thymeleaf
+            } else {
+                showFloatingBubble({sender: "System", content: "Chủ phòng mới: " + msg.newHostName, type: "CHAT"});
+            }
+        }
     });
 
     // WebRTC: Lắng nghe user mới vào để gọi video

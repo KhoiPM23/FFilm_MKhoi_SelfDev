@@ -414,3 +414,33 @@ efactor/batch-3-quick-wins
 - **Future AI Validation Backlog**:
   - [PENDING] Future AI Search runtime validation.
   - [PENDING] Future AI Chatbot runtime validation.
+
+## 2026-09-26 - Phase 6 / P6-A.5: Core Watch Party Room Lifecycle & Migration
+- **Task**: P6-A.5 Core Room Lifecycle / Membership / Host Migration / Private Join.
+- **Problem**: Disconnected members remained as "ghosts", host disconnect broke room controls, private room approvals were untracked, and Create Room UI was duplicated.
+- **Implementation**:
+  - Wired `SessionDisconnectEvent` to fetch `httpSessionId` and execute automatic disconnect cleanup and deterministic host migration in `WatchPartyService`.
+  - Created `/party/{roomId}/join` STOMP endpoint for robust runtime membership and waiting list handling.
+  - Consolidated `/watch-party` and `/my-rooms` modal creation UI into a single Thymeleaf fragment `fragments/watch-party-create-room.html`.
+- **Files Changed**:
+  - `WebSocketConfig.java`
+  - `WebSocketEventListener.java`
+  - `WatchPartyController.java`
+  - `WatchPartyService.java`
+  - `watch-party.js`
+  - `lobby.html`
+  - `my-rooms.html`
+  - `watch-party-create-room.html`
+- **Security Considerations**:
+  - Host authorization heavily enforced server-side.
+  - Client payload spoofing prevented by relying strictly on `Principal` and `httpSessionId` extracted securely during the STOMP handshake.
+  - Guest cannot invoke host-only approvals.
+- **Automated Verification**:
+  - Source architecture, security boundaries, and shared fragment verified successfully.
+  - Maven tests: `BUILD SUCCESS` (1 test, 0 failures, 0 errors).
+- **Runtime Limitation**:
+  - Multi-session browser E2E unavailable in current automated environment. (`[NEEDS REPRO]` for A/B public-room join, real-time participant updates, member removal, host migration UI, and private approval UI).
+- **Pending Decisions**:
+  - Host auto-reclaim after reconnect: `[PENDING DECISION]`.
+  - Private room rejection capability: `[PENDING]`.
+- **Next Step**: P6-A.6 WebRTC Signaling & Call Lifecycle.

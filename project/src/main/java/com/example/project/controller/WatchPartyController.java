@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 public class WatchPartyController {
@@ -138,6 +139,32 @@ public class WatchPartyController {
         messagingTemplate.convertAndSend("/topic/party/" + roomId + "/chat", msg);
     }
 
+    @MessageMapping("/party/{roomId}/join")
+    public void joinRoomStomp(@DestinationVariable String roomId, @Payload Map<String, String> payload, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        String httpSessionId = (String) headerAccessor.getSessionAttributes().get("httpSessionId");
+        UserSessionDto user = (UserSessionDto) headerAccessor.getSessionAttributes().get("userDto");
+        
+        if (httpSessionId == null || user == null) return;
+
+        RoomMember member = new RoomMember(httpSessionId, user.getId(), user.getUserName(), null, false, false);
+        String status = partyService.requestJoin(roomId, member);
+
+        if ("WAITING".equals(status)) {
+            // Notify Host
+            WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+            if (runtime != null) {
+                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", runtime.getWaitingList().values());
+            }
+        } else if ("JOINED".equals(status)) {
+            // Broadcast new member joined
+            Map<String, Object> joinMsg = new HashMap<>();
+            joinMsg.put("type", "MEMBER_JOINED");
+            joinMsg.put("sessionId", httpSessionId);
+            joinMsg.put("userName", user.getUserName());
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", joinMsg);
+        }
+    }
+
     @MessageMapping("/party/{roomId}/getHistory")
     public void getChatHistory(@DestinationVariable String roomId, @Payload Map<String, String> payload) {
         String userSessionId = payload.get("sessionId");
@@ -171,6 +198,16 @@ public class WatchPartyController {
             String targetSessionId = payload.get("sessionId");
             if(partyService.approveMember(roomId, targetSessionId)){
                 messagingTemplate.convertAndSend("/topic/party/" + roomId + "/approval/" + targetSessionId, "APPROVED");
+                
+                // Broadcast member joined
+                RoomMember approvedMember = runtime.getMembers().get(targetSessionId);
+                if (approvedMember != null) {
+                    Map<String, Object> joinMsg = new HashMap<>();
+                    joinMsg.put("type", "MEMBER_JOINED");
+                    joinMsg.put("sessionId", targetSessionId);
+                    joinMsg.put("userName", approvedMember.getUserName());
+                    messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", joinMsg);
+                }
             }
         }
     }

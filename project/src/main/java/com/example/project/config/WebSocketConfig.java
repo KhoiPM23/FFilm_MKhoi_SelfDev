@@ -51,6 +51,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         UserSessionDto userDto = (UserSessionDto) user;
                         attributes.put("userId", userDto.getId());
                         attributes.put("userName", userDto.getUserName());
+                        attributes.put("httpSessionId", session.getId());
+                        attributes.put("userDto", userDto);
                     }
                 }
             }

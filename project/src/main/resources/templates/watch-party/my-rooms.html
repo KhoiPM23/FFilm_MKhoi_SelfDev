@@ -171,7 +171,7 @@
         <div class="cinema-header">
             <h2><i class="fas fa-film"></i> Phòng Chiếu Của Tôi</h2>
             <p class="text-muted">Quản lý không gian xem phim riêng tư của bạn</p>
-            <button class="btn btn-glow mt-2" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+            <button class="btn btn-glow mt-2" onclick="openCreateModal()">
                 <i class="fas fa-plus"></i> Tạo Phòng Mới
             </button>
         </div>
@@ -209,68 +209,11 @@
         </div>
     </div>
 
-    <div class="modal fade" id="createRoomModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-bottom-0">
-                    <h5 class="modal-title">🎬 Thiết lập phòng chiếu mới</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="createRoomForm" action="/watch-party/create" method="post" onsubmit="return handleCreateRoomSubmit(event)">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label text-muted">Tên phòng</label>
-                            <input type="text" name="name" class="form-control" required placeholder="VD: Hội Phim Kinh Dị...">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label text-muted">Quy mô phòng</label>
-                            <select name="maxUsers" class="form-select">
-                                <option value="10">Gia đình (10 ghế)</option>
-                                <option value="25">Bạn bè (25 ghế)</option>
-                                <option value="100">Cộng đồng (100 ghế)</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label text-muted">Mật khẩu (Tùy chọn)</label>
-                            <input type="password" name="password" id="myRoomPassword" class="form-control" placeholder="Để trống nếu muốn công khai">
-                        </div>
-                        <input type="hidden" name="accessType" id="myRoomAccessType" value="PUBLIC">
-                    </div>
-                    <div class="modal-footer border-top-0">
-                        <button type="submit" class="btn btn-glow w-100">Khởi Tạo</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    <div th:replace="~{fragments/watch-party-create-room :: createRoomModal}"></div>
 
     <div th:replace="~{fragments/footer :: footer}"></div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function handleCreateRoomSubmit(event) {
-            const form = document.getElementById('createRoomForm');
-            if (!form) return true;
-            const nameInput = form.querySelector('input[name="name"]');
-            if (!nameInput || !nameInput.value.trim()) {
-                if (event) event.preventDefault();
-                if (nameInput) nameInput.focus();
-                alert('Vui lòng nhập tên phòng');
-                return false;
-            }
-            const passInput = form.querySelector('input[name="password"]');
-            const accessTypeInput = document.getElementById('myRoomAccessType');
-            if (accessTypeInput) {
-                accessTypeInput.value = (passInput && passInput.value.trim().length > 0) ? 'PRIVATE' : 'PUBLIC';
-            }
-            return true;
-        }
-
-        function submitCreateRoom() {
-            const form = document.getElementById('createRoomForm');
-            if (form && handleCreateRoomSubmit()) {
-                form.submit();
-            }
-        }
 
         function deleteRoom(id) { /* Logic cũ */ 
             if(!confirm("Bạn có chắc muốn giải tán phòng này không?")) return;

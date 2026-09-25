@@ -35,9 +35,11 @@ This file records the MOST RECENT verified operational state of the project.
 ## WATCH PARTY & ROOM MANAGEMENT (PHASE 6)
 - **Schema Synchronization (P6-A.2)**: `WatchRoom`, `FriendRequests`, `Notification`, `UserFollow` synchronized in SQL Server `FFilm3` via `migration-p6a2-watch-party-schema.sql` (commit `66a576f`). [FACT]
 - **Create Room Flow (P6-A.3)**: Restored and operational on both `/watch-party` and `/my-rooms` without framework rewrite. [FIXED]
-  - Fixed Blocker A in `lobby.html`: modal open/close/toggle handlers implemented.
-  - Fixed Blocker B in `my-rooms.html`: form submission connected to `POST /watch-party/create`, dynamic `accessType` assignment, enter link rewired to `/watch-party/room/{id}`.
-  - End-to-end verified with authenticated account in browser. [FACT]
+- **Core Watch Party Room Lifecycle (P6-A.5)**: Implementation is complete.
+  - The room lifecycle now includes: authenticated STOMP join, server-owned membership identity, disconnect cleanup, deterministic host migration, private-room waiting list, host approval, and a shared Create Room fragment.
+  - Automated tests pass.
+  - However, genuine two-browser runtime E2E has NOT been performed in the current automated environment.
+  - Therefore: P6-A.5 = IMPLEMENTED / PARTIAL ACCEPTANCE / NEEDS REPRO for multi-session runtime. Do not assume Watch Party lifecycle is fully runtime-certified.
 
 ## AI
 - **Gemini Model**: `gemini-2.5-flash` active and operational. [FACT]
@@ -46,7 +48,7 @@ This file records the MOST RECENT verified operational state of the project.
 - **[PENDING] Future AI Chatbot Runtime Validation**: Full validation backlog recorded for future execution. [PENDING]
 
 ## DOCUMENTATION & WORKFLOW
-- `WORK_LOG.md`: Present and updated through P6-A.3. [FACT]
+- `WORK_LOG.md`: Present and updated through P6-A.5. [FACT]
 - Migration File: Present. [FACT]
 - Project Memory Files: Established and tracked. [FACT]
 
@@ -58,5 +60,8 @@ This file records the MOST RECENT verified operational state of the project.
 - Historical exposure of API keys (TMDB, Tenor) on remote repositories if not purged/rotated.
 - Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
-## NEXT TASK
-- Phase 6 / P6-A.4: Watch Party Room Realtime & Social Member Synchronization. [PROPOSED]
+## NEXT TASKS
+- P6-A.6 WebRTC Signaling & Call Lifecycle
+- P6-A.7 Movie Synchronization Hardening
+- P6-A.8 Watch Party Chat / Reactions
+- P6-A.9 Watch Party Layout / UX

@@ -32,6 +32,9 @@ public class WebSocketEventListener {
         }
     }
     
+    @Autowired
+    private com.example.project.service.WatchPartyService watchPartyService;
+
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
@@ -43,6 +46,12 @@ public class WebSocketEventListener {
                 com.example.project.dto.UserSessionDto user = (com.example.project.dto.UserSessionDto) userObj;
                 onlineStatusService.markOffline(user.getId());
                 System.out.println("⚠️ [DISCONNECT] User offline: " + user.getUserName());
+            }
+            
+            // Trigger WatchParty room disconnect
+            String httpSessionId = (String) sessionAttrs.get("httpSessionId");
+            if (httpSessionId != null) {
+                watchPartyService.handleDisconnect(httpSessionId);
             }
         }
     }

@@ -10,6 +10,7 @@ import com.example.project.repository.WatchRoomRepository;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class WatchPartyService {
     @Autowired private UserRepository userRepository;
     @Autowired private SimpUserRegistry userRegistry;
     @Autowired private FriendRequestRepository friendRequestRepository;
+    @Autowired private SimpMessagingTemplate messagingTemplate;
 
     // --- PHẦN 1: TƯƠNG TÁC DATABASE & LOBBY ---
 
@@ -223,20 +225,41 @@ public class WatchPartyService {
         return activeRooms.values();
     }
 
-    // Logic thoát phòng & chuyển Host (như cũ)
+    // Logic thoát phòng & chuyển Host
     public String handleDisconnect(String sessionId) {
         for (WatchRoomRuntime room : activeRooms.values()) {
             if (room.getMembers().containsKey(sessionId)) {
-                room.getMembers().remove(sessionId);
+                RoomMember leavingMember = room.getMembers().remove(sessionId);
+                
+                // Broadcast member left
+                Map<String, Object> leaveMsg = new HashMap<>();
+                leaveMsg.put("type", "MEMBER_LEFT");
+                leaveMsg.put("sessionId", sessionId);
+                leaveMsg.put("userName", leavingMember.getUserName());
+                messagingTemplate.convertAndSend("/topic/party/" + room.getRoomId() + "/system", leaveMsg);
+
                 if (sessionId.equals(room.getHostSessionId())) {
                     if (room.getMembers().isEmpty()) {
                         activeRooms.remove(room.getRoomId());
                         updateRoomActiveStatus(Long.valueOf(room.getRoomId()), false);
                         return null; 
                     } else {
+                        // Deterministic migration: Pick the earliest joined member
                         String newHostId = room.getMembers().keySet().iterator().next();
+                        RoomMember newHost = room.getMembers().get(newHostId);
                         room.setHostSessionId(newHostId);
-                        room.setHostUserId(room.getMembers().get(newHostId).getUserId());
+                        room.setHostUserId(newHost.getUserId());
+                        room.setHostName(newHost.getUserName());
+                        room.setHostAvatar(newHost.getAvatar());
+                        
+                        // Broadcast host changed
+                        Map<String, Object> hostMsg = new HashMap<>();
+                        hostMsg.put("type", "HOST_CHANGED");
+                        hostMsg.put("newHostSessionId", newHostId);
+                        hostMsg.put("newHostUserId", newHost.getUserId());
+                        hostMsg.put("newHostName", newHost.getUserName());
+                        messagingTemplate.convertAndSend("/topic/party/" + room.getRoomId() + "/system", hostMsg);
+                        
                         return newHostId; 
                     }
                 }
@@ -244,6 +267,8 @@ public class WatchPartyService {
             }
             if (room.getWaitingList().containsKey(sessionId)) {
                 room.getWaitingList().remove(sessionId);
+                // Cập nhật waiting list cho host
+                messagingTemplate.convertAndSend("/topic/party/" + room.getRoomId() + "/waitingUpdate", room.getWaitingList().values());
             }
         }
         return null;
