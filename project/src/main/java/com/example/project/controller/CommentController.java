@@ -346,7 +346,7 @@ public class CommentController {
                     .body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "Lỗi server: " + e.getMessage()));
+                    .body(Map.of("success", false, "message", "Đã xảy ra lỗi hệ thống"));
         }
     }
 }

@@ -116,7 +116,7 @@ public ResponseEntity<?> importFromTmdb(@RequestParam Long tmdbId) {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 
-                .body(Collections.singletonMap("error", "Lỗi hệ thống: " + e.getMessage()));
+                .body(Collections.singletonMap("error", "Lỗi hệ thống trong quá trình import"));
 
     }
 

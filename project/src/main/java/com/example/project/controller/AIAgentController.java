@@ -66,7 +66,7 @@ public class AIAgentController {
 
         } catch (Exception e) {
             log.error("Error processing AI agent chat message", e);
-            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", "Lỗi hệ thống khi xử lý yêu cầu AI"));
         }
     }
 
