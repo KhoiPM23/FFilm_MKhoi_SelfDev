@@ -36,6 +36,8 @@
     let localStream = null;
     let remoteStream = null;
     let callTimerInterval = null;
+    let callTimeout = null;
+    let callDuration = 0;
     let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar }
     let typingTimeout = null;
     let lastSeenMessageId = null;
@@ -427,6 +429,18 @@
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
+
+        // Dừng remote stream
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(track => track.stop());
+            remoteStream = null;
+        }
+
+        // Xóa source video để dọn rác bộ nhớ
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) localVideo.srcObject = null;
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) remoteVideo.srcObject = null;
         
         // Đóng call
         if (currentCall) {
@@ -458,8 +472,8 @@
     };
 
     function setupCallHandlers(call) {
-        call.on('stream', (remoteStream) => {
-            remoteStream = remoteStream;
+        call.on('stream', (stream) => {
+            remoteStream = stream;
             document.getElementById('remoteVideo').srcObject = remoteStream;
             
             // Update UI - hide avatar, show video
@@ -679,6 +693,16 @@
             localStream.getTracks().forEach(t => t.stop());
             localStream = null;
         }
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(t => t.stop());
+            remoteStream = null;
+        }
+        
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) localVideo.srcObject = null;
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) remoteVideo.srcObject = null;
+
         if (currentCall) {
             try { currentCall.close(); } catch (e) {}
             currentCall = null;
