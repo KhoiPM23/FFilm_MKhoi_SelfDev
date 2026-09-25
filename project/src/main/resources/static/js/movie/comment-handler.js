@@ -8,22 +8,44 @@ class CommentHandler {
         this.commentList = document.getElementById('comment-list');
         this.commentCount = document.getElementById('comment-count');
         this.pendingDeleteId = null;
+        this.userRatingsMap = {};
 
-        // Lấy ID người dùng hiện tại từ input hidden trong player.html
+        // Lấy ID người dùng hiện tại từ input hidden
         const userIdEl = document.getElementById('currentUserId');
-        this.currentUserId = userIdEl ? parseInt(userIdEl.value) : null;
+        this.currentUserId = userIdEl && userIdEl.value ? parseInt(userIdEl.value) : null;
         this.modalEl = document.getElementById('deleteConfirmModal');
         this.init();
     }
 
     getMovieIdFromUrl() {
+        const metaMovieId = document.querySelector('meta[name="movie-id"]');
+        if (metaMovieId && metaMovieId.content) {
+            return parseInt(metaMovieId.content);
+        }
         const pathParts = window.location.pathname.split('/');
         return parseInt(pathParts[pathParts.length - 1]);
     }
 
     init() {
-        // Load comments khi trang vừa load
+        if (!this.commentList) return;
+
+        // Load comments và map rating khi trang vừa load
         this.loadComments();
+
+        // Lắng nghe sự kiện rating để cập nhật huy hiệu sao trên bình luận
+        window.addEventListener('ffilm:movie-rated', (e) => {
+            if (e.detail && e.detail.userId) {
+                this.userRatingsMap[e.detail.userId] = e.detail.rating;
+                this.updateAuthorRatingBadges(e.detail.userId, e.detail.rating);
+            }
+        });
+
+        window.addEventListener('ffilm:movie-rating-removed', (e) => {
+            if (e.detail && e.detail.userId) {
+                delete this.userRatingsMap[e.detail.userId];
+                this.updateAuthorRatingBadges(e.detail.userId, null);
+            }
+        });
 
         if (this.commentInput && this.submitBtn) {
             this.commentInput.addEventListener('input', () => {
@@ -49,41 +71,74 @@ class CommentHandler {
     }
 
     /**
-     * Load danh sách comments từ API
+     * Load danh sách comments và ratings map từ API
      */
     async loadComments() {
+        if (!this.commentList) return;
         try {
-            console.log(`[CommentHandler] Loading comments for movie ID: ${this.movieId}`);
-            const response = await fetch(`/api/comments/movie/${this.movieId}`);
+            console.log(`[CommentHandler] Loading comments & ratings for movie ID: ${this.movieId}`);
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Tải comments và user ratings map song song
+            const [commentsRes, ratingsRes] = await Promise.allSettled([
+                fetch(`/api/comments/movie/${this.movieId}`),
+                fetch(`/api/reviews/movie/${this.movieId}/user-map`)
+            ]);
+
+            if (ratingsRes.status === 'fulfilled' && ratingsRes.value.ok) {
+                this.userRatingsMap = await ratingsRes.value.json();
             }
 
-            const data = await response.json();
-            console.log('[CommentHandler] API Response:', data);
+            if (commentsRes.status === 'fulfilled' && commentsRes.value.ok) {
+                const data = await commentsRes.value.json();
+                console.log('[CommentHandler] API Response:', data);
 
-            if (data.success) {
-                this.renderComments(data.comments);
-                this.updateCommentCount(data.count);
+                if (data.success) {
+                    this.renderComments(data.comments);
+                    this.updateCommentCount(data.count);
+                } else {
+                    console.error('[CommentHandler] Failed:', data.message);
+                    this.showError('Không thể tải bình luận');
+                }
             } else {
-                console.error('[CommentHandler] Failed:', data.message);
-                this.showError('Không thể tải bình luận');
+                throw new Error('Lỗi kết nối khi tải bình luận');
             }
         } catch (error) {
             console.error('[CommentHandler] Error loading comments:', error);
-            this.commentList.innerHTML = `
-                <div style="text-align: center; color: #ff6b6b; padding: 20px">
-                    <i class="fas fa-exclamation-circle"></i> ${error.message}
-                </div>
-            `;
+            if (this.commentList) {
+                this.commentList.innerHTML = `
+                    <div style="text-align: center; color: #ff6b6b; padding: 20px">
+                        <i class="fas fa-exclamation-circle"></i> ${error.message}
+                    </div>
+                `;
+            }
         }
+    }
+
+    updateAuthorRatingBadges(userId, rating) {
+        const commentItems = document.querySelectorAll(`.comment-item[data-user-id="${userId}"]`);
+        commentItems.forEach(item => {
+            const authorEl = item.querySelector('.comment-author');
+            if (!authorEl) return;
+            let badge = authorEl.querySelector('.comment-user-rating-badge');
+            if (rating) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'comment-user-rating-badge';
+                    authorEl.appendChild(badge);
+                }
+                badge.innerHTML = `<i class="fas fa-star"></i> ${rating}/5`;
+                badge.title = `Đã đánh giá ${rating}/5 sao`;
+            } else if (badge) {
+                badge.remove();
+            }
+        });
     }
 
     /**
      * Render danh sách comments
      */
     renderComments(comments) {
+        if (!this.commentList) return;
         if (!comments || comments.length === 0) {
             this.commentList.innerHTML = `
                 <div style="text-align: center; color: #777; padding: 20px">
@@ -111,6 +166,14 @@ class CommentHandler {
         // Kiểm tra xem comment này có phải của user hiện tại không
         const isOwner = this.currentUserId && (this.currentUserId === commentUserId);
 
+        // Huy hiệu rating của user (nếu đã đánh giá phim)
+        const userRating = this.userRatingsMap ? this.userRatingsMap[commentUserId] : null;
+        const ratingBadgeHTML = userRating ? `
+            <span class="comment-user-rating-badge" title="Đã đánh giá ${userRating}/5 sao">
+                <i class="fas fa-star"></i> ${userRating}/5
+            </span>
+        ` : '';
+
         let actionMenu = '';
         if (isOwner) {
             actionMenu = `
@@ -126,13 +189,14 @@ class CommentHandler {
         }
 
         return `
-            <div class="comment-item" id="comment-${comment.commentID}">
+            <div class="comment-item" id="comment-${comment.commentID}" data-user-id="${commentUserId || ''}">
                 <div class="user-avatar">${userInitial}</div>
                 <div class="comment-content-wrapper" style="flex: 1;">
                     <div class="comment-content">
                         <div class="comment-header">
                             <div class="comment-author">
-                                <span>${userName}</span>
+                                <span class="author-name">${userName}</span>
+                                ${ratingBadgeHTML}
                                 <span class="comment-time">${createAt}</span>
                             </div>
                             ${actionMenu}

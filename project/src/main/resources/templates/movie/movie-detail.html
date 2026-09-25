@@ -50,9 +50,17 @@
             <div class="content-rating" id="contentRating">
               <span>T16</span>
             </div>
-            <div class="rating">
-              <i class="fas fa-star"></i
-              ><span th:text="${movie.rating}">0.0</span>
+            <div class="meta-rating tmdb-badge" title="Điểm đánh giá từ TMDB (Thang điểm 10)">
+              <span class="rating-source-tag tmdb-tag">TMDB</span>
+              <i class="fas fa-star" style="color: #01b4e4;"></i>
+              <span th:text="${movie.rating != null ? #numbers.formatDecimal(movie.rating, 1, 1) : '—'}">0.0</span>
+              <span class="rating-subcount" th:if="${movie.voteCount != null and movie.voteCount > 0}" th:text="'(' + ${#numbers.formatInteger(movie.voteCount, 0, 'COMMA')} + ')'"></span>
+            </div>
+            <div class="meta-rating community-badge" id="heroCommunityBadge" title="Đánh giá từ cộng đồng FFilm (Thang điểm 5)">
+              <span class="rating-source-tag ffilm-tag">FFilm</span>
+              <i class="fas fa-star" style="color: #ffb703;"></i>
+              <span id="heroCommunityRatingText" th:text="${communityRating != null and communityRating > 0 ? #numbers.formatDecimal(communityRating, 1, 1) : 'Chưa có'}">Chưa có</span>
+              <span id="heroRatingCountText" class="rating-subcount" th:text="${ratingCount != null and ratingCount > 0 ? '(' + ratingCount + ')' : ''}"></span>
             </div>
             <div class="year" th:text="${movie.year}">...</div>
             <div class="duration" th:text="${movie.runtime} + ' phút'">
@@ -125,6 +133,22 @@
               >
                 <i class="fas fa-volume-mute"></i>
               </button>
+            </div>
+          </div>
+
+          <!-- FFilm Community Rating Interactive Bar -->
+          <div class="hero-rating-box" id="heroRatingBox" th:data-user-rating="${userRating}">
+            <div class="rating-box-inner">
+              <span class="rating-box-label">Đánh giá của bạn:</span>
+              <div class="stars-group" id="ratingStarsGroup">
+                <button type="button" class="star-item" data-val="1" title="1 sao - Quá tệ"><i class="fas fa-star"></i></button>
+                <button type="button" class="star-item" data-val="2" title="2 sao - Tạm được"><i class="fas fa-star"></i></button>
+                <button type="button" class="star-item" data-val="3" title="3 sao - Bình thường"><i class="fas fa-star"></i></button>
+                <button type="button" class="star-item" data-val="4" title="4 sao - Rất hay"><i class="fas fa-star"></i></button>
+                <button type="button" class="star-item" data-val="5" title="5 sao - Tuyệt phẩm"><i class="fas fa-star"></i></button>
+              </div>
+              <span class="rating-box-status" id="ratingBoxStatus" th:text="${userRating != null ? userRating + '/5 sao' : 'Chưa đánh giá'}">Chưa đánh giá</span>
+              <button type="button" class="btn-remove-rating" id="btnRemoveRating" th:style="${userRating != null ? 'display: inline-flex;' : 'display: none;'}" title="Xóa đánh giá"><i class="fas fa-times"></i></button>
             </div>
           </div>
         </div>
@@ -283,16 +307,40 @@
           </button>
         </div>
 
-        <div
-          class="comments-wrapper"
-          style="
-            background: #121212;
-            border-radius: 16px;
-            padding: 30px;
-            border: 1px solid #222;
-            margin-top: 50px;
-          "
-        ></div>
+        <div class="comments-wrapper" id="commentsSection">
+          <div class="comments-header">
+            <h2 class="comments-title">
+              <i class="fas fa-comments" style="color: #e50914; margin-right: 8px;"></i>
+              Bình luận & Thảo luận (<span id="comment-count">0</span>)
+            </h2>
+          </div>
+
+          <div class="comment-input-box" th:if="${session.user != null}">
+            <div class="user-avatar" th:text="${#strings.substring(session.user.userName, 0, 1).toUpperCase()}">U</div>
+            <div style="flex: 1;">
+              <input type="text" id="comment-input-field" placeholder="Chia sẻ cảm nghĩ hoặc đánh giá của bạn về bộ phim này..." class="comment-input-area" />
+              <div class="comment-actions" style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                <button class="action-button" id="btn-submit-comment" disabled>
+                  <i class="fas fa-paper-plane"></i> Gửi bình luận
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="comment-input-box" th:unless="${session.user != null}"
+            style="background: rgba(255, 255, 255, 0.03); padding: 22px; border-radius: 12px; text-align: center; border: 1px dashed rgba(255, 255, 255, 0.15); margin-bottom: 30px;">
+            <p style="color: #aaa; margin: 0; font-size: 0.95rem;">
+              <i class="fas fa-lock" style="margin-right: 8px; color: #e50914;"></i>
+              Bạn cần <a href="/login" style="color: #e50914; text-decoration: underline; font-weight: 600;">đăng nhập</a> để tham gia đánh giá và thảo luận phim.
+            </p>
+          </div>
+
+          <div class="comment-list" id="comment-list">
+            <div style="text-align: center; color: #777; padding: 30px">
+              <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
+            </div>
+          </div>
+        </div>
 
         
 
@@ -520,5 +568,24 @@
           });
       }
     </script>
+
+    <!-- Delete Comment Confirmation Modal -->
+    <div id="deleteConfirmModal" class="confirm-modal-overlay">
+      <div class="confirm-modal">
+        <h3>Xác nhận xóa</h3>
+        <p>Bạn có chắc chắn muốn xóa bình luận này không? Hành động này không thể hoàn tác.</p>
+        <div class="confirm-actions">
+          <button class="btn-confirm-cancel" onclick="window.commentHandler ? window.commentHandler.closeConfirmModal() : null">Hủy bỏ</button>
+          <button class="btn-confirm-delete" onclick="window.commentHandler ? window.commentHandler.confirmDeleteAction() : null">Xóa ngay</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden Current User ID for JS Handlers -->
+    <input type="hidden" id="currentUserId" th:value="${session.user != null ? (session.user.userID != null ? session.user.userID : session.user.id) : ''}" />
+
+    <!-- Movie Rating & Comments Scripts -->
+    <script th:src="@{/js/movie/comment-handler.js}"></script>
+    <script th:src="@{/js/movie/movie-rating.js}"></script>
   </body>
 </html>

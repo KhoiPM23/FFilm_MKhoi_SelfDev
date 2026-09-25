@@ -95,7 +95,7 @@ public class UserFavoriteController {
             @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
 
         if (userSession == null) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401).body(java.util.Collections.emptyList());
         }
 
         Integer userId = userSession.getId();

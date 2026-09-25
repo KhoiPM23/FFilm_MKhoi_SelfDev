@@ -572,4 +572,349 @@ body { background: #0c0c0c; }
     .movie-main-info { padding-top: 100px; }
     .hero-title { font-size: 2.8rem !important; }
     .full-width-section { padding-left: 15px; }
+    .hero-rating-box { width: 100%; }
+    .rating-box-inner { justify-content: center; }
 }
+
+/* ========================================= */
+/* ---- 6. MOVIE RATING & COMMUNITY REVIEWS ---- */
+/* ========================================= */
+
+.hero-meta .meta-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.25s ease;
+}
+
+.hero-meta .meta-rating:hover {
+    background: rgba(45, 45, 45, 0.95);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rating-source-tag {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.tmdb-tag {
+    background: #032541;
+    color: #01b4e4;
+    border: 1px solid rgba(1, 180, 228, 0.3);
+}
+
+.ffilm-tag {
+    background: rgba(229, 9, 20, 0.18);
+    color: #ff3b47;
+    border: 1px solid rgba(229, 9, 20, 0.4);
+}
+
+.rating-subcount {
+    color: #888;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* --- Hero Interactive Rating Widget --- */
+.hero-rating-box {
+    margin-top: 22px;
+    margin-bottom: 15px;
+    display: inline-flex;
+    background: rgba(18, 18, 18, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 10px 20px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    animation: fadeInDown 0.4s ease-out;
+}
+
+.rating-box-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.rating-box-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #aaa;
+}
+
+.stars-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.star-item {
+    background: transparent;
+    border: none;
+    color: #444;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 2px;
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease;
+    outline: none;
+}
+
+.star-item.active,
+.star-item.hover {
+    color: #ffb703;
+    text-shadow: 0 0 12px rgba(255, 183, 3, 0.55);
+}
+
+.star-item:hover {
+    transform: scale(1.32);
+}
+
+.rating-box-status {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #e5e5e5;
+    min-width: 130px;
+}
+
+.btn-remove-rating {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 4px;
+}
+
+.btn-remove-rating:hover {
+    border-color: #e50914;
+    color: #e50914;
+    background: rgba(229, 9, 20, 0.15);
+    transform: scale(1.1);
+}
+
+/* --- Comment User Rating Badge --- */
+.comment-user-rating-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 183, 3, 0.15);
+    color: #ffb703;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid rgba(255, 183, 3, 0.35);
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.comment-user-rating-badge i {
+    font-size: 0.7rem;
+}
+
+.comment-author {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.comment-author .author-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+/* --- Comment Action Buttons & Edit Box --- */
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.comment-actions-menu {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-action-icon {
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    transition: color 0.2s, background 0.2s;
+}
+
+.btn-action-icon:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-action-icon.delete:hover {
+    color: #e50914;
+    background: rgba(229, 9, 20, 0.1);
+}
+
+.edit-box {
+    margin-top: 10px;
+}
+
+.edit-input {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 70px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.edit-input:focus {
+    border-color: #e50914;
+}
+
+.edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-cancel-edit {
+    background: transparent;
+    border: 1px solid #444;
+    color: #aaa;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-cancel-edit:hover {
+    background: #333;
+    color: #fff;
+}
+
+.btn-save-edit {
+    background: #e50914;
+    border: none;
+    color: #fff;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.btn-save-edit:hover {
+    background: #b20710;
+}
+
+/* --- Confirm Delete Modal --- */
+.confirm-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.78);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.confirm-modal {
+    background: #1c1c1c;
+    padding: 26px 30px;
+    border-radius: 14px;
+    width: 90%;
+    max-width: 420px;
+    border: 1px solid #333;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.65);
+    animation: modalPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirm-modal h3 {
+    margin-top: 0;
+    color: #fff;
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+}
+
+.confirm-modal p {
+    color: #bbb;
+    font-size: 0.95rem;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.btn-confirm-cancel {
+    background: transparent;
+    border: 1px solid #444;
+    color: #ccc;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-confirm-cancel:hover {
+    background: #333;
+    color: #fff;
+}
+
+.btn-confirm-delete {
+    background: #e50914;
+    border: none;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-confirm-delete:hover {
+    background: #b20710;
+}
+
+@keyframes modalPopIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideInRatingToast {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}

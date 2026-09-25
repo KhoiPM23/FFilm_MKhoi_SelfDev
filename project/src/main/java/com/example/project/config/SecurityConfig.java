@@ -31,6 +31,7 @@ public class SecurityConfig {
                 // ======================================
                 
                 // Các rule cũ của bạn
+                .requestMatchers("/favorites/api/**").permitAll()
                 .requestMatchers("/history", "/api/history/**", "/favorites/**").authenticated()
                 .requestMatchers("/ws/**", "/watch-party/**", "/social/**").permitAll() // Cho phép Socket và trang xem chung
                 // Lưu ý: Thực tế nên yêu cầu .authenticated() cho "/watch-party/**", nhưng "/ws/**" cần mở để Handshake.

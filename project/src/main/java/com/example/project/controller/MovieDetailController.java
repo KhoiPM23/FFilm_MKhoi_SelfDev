@@ -41,17 +41,21 @@ public class MovieDetailController {
     @Autowired
     private SubscriptionService subscriptionService;
 
+    @Autowired
+    private com.example.project.service.ReviewService reviewService;
+
     @GetMapping({ "/movie/detail/{id}", "/movie/detail" })
     public String movieDetail(
             @PathVariable(required = false) String id,
             @RequestParam(required = false) String movieId,
             Model model, HttpSession session) {
-        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-
-        // Logic chuyển hướng login giữ nguyên
-        if (userSession == null) {
-            session.setAttribute("PREV_URL", "/movie/detail/" + ((id != null) ? id : ("?movieId=" + movieId)));
-            return "redirect:/login";
+        Object userObj = session.getAttribute("user");
+        UserSessionDto userSession = null;
+        if (userObj instanceof UserSessionDto) {
+            userSession = (UserSessionDto) userObj;
+        } else if (userObj instanceof com.example.project.model.User) {
+            com.example.project.model.User u = (com.example.project.model.User) userObj;
+            userSession = new UserSessionDto(u.getUserID(), u.getUserName(), u.getEmail(), u.getRole());
         }
 
         String finalIdStr = (id != null && !id.isEmpty()) ? id : movieId;
@@ -91,7 +95,15 @@ public class MovieDetailController {
             model.addAttribute("isFavorite", isFavorite);
             model.addAttribute("isVip", isVip);
 
-            // 4. Gán các Attribute còn lại
+            // 4. Xử lý Rating & Đánh giá cộng đồng
+            Integer currentUserId = (userSession != null) ? userSession.getId() : null;
+            Map<String, Object> ratingSummary = reviewService.getRatingSummary(movieID, currentUserId);
+            model.addAttribute("ratingSummary", ratingSummary);
+            model.addAttribute("communityRating", ratingSummary.get("communityRating"));
+            model.addAttribute("ratingCount", ratingSummary.get("ratingCount"));
+            model.addAttribute("userRating", ratingSummary.get("userRating"));
+
+            // 5. Gán các Attribute còn lại
             model.addAttribute("movie", movieMap);
             model.addAttribute("movieId", String.valueOf(movieID));
             model.addAttribute("tmdbId", String.valueOf(movieMap.get("tmdbId")));
@@ -131,6 +143,9 @@ public class MovieDetailController {
         model.addAttribute("clientSideLoad", true);
         model.addAttribute("trailers", new ArrayList<>());
         model.addAttribute("castList", new ArrayList<>());
+        model.addAttribute("communityRating", 0.0);
+        model.addAttribute("ratingCount", 0L);
+        model.addAttribute("userRating", null);
         if (!model.containsAttribute("isFavorite"))
             model.addAttribute("isFavorite", false);
 
