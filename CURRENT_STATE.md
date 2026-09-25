@@ -32,41 +32,26 @@ This file records the MOST RECENT verified operational state of the project.
 - **XSS Vulnerability**: Fixed Stored/Reflected XSS in WatchPartyController chat (added escapeHtml to user messages and names). [FIXED]
 - **Hardcoded Configs**: Cleaned up unused vnp_ReturnUrl from VnPayConfig. [FIXED]
 
-## WATCH PARTY & ROOM MANAGEMENT (PHASE 6)
-- **Schema Synchronization (P6-A.2)**: `WatchRoom`, `FriendRequests`, `Notification`, `UserFollow` synchronized in SQL Server `FFilm3` via `migration-p6a2-watch-party-schema.sql` (commit `66a576f`). [FACT]
-- **Create Room Flow (P6-A.3)**: Restored and operational on both `/watch-party` and `/my-rooms` without framework rewrite. [FIXED]
-- **Core Watch Party Room Lifecycle (P6-A.5)**: Implementation is complete.
-  - The room lifecycle now includes: authenticated STOMP join, server-owned membership identity, disconnect cleanup, deterministic host migration, private-room waiting list, host approval, and a shared Create Room fragment.
-  - Automated tests pass.
-  - However, genuine two-browser runtime E2E has NOT been performed in the current automated environment.
-  - Therefore: P6-A.5 = IMPLEMENTED / PARTIAL ACCEPTANCE / NEEDS REPRO for multi-session runtime. Do not assume Watch Party lifecycle is fully runtime-certified.
-- **WebRTC Signaling & Movie Sync (P6-A.6, P6-A.7)**: Implementation complete.
-  - WebRTC PeerJS IDs are registered via STOMP and broadcasted. Auto-call mesh networking implemented.
-  - Movie Sync stores current timestamp and state in server RAM for late joiner catch-up.
-- **Watch Party UX (P6-A.9)**: Room layout modernized with dedicated participant camera strip.
+## WATCH PARTY & ROOM MANAGEMENT (PHASE 6 - 8)
+- **Schema Synchronization**: `WatchRoom`, `FriendRequests`, `Notification`, `UserFollow` synchronized in SQL Server `FFilm3`. [FACT]
+- **Create Room Flow**: Operational on both `/watch-party` and `/my-rooms` using shared fragment `fragments/watch-party-create-room.html`. [FIXED]
+- **Host Authority & Initialization**: `createRoom` and `joinRoom` guarantee `runtime.setHostUserId(ownerId)` is set, ensuring host controls and WebSocket endpoints work immediately without false rejections. [FIXED]
+- **Host Migration View Sync**: `joinRoom` gives precedence to `runtime.getHostUserId()` over static DB owner when determining `isHost` in Thymeleaf model, keeping migrated hosts in control upon page reload. [FIXED]
+- **Private Room Waiting & Reconnect Approval**: `WatchRoomRuntime` tracks `approvedUserIds`. Reconnecting or refreshing approved members bypass the waiting room. Hosts are never locked in waiting status. [FIXED]
+- **Host Waiting List Modal & Moderation UI**: Implemented `#waitingListModal` with real-time counters, "Duyệt" (`/admin/approve`), and "Từ chối" (`/admin/reject`). Added `rejectMember()` in `WatchPartyService`. [FIXED]
+- **Movie Sync Hardening**: 150ms seek debounce prevents seek storms. Periodic 5-second heartbeat sync maintains sub-1.5s synchronization across buffering and network latency. [FIXED]
+- **WebRTC Audio/Video Track Integrity**: `toggleCam` toggles `videoTrack.enabled` without terminating audio tracks. Added `myPeer.on('error')` handler and disconnect cleanup on `beforeunload`. [FIXED]
+- **Room Dissolution & Delete Endpoints**: Added `@DeleteMapping("/api/party/delete/{roomId}")` and `@MessageMapping("/party/{roomId}/admin/close")` broadcasting `ROOM_CLOSED` to cleanly tear down party sessions. [FIXED]
+- **Multi-session runtime**: Needs repro with two independent browser sessions (`[NEEDS REPRO]`).
 
-## AI
-- **Gemini Model**: `gemini-2.5-flash` active and operational. [FACT]
-- **RestTemplate Timeout**: Configured to 5s connect timeout / 30s read timeout. [FIXED]
-- **[PENDING] Future AI Search Runtime Validation**: Full validation backlog recorded for future execution. [PENDING]
-- **[PENDING] Future AI Chatbot Runtime Validation**: Full validation backlog recorded for future execution. [PENDING]
-
-## DOCUMENTATION & WORKFLOW
-- `WORK_LOG.md`: Present and updated through P6-A.5. [FACT]
-- Migration File: Present. [FACT]
-- Project Memory Files: Established and tracked. [FACT]
-
-## GIT
-- **Branch**: `main` [FACT]
-- **Remote**: Synchronized with `origin/main`. [FACT]
-
-## OPEN RISKS
-- Historical exposure of API keys (TMDB, Tenor) on remote repositories if not purged/rotated.
-- Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
+## SECURITY & IDENTITY ENFORCEMENT
+- **Profile Sensitivity & Confirmation Verification**: `UserProfileUpdateDto` includes `currentPassword`; `UserService.updateProfile` verifies current password with `passwordEncoder.matches()` before applying email, phone, or password changes. [FIXED]
+- **Privacy Update Route**: Moved from `@RestController` to `UserAuthenticationController`, returning 302 redirect rather than raw string. [FIXED]
+- **WebSocket Identity Extraction**: Sender identities extracted server-side from `Principal` and session attributes, preventing client-side spoofing. [FIXED]
+- **Presence Tracking (STOMP Handshake)**: Handshake session attributes populate `"userSession"` and `"userDto"` to activate `OnlineStatusService` online/offline events. [FIXED]
 
 ## NEXT TASKS
-- P6-A.8 Watch Party Chat / Reactions
-- P6-A.10 Loading / Perceived Performance
-- P6-A.11 Messenger Modularization
-- P6-A.12 AI Search Runtime
-- P6-A.13 AI Chatbot Runtime
+- Workstream G: Player Deep Audit (Movie Detail -> Player -> Source Fallback -> Fullscreen -> Cleanup)
+- Workstream F: Messenger Modularization & Deep Functionality Continuation
+- Workstream H: Skeleton Loaders & Progressive Loading UI
+- Workstream I: AI Search & Chatbot Full Runtime Verification

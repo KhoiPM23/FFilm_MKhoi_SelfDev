@@ -467,3 +467,29 @@ efactor/batch-3-quick-wins
 - **Runtime Limitation**:
   - Multi-session browser E2E unavailable in current automated environment (`[NEEDS REPRO]` for actual video call rendering and precise movie sync delta).
 - **Next Step**: Messenger Modularization & Deep Audit (Workstream F) / P6-A.11.
+
+## 2026-09-26 - Phase 7: WebRTC Stream Leaks, Profile Security & Navigation Fixes
+- **Task**: Resolve Messenger WebRTC media stream leaks, enforce current-password verification on sensitive profile mutations, fix REST view redirect bug, and correct route typos.
+- **Problems Fixed**:
+  - `messenger.js`: `remoteStream` variable shadowing prevented track stoppage on hangup/rejection, leaving audio/video tracks active and leaking DOM video elements. Fixed global variable declarations (`callTimeout`, `callDuration`).
+  - `UserProfileUpdateDto.java` & `UserService.java`: `currentPassword` was missing from DTO; `updateProfile()` failed to verify the existing password via `passwordEncoder.matches()`, allowing bypass of client confirmation. Added verification gate.
+  - `UserManageController.java` vs `UserAuthenticationController.java`: `/update-privacy` was defined in a `@RestController`, returning raw redirect string literal rather than issuing HTTP 302. Moved to `UserAuthenticationController`.
+  - `header.html` & `RecommenedMovieController.java`: Fixed spelling typo `/recommnended` -> `/recommended`.
+- **Commits**: `503027a`, `de98dee`, `5f606f1`. Pushed to `origin/main`.
+- **Verification**: `.\mvnw.cmd test` passed (`BUILD SUCCESS`).
+
+## 2026-09-26 - Phase 8: Watch Party Full Deep Execution (Lifecycle, Host Authority, Movie Sync, Moderation)
+- **Task**: Watch Party Deep Audit & Fixes (Workstream E).
+- **Problems Fixed**:
+  - **Host Authority Null on Room Creation**: `createRoom` instantiated `WatchRoomRuntime` without calling `setHostUserId(ownerId)`. Because `isHost()` checked `runtime.getHostUserId()`, newly created rooms permanently rejected all host WebSocket actions. Fixed by setting `runtime.setHostUserId(ownerId)` and ensuring fallback in `joinRoom`.
+  - **Host Migration View Desync**: When a host disconnected, `handleDisconnect` migrated host identity in RAM (`room.setHostUserId()`), but HTTP GET `/watch-party/room/{id}` evaluated host via `dbRoom.getOwner() == user.getId()`. On page reload, the migrated host was stripped of host UI privileges. Fixed by prioritizing `runtime.getHostUserId()`.
+  - **Private Room Lockout & Refresh Loop**: `requestJoin` checked `"PRIVATE".equals(accessType)` without checking `isHost`, placing hosts in their own waiting list! Furthermore, approved guests who refreshed were forced back into `WAITING`. Fixed by adding `approvedUserIds` set to `WatchRoomRuntime` and respecting host/approved status.
+  - **Dead Waiting List UI & Missing Reject Endpoint**: `showWaitingList()` had placeholder alert `Danh sách chờ đang được phát triển`. Implemented full Host Waiting List Modal (`#waitingListModal`) with real-time counters, "Duyệt" (`/admin/approve`), and "Từ chối" (`/admin/reject`). Added `rejectMember()` in `WatchPartyService`.
+  - **Movie Sync Drift & Scrubbing Race Condition**: Host scrubbing fired rapid seek events; added 150ms seek debounce and periodic 5s heartbeat sync during active playback. Member drift correction smoothly synchronizes any client trailing by > 1.5s.
+  - **WebRTC Camera Toggle Audio Destruction**: In `toggleCam()`, `myStream.getTracks().forEach(track => track.stop())` destroyed audio tracks permanently. Fixed by toggling `videoTrack.enabled` without killing audio tracks. Added `myPeer.on('error')` exception handling.
+  - **Missing Delete Room & Dissolution Endpoints**: Added `@DeleteMapping("/api/party/delete/{roomId}")` for `my-rooms.html`, `@PostMapping("/api/party/close/{roomId}")`, and `@MessageMapping("/party/{roomId}/admin/close")` broadcasting `ROOM_CLOSED` to cleanly disperse rooms.
+  - **Sidebar Tab System & Participant Roster**: Added "Trò chuyện" (Chat) and "Thành viên" (Members) tabs to `room.html`, displaying participant list with host badge and Kick controls.
+  - **Lobby Actions**: Added `openChat(userId)` (routing to `/messenger?uid=`) and `viewProfile(userId)` (routing to `/social/profile/`).
+  - **WebSocket Session Attribute Alignment**: Added `"userSession"` to `WebSocketConfig` and fallback check in `WebSocketEventListener` to restore `OnlineStatusService` presence tracking.
+- **Commit**: `73f5327`. Pushed to `origin/main`.
+- **Verification**: `.\mvnw.cmd test` passed (`BUILD SUCCESS`, 1 test, 0 failures, 0 errors). Working tree clean, `HEAD == origin/main`.
