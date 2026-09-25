@@ -2,7 +2,7 @@
     (function() {
         'use strict';
         
-        const API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+        const API_KEY = '';
         const API_BASE = 'https://api.themoviedb.org/3';
         const IMG_BASE = 'https://image.tmdb.org/t/p';
         

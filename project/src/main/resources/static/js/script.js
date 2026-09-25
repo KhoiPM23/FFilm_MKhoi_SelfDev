@@ -12,7 +12,7 @@
   // =========================================================================
 
   // API & Keys
-  const TMDB_API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
+  const TMDB_API_KEY = "";
   const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
   // Core State Variables

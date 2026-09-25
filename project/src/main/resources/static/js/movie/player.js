@@ -1,6 +1,6 @@
 // player.js - Video Player with HLS Support
 
-const TMDB_API_KEY = 'eac03c4e09a0f5099128e38cb0e67a8f';
+const TMDB_API_KEY = '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 class VideoPlayer {
@@ -45,9 +45,10 @@ class VideoPlayer {
     }
     
     async loadMovieInfo() {
-        const url = `${TMDB_BASE_URL}/movie/${this.movieId}?api_key=${TMDB_API_KEY}&language=vi-VN`;
+        const url = `/api/movie/hover-detail/${this.movieId}`;
         const response = await fetch(url);
-        const movie = await response.json();
+        const data = await response.json();
+        const movie = data.movie || data;
         
         document.getElementById('playerTitle').textContent = movie.title;
         document.title = `${movie.title} - Đang xem | FFilm`;

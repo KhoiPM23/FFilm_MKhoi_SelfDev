@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
@@ -36,7 +37,8 @@ public class SearchController {
 
     //---- 1. CẤU HÌNH & REPOSITORY ----
 
-    private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
+    @Value("${tmdb.api.key}")
+    private String API_KEY;
     private final String BASE_URL = "https://api.themoviedb.org/3";
     private static final int PAGE_SIZE = 20;
 

@@ -8,6 +8,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import com.example.project.dto.MovieSearchFilters;
@@ -56,7 +57,8 @@ public class MovieService {
     @Autowired
     private RestTemplate restTemplate;
 
-    private final String API_KEY = "eac03c4e09a0f5099128e38cb0e67a8f";
+    @Value("${tmdb.api.key}")
+    private String API_KEY;
     private final String BASE_URL = "https://api.themoviedb.org/3";
 
     // Cho phép Controller truy cập Repository
