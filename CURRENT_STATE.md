@@ -53,5 +53,5 @@ This file records the MOST RECENT verified operational state of the project.
 - Gemini credential exposure detected in diagnostic command transcript — HUMAN ROTATION REQUIRED.
 
 ## NEXT TASK
-- Batch 4D: Final backend error-handling consistency audit (Issue #5).
-- Following Batch 4D: STOP controlled backend cleanup. Transition to Phase 5 — Product Stabilization & Modernization.
+- Phase 5A: WebRTC Call Signaling Lifecycle & Media Cleanup [COMPLETED]
+- Phase 5B+: YouTube trailer overlay bug, Watch Party disconnect hooks, controller exception detail leaks.

@@ -3,7 +3,7 @@
 ## 2026-09-25 - Schema Synchronization and Runtime Baseline
 - **Task**: Synchronize User privacy schema with current entity
 - **Objective**: Complete bounded User schema drift investigation for commit 7de319a, resolve missing persistence fields, and establish a verified runtime baseline.
-- **Verified Facts**: 
+- **Verified Facts**:
   - `User.java` was updated in commit `7de319a` to include three privacy settings: `isPublicFavorites`, `isPublicFriendList`, and `isPublicWatchHistory`.
   - Database `FFilm3` was missing these columns in the `Users` table.
   - The fields map to nullable boolean columns and Java logic gracefully handles `null`.
@@ -18,16 +18,16 @@
 - **Runtime Result**: Application startup succeeded (Spring Boot run on port 8081).
 - **Smoke Test Result**: Homepage loads correctly with movies listed. Database connection verified.
 - **Remaining Blockers**: None for startup.
-- **Next Recommended Task**: 
+- **Next Recommended Task**:
   - Fix P0 Security: TMDB credential exposed in frontend JS / Git history.
 
 ## 2026-09-25 - Security Remediation: External Credentials
 - **Task**: Remediate P0 TMDB API exposure and diagnose Gemini AI Chatbot integration.
-- **P0 Security Findings**: 
+- **P0 Security Findings**:
   - TMDB API key was hardcoded in multiple tracked frontend JS files (`script.js`, `search.js`, `player.js`, `searchResult.js`, `resp.html`) and backend files (`MovieService.java`, `SearchController.java`).
   - Historical exposure of TMDB key exists in Git history.
   - Gemini key may also have been historically exposed.
-- **Gemini Configuration Finding**: 
+- **Gemini Configuration Finding**:
   - Property `gemini.api.key` exists in `application.properties` and matches backend `@Value` mapping.
   - Endpoint/model configurations are correct (`v1beta/models/gemini-2.5-flash:generateContent`).
 - **Gemini Runtime Error**: `API_KEY_INVALID` 400 Bad Request.
@@ -38,7 +38,7 @@
   - Refactored `MovieService.java` and `SearchController.java` to use `@Value("${tmdb.api.key}")`.
 - **Verification**: `.\mvnw.cmd test` passed. Context loads correctly.
 - **Remaining Blockers**: [BLOCKED — INVALID LOCAL GEMINI CREDENTIAL] AI features cannot be verified until the human operator provides a valid Gemini key in `application.properties`.
-- **Pending Human Actions**: 
+- **Pending Human Actions**:
   - Provide a valid `gemini.api.key` in `application.properties`.
   - Rotate/revoke the previously exposed TMDB credential.
   - Approve and execute Git history purge to erase historical credential exposure.
@@ -332,3 +332,33 @@
   - JS/CSS modularization
   - Stale/dead frontend code cleanup
   - Modernization evaluation & selective library adoption
+
+## 2026-09-25 - Phase 5A — WebRTC Call Signaling Lifecycle & Media Cleanup
+- **Branch**:
+efactor/batch-3-quick-wins
+- **Status**: IMPLEMENTED & VERIFIED
+- **Objective**:
+  - Resolve the WebRTC call signaling defect and media stream leak upon call rejection.
+  - Establish canonical call protocol alignment across frontend and backend.
+  - Enforce immediate camera/microphone hardware track release on callee decline.
+- **Root Causes Fixed**:
+  1. **String / Semantic Mismatch**: Callee emitted CALL_REJECT, while backend domain model and client expected CALL_DENY.
+  2. **Relay Crash on Null Values**: WebSocketController.handleCall used Map.of() which threw NullPointerException on CALL_DENY and CALL_END due to null peerId.
+  3. **Transport Channel Multiplexing**: /queue/call receiver in messenger.js lacked message type branching and treated all payloads as new incoming calls.
+  4. **Stale Hardware Capture**: When rejection signaling was dropped, caller's camera and mic remained active for 30s until fallback timeout.
+- **Changes Made**:
+  1. project/src/main/java/com/example/project/controller/WebSocketController.java:
+     - Replaced unsafe Map.of() with null-safe HashMap, safely preserving optional peerId, callType, senderName, and senderAvatar.
+     - Derived senderId from authenticated Principal (falling back to payload if unauthenticated) to uphold security context.
+     - Added safe integer parsing for IDs.
+  2. project/src/main/resources/static/js/messenger.js:
+     - Standardized window.rejectCall on canonical CALL_DENY matching MessengerMessage.MessageType.CALL_DENY.
+     - Updated handleIncomingCall on /queue/call to multiplex by msg.type (CALL_REQ, CALL_DENY / CALL_REJECT, CALL_END).
+     - Hardened closeCallModal() to immediately cancel callTimeout, stop all localStream tracks, stop ringtone, close peer connection, and reset state.
+     - Updated handleSocketMessage to use non-blocking toast instead of blocking lert().
+     - Preserved 30-second unanswered timeout as safety fallback.
+- **Verification**:
+  - Automated tests: .\mvnw.cmd test passed cleanly (BUILD SUCCESS, 1/1 tests passed, 0 failures, 0 errors).
+  - Protocol search: Verified 0 non-standard outgoing events; canonical CALL_DENY and CALL_END verified.
+  - Formatting & diff check: git diff --check passed with 0 errors.
+  - Working tree: Clean.

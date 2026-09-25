@@ -396,9 +396,9 @@
         $('#incomingCallModal').hide();
         
         if (incomingCallData) {
-            // Gửi thông báo từ chối cuộc gọi
+            // Gửi thông báo từ chối cuộc gọi (canonical: CALL_DENY)
             stompClient.send('/app/call', {}, JSON.stringify({
-                type: 'CALL_REJECT',
+                type: 'CALL_DENY',
                 receiverId: incomingCallData.senderId,
                 senderId: currentUser.userID
             }));
@@ -416,7 +416,10 @@
 
     window.endCall = function() {
         // Dừng timer
-        if (callTimeout) clearTimeout(callTimeout);
+        if (callTimeout) {
+            clearTimeout(callTimeout);
+            callTimeout = null;
+        }
         if (callTimerInterval) clearInterval(callTimerInterval);
         
         // Dừng local stream
@@ -427,19 +430,26 @@
         
         // Đóng call
         if (currentCall) {
-            currentCall.close();
+            try { currentCall.close(); } catch (e) {}
             currentCall = null;
         }
         
         // Gửi thông báo kết thúc cuộc gọi
-        if (currentPartnerId) {
+        const targetId = currentPartnerId || (incomingCallData ? incomingCallData.senderId : null);
+        if (targetId && stompClient && stompClient.connected) {
             stompClient.send('/app/call', {}, JSON.stringify({
                 type: 'CALL_END',
-                receiverId: currentPartnerId,
+                receiverId: targetId,
                 senderId: currentUser.userID
             }));
         }
         
+        if (incomingCallData && incomingCallData.ringtone) {
+            incomingCallData.ringtone.pause();
+            incomingCallData.ringtone.currentTime = 0;
+        }
+        incomingCallData = null;
+
         // Ẩn modal
         $('#videoCallModal').hide();
         $('#incomingCallModal').hide();
@@ -577,13 +587,14 @@
             showIncomingCallModal(incomingCallData);
             return;
         }
-        else if (msg.type === 'CALL_DENY') {
-            alert("Người dùng bận hoặc từ chối cuộc gọi.");
+        else if (msg.type === 'CALL_DENY' || msg.type === 'CALL_REJECT') {
             closeCallModal();
+            showToast('Người nhận đã từ chối cuộc gọi', 'info');
             return;
         }
         else if (msg.type === 'CALL_END') {
             closeCallModal();
+            showToast('Cuộc gọi đã kết thúc', 'info');
             return;
         }
 
@@ -656,10 +667,29 @@
     function closeCallModal() {
         $('#videoCallModal').hide();
         $('#incomingCallModal').hide();
-        if (localStream) localStream.getTracks().forEach(t => t.stop());
-        if (currentCall) currentCall.close();
-        localStream = null;
-        currentCall = null;
+        if (callTimeout) {
+            clearTimeout(callTimeout);
+            callTimeout = null;
+        }
+        if (callTimerInterval) {
+            clearInterval(callTimerInterval);
+            callTimerInterval = null;
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
+        if (currentCall) {
+            try { currentCall.close(); } catch (e) {}
+            currentCall = null;
+        }
+        if (incomingCallData && incomingCallData.ringtone) {
+            try {
+                incomingCallData.ringtone.pause();
+                incomingCallData.ringtone.currentTime = 0;
+            } catch (e) {}
+        }
+        incomingCallData = null;
         stopCallTimer();
     }
 
@@ -913,18 +943,25 @@
     };
 
     function handleIncomingCall(callData) {
-        console.log('📞 Incoming call:', callData);
-        
-        // Lưu call data
-        incomingCallData = {
-            peerId: callData.peerId,
-            senderId: callData.senderId,
-            senderName: callData.senderName || 'Người dùng',
-            callType: callData.type || 'VIDEO'
-        };
-        
-        // Hiện modal incoming call
-        showIncomingCallModal(incomingCallData);
+        console.log('📞 Call event on /queue/call:', callData);
+        if (!callData || !callData.type) return;
+
+        if (callData.type === 'CALL_REQ') {
+            incomingCallData = {
+                peerId: callData.peerId,
+                senderId: callData.senderId,
+                senderName: callData.senderName || 'Người dùng',
+                senderAvatar: callData.senderAvatar,
+                callType: callData.callType || 'VIDEO'
+            };
+            showIncomingCallModal(incomingCallData);
+        } else if (callData.type === 'CALL_DENY' || callData.type === 'CALL_REJECT') {
+            closeCallModal();
+            showToast('Người nhận đã từ chối cuộc gọi', 'info');
+        } else if (callData.type === 'CALL_END') {
+            closeCallModal();
+            showToast('Cuộc gọi đã kết thúc', 'info');
+        }
     }
 
     // Thêm các CSS cần thiết
