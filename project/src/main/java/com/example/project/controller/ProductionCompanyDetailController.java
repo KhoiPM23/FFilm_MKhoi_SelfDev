@@ -18,8 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class ProductionCompanyDetailController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductionCompanyDetailController.class);
 
     // [ĐÃ XÓA] API_KEY, BASE_URL và RestTemplate vì không dùng nữa
 
@@ -95,7 +100,7 @@ public class ProductionCompanyDetailController {
             return "company/productionCompanyDetail";
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to load production company detail for id {}", finalIdStr, e);
             return "redirect:/";
         }
     }

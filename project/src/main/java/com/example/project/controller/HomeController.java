@@ -14,8 +14,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class HomeController {
+
+    private static final Logger log = LoggerFactory.getLogger(HomeController.class);
 
     // ---- 1. CẤU HÌNH & REPOSITORY ----
     @Autowired
@@ -58,8 +63,7 @@ public class HomeController {
             return "index";
 
         } catch (Exception e) {
-            System.err.println("ERROR in home(): " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error in home(): {}", e.getMessage(), e);
             ensureDefaultAttributes(model); // Hàm fallback an toàn
             return "index";
         }

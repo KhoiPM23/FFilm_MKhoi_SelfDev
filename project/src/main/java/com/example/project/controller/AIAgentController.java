@@ -9,10 +9,15 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession; // Import HttpSession
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/ai-agent")
 @CrossOrigin(origins = "*")
 public class AIAgentController {
+
+    private static final Logger log = LoggerFactory.getLogger(AIAgentController.class);
 
     @Autowired
     private AIAgentService aiAgentService;
@@ -60,7 +65,7 @@ public class AIAgentController {
             return ResponseEntity.ok(finalResponse);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing AI agent chat message", e);
             return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }

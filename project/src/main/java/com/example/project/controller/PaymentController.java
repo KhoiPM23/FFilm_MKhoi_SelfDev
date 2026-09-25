@@ -26,9 +26,14 @@ import com.example.project.model.Payment;
 import com.example.project.service.BillingService;
 import java.util.Date;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 @RequestMapping("/payment")
 public class PaymentController {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
 
     @Autowired
     private SubscriptionService subscriptionService;
@@ -109,7 +114,7 @@ public class PaymentController {
             return "redirect:" + paymentUrl;
             
         } catch (RuntimeException | UnsupportedEncodingException e) {
-            e.printStackTrace();
+            log.error("Failed to create VNPay payment link for subId {}", subId, e);
             redirectAttributes.addFlashAttribute("error", "Lỗi tạo giao dịch: " + e.getMessage());
             return "redirect:/payment/confirm/" + subId;
         }

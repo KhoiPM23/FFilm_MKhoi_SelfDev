@@ -10,8 +10,13 @@ import org.springframework.stereotype.Component;
  * [G13] Nâng cấp: Tự động khởi tạo dữ liệu khi ứng dụng khởi động.
  * Bỏ @RestController và triển khai ApplicationRunner.
  */
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Component // [G13] Đổi từ @RestController thành @Component
 public class InitController implements ApplicationRunner { // [G13] Thêm implements
+
+    private static final Logger log = LoggerFactory.getLogger(InitController.class);
 
     @Autowired
     private MovieService movieService;
@@ -28,8 +33,7 @@ public class InitController implements ApplicationRunner { // [G13] Thêm implem
             movieService.initGenres();
             System.out.println("...[DataInitializer] ✅ Khởi tạo Thể loại (Genre) thành công.");
         } catch (Exception e) {
-            System.err.println("...[DataInitializer] ❌ LỖI khi khởi tạo Thể loại: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to initialize genres during application startup: {}", e.getMessage(), e);
         }
         System.out.println("...[DataInitializer] Trình khởi tạo đã chạy xong.");
     }

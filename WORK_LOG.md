@@ -151,3 +151,46 @@
 - **Verification**:
   - Maven tests: .\mvnw.cmd test passed (BUILD SUCCESS, 0 errors, 0 failures).
   - Diff check: git diff --check passed cleanly.
+
+## 2026-09-25 - Batch 4A — Standardize Backend Exception Logging with SLF4J
+- **Issue**: #2 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/2)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+- **Objective**:
+  - Standardize backend Java exception logging using SLF4J, replacing all e.printStackTrace() and raw console stack dumping.
+- **Audit Findings**:
+  - Initial audit identified 34 occurrences of e.printStackTrace() across 18 Java files:
+    - 10 Controller classes: AIAgentController, AISearchController, ChatController, DiscoverController, HomeController, InitController, MessengerApiController (12 occurrences), MovieApiController, MovieDetailController, PaymentController, ProductionCompanyDetailController.
+    - 6 Service classes: AIAgentService (4 occurrences), AISearchService (2 occurrences), MovieService (2 occurrences), RevenueService (migrated from java.util.logging), TmdbSyncService (1 occurrence), UserService (1 occurrence).
+    - 1 Config class: VnPayConfig (1 occurrence).
+- **Files Changed**:
+  - project/src/main/java/com/example/project/config/VnPayConfig.java
+  - project/src/main/java/com/example/project/controller/AIAgentController.java
+  - project/src/main/java/com/example/project/controller/AISearchController.java
+  - project/src/main/java/com/example/project/controller/ChatController.java
+  - project/src/main/java/com/example/project/controller/DiscoverController.java
+  - project/src/main/java/com/example/project/controller/HomeController.java
+  - project/src/main/java/com/example/project/controller/InitController.java
+  - project/src/main/java/com/example/project/controller/MessengerApiController.java
+  - project/src/main/java/com/example/project/controller/MovieApiController.java
+  - project/src/main/java/com/example/project/controller/MovieDetailController.java
+  - project/src/main/java/com/example/project/controller/PaymentController.java
+  - project/src/main/java/com/example/project/controller/ProductionCompanyDetailController.java
+  - project/src/main/java/com/example/project/service/AIAgentService.java
+  - project/src/main/java/com/example/project/service/AISearchService.java
+  - project/src/main/java/com/example/project/service/MovieService.java
+  - project/src/main/java/com/example/project/service/RevenueService.java
+  - project/src/main/java/com/example/project/service/TmdbSyncService.java
+  - project/src/main/java/com/example/project/service/UserService.java
+- **Behavior Preserved**:
+  - Strict preservation of control flow, exception rethrowing, and existing HTTP responses / JSON shapes across all endpoints.
+  - No swallowed exceptions; every catch block retains its original return or rethrow logic.
+  - Sensitive parameters (passwords, tokens, API keys) strictly excluded from logs; only non-sensitive identifiers (e.g. user email, movie ID, prompt topic) are logged.
+- **Verification**:
+  - Search verification: 0 occurrences of printStackTrace remaining in project/src/main/java and project/src/test/java.
+  - Diff check: git diff --check passed cleanly.
+  - Maven tests: .\mvnw.cmd test passed cleanly (BUILD SUCCESS, 1 test run, 0 failures, 0 errors).
+- **Deferred Work**:
+  - Batch 4B: Audit and centralize REST exception handling (Issue #3) - OPEN
+  - Batch 4C: Remove redundant controller exception handling (Issue #4) - OPEN
+  - Batch 4D: Verify backend error-handling consistency audit (Issue #5) - OPEN

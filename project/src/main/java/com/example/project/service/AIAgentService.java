@@ -23,9 +23,13 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.math.BigDecimal; // Import quan trọng để fix lỗi formatPrice
 import com.example.project.service.AISearchService; // Import service tìm kiếm
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class AIAgentService {
+
+    private static final Logger log = LoggerFactory.getLogger(AIAgentService.class);
 
     private final GeminiClient geminiClient;
 
@@ -478,7 +482,7 @@ public class AIAgentService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing AI message for conversationId: {}", conversationId, e);
             aiResponseText = "Đã có lỗi xảy ra: " + e.getMessage();
         }
 
@@ -703,7 +707,7 @@ public class AIAgentService {
             return response.toString();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error searching movie by description in AI agent", e);
             return "Đã có lỗi xảy ra khi tìm kiếm theo mô tả. Vui lòng thử lại sau.";
         }
     }
@@ -777,7 +781,7 @@ public class AIAgentService {
             return response.toString();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error fetching subscription query info in AI agent", e);
             return "Xin lỗi, hiện tại tôi không thể lấy thông tin gói đăng ký. " +
                     "Vui lòng liên hệ support@ffilm.vn hoặc hotline 1900-xxxx.";
         }
@@ -1139,7 +1143,7 @@ public class AIAgentService {
                     ", genres=" + f.getGenres() + ", year=" + f.getYearFrom() +
                     ", actor=" + f.getActor());
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error parsing flat filters JSON in AI agent", e);
         }
         return f;
     }

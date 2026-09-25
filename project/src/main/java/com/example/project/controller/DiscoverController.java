@@ -16,8 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class DiscoverController {
+
+    private static final Logger log = LoggerFactory.getLogger(DiscoverController.class);
 
     @Autowired private MovieService movieService;
 
@@ -70,7 +75,7 @@ public class DiscoverController {
             model.addAttribute("pageTitle", getPageTitle(genres, quickFilter, isFree));
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error loading discover movies with genres={}, quickFilter={}, isFree={}", genres, quickFilter, isFree, e);
             setEmptyResults(model, genres, quickFilter);
         }
         return "discover";

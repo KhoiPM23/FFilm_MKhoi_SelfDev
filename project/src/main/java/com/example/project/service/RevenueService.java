@@ -12,12 +12,13 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class RevenueService {
     
-    private static final Logger logger = Logger.getLogger(RevenueService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(RevenueService.class);
 
     @Autowired
     private PaymentRepository paymentRepository;
@@ -39,7 +40,7 @@ public class RevenueService {
 
             return new RevenueDashboardDto(total, today, month, count);
         } catch (Exception e) {
-            logger.severe("Lỗi khi lấy Dashboard Stats: " + e.getMessage());
+            log.error("Lỗi khi lấy Dashboard Stats", e);
             return new RevenueDashboardDto(0.0, 0.0, 0.0, 0);
         }
     }
@@ -54,8 +55,7 @@ public class RevenueService {
             
             return payments;
         } catch (Exception e) {
-            logger.severe("Lỗi khi lấy Recent Transactions: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Lỗi khi lấy Recent Transactions", e);
             return new ArrayList<>();
         }
     }
@@ -77,7 +77,7 @@ public class RevenueService {
                 }
             }
         } catch (Exception e) {
-            logger.severe("Lỗi chart data: " + e.getMessage());
+            log.error("Lỗi chart data", e);
         }
         return data;
     }
@@ -110,7 +110,7 @@ public class RevenueService {
                 // Ghi dòng dữ liệu
                 writer.println(String.join(",", id, userName, email, plan, amount, method, date, status));
             } catch (Exception e) {
-                logger.warning("Lỗi khi ghi dòng CSV cho payment ID " + p.getPaymentID() + ": " + e.getMessage());
+                log.warn("Lỗi khi ghi dòng CSV cho payment ID {}: {}", p.getPaymentID(), e.getMessage());
             }
         }
     }

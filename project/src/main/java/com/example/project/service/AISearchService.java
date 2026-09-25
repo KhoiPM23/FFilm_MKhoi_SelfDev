@@ -7,8 +7,13 @@ import org.json.JSONObject;
 
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class AISearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(AISearchService.class);
 
     private final GeminiClient geminiClient;
 
@@ -39,10 +44,7 @@ public class AISearchService {
             result.put("suggestions", parsed.get("suggestions"));
 
         } catch (Exception e) {
-            // DEV: in stacktrace để debug; sau khi chạy ổn, bạn có thể giảm logging.
-            e.printStackTrace();
-            System.err.println("AI recommendation error: " + e.getMessage());
-
+            log.error("AI recommendation error", e);
             result.put("success", false);
             result.put("error", e.getMessage());
             result.put("answer", "Xin lỗi, AI đang gặp sự cố. Vui lòng thử lại.");
@@ -285,7 +287,7 @@ public class AISearchService {
             result.put("suggestions", suggestions);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to parse AI response text", e);
             result.put("answer", aiText == null ? "" : (aiText.length() > 200 ? aiText.substring(0, 200) : aiText));
             result.put("suggestions", Collections.emptyList());
         }

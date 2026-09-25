@@ -24,8 +24,13 @@ import java.util.Map;
 
 import com.example.project.service.SubscriptionService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class MovieDetailController {
+
+    private static final Logger log = LoggerFactory.getLogger(MovieDetailController.class);
 
     @Autowired
     private MovieService movieService;
@@ -96,7 +101,7 @@ public class MovieDetailController {
             return "movie/movie-detail";
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to load movie detail for id {}", finalIdStr, e);
             // Fallback nếu lỗi
             return createClientSideFallback(finalIdStr, model);
         }

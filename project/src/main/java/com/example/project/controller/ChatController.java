@@ -19,8 +19,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Controller
 public class ChatController {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -83,7 +88,7 @@ public class ChatController {
                 messagingTemplate.convertAndSend("/topic/moderator/" + assignedMod, saved);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing user chat message in chat.sendToUser", e);
         }
     }
 

@@ -14,8 +14,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder; // <-- QUAN TRỌNG: Thêm thư viện này
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class VnPayConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(VnPayConfig.class);
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static String vnp_TmnCode = "Q8LWQNYL";
@@ -40,7 +44,7 @@ public class VnPayConfig {
                     // QUAN TRỌNG: Phải URL Encode giá trị trước khi hash
                     sb.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
                 } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
+                    log.error("Failed to URL encode field value for VNPay hashing", e);
                 }
             }
             if (itr.hasNext()) {
