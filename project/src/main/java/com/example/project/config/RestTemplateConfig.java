@@ -18,7 +18,7 @@ public class RestTemplateConfig {
         
         // Set timeouts (milliseconds)
         factory.setConnectTimeout(5000);  // 5 seconds connection timeout
-        factory.setReadTimeout(10000);     // 10 seconds read timeout
+        factory.setReadTimeout(30000);     // 30 seconds read timeout
         
         RestTemplate restTemplate = new RestTemplate(factory);
         

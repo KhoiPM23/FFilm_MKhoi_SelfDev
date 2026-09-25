@@ -19,9 +19,9 @@ public class AISearchService {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    // Base URL cho model đã test (gemini-2.5-flash)
+    // Base URL cho model đã test (gemini-1.5-flash)
     private static final String GEMINI_API_URL_BASE =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 
     private final RestTemplate restTemplate;
 
