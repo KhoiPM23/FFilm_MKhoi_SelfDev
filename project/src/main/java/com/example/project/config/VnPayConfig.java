@@ -18,8 +18,6 @@ import java.net.URLEncoder; // <-- QUAN TRỌNG: Thêm thư viện này
 public class VnPayConfig {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    // URL trả về nên cấu hình cứng hoặc lấy từ env để tránh lỗi http/https khi deploy
-    public static String vnp_ReturnUrl = "http://localhost:8081/payment/vnpay_return"; 
     public static String vnp_TmnCode = "Q8LWQNYL";
     public static String secretKey = "O3QPL6H304MZ4SAJ53E0BDU4B664P6TV";
     public static String vnp_ApiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";

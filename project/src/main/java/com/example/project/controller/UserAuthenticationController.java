@@ -98,10 +98,11 @@ public class UserAuthenticationController {
             String redirectUrl = (String) session.getAttribute("PREV_URL");
             session.removeAttribute("PREV_URL"); // Dọn dẹp ngay lập tức
 
-            // Vẫn phải set session user trước khi redirect
-            if ("user".equals(userRole))
-                session.setAttribute("user", userSession);
-            else if ("admin".equals(userRole))
+            // TẤT CẢ mọi người đều có thuộc tính "user" để dùng chung các tính năng cơ bản (Like, History, WatchParty)
+            session.setAttribute("user", userSession);
+
+            // Gán thêm thuộc tính riêng theo role để hỗ trợ các check legacy nếu có
+            if ("admin".equals(userRole))
                 session.setAttribute("admin", userSession);
             else if ("content_manager".equals(userRole) || "contentmanager".equals(userRole))
                 session.setAttribute("contentManager", userSession);

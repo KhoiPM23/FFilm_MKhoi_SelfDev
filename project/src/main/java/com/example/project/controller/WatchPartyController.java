@@ -26,13 +26,9 @@ public class WatchPartyController {
     @Autowired private WatchPartyService partyService;
     @Autowired private SimpMessagingTemplate messagingTemplate;
 
-    // --- HELPER: Lấy User từ Session (Fix lỗi đăng nhập) ---
+    // --- HELPER: Lấy User từ Session ---
     private UserSessionDto getUserFromSession(HttpSession session) {
-        if (session.getAttribute("user") != null) return (UserSessionDto) session.getAttribute("user");
-        if (session.getAttribute("admin") != null) return (UserSessionDto) session.getAttribute("admin");
-        if (session.getAttribute("moderator") != null) return (UserSessionDto) session.getAttribute("moderator");
-        if (session.getAttribute("contentManager") != null) return (UserSessionDto) session.getAttribute("contentManager");
-        return null;
+        return (UserSessionDto) session.getAttribute("user");
     }
 
     // --- VIEW HANDLERS ---
@@ -128,11 +124,15 @@ public class WatchPartyController {
     // --- WEBSOCKET HANDLERS ---
 
     @MessageMapping("/party/{roomId}/chat")
-    public void chat(@DestinationVariable String roomId, @Payload SocketMessage msg) {
+    public void chat(@DestinationVariable String roomId, @Payload SocketMessage msg, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
         if (runtime != null) {
+            // Override sender with authenticated username from WebSocket session attributes
+            if (headerAccessor.getSessionAttributes() != null && headerAccessor.getSessionAttributes().containsKey("userName")) {
+                msg.setSender((String) headerAccessor.getSessionAttributes().get("userName"));
+            }
             // Service tự động set ID + timestamp
-            msg.setTimestamp(java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+            msg.setTimestamp(java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
             runtime.addChat(msg);
         }
         messagingTemplate.convertAndSend("/topic/party/" + roomId + "/chat", msg);
@@ -159,39 +159,53 @@ public class WatchPartyController {
         }
     }
 
+    private boolean isHost(org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor, WatchPartyService.WatchRoomRuntime runtime) {
+        if (runtime == null || headerAccessor.getUser() == null || runtime.getHostUserId() == null) return false;
+        return String.valueOf(runtime.getHostUserId()).equals(headerAccessor.getUser().getName());
+    }
+
     @MessageMapping("/party/{roomId}/admin/approve")
-    public void approveUser(@DestinationVariable String roomId, @Payload Map<String, String> payload) {
-        String targetSessionId = payload.get("sessionId");
-        if(partyService.approveMember(roomId, targetSessionId)){
-            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/approval/" + targetSessionId, "APPROVED");
+    public void approveUser(@DestinationVariable String roomId, @Payload Map<String, String> payload, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+        if (isHost(headerAccessor, runtime)) {
+            String targetSessionId = payload.get("sessionId");
+            if(partyService.approveMember(roomId, targetSessionId)){
+                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/approval/" + targetSessionId, "APPROVED");
+            }
         }
     }
 
     @MessageMapping("/party/{roomId}/admin/kick")
-    public void kickUser(@DestinationVariable String roomId, @Payload Map<String, String> payload) {
-        String targetSessionId = payload.get("sessionId");
-        partyService.kickMember(roomId, targetSessionId);
-        messagingTemplate.convertAndSend("/topic/party/" + roomId + "/kick/" + targetSessionId, "KICKED");
+    public void kickUser(@DestinationVariable String roomId, @Payload Map<String, String> payload, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+        if (isHost(headerAccessor, runtime)) {
+            String targetSessionId = payload.get("sessionId");
+            partyService.kickMember(roomId, targetSessionId);
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/kick/" + targetSessionId, "KICKED");
+        }
     }
 
     @MessageMapping("/party/{roomId}/waitingList")
-    public void getWaitingList(@DestinationVariable String roomId) {
+    public void getWaitingList(@DestinationVariable String roomId, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
-        if (runtime != null) {
+        if (isHost(headerAccessor, runtime)) {
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", 
                 runtime.getWaitingList().values());
         }
     }
     
     @MessageMapping("/party/{roomId}/sync")
-    public void syncPlayer(@DestinationVariable String roomId, @Payload Map<String, Object> action) {
-        messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", action);
+    public void syncPlayer(@DestinationVariable String roomId, @Payload Map<String, Object> action, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+        if (isHost(headerAccessor, runtime)) {
+            messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", action);
+        }
     }
     
     @MessageMapping("/party/{roomId}/changeMovie")
-    public void changeMovie(@DestinationVariable String roomId, @Payload Map<String, Object> movieData) {
+    public void changeMovie(@DestinationVariable String roomId, @Payload Map<String, Object> movieData, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
-        if (runtime != null) {
+        if (isHost(headerAccessor, runtime)) {
             runtime.setCurrentMovieId((Integer) movieData.get("id"));
             runtime.setCurrentMovieTitle((String) movieData.get("title"));
             runtime.setCurrentMovieUrl((String) movieData.get("url"));

@@ -76,3 +76,22 @@
   - [PENDING] Historical TMDB credential provider-side revocation requires human verification.
   - [PENDING] Historical Tenor credential provider-side revocation requires human verification.
   - [PENDING] Git history purge requires explicit owner authorization.
+
+## 2026-09-25 - Technical Debt Reduction & Security Patching
+- **Task**: Deep Code Review, Technical Debt Reduction & Security Patching.
+- **Vulnerabilities Fixed**:
+  - P1 IDOR in WatchParty WebSockets: Prevented users from forging admin commands (kick, approve, change movie, sync) by verifying `SimpMessageHeaderAccessor.getSessionId()` against the room's Host ID.
+  - P0 Stored/Reflected XSS in WatchParty Chat: Escaped user input (`msg.sender` and `msg.content`) via custom `escapeHtml` function before interpolating into `innerHTML`.
+- **Code Cleanups**:
+  - Removed unused hardcoded `vnp_ReturnUrl` from `VnPayConfig.java` to prevent environment conflicts (verified it's dynamically generated in `PaymentController.java`).
+  - Simplified `WatchPartyController.getUserFromSession()` since `CustomSessionAuthFilter` now properly propagates user session properties.
+- **Verification**: `mvn test` passed. Project builds successfully.
+
+## 2026-09-25 - Security Patch Verification & Watch Party Hardening
+- **Task**: Deep audit and verification of recent security patches.
+- **Findings & Fixes**:
+  - **Watch Party IDOR (WebSocket)**: The previous IDOR patch incorrectly compared the WebSocket (STOMP) Session ID with the HTTP Session ID stored in `WatchRoomRuntime`. This permanently broke host commands (play, pause, change movie, kick).
+  - **Fix Applied**: Updated `WatchRoomRuntime` to correctly store `hostUserId` and updated WebSocket handlers to verify `headerAccessor.getUser().getName()` (which corresponds to `userId` via `StompPrincipal`) against `runtime.getHostUserId()`.
+  - **Chat Sender Spoofing**: Added server-side enforcement of `msg.sender` in `WatchPartyController.java` to prevent clients from impersonating other users via WebSocket payload manipulation.
+  - **XSS Image Injection**: Verified `escapeHtml()` correctness and added URL scheme validation (`http://`, `https://`, `/`) for `mediaUrl` in `watch-party.js` to mitigate `javascript:` URI attacks in image `src` tags.
+- **Verification**: All Watch Party WebSocket endpoints now correctly authenticate actions based on `Principal` identity. Front-end mitigations against XSS are robust.

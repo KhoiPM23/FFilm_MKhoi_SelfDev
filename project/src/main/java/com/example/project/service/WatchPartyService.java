@@ -141,6 +141,7 @@ public class WatchPartyService {
     public static class WatchRoomRuntime {
         private String roomId;
         private String hostSessionId;
+        private Integer hostUserId;
         private String hostName;
         private String hostAvatar;
         
@@ -171,6 +172,7 @@ public class WatchPartyService {
 
     public void startRoom(String roomId, RoomMember host) {
         WatchRoomRuntime runtime = new WatchRoomRuntime(roomId, host.getSessionId());
+        runtime.setHostUserId(host.getUserId());
         runtime.setHostName(host.getUserName());
         runtime.setHostAvatar(host.getAvatar());
         runtime.getMembers().put(host.getSessionId(), host);
@@ -234,6 +236,7 @@ public class WatchPartyService {
                     } else {
                         String newHostId = room.getMembers().keySet().iterator().next();
                         room.setHostSessionId(newHostId);
+                        room.setHostUserId(room.getMembers().get(newHostId).getUserId());
                         return newHostId; 
                     }
                 }

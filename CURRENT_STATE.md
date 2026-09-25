@@ -20,6 +20,9 @@ This file records the MOST RECENT verified operational state of the project.
 - **Git history purge**: BFG/filter-repo requires explicit authorization. [PENDING HUMAN]
 - **IDOR Vulnerability**: Fixed in UserReactionController (userId sourced from session). [FIXED]
 - **IDOR Vulnerability**: Fixed in SecurityConfig for /api/users endpoint. [FIXED]
+- **IDOR Vulnerability**: Fixed in WatchPartyController WebSockets (enforced host permissions via SimpMessageHeaderAccessor). [FIXED]
+- **XSS Vulnerability**: Fixed Stored/Reflected XSS in WatchPartyController chat (added escapeHtml to user messages and names). [FIXED]
+- **Hardcoded Configs**: Cleaned up unused vnp_ReturnUrl from VnPayConfig. [FIXED]
 
 ## AI
 - **Gemini Wiring**: Verified. Spring handles configuration and constructs correct API parameters. [FACT]

@@ -225,30 +225,59 @@ function handleIncomingMessage(msg) {
     if (!isSidebarOpen) showFloatingBubble(msg);
 }
 
+function escapeHtml(unsafe) {
+    if (!unsafe) return "";
+    return unsafe
+         .toString()
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
 function drawMessage(msg) {
     var chatBox = document.getElementById('chatBox');
     var isMine = msg.sender === username;
-    var avatarChar = msg.sender.charAt(0).toUpperCase();
+    
+    // Xử lý XSS
+    var safeSender = escapeHtml(msg.sender);
+    var safeContent = escapeHtml(msg.content);
+    var avatarChar = safeSender.charAt(0).toUpperCase();
     
     // Nội dung
     var contentHtml = '';
-    if (msg.type === 'IMAGE') {
-        contentHtml = `<img src="${msg.mediaUrl}" onclick="viewImage(this.src)" style="max-width:200px; border-radius:10px; margin-top:5px; cursor:zoom-in;">`;
-    } else if (msg.type === 'STICKER') {
-        contentHtml = `<img src="${msg.mediaUrl}" style="width:100px; height:auto; margin-top:5px;">`;
+    if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
+        var safeUrl = msg.mediaUrl;
+        if (safeUrl && (safeUrl.startsWith('http://') || safeUrl.startsWith('https://') || safeUrl.startsWith('/'))) {
+            var escapedUrl = escapeHtml(safeUrl);
+            if (msg.type === 'IMAGE') {
+                contentHtml = `<img src="${escapedUrl}" onclick="viewImage(this.src)" style="max-width:200px; border-radius:10px; margin-top:5px; cursor:zoom-in;">`;
+            } else {
+                contentHtml = `<img src="${escapedUrl}" style="width:100px; height:auto; margin-top:5px;">`;
+            }
+        } else {
+            contentHtml = `<div class="msg-bubble text-danger">[Hình ảnh không hợp lệ]</div>`;
+        }
     } else {
-        contentHtml = `<div class="msg-bubble">${msg.content}</div>`;
+        contentHtml = `<div class="msg-bubble">${safeContent}</div>`;
     }
 
     // Reply
     var replyHtml = '';
     if (msg.replyTo) {
+        var safeReplySender = escapeHtml(msg.replyTo.sender);
+        var safeReplyContent = escapeHtml(msg.replyTo.content);
         replyHtml = `
             <div class="msg-reply-quote" style="font-size:0.75rem; color:#aaa; margin-bottom:4px; padding-left:8px; border-left:3px solid #e50914; opacity:0.8;">
-                <i class="fas fa-reply"></i> <b>${msg.replyTo.sender}</b>: ${msg.replyTo.type === 'IMAGE' ? 'Hình ảnh' : msg.replyTo.content}
+                <i class="fas fa-reply"></i> <b>${safeReplySender}</b>: ${msg.replyTo.type === 'IMAGE' ? 'Hình ảnh' : safeReplyContent}
             </div>
         `;
     }
+
+    // Escape cho onclick handler
+    var safeSenderForJS = safeSender.replace(/'/g, "\\'");
+    var safeContentForJS = safeContent.replace(/'/g, "\\'");
 
     var html = `
         <div class="msg-container ${isMine ? 'mine' : 'other'} fade-in" id="msg-${msg.id}">
@@ -257,8 +286,8 @@ function drawMessage(msg) {
                 ${replyHtml}
                 ${contentHtml}
                 <div class="msg-meta">
-                    ${msg.timestamp} 
-                    ${!isMine ? `<i class="fas fa-reply ms-2" onclick="startReply('${msg.id}', '${msg.sender}', '${msg.type === 'IMAGE' ? '[Hình ảnh]' : msg.content}')" style="cursor:pointer; opacity:0.6;"></i>` : ''}
+                    ${escapeHtml(msg.timestamp)} 
+                    ${!isMine ? `<i class="fas fa-reply ms-2" onclick="startReply('${msg.id}', '${safeSenderForJS}', '${msg.type === 'IMAGE' ? '[Hình ảnh]' : safeContentForJS}')" style="cursor:pointer; opacity:0.6;"></i>` : ''}
                 </div>
             </div>
         </div>
@@ -364,10 +393,11 @@ function showFloatingBubble(msg) {
     var floatArea = document.getElementById('floatArea');
     var el = document.createElement('div');
     el.className = 'float-msg';
-    var content = msg.type === 'IMAGE' ? '📷 [Hình ảnh]' : (msg.type === 'STICKER' ? '😊 [Sticker]' : msg.content);
+    var safeContent = msg.type === 'IMAGE' ? '📷 [Hình ảnh]' : (msg.type === 'STICKER' ? '😊 [Sticker]' : escapeHtml(msg.content));
+    var safeSender = escapeHtml(msg.sender);
     el.innerHTML = `
-        <div class="avatar" style="width:25px;height:25px;font-size:0.7rem">${msg.sender.charAt(0)}</div>
-        <span>${content}</span>
+        <div class="avatar" style="width:25px;height:25px;font-size:0.7rem">${safeSender.charAt(0)}</div>
+        <span>${safeContent}</span>
     `;
     floatArea.appendChild(el);
     setTimeout(() => el.remove(), 7000);
