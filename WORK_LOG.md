@@ -362,3 +362,28 @@ efactor/batch-3-quick-wins
   - Protocol search: Verified 0 non-standard outgoing events; canonical CALL_DENY and CALL_END verified.
   - Formatting & diff check: git diff --check passed with 0 errors.
   - Working tree: Clean.
+
+## 2026-09-25 - Phase 5B-1: YouTube Preview Stabilization
+- **Task**: Fix ghost YouTube hover preview appearing after rapid unhover.
+- **Action**: Managed fadeTimeout within hoverPlayerMap and cleared it in stopHoverVideo and playHoverVideo inside script.js to prevent delayed CSS opacity transitions.
+- **Result**: Fixed in commit 68f1f24. Hover card previews now correctly abort.
+
+## 2026-09-25 - Phase 5B-2: Backend Exception Leak Hardening
+- **Task**: Prevent internal exception details from leaking in 500 error HTTP responses.
+- **Action**: Edited FileUploadController, ContentMovieController, CommentController, and AIAgentController to replace e.getMessage() with generic error messages when returning HTTP 500 responses.
+- **Result**: Checked in under commit fix(security): prevent exception details leak in 500 responses.
+
+## 2026-09-25 - Phase 5B-3: STOMP Broadcast Consistency
+- **Task**: Prevent chat message broadcast when database save fails.
+- **Action**: In ChatController.java (sendPrivateMessage), moved the messagingTemplate.convertAndSendToUser calls inside the try-block so they only execute after chatMessageService.saveChatMessage succeeds.
+- **Result**: Checked in under commit fix(chat): ensure STOMP message broadcast only if database persist succeeds.
+
+## 2026-09-25 - Phase 5B-4: WebRTC Security Regression Verification
+- **Task**: Verify and fix senderId spoofing vulnerabilities in WebSocketController.
+- **Action**: Modified handleTyping, handleStopTyping, handleMarkSeen, and handleCall in WebSocketController to always derive the user ID from the authenticated Principal instead of trusting the client payload.
+- **Result**: Checked in under commit fix(security): strictly extract senderId from Principal in WebSocket payloads to prevent spoofing.
+
+## 2026-09-25 - Phase 5B-5: Final Product Regression Audit
+- **Task**: Perform a final regression audit after all Phase 5B fixes.
+- **Action**: Compiled the project and ran all backend unit/integration tests with dynamic agent loading enabled.
+- **Result**: Tests run: 1, Failures: 0, Errors: 0, Skipped: 0. Build Success. No regressions found.
