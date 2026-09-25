@@ -1,8 +1,5 @@
 // player.js - Video Player with HLS Support
 
-const TMDB_API_KEY = '';
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-
 class VideoPlayer {
     constructor() {
         this.movieId = this.getMovieIdFromUrl();

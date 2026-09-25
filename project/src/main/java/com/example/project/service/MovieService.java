@@ -57,11 +57,6 @@ public class MovieService {
     @Autowired
     private TmdbClient tmdbClient;
 
-    // Cho phép Controller truy cập Repository
-    public MovieRepository getMovieRepository() {
-        return movieRepository;
-    }
-
     public List<Map<String, Object>> getMoviesMapByPersonId(int personId) {
         List<MoviePerson> mps = moviePersonRepository.findByPersonID(personId);
         List<Map<String, Object>> moviesMapList = new ArrayList<>();

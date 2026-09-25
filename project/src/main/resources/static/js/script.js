@@ -11,10 +11,6 @@
   // 1. CẤU HÌNH VÀ BIẾN TOÀN CỤC (GLOBAL CONFIG AND STATE)
   // =========================================================================
 
-  // API & Keys
-  const TMDB_API_KEY = "";
-  const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
   // Core State Variables
   let heroPlayer = null;
   let videoTimeout = null;

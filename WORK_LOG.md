@@ -123,3 +123,18 @@
   - Diff check: git diff --check passed cleanly.
 - **Known Limitations**:
   - Full MovieService and messenger.js decomposition are reserved for later phases.
+
+## 2026-09-25 - Batch 3B — Remove Dead Repository Exposure and Stale TMDB Constants
+- **Issue**: #1 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/1)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: COMPLETE
+- **Changes**:
+  - MovieService.java: Removed unused public getMovieRepository() leakage after verifying zero project-wide callers.
+  - player.js: Removed stale and empty TMDB_API_KEY and TMDB_BASE_URL constants; confirmed player uses backend endpoint /api/movie/hover-detail/{id}.
+  - script.js: Removed stale and empty TMDB_API_KEY and TMDB_BASE_URL constants.
+- **Behavior Preserved**:
+  - All movie operations, player initialization, and home page script behavior completely preserved.
+- **Verification**:
+  - Maven tests: .\mvnw.cmd test passed (BUILD SUCCESS, 0 errors, 0 failures).
+  - Search: Zero active TMDB_API_KEY / TMDB_BASE_URL constants remaining across static/js.
+  - Diff check: git diff --check passed cleanly.
