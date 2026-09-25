@@ -8,6 +8,10 @@ import com.example.project.model.User;
 import com.example.project.repository.FriendRequestRepository;
 import com.example.project.repository.MessengerRepository;
 import com.example.project.repository.UserRepository;
+import com.example.project.repository.CallLogRepository;
+import com.example.project.repository.ConversationSettingsRepository;
+import com.example.project.model.CallLog;
+import com.example.project.model.ConversationSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,8 @@ public class MessengerService {
     @Autowired private MessengerRepository messengerRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private FriendRequestRepository friendRequestRepository;
+    @Autowired private CallLogRepository callLogRepository;
+    @Autowired private ConversationSettingsRepository conversationSettingsRepository;
 
     // ============= FIX 1: Thêm các phương thức mới =============
     
@@ -81,6 +87,40 @@ public class MessengerService {
         // stats.put("mostActiveHour", getMostActiveHour(allMessages));
         
         return stats;
+    }
+
+    // CallLog methods
+    public void saveCallLog(CallLog log) {
+        callLogRepository.save(log);
+    }
+
+    public List<CallLog> getCallLogsByPartner(Integer userId, Integer partnerId) {
+        return callLogRepository.findByUserIdAndPartnerIdOrderByTimestampDesc(userId, partnerId);
+    }
+
+    public List<CallLog> getRecentCalls(Integer userId, LocalDateTime fromDate) {
+        return callLogRepository.findRecentCalls(userId, fromDate);
+    }
+
+    public Long countMissedCallsSince(Integer userId, LocalDateTime since) {
+        return callLogRepository.countMissedCallsSince(userId, since);
+    }
+
+    // ConversationSettings methods
+    public Optional<ConversationSettings> getConversationSettings(Integer userId, Integer partnerId) {
+        return conversationSettingsRepository.findByUserIdAndPartnerId(userId, partnerId);
+    }
+
+    public ConversationSettings saveConversationSettings(ConversationSettings settings) {
+        return conversationSettingsRepository.save(settings);
+    }
+
+    public int updateThemeColor(Integer userId, Integer partnerId, String themeColor) {
+        return conversationSettingsRepository.updateThemeColor(userId, partnerId, themeColor);
+    }
+
+    public int updateNickname(Integer userId, Integer partnerId, String nickname) {
+        return conversationSettingsRepository.updateNickname(userId, partnerId, nickname);
     }
 
     // 1. Lấy danh sách hội thoại

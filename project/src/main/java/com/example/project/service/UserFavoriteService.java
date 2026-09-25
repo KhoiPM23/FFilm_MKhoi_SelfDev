@@ -56,4 +56,23 @@ public class UserFavoriteService {
         return favoriteRepository.findMoviesByUserID(userID, pageable);
     }
 
+    public boolean toggleFavorite(Integer userId, Integer movieId) {
+        boolean exists = favoriteRepository.existsByUserIDAndMovieID(userId, movieId);
+        if (exists) {
+            favoriteRepository.deleteById(new com.example.project.model.UserFavoriteId(movieId, userId));
+            return false;
+        } else {
+            UserFavorite uf = new UserFavorite();
+            uf.setUserID(userId);
+            uf.setMovieID(movieId);
+            uf.setCreateAt(new java.util.Date(System.currentTimeMillis()));
+            favoriteRepository.save(uf);
+            return true;
+        }
+    }
+
+    public java.util.List<Integer> getFavoriteMovieIds(Integer userId) {
+        return favoriteRepository.findMovieIdsByUserID(userId);
+    }
+
 }

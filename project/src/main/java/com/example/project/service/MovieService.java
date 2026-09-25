@@ -66,6 +66,33 @@ public class MovieService {
         return movieRepository;
     }
 
+    public List<Map<String, Object>> getMoviesMapByPersonId(int personId) {
+        List<MoviePerson> mps = moviePersonRepository.findByPersonID(personId);
+        List<Map<String, Object>> moviesMapList = new ArrayList<>();
+
+        for (MoviePerson mp : mps) {
+            Movie movie = movieRepository.findById(mp.getMovieID()).orElse(null);
+            if (movie != null) {
+                Map<String, Object> movieMap = convertToMap(movie);
+                
+                String role = (mp.getCharacterName() != null && !mp.getCharacterName().isEmpty()) 
+                              ? "Vai: " + mp.getCharacterName()
+                              : (mp.getJob() != null ? mp.getJob() : "Diễn viên");
+                
+                movieMap.put("role_info", role);
+                moviesMapList.add(movieMap);
+            }
+        }
+
+        moviesMapList.sort((m1, m2) -> {
+            String date1 = (String) m1.getOrDefault("releaseDate", "0000-00-00");
+            String date2 = (String) m2.getOrDefault("releaseDate", "0000-00-00");
+            return date2.compareTo(date1);
+        });
+
+        return moviesMapList;
+    }
+
     // [MỚI] Bảng Map ngôn ngữ chuyển từ Controller sang Service
     private static final Map<String, String> LANGUAGE_MAP = new HashMap<>();
     static {

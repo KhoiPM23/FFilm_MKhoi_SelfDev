@@ -23,11 +23,7 @@ import com.example.project.service.UserFavoriteService;
 import com.example.project.dto.MovieFavorite;
 import com.example.project.dto.UserSessionDto;
 import com.example.project.dto.AddUserFavoriteRequest;
-import com.example.project.repository.FavoriteRepository; // <-- THÊM
-import com.example.project.model.UserFavorite;
-import com.example.project.model.UserFavoriteId; // <-- THÊM
-import jakarta.transaction.Transactional; // <-- THÊM
-
+import jakarta.transaction.Transactional; 
 @Controller
 @RequestMapping("/favorites")
 public class UserFavoriteController {
@@ -35,8 +31,6 @@ public class UserFavoriteController {
     @Autowired
     private UserFavoriteService favoriteService;
 
-    @Autowired
-    private FavoriteRepository favoriteRepository; // <-- Cần để thực hiện logic toggle
 
     @GetMapping("/my-list")
     public String showAllFavorite(
@@ -81,22 +75,13 @@ public class UserFavoriteController {
 
         Integer userId = userSession.getId();
 
-        // 1. Kiểm tra trạng thái hiện tại
-        boolean exists = favoriteRepository.existsByUserIDAndMovieID(userId, movieId);
+        // Delegate to Service
+        boolean added = favoriteService.toggleFavorite(userId, movieId);
 
-        if (exists) {
-            // 2. Nếu đã tồn tại -> XÓA
-            favoriteRepository.deleteById(new UserFavoriteId(movieId, userId));
+        if (!added) {
             response.put("status", "removed");
             response.put("message", "Đã xóa khỏi danh sách yêu thích.");
         } else {
-            // 3. Nếu chưa tồn tại -> THÊM
-            UserFavorite uf = new UserFavorite();
-            uf.setUserID(userId);
-            uf.setMovieID(movieId);
-            uf.setCreateAt(new Date(System.currentTimeMillis()));
-            favoriteRepository.save(uf);
-
             response.put("status", "added");
             response.put("message", "Đã thêm vào danh sách yêu thích.");
         }
@@ -115,9 +100,7 @@ public class UserFavoriteController {
 
         Integer userId = userSession.getId();
 
-        // Lấy tất cả movieId từ bảng UserFavorite (không cần phân trang vì frontend chỉ
-        // cần check tồn tại)
-        List<Integer> favoriteMovieIds = favoriteRepository.findMovieIdsByUserID(userId);
+        List<Integer> favoriteMovieIds = favoriteService.getFavoriteMovieIds(userId);
 
         return ResponseEntity.ok(favoriteMovieIds);
     }

@@ -24,6 +24,20 @@ public class UserManageService {
       return userRepository.findAll().stream().map(UserManageDTO::new).collect(Collectors.toList());
    }
 
+   public Optional<UserManageDTO> getUserManageById(int id) {
+      return userRepository.findById(id).map(UserManageDTO::new);
+   }
+
+   public void updatePrivacy(int id, boolean publicFriend, boolean publicFav, boolean publicHistory) {
+      User user = userRepository.findById(id)
+              .orElseThrow(() -> new RuntimeException("User not found"));
+      user.setPublicFriendList(publicFriend);
+      user.setPublicFavorites(publicFav);
+      user.setPublicWatchHistory(publicHistory);
+      userRepository.save(user);
+   }
+
+
    public Page<UserManageDTO> getAllUsers(Pageable pageable) {
       return userRepository.findAll(pageable).map(UserManageDTO::new);
    }

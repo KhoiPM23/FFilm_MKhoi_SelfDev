@@ -9,7 +9,6 @@ import com.example.project.dto.UserManageDTO;
 import com.example.project.dto.UserSessionDto;
 import com.example.project.model.User;
 import com.example.project.service.UserManageService;
-import com.example.project.repository.UserRepository;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -33,9 +32,6 @@ public class UserManageController {
     @Autowired
     private UserManageService userService;
 
-    @Autowired
-    private UserRepository userRepository;
-
     @GetMapping
     public List<UserManageDTO> getAllUser() {
         return userService.getAllUsers();
@@ -43,9 +39,7 @@ public class UserManageController {
 
     @GetMapping("/{id}")
     public ResponseEntity<UserManageDTO> getUserById(@PathVariable int id) {
-        return userService.getAllUsers().stream()
-                .filter(u -> u.getUserId() == id)
-                .findFirst()
+        return userService.getUserManageById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -122,17 +116,8 @@ public class UserManageController {
         UserSessionDto sessionUser = (UserSessionDto) session.getAttribute("user");
         if (sessionUser == null) return "redirect:/login";
 
-        // [FIX] Lấy trực tiếp từ Repository để có Entity User (thay vì qua Service)
-        User user = userRepository.findById(sessionUser.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Cập nhật cài đặt
-        user.setPublicFriendList(publicFriend);
-        user.setPublicFavorites(publicFav);
-        user.setPublicWatchHistory(publicHistory);
-        
-        // Lưu lại
-        userRepository.save(user);
+        // [FIX] Lấy trực tiếp từ Repository thông qua Service
+        userService.updatePrivacy(sessionUser.getId(), publicFriend, publicFav, publicHistory);
 
         return "redirect:/profile?success=privacy_updated";
     }

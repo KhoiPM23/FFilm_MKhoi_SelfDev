@@ -6,8 +6,6 @@ import com.example.project.dto.UserSessionDto;
 import com.example.project.model.MessengerMessage;
 import com.example.project.model.CallLog;
 import com.example.project.model.ConversationSettings;
-import com.example.project.repository.CallLogRepository;
-import com.example.project.repository.ConversationSettingsRepository;
 import com.example.project.service.MessengerService;
 import com.example.project.service.OnlineStatusService;
 import com.example.project.service.UserService; 
@@ -32,8 +30,6 @@ public class MessengerApiController {
     @Autowired private UserService userService;
     @Autowired private SimpMessagingTemplate messagingTemplate;
     @Autowired private OnlineStatusService onlineStatusService;
-    @Autowired private CallLogRepository callLogRepository;
-    @Autowired private ConversationSettingsRepository conversationSettingsRepository;
 
     // ============= FIX: SỬA LỖI PHƯƠNG THỨC HELPER =============
     private UserSessionDto getUserFromSession(HttpSession session) {
@@ -170,7 +166,7 @@ public class MessengerApiController {
             log.setPeerId(request.getPeerId());
             log.setInitiatorId(request.getInitiatorId());
             
-            callLogRepository.save(log);
+            messengerService.saveCallLog(log);
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -270,14 +266,14 @@ public class MessengerApiController {
         if (user == null) return ResponseEntity.status(401).build();
         
         try {
-            ConversationSettings settings = conversationSettingsRepository
-                    .findByUserIdAndPartnerId(user.getId(), partnerId)
+            ConversationSettings settings = messengerService
+                    .getConversationSettings(user.getId(), partnerId)
                     .orElseGet(() -> {
                         // Tạo mới nếu chưa có
                         ConversationSettings newSettings = new ConversationSettings();
                         newSettings.setUserId(user.getId());
                         newSettings.setPartnerId(partnerId);
-                        return conversationSettingsRepository.save(newSettings);
+                        return messengerService.saveConversationSettings(newSettings);
                     });
             
             return ResponseEntity.ok(settings);
@@ -295,7 +291,7 @@ public class MessengerApiController {
         if (user == null) return ResponseEntity.status(401).build();
         
         try {
-            int updated = conversationSettingsRepository.updateThemeColor(
+            int updated = messengerService.updateThemeColor(
                     user.getId(), request.getPartnerId(), request.getThemeColor());
             
             if (updated == 0) {
@@ -304,7 +300,7 @@ public class MessengerApiController {
                 settings.setUserId(user.getId());
                 settings.setPartnerId(request.getPartnerId());
                 settings.setThemeColor(request.getThemeColor());
-                conversationSettingsRepository.save(settings);
+                messengerService.saveConversationSettings(settings);
             }
             
             return ResponseEntity.ok().build();
@@ -322,7 +318,7 @@ public class MessengerApiController {
         if (user == null) return ResponseEntity.status(401).build();
         
         try {
-            int updated = conversationSettingsRepository.updateNickname(
+            int updated = messengerService.updateNickname(
                     user.getId(), request.getPartnerId(), request.getNickname());
             
             if (updated == 0) {
@@ -330,7 +326,7 @@ public class MessengerApiController {
                 settings.setUserId(user.getId());
                 settings.setPartnerId(request.getPartnerId());
                 settings.setNickname(request.getNickname());
-                conversationSettingsRepository.save(settings);
+                messengerService.saveConversationSettings(settings);
             }
             
             return ResponseEntity.ok().build();
@@ -348,8 +344,8 @@ public class MessengerApiController {
         if (user == null) return ResponseEntity.status(401).build();
         
         try {
-            ConversationSettings settings = conversationSettingsRepository
-                    .findByUserIdAndPartnerId(user.getId(), request.getPartnerId())
+            ConversationSettings settings = messengerService
+                    .getConversationSettings(user.getId(), request.getPartnerId())
                     .orElseGet(() -> {
                         ConversationSettings newSettings = new ConversationSettings();
                         newSettings.setUserId(user.getId());
@@ -358,7 +354,7 @@ public class MessengerApiController {
                     });
             
             settings.setNotificationEnabled(!settings.isNotificationEnabled());
-            conversationSettingsRepository.save(settings);
+            messengerService.saveConversationSettings(settings);
             
             return ResponseEntity.ok(Map.of("enabled", settings.isNotificationEnabled()));
         } catch (Exception e) {
@@ -381,11 +377,11 @@ public class MessengerApiController {
             LocalDateTime fromDate = LocalDateTime.now().minusDays(days);
             
             if (partnerId != null) {
-                List<CallLog> logs = callLogRepository.findByUserIdAndPartnerIdOrderByTimestampDesc(
+                List<CallLog> logs = messengerService.getCallLogsByPartner(
                     user.getId(), partnerId);
                 return ResponseEntity.ok(logs);
             } else {
-                List<CallLog> logs = callLogRepository.findRecentCalls(user.getId(), fromDate);
+                List<CallLog> logs = messengerService.getRecentCalls(user.getId(), fromDate);
                 return ResponseEntity.ok(logs);
             }
         } catch (Exception e) {
@@ -404,7 +400,7 @@ public class MessengerApiController {
         
         try {
             LocalDateTime since = LocalDateTime.now().minusDays(days);
-            Long missedCount = callLogRepository.countMissedCallsSince(user.getId(), since);
+            Long missedCount = messengerService.countMissedCallsSince(user.getId(), since);
             return ResponseEntity.ok(missedCount);
         } catch (Exception e) {
             e.printStackTrace();
