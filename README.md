@@ -32,7 +32,7 @@
 * **Java 17**
 * **Spring Boot 3.x** (Spring Security, Spring Data JPA, Spring MVC)
 * **WebSocket (STOMP)** for real-time communication
-* **MySQL** Database
+* **SQL Server** Database
 
 **Frontend:**
 * **Thymeleaf** (Server-side rendering)
@@ -63,34 +63,34 @@
 ### Prerequisites
 * Java Development Kit (JDK) 17 or higher
 * Maven
-* MySQL Server
+* SQL Server
 
 ### Installation
 
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/YourUsername/FFilm.git](https://github.com/YourUsername/FFilm.git)
-    cd FFilm
+    git clone https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev.git
+    cd FFilm_MKhoi_SelfDev/project
     ```
 
 2.  **Database Configuration**
-    * Create a MySQL database named `ffilm_db`.
+    * Create a SQL Server database named `FFilm3`.
     * Update database credentials in `application.properties.example` and rename it to `application.properties`:
     ```properties
-    spring.datasource.url=jdbc:mysql://localhost:3306/ffilm_db
-    spring.datasource.username=your_username
-    spring.datasource.password=your_password
+    spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=FFilm3;encrypt=true;trustServerCertificate=true;
+    spring.datasource.username=sa
+    spring.datasource.password=123
     ```
 
 3.  **API Keys Setup**
     * Get a generic API Key from [TMDB](https://www.themoviedb.org/).
-    * Configure your AI Provider Key and VnPay credentials in `application.properties`.
+    * Configure your Gemini Provider Key, Tenor Key, and VnPay credentials in `application.properties`.
 
 4.  **Run the Application**
     ```bash
-    mvn spring-boot:run
+    .\mvnw.cmd spring-boot:run
     ```
-    The app will start at `http://localhost:8080`.
+    The app will start at `http://localhost:8081`.
 
 ---
 

@@ -23,8 +23,9 @@
 - *CURRENT*: `Browser → FFilm Backend (AIAgentService / AISearchService) → Gemini`
 - Used for AI search processing and conversational AI. The API key is sourced from `@Value("${gemini.api.key:}")`.
 
-**GIPHY/Tenor:**
-- *[PENDING]*: The frontend expects a Giphy/Tenor key, but `GIPHY_API_KEY` is reported as undefined.
+**Tenor (Stickers):**
+- *CURRENT*: `Browser → FFilm Backend (TenorController) → Tenor API`
+- Used for chat stickers in Watch Party and Messenger. The API key is sourced from `@Value("${tenor.api.key}")` and securely proxied.
 
 ### Database
 - **Engine**: SQL Server

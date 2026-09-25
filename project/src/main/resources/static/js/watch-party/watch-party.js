@@ -45,8 +45,8 @@ stompClient.connect({}, function (frame) {
     }
     initFullFeatures();
     
-    // Tự động load Sticker từ Giphy
-    loadGiphyStickers();
+    // Tự động load Sticker từ Tenor
+    loadTenorStickers();
 });
 
 function initFullFeatures() {
@@ -186,23 +186,23 @@ function toggleMic() {
     }
 }
 
-// --- GIPHY INTEGRATION (TỰ ĐỘNG FILL) ---
-function loadGiphyStickers() {
+// --- TENOR INTEGRATION (TỰ ĐỘNG FILL) ---
+function loadTenorStickers() {
     const container = document.getElementById('stickerList');
     container.innerHTML = '<div class="text-center w-100 text-muted"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
-    // Gọi API Giphy Trending Stickers
-    fetch(`https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`)
+    // Gọi API Tenor Trending Stickers qua backend proxy
+    fetch('/api/tenor/trending?limit=20')
     .then(res => res.json())
     .then(data => {
-        if (data.data && data.data.length > 0) {
-            renderStickers(data.data.map(item => item.images.fixed_height_small.url));
+        if (data.results && data.results.length > 0) {
+            renderStickers(data.results.map(item => item.media_formats?.gif?.url || item.media_formats?.tinygif?.url).filter(url => url));
         } else {
-            renderStickers(BACKUP_STICKERS); // Fallback nếu lỗi key
+            renderStickers(BACKUP_STICKERS); // Fallback
         }
     })
     .catch(err => {
-        console.warn("Giphy API Error (Dùng backup):", err);
+        console.warn("Tenor API Error (Dùng backup):", err);
         renderStickers(BACKUP_STICKERS);
     });
 }

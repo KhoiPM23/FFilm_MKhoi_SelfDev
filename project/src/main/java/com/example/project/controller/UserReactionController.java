@@ -27,24 +27,30 @@ public class UserReactionController {
 
     @PostMapping("/like")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction(Integer userId, Integer movieID) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
+    public ResponseEntity<String> handleUserReaction(Integer movieID, HttpSession session) {
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+        if (userSession == null) return ResponseEntity.status(401).body("Unauthorized");
+        ReactionRequest reactionRequest = new ReactionRequest(userSession.getId(), movieID);
         userReactionService.likeMovie(reactionRequest);
         return ResponseEntity.ok("reaction recorded");
     }
 
     @PostMapping("/dislike")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction2(Integer userId, Integer movieID) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
+    public ResponseEntity<String> handleUserReaction2(Integer movieID, HttpSession session) {
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+        if (userSession == null) return ResponseEntity.status(401).body("Unauthorized");
+        ReactionRequest reactionRequest = new ReactionRequest(userSession.getId(), movieID);
         userReactionService.dislikeMovie(reactionRequest);
         return ResponseEntity.ok("reaction recorded");
     }
 
     @PostMapping("/remove")
     @ResponseBody
-    public ResponseEntity<String> handleUserReaction3(Integer userId, Integer movieID) {
-        ReactionRequest reactionRequest = new ReactionRequest(userId, movieID);
+    public ResponseEntity<String> handleUserReaction3(Integer movieID, HttpSession session) {
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+        if (userSession == null) return ResponseEntity.status(401).body("Unauthorized");
+        ReactionRequest reactionRequest = new ReactionRequest(userSession.getId(), movieID);
         userReactionService.removeReaction(reactionRequest);
         return ResponseEntity.ok("reaction removed");
     }
