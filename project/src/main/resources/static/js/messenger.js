@@ -10,7 +10,7 @@
     if (typeof window.showToast !== 'function') {
         window.showToast = function(message, type='info') {
             // Minimal non-blocking fallback: log to console so code that calls showToast doesn't throw.
-            console.log('[showToast - fallback]', type, message);indow.filterConversations 
+            console.log('[showToast - fallback]', type, message);
         };
     }
 
@@ -29,27 +29,23 @@
     let pendingFile = null; // Lưu file đang chọn để preview
     let emojiPicker = null; // Instance của Emoji Button
 
-    // Call State (PeerJS)
-    let myPeer = null;
-    let myPeerId = null;
-    let currentCall = null;
-    let localStream = null;
-    let remoteStream = null;
-    let callTimerInterval = null;
-    let callTimeout = null;
-    let callDuration = 0;
-    let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar }
+    // Call State -> Extracted to messenger-calls.js
     let typingTimeout = null;
     let lastSeenMessageId = null;
-
-    let availableCameras = [];
-    let currentCameraIndex = 0;
 
     let messageQueue = [];
     let isProcessingQueue = false;
 
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
     const notificationSound = new Audio('/sounds/message-notification.mp3');
+
+    // Bridge shared state for modular scripts (e.g. messenger-calls.js)
+    window.MessengerState = {
+        get stompClient() { return stompClient; },
+        get currentPartnerId() { return currentPartnerId; },
+        get currentPartnerName() { return currentPartnerName; },
+        get currentUser() { return currentUser; }
+    };
 
     let searchResults = [];
     let currentSearchIndex = -1;
@@ -78,12 +74,10 @@
         loadConversations();
         bindEvents();
         initStickerMenu();
-        initPeerJS();        
+        if (window.MessengerCalls) { window.MessengerCalls.init(); }
         setupStickerSuggestions();
         renderRecentStickers();
         setTimeout(initEmojiPicker, 1000); // Delay xíu để thư viện load
-        const allModalCSS = forwardModalCSS + themeAndNicknameCSS + additionalCSS;
-        $('head').append(`<style>${allModalCSS}</style>`);
     });
 
     function bindEvents() {
@@ -186,321 +180,7 @@
         });
     }
 
-    // --- 1. PEERJS SETUP (WEB RTC) ---
-    function initPeerJS() {
-        if (!window.Peer) {
-            console.error('PeerJS library not loaded');
-            return;
-        }
-        
-        myPeerId = `user_${currentUser.userID}_${Date.now()}`;
-        
-        myPeer = new Peer(myPeerId, {
-            host: '0.peerjs.com',
-            port: 443,
-            path: '/',
-            secure: true,
-            config: {
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
-                ]
-            },
-            debug: 0
-        });
-        
-        myPeer.on('open', (id) => {
-            console.log('✅ PeerJS Connected. My ID:', id);
-        });
-        
-        myPeer.on('call', (call) => {
-            console.log('📞 Incoming call from:', call.peer);
-            
-            // Answer the call with user's media
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    document.getElementById('localVideo').srcObject = stream;
-                    
-                    call.answer(stream);
-                    currentCall = call;
-                    
-                    // Setup call handlers
-                    setupCallHandlers(call);
-                })
-                .catch(err => {
-                    console.error('Error accessing media:', err);
-                    call.close();
-                });
-        });
-        
-        myPeer.on('error', (err) => {
-            console.error('PeerJS Error:', err);
-            showToast('Lỗi kết nối PeerJS: ' + err.type, 'error');
-        });
-    }
-
-    // --- 2. LOGIC GỌI ĐIỆN (CALL LOGIC) ---
-
-    // A. Người gọi (Caller)
-    window.startVideoCall = function() {
-        if (!currentPartnerId) {
-            showToast('Vui lòng chọn người để gọi', 'error');
-            return;
-        }
-        
-        if (!myPeer || !myPeer.id) {
-            showToast('Đang khởi tạo kết nối...', 'info');
-            setTimeout(() => startVideoCall(), 1000);
-            return;
-        }
-        
-        // Get user media first
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(stream => {
-                localStream = stream;
-                document.getElementById('localVideo').srcObject = stream;
-                
-                // Show calling UI
-                showCallModal(true);
-                
-                // Send call request via WebSocket
-                const callData = {
-                    type: 'CALL_REQ',
-                    senderId: currentUser.userID,
-                    senderName: currentUser.name,
-                    senderAvatar: $('#headerAvatar').attr('src'),
-                    receiverId: currentPartnerId,
-                    peerId: myPeer.id,
-                    callType: 'VIDEO',
-                    timestamp: new Date().toISOString()
-                };
-                
-                stompClient.send('/app/call', {}, JSON.stringify(callData));
-                
-                // Start call timeout (30 seconds)
-                callTimeout = setTimeout(() => {
-                    if (!currentCall) {
-                        endCall();
-                        showToast('Không có phản hồi từ người nhận', 'error');
-                    }
-                }, 30000);
-                
-            })
-            .catch(err => {
-                console.error('Error accessing media:', err);
-                showToast('Không thể truy cập camera/microphone', 'error');
-            });
-    };
-
-    window.startVoiceCall = function() {
-        if (!currentPartnerId) {
-            showToast('Vui lòng chọn người để gọi', 'error');
-            return;
-        }
-        
-        if (!myPeer || !myPeer.id) {
-            showToast('Đang khởi tạo kết nối...', 'info');
-            setTimeout(() => startVoiceCall(), 1000);
-            return;
-        }
-        
-        navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-            .then(stream => {
-                localStream = stream;
-                
-                // Show voice call UI
-                showCallModal(false);
-                
-                const callData = {
-                    type: 'CALL_REQ',
-                    senderId: currentUser.userID,
-                    senderName: currentUser.name,
-                    senderAvatar: $('#headerAvatar').attr('src'),
-                    receiverId: currentPartnerId,
-                    peerId: myPeer.id,
-                    callType: 'AUDIO',
-                    timestamp: new Date().toISOString()
-                };
-                
-                stompClient.send('/app/call', {}, JSON.stringify(callData));
-                
-                callTimeout = setTimeout(() => {
-                    if (!currentCall) endCall();
-                }, 30000);
-            })
-            .catch(err => {
-                console.error('Error accessing microphone:', err);
-                showToast('Không thể truy cập microphone', 'error');
-            });
-    };
-
-    function startCall(type) {
-        if (!currentPartnerId || !myPeerId) return alert("Chưa kết nối máy chủ gọi.");
-        
-        // 1. Gửi tín hiệu yêu cầu gọi qua Socket
-        // type: CALL_REQ, content: myPeerId
-        const payload = {
-            receiverId: currentPartnerId,
-            content: myPeerId,
-            type: 'CALL_REQ',
-            senderId: currentUser.userID,
-            senderName: currentUser.name,
-            senderAvatar: $('#headerAvatar').attr('src') || null
-        };
-        console.log("CALL_REQ -> sending", payload);
-        sendApiRequest(payload);
-        
-        // 2. Hiện UI đang gọi
-        showCallModal(true, "Đang gọi...", null); // Local stream chưa có, sẽ bật sau khi bên kia bắt máy hoặc bật ngay tùy UX
-        
-        // UX: Bật camera mình trước để soi gương
-        navigator.mediaDevices.getUserMedia({ video: type === 'VIDEO', audio: true })
-            .then(stream => {
-                localStream = stream;
-                document.getElementById('localVideo').srcObject = stream;
-            })
-            .catch(err => console.error("Lỗi cam:", err));
-    }
-
-    // B. Người nhận (Callee) - Xử lý trong handleIncomingMessage
-    
-    // C. Xử lý chấp nhận/từ chối
-    window.acceptCall = function() {
-        $('#incomingCallModal').hide();
-        
-        if (!incomingCallData) return;
-        
-        const callType = incomingCallData.callType || 'VIDEO';
-        
-        navigator.mediaDevices.getUserMedia({ 
-            video: callType === 'VIDEO', 
-            audio: true 
-        }).then(stream => {
-            localStream = stream;
-            document.getElementById('localVideo').srcObject = stream;
-            
-            // Show call UI
-            showCallModal(callType === 'VIDEO');
-            
-            // Call the other peer
-            const call = myPeer.call(incomingCallData.peerId, stream);
-            currentCall = call;
-            
-            setupCallHandlers(call);
-            
-            // Send call accepted notification
-            stompClient.send('/app/call-accepted', {}, JSON.stringify({
-                receiverId: incomingCallData.senderId,
-                peerId: myPeer.id
-            }));
-            
-        }).catch(err => {
-            console.error('Error accessing media:', err);
-            showToast('Lỗi truy cập thiết bị', 'error');
-            rejectCall();
-        });
-    };
-
-    window.rejectCall = function() {
-        $('#incomingCallModal').hide();
-        
-        if (incomingCallData) {
-            // Gửi thông báo từ chối cuộc gọi (canonical: CALL_DENY)
-            stompClient.send('/app/call', {}, JSON.stringify({
-                type: 'CALL_DENY',
-                receiverId: incomingCallData.senderId,
-                senderId: currentUser.userID
-            }));
-        }
-        
-        // Dừng âm thanh chuông
-        if (incomingCallData && incomingCallData.ringtone) {
-            incomingCallData.ringtone.pause();
-            incomingCallData.ringtone.currentTime = 0;
-        }
-        
-        incomingCallData = null;
-        showToast('Đã từ chối cuộc gọi', 'info');
-    };
-
-    window.endCall = function() {
-        // Dừng timer
-        if (callTimeout) {
-            clearTimeout(callTimeout);
-            callTimeout = null;
-        }
-        if (callTimerInterval) clearInterval(callTimerInterval);
-        
-        // Dừng local stream
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-
-        // Dừng remote stream
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(track => track.stop());
-            remoteStream = null;
-        }
-
-        // Xóa source video để dọn rác bộ nhớ
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) localVideo.srcObject = null;
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) remoteVideo.srcObject = null;
-        
-        // Đóng call
-        if (currentCall) {
-            try { currentCall.close(); } catch (e) {}
-            currentCall = null;
-        }
-        
-        // Gửi thông báo kết thúc cuộc gọi
-        const targetId = currentPartnerId || (incomingCallData ? incomingCallData.senderId : null);
-        if (targetId && stompClient && stompClient.connected) {
-            stompClient.send('/app/call', {}, JSON.stringify({
-                type: 'CALL_END',
-                receiverId: targetId,
-                senderId: currentUser.userID
-            }));
-        }
-        
-        if (incomingCallData && incomingCallData.ringtone) {
-            incomingCallData.ringtone.pause();
-            incomingCallData.ringtone.currentTime = 0;
-        }
-        incomingCallData = null;
-
-        // Ẩn modal
-        $('#videoCallModal').hide();
-        $('#incomingCallModal').hide();
-        
-        showToast('Đã kết thúc cuộc gọi', 'info');
-    };
-
-    function setupCallHandlers(call) {
-        call.on('stream', (stream) => {
-            remoteStream = stream;
-            document.getElementById('remoteVideo').srcObject = remoteStream;
-            
-            // Update UI - hide avatar, show video
-            $('.remote-info-overlay').fadeOut();
-            
-            // Start call timer
-            startCallTimer();
-        });
-        
-        call.on('close', () => {
-            endCall();
-        });
-        
-        call.on('error', (err) => {
-            console.error('Call error:', err);
-            endCall();
-            showToast('Cuộc gọi bị lỗi', 'error');
-        });
-    }
+    // --- WebRTC / Call Logic extracted to messenger-calls.js ---
 
     // --- 1. WEBSOCKET ---
     function connectWebSocket() {
@@ -541,10 +221,12 @@
                 updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
             });
 
-            // Subscribe đến call notifications
+            // Subscribe đến call notifications (delegated to messenger-calls.js)
             stompClient.subscribe(`/user/${currentUser.userID}/queue/call`, function(payload) {
                 const data = JSON.parse(payload.body);
-                handleIncomingCall(data);
+                if (window.MessengerCalls) {
+                    window.MessengerCalls.handleIncomingCall(data);
+                }
             });
             
             // Gửi ping để báo online
@@ -598,25 +280,8 @@
     function handleSocketMessage(msg) {
         console.log("Socket message received:", msg);
         
-        // 1. Xử lý Tín hiệu Gọi
-        if (msg.type === 'CALL_REQ') {
-            incomingCallData = { 
-                peerId: msg.content,
-                senderId: msg.senderId,
-                senderName: msg.senderName || 'Người dùng',
-                senderAvatar: msg.senderAvatar 
-            };
-            showIncomingCallModal(incomingCallData);
-            return;
-        }
-        else if (msg.type === 'CALL_DENY' || msg.type === 'CALL_REJECT') {
-            closeCallModal();
-            showToast('Người nhận đã từ chối cuộc gọi', 'info');
-            return;
-        }
-        else if (msg.type === 'CALL_END') {
-            closeCallModal();
-            showToast('Cuộc gọi đã kết thúc', 'info');
+        // 1. Xử lý Tín hiệu Gọi (delegated to messenger-calls.js)
+        if (window.MessengerCalls && window.MessengerCalls.handleCallSocketMessage(msg)) {
             return;
         }
 
@@ -650,192 +315,6 @@
         }));
     }
 
-    // --- 4. UI HELPERS ---
-    function showIncomingCallModal(data) {
-        $('#incomingAvatar').attr('src', data.senderAvatar || '/images/placeholder-user.jpg');
-        $('#incomingName').text(data.senderName);
-        $('#incomingCallType').text(data.callType === 'VIDEO' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
-        
-        $('#incomingCallModal').show();
-        
-        // Play ringtone
-        const ringtone = new Audio('/sounds/ringtone.mp3');
-        ringtone.loop = true;
-        ringtone.play().catch(() => {});
-        
-        incomingCallData.ringtone = ringtone;
-    }
-
-    function showCallModal(isVideo) {
-        const modal = $('#videoCallModal');
-        const partnerAvatar = $('#headerAvatar').attr('src');
-        const partnerName = currentPartnerName;
-        
-        // Set partner info
-        $('#callPartnerName').text(partnerName);
-        $('#callPartnerAvatar').html(`<img src="${partnerAvatar}" alt="${partnerName}">`);
-        
-        // Set background from avatar
-        $('#callBackground').css('background-image', `url(${partnerAvatar})`);
-        
-        // Show modal
-        modal.show();
-        
-        // Update status
-        $('#callStatusText').text(isVideo ? 'Đang gọi...' : 'Đang gọi thoại...');
-        $('#callDuration').text('00:00');
-    }
-
-    function closeCallModal() {
-        $('#videoCallModal').hide();
-        $('#incomingCallModal').hide();
-        if (callTimeout) {
-            clearTimeout(callTimeout);
-            callTimeout = null;
-        }
-        if (callTimerInterval) {
-            clearInterval(callTimerInterval);
-            callTimerInterval = null;
-        }
-        if (localStream) {
-            localStream.getTracks().forEach(t => t.stop());
-            localStream = null;
-        }
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(t => t.stop());
-            remoteStream = null;
-        }
-        
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) localVideo.srcObject = null;
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) remoteVideo.srcObject = null;
-
-        if (currentCall) {
-            try { currentCall.close(); } catch (e) {}
-            currentCall = null;
-        }
-        if (incomingCallData && incomingCallData.ringtone) {
-            try {
-                incomingCallData.ringtone.pause();
-                incomingCallData.ringtone.currentTime = 0;
-            } catch (e) {}
-        }
-        incomingCallData = null;
-        stopCallTimer();
-    }
-
-    function startCallTimer() {
-        let seconds = 0;
-        
-        if (callTimerInterval) clearInterval(callTimerInterval);
-        
-        callTimerInterval = setInterval(() => {
-            seconds++;
-            callDuration = seconds;
-            
-            const minutes = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            $('#callDuration').text(`${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
-            
-            // Update status text
-            if (seconds < 5) {
-                $('#callStatusText').text('Đang kết nối...');
-            } else {
-                $('#callStatusText').text('Đang trong cuộc gọi');
-            }
-        }, 1000);
-    }
-
-    function stopCallTimer() {
-        clearInterval(callTimerInterval);
-        $('#callDuration').text("00:00");
-    }
-    
-    // Toggle Cam/Mic
-    window.toggleCallMic = function() {
-        if (localStream) {
-            const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                const btn = $('#btnToggleMic');
-                btn.toggleClass('off');
-                btn.find('i').toggleClass('fa-microphone fa-microphone-slash');
-                btn.find('.control-label').text(audioTrack.enabled ? 'Tắt mic' : 'Bật mic');
-            }
-        }
-    };
-
-    window.toggleCallCam = function() {
-        if (localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                const btn = $('#btnToggleCam');
-                btn.toggleClass('off');
-                btn.find('i').toggleClass('fa-video fa-video-slash');
-                btn.find('.control-label').text(videoTrack.enabled ? 'Tắt camera' : 'Bật camera');
-                
-                // Show/hide local video
-                $('#localVideo').toggle(videoTrack.enabled);
-            }
-        }
-    };
-
-    function switchCamera() {
-        if (!localStream || availableCameras.length < 2) return;
-        
-        currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
-        const newCamera = availableCameras[currentCameraIndex];
-        
-        navigator.mediaDevices.getUserMedia({
-            video: { deviceId: { exact: newCamera.deviceId } },
-            audio: true
-        }).then(newStream => {
-            // Replace video track
-            const newVideoTrack = newStream.getVideoTracks()[0];
-            const oldVideoTrack = localStream.getVideoTracks()[0];
-            
-            oldVideoTrack.stop();
-            localStream.removeTrack(oldVideoTrack);
-            localStream.addTrack(newVideoTrack);
-            
-            // Update local video
-            document.getElementById('localVideo').srcObject = localStream;
-            
-            // Update current call if exists
-            if (currentCall && currentCall.peerConnection) {
-                const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-                if (sender) sender.replaceTrack(newVideoTrack);
-            }
-        }).catch(err => {
-            console.error('Error switching camera:', err);
-        });
-    }
-
-    function saveCallLog() {
-        if (!currentPartnerId || callDuration < 3) return;
-        
-        const callLog = {
-            partnerId: currentPartnerId,
-            partnerName: currentPartnerName,
-            type: incomingCallData ? 'INCOMING' : 'OUTGOING',
-            duration: callDuration,
-            timestamp: new Date().toISOString(),
-            callType: incomingCallData ? incomingCallData.callType : 'VIDEO'
-        };
-        
-        // Save to localStorage
-        let callHistory = JSON.parse(localStorage.getItem('callHistory') || '[]');
-        callHistory.unshift(callLog);
-        if (callHistory.length > 50) callHistory = callHistory.slice(0, 50);
-        localStorage.setItem('callHistory', JSON.stringify(callHistory));
-        
-        // Send to server
-        $.post('/api/v1/messenger/call-log', callLog)
-            .fail(err => console.error('Error saving call log:', err));
-    }
-
     function handleIncomingMessage(msg) {
         if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
             appendMessageToUI(msg);
@@ -848,161 +327,6 @@
         // [FIX] CHỈ UPDATE CONVERSATION LIST, KHÔNG RELOAD CHAT
         updateConversationPreview(msg);
     }
-
-    // ============= FIX 10: CALL HISTORY INTEGRATION =============
-    window.openCallHistory = function() {
-        const modal = $('<div class="call-history-modal-overlay"></div>');
-        const content = $(`
-            <div class="call-history-modal">
-                <div class="call-history-header">
-                    <h3><i class="fas fa-history"></i> Lịch sử cuộc gọi</h3>
-                    <button class="close-call-history" onclick="closeCallHistory()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="call-history-tabs">
-                    <button class="tab-btn active" data-type="ALL">Tất cả</button>
-                    <button class="tab-btn" data-type="MISSED">Đã nhỡ</button>
-                    <button class="tab-btn" data-type="VIDEO">Video</button>
-                    <button class="tab-btn" data-type="AUDIO">Thoại</button>
-                </div>
-                <div class="call-history-list" id="callHistoryList">
-                    <div class="loading-calls">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Đang tải lịch sử...</p>
-                    </div>
-                </div>
-            </div>
-        `);
-        
-        $('body').append(modal).append(content);
-        
-        loadCallHistory('ALL');
-        
-        // Tab switching
-        $('.tab-btn').click(function() {
-            $('.tab-btn').removeClass('active');
-            $(this).addClass('active');
-            const type = $(this).data('type');
-            loadCallHistory(type);
-        });
-    };
-
-    window.closeCallHistory = function() {
-        $('.call-history-modal-overlay, .call-history-modal').remove();
-    };
-
-    window.loadCallHistory = function(type) {
-        const container = $('#callHistoryList');
-        container.html('<div class="loading-calls"><i class="fas fa-spinner fa-spin"></i><p>Đang tải...</p></div>');
-        
-        $.get('/api/v1/messenger/call-history', {
-            partnerId: currentPartnerId || undefined,
-            days: 30
-        })
-        .done(function(logs) {
-            displayCallHistory(logs, type);
-        })
-        .fail(function() {
-            container.html('<div class="no-calls">Không thể tải lịch sử cuộc gọi</div>');
-        });
-    };
-
-    window.displayCallHistory = function(logs, filterType) {
-        const container = $('#callHistoryList');
-        container.empty();
-        
-        let filteredLogs = logs;
-        if (filterType !== 'ALL') {
-            if (filterType === 'MISSED') {
-                filteredLogs = logs.filter(log => log.callStatus === 'MISSED');
-            } else if (filterType === 'VIDEO') {
-                filteredLogs = logs.filter(log => log.video);
-            } else if (filterType === 'AUDIO') {
-                filteredLogs = logs.filter(log => !log.video);
-            }
-        }
-        
-        if (filteredLogs.length === 0) {
-            container.html('<div class="no-calls">Không có cuộc gọi nào</div>');
-            return;
-        }
-        
-        filteredLogs.forEach(log => {
-            const time = new Date(log.timestamp).toLocaleString('vi-VN');
-            const duration = formatDuration(log.duration);
-            const isOutgoing = log.callType === 'OUTGOING';
-            const isMissed = log.callStatus === 'MISSED';
-            const callIcon = log.video ? 'fa-video' : 'fa-phone';
-            
-            container.append(`
-                <div class="call-history-item ${isMissed ? 'missed' : ''}">
-                    <div class="call-icon">
-                        <i class="fas ${callIcon} ${isOutgoing ? 'outgoing' : 'incoming'}"></i>
-                    </div>
-                    <div class="call-details">
-                        <div class="call-partner">${log.partnerName}</div>
-                        <div class="call-meta">
-                            <span class="call-time">${time}</span>
-                            <span class="call-duration">${duration}</span>
-                        </div>
-                    </div>
-                    <div class="call-actions">
-                        <button class="btn-call-action" onclick="redialCall(${log.partnerId}, ${log.video})">
-                            <i class="fas fa-redo"></i>
-                        </button>
-                    </div>
-                </div>
-            `);
-        });
-    };
-
-    window.formatDuration = function(seconds) {
-        if (!seconds) return '--:--';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    window.redialCall = function(partnerId, isVideo) {
-        // Logic redial - cần lấy thông tin partner từ partnerId
-        if (isVideo) {
-            window.startVideoCall();
-        } else {
-            window.startVoiceCall();
-        }
-        closeCallHistory();
-    };
-
-    function handleIncomingCall(callData) {
-        console.log('📞 Call event on /queue/call:', callData);
-        if (!callData || !callData.type) return;
-
-        if (callData.type === 'CALL_REQ') {
-            incomingCallData = {
-                peerId: callData.peerId,
-                senderId: callData.senderId,
-                senderName: callData.senderName || 'Người dùng',
-                senderAvatar: callData.senderAvatar,
-                callType: callData.callType || 'VIDEO'
-            };
-            showIncomingCallModal(incomingCallData);
-        } else if (callData.type === 'CALL_DENY' || callData.type === 'CALL_REJECT') {
-            closeCallModal();
-            showToast('Người nhận đã từ chối cuộc gọi', 'info');
-        } else if (callData.type === 'CALL_END') {
-            closeCallModal();
-            showToast('Cuộc gọi đã kết thúc', 'info');
-        }
-    }
-
-    // Thêm các CSS cần thiết
-    
-
-    // Thêm CSS vào document
-    $(document).ready(function() {
-        $('head').append(`<style>${additionalCSS}</style>`);
-    });
 
     // [FIX] Update conversation list WITHOUT reload
     function updateConversationPreview(msg) {
@@ -1946,15 +1270,6 @@
         });
     };
 
-    // ============= FIX 5: THÊM CSS CHO MODAL =============
-    // Thêm vào messenger.css
-    
-
-    // Thêm CSS vào document
-    $(document).ready(function() {
-        $('head').append(`<style>${themeAndNicknameCSS}</style>`);
-    });
-
     window.closeModal = function() {
         $('.modal-overlay, .theme-modal, .nickname-modal, .background-modal, .stats-modal').remove();
     };
@@ -2320,14 +1635,6 @@ function loadForwardRecipients() {
         forwardBtn.html('<i class="fas fa-check"></i> Đã chuyển tiếp');
         forwardBtn.css('background', '#2ecc71');
     }
-
-    // messenger.js - THÊM VÀO ĐẦU FILE (sau 'use strict')
-    
-
-    // Thêm CSS vào document
-    $(document).ready(function() {
-        $('head').append(`<style>${forwardModalCSS}</style>`);
-    });
 
 
     // --- FIX: TYPING INDICATOR REAL-TIME ---

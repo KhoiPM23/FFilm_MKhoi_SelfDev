@@ -346,7 +346,8 @@
     </div>
 
     <script th:inline="javascript">
-        const currentUser = /*[[${userJson}]]*/ {};
+        window.currentUser = /*[[${userJson}]]*/ {};
+        const currentUser = window.currentUser;
     </script>
 
     <!-- Full Emoji Picker with Categories & Search -->
@@ -358,6 +359,7 @@
     <script src="/js/emoji-data.js"></script>
     <script src="/js/script.js"></script>
     <script src="/js/stickers.js"></script>
+    <script src="/js/messenger-calls.js"></script>
     <script src="/js/messenger.js"></script>
     
     <script>
