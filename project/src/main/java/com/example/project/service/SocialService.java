@@ -121,15 +121,13 @@ public class SocialService {
 
     // Helper lấy list friend 2 chiều
     private List<User> getFriendsListReal(Integer userId) {
-        // Đây là logic phức tạp, tạm thời lấy tất cả request ACCEPTED liên quan đến user
-        // Bạn nên viết Query trong Repo: SELECT * FROM FriendRequest WHERE (sender = id OR receiver = id) AND status = ACCEPTED
-        // Dưới đây là giả lập logic đó bằng code Java (hơi chậm nếu data lớn, nhưng chạy đúng logic)
-        List<com.example.project.model.FriendRequest> all = friendRequestRepository.findAll(); 
+        List<com.example.project.model.FriendRequest> acceptedRequests = friendRequestRepository.findAllAcceptedByUserId(userId); 
         List<User> friends = new ArrayList<>();
-        for(com.example.project.model.FriendRequest fr : all) {
-            if(fr.getStatus() == com.example.project.model.FriendRequest.Status.ACCEPTED) {
-                if(fr.getSender().getUserID() == userId) friends.add(fr.getReceiver());
-                else if(fr.getReceiver().getUserID() == userId) friends.add(fr.getSender());
+        for(com.example.project.model.FriendRequest fr : acceptedRequests) {
+            if(fr.getSender().getUserID() == userId) {
+                friends.add(fr.getReceiver());
+            } else if(fr.getReceiver().getUserID() == userId) {
+                friends.add(fr.getSender());
             }
         }
         return friends;

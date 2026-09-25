@@ -150,11 +150,15 @@ public class NotificationService {
     }
 
     private User extractSenderFromNotification(Notification n) {
-        // Logic parse từ link hoặc content
-        if (n.getType().equals("FRIEND_REQUEST") && n.getLink() != null) {
-            String[] parts = n.getLink().split("/");
-            Integer senderId = Integer.parseInt(parts[parts.length - 1]);
-            return userRepository.findById(senderId).orElse(null);
+        // Logic parse từ link
+        if (n.getLink() != null && n.getLink().startsWith("/social/profile/")) {
+            try {
+                String[] parts = n.getLink().split("/");
+                Integer senderId = Integer.parseInt(parts[parts.length - 1]);
+                return userRepository.findById(senderId).orElse(null);
+            } catch (Exception e) {
+                return null;
+            }
         }
         return null;
     }
