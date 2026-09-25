@@ -182,7 +182,7 @@ public class ChatController {
         if(msg.getId() == null) msg.setId(java.util.UUID.randomUUID().toString());
         msg.setTimestamp(java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
 
-        // 2. LƯU VÀO DATABASE (QUAN TRỌNG: Cần convert SocketMessage -> ChatMessage Entity)
+        // 2. LƯU VÀO DATABASE VÀ GỬI
         try {
             ChatMessage entity = new ChatMessage();
             entity.setSenderEmail(msg.getSender()); // Người gửi
@@ -197,22 +197,22 @@ public class ChatController {
             }
 
             chatMessageService.saveChatMessage(entity);
+            
+            // 3. Gửi cho người nhận (Realtime) - chỉ gửi khi lưu thành công
+            messagingTemplate.convertAndSendToUser(
+                msg.getReplyToId(), // Username người nhận
+                "/queue/private", 
+                msg
+            );
+            
+            // 4. Gửi lại cho người gửi (để UI cập nhật realtime không cần F5)
+            messagingTemplate.convertAndSendToUser(
+                msg.getSender(), 
+                "/queue/private", 
+                msg
+            );
         } catch (Exception e) {
-            System.err.println("Lỗi lưu tin nhắn riêng tư: " + e.getMessage());
+            log.error("Lỗi lưu tin nhắn riêng tư", e);
         }
-
-        // 3. Gửi cho người nhận (Realtime)
-        messagingTemplate.convertAndSendToUser(
-            msg.getReplyToId(), // Username người nhận
-            "/queue/private", 
-            msg
-        );
-        
-        // 4. Gửi lại cho người gửi (để UI cập nhật realtime không cần F5)
-        messagingTemplate.convertAndSendToUser(
-            msg.getSender(), 
-            "/queue/private", 
-            msg
-        );
     }
 }
