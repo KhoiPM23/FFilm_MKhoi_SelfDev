@@ -194,3 +194,65 @@
   - Batch 4B: Audit and centralize REST exception handling (Issue #3) - OPEN
   - Batch 4C: Remove redundant controller exception handling (Issue #4) - OPEN
   - Batch 4D: Verify backend error-handling consistency audit (Issue #5) - OPEN
+
+## 2026-09-25 - Batch 4B — Audit REST Exception Handling Strategy (Issue #3)
+- **Issue**: #3 (https://github.com/KhoiPM23/FFilm_MKhoi_SelfDev/issues/3)
+- **Branch**: refactor/batch-3-quick-wins
+- **Status**: AUDIT COMPLETE — IMPLEMENTATION NOT STARTED (AUDIT ONLY)
+- **Objective**:
+  - Comprehensive audit of backend exception handling before any centralization.
+  - Zero code modifications; zero try/catch removals; zero API response redesign in this turn.
+- **GlobalExceptionHandler Inventory**:
+  - Location: `project/src/main/java/com/example/project/exception/GlobalExceptionHandler.java`.
+  - Annotation: `@RestControllerAdvice` (unbounded, applies across both `@RestController` and `@Controller` MVC view classes).
+  - Existing Handlers:
+    1. `MethodArgumentNotValidException`: Returns HTTP 400 Bad Request with `{"success": false, "message": "...", "errors": {...}}`.
+    2. `RuntimeException`: Returns HTTP 400 Bad Request with `{"success": false, "message": ex.getMessage()}`.
+  - Deficiencies Identified:
+    - Broad `RuntimeException` catch collapses 403 Forbidden, 404 Not Found, and 500 Internal Server Errors all into HTTP 400.
+    - Zero server logging: `GlobalExceptionHandler` lacks an SLF4J logger; unhandled runtime exceptions produce zero server logs.
+    - Missing handlers: No handler for `Exception.class` (checked exceptions fall through to Spring default `/error`), `AccessDeniedException`, `EntityNotFoundException`, or `MaxUploadSizeExceededException`.
+    - Information Disclosure: Returns raw `ex.getMessage()` for internal errors, potentially leaking database or path details.
+- **Controller Try/Catch Inventory (72 Active Catch Blocks Across 35 Controllers)**:
+  - **Category A — Truly Redundant (13 blocks)**:
+    - `AdminSubscriptionPlanController` (L51, L64, L78): Standard 400 Bad Request with message map.
+    - `ContentMovieController` (L70, L81, L91, L102): Standard 400 Bad Request with `{"success": false, "message": ...}` matching `GlobalExceptionHandler`.
+    - `UserManageController` (L75, L85, L95): Administrative user CRUD endpoints returning 400 string body.
+    - `SocialController` (L51, L77, L91): REST endpoints returning 400 string body.
+  - **Category B — Contract-Specific (36 blocks — MUST NOT BE BLINDLY REMOVED)**:
+    - `CommentController`: L156, L344 return HTTP 403 Forbidden on ownership violation; L40, L105, L161, L183, L238, L293, L347 return HTTP 500 Internal Server Error.
+    - `AIAgentController`: L67 returns HTTP 500 with `{"success": false, "error": ...}` (consumed by `footer.html:1218` reading `data.error`).
+    - `AISearchController`: L56 returns HTTP 500 with `{"success": false, "message": ...}`.
+    - `ContentMovieController`: L41 returns HTTP 404 Not Found; L55-58 differentiates 400 vs 500 with `{"error": ...}`.
+    - `AdminSubscriptionPlanController`: L38 returns HTTP 404 Not Found.
+    - `FileUploadController`: L46, L78 return HTTP 500 with `{"error": ...}`.
+    - `UserAuthenticationController`: L166 returns HTTP 400 with `{"error": ...}`; L130, L326 handle MVC view/redirect errors.
+    - `MessengerApiController`: 10 catch blocks return HTTP 500 with `{"error": ...}` or plain string.
+    - MVC Redirects/Views: `MoviePlayerController` (L81), `PaymentController` (L75, L116, L177), `SubscriptionController` (L43), `SocialController` (L36) redirect with flash attributes or render error templates.
+  - **Category C — Recovery / Fallback Logic (20 blocks — MUST NOT BE CENTRALIZED)**:
+    - `MovieApiController`: L43 (`liveSearchDb`), L127 (`getSimilarMovies`) return HTTP 200 with empty list `[]`; L140 (`getRecommendedMovies`) falls back to `loadRecommendedFallback`.
+    - `DiscoverController` (L77, L96), `HomeController` (L65, L92), `SearchController` (L101, L106, L323, L328, L371, L394): Fallbacks to default carousels, hot movies, or empty pages.
+    - `MessengerController` (L30): Fallback to empty userJson `"{}"`.
+    - `MovieDetailController` (L103), `ProductionCompanyDetailController` (L102): Graceful template fallback.
+  - **Category D — Suspicious / Protocol-Specific (3 blocks)**:
+    - `ChatController` (L90, L200): STOMP/WebSocket message handling; HTTP `@RestControllerAdvice` does not intercept WebSocket STOMP exceptions.
+    - `MessengerApiController` (L115): In-band WebSocket notification failure logged and ignored to prevent failing core message creation.
+- **REST API Contract Mismatches & Frontend Risks**:
+  - Current backend produces 5 inconsistent error payloads:
+    1. Standard envelope: `{"success": false, "message": "..."}`
+    2. Error key map: `{"error": "..."}`
+    3. Mixed envelope: `{"success": false, "error": "..."}`
+    4. Message only: `{"message": "..."}`
+    5. Plain text: raw string
+  - Frontend Risk: `footer.html:1218` explicitly evaluates `(data.error || 'Unknown error')`. Blindly returning only `data.message` causes AI chat UI to display 'Unknown error'.
+  - Frontend Risk: `comment-handler.js:201` checks `data.success` and `data.message`.
+- **Security Findings**:
+  - Exposing raw `ex.getMessage()` on unexpected 500 errors risks leaking database driver details, SQL syntax, or filesystem paths.
+  - Global handler needs an SLF4J logger to record server-side stack traces while returning generic sanitized messages (`"Đã có lỗi xảy ra trên hệ thống"`) for 500 Internal Server Errors.
+- **Proposed Implementation Plan for Issue #3**:
+  1. Standardize `GlobalExceptionHandler` response envelope to include dual compatibility fields: `{"success": false, "message": msg, "error": msg}`.
+  2. Add SLF4J logging (`log.error`) in `GlobalExceptionHandler` with stack trace.
+  3. Differentiate HTTP statuses: 400 (Validation / IllegalArgument), 403 (AccessDenied), 404 (ResourceNotFound), 500 (Sanitized generic message for unexpected exceptions).
+  4. Restrict advice targeting to `@RestController` to protect Thymeleaf MVC controllers.
+- **Note on Code Changes**:
+  - **NO CODE IMPLEMENTATION WAS PERFORMED IN THIS TURN.** All existing controllers and services remain 100% untouched.
