@@ -43,7 +43,9 @@ public class MoviePlayerController {
 
         try {
             Movie movie = moviePlayerService.getMovieById(id);
-            movie.setUrl(defaultVideoUrl); // Giả định set URL này cho video chính
+            if (movie.getUrl() == null || movie.getUrl().isBlank()) {
+                movie.setUrl(defaultVideoUrl);
+            }
 
             // 1. Xác định trạng thái VIP của người dùng
             boolean isVip = sessionDto != null && subscriptionService.checkActiveSubscription(sessionDto.getId());
@@ -79,8 +81,9 @@ public class MoviePlayerController {
             return "movie/player";
 
         } catch (RuntimeException e) {
-            System.err.println("Lỗi: " + e.getMessage());
-            return "redirect:/subscriptionPlan";
+            System.err.println("Lỗi MoviePlayerController: " + e.getMessage());
+            model.addAttribute("movie", null);
+            return "movie/player";
         }
     }
 }

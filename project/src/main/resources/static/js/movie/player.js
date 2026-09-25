@@ -1,548 +1,387 @@
-// player.js - Video Player with HLS Support
+// player.js - Complete Video Player Controller with Ad, Resume, Error Handling, and Shortcuts
 
-class VideoPlayer {
-    constructor() {
-        this.movieId = this.getMovieIdFromUrl();
-        this.video = document.getElementById('videoPlayer');
-        this.hls = null;
-        this.isPlaying = false;
-        this.currentTime = 0;
-        this.duration = 0;
-        this.hideControlsTimeout = null;
-        
-        this.init();
+document.addEventListener("DOMContentLoaded", () => {
+  const playerWrapper = document.getElementById("player-wrapper");
+  const mainVideo = document.getElementById("defaultVideoPlayer");
+
+  if (!playerWrapper || !mainVideo) {
+    return;
+  }
+
+  // DOM Elements
+  const adVideo = document.getElementById("adVideoPlayer");
+  const adContainer = document.getElementById("adPlayerContainer");
+  const adTimerDisplay = document.getElementById("adTimer");
+  const skipAdBtn = document.getElementById("skipAdBtn");
+  const errorOverlay = document.getElementById("playerErrorOverlay");
+  const retryBtn = document.getElementById("btnRetryPlayback");
+  const toastEl = document.getElementById("playerToast");
+  const toastIcon = document.getElementById("playerToastIcon");
+  const toastText = document.getElementById("playerToastText");
+
+  // State & Data Attributes
+  const movieId = playerWrapper.dataset.movieId;
+  const hasAd = playerWrapper.dataset.hasAd === "true";
+  const adUrl = playerWrapper.dataset.adUrl || "";
+  const startTime = parseFloat(playerWrapper.dataset.startTime || "0");
+
+  let isHistoryRecorded = false;
+  let lastRecordedTime = -1;
+  let heartbeatInterval = null;
+  let adInterval = null;
+  let toastTimeout = null;
+
+  // ----------------------------------------------------
+  // 1. TOAST HELPER
+  // ----------------------------------------------------
+  function showToast(message, iconClass = "fa-info-circle", duration = 1200) {
+    if (!toastEl || !toastIcon || !toastText) return;
+
+    toastIcon.className = "fas " + iconClass;
+    toastText.textContent = message;
+
+    toastEl.style.display = "flex";
+    toastEl.style.opacity = "1";
+
+    if (toastTimeout) {
+      clearTimeout(toastTimeout);
     }
-    
-    getMovieIdFromUrl() {
-        const pathParts = window.location.pathname.split('/');
-        return pathParts[pathParts.length - 1];
+
+    toastTimeout = setTimeout(() => {
+      toastEl.style.opacity = "0";
+      setTimeout(() => {
+        if (toastEl.style.opacity === "0") {
+          toastEl.style.display = "none";
+        }
+      }, 250);
+    }, duration);
+  }
+
+  // ----------------------------------------------------
+  // 2. TIME FORMATTER
+  // ----------------------------------------------------
+  function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return "0:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     }
-    
-    async init() {
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
+  // ----------------------------------------------------
+  // 3. FULLSCREEN TOGGLE
+  // ----------------------------------------------------
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      if (playerWrapper.requestFullscreen) {
+        playerWrapper.requestFullscreen().catch((err) => {
+          console.warn("Fullscreen request error:", err);
+        });
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((err) => {
+          console.warn("Exit fullscreen error:", err);
+        });
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // 4. WATCH PROGRESS & HISTORY API
+  // ----------------------------------------------------
+  async function recordHistory() {
+    if (!movieId || isHistoryRecorded) return;
+    isHistoryRecorded = true;
+
+    try {
+      const response = await fetch(`/api/history/record/${movieId}`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (response.ok) {
+        console.log("Watch history recorded for movie:", movieId);
+      }
+    } catch (error) {
+      console.warn("Watch history record failed:", error);
+    }
+  }
+
+  function updateServerProgress(currentTime) {
+    if (!movieId || currentTime == null || currentTime < 0) return;
+    if (Math.abs(currentTime - lastRecordedTime) < 1) return;
+
+    lastRecordedTime = currentTime;
+    const url = `/api/history/update-progress?movieId=${encodeURIComponent(movieId)}&currentTime=${encodeURIComponent(currentTime.toFixed(1))}`;
+
+    fetch(url, {
+      method: "POST",
+      keepalive: true,
+    }).catch((err) => {
+      console.warn("Update progress error:", err);
+    });
+  }
+
+  // ----------------------------------------------------
+  // 5. MAIN VIDEO LIFECYCLE
+  // ----------------------------------------------------
+  function startMainVideo() {
+    if (adContainer) {
+      adContainer.style.display = "none";
+    }
+    if (adVideo) {
+      adVideo.pause();
+      adVideo.muted = true;
+    }
+    if (adInterval) {
+      clearInterval(adInterval);
+      adInterval = null;
+    }
+
+    mainVideo.style.display = "block";
+    mainVideo.controls = true;
+
+    // Apply resume time if valid
+    function applyResume() {
+      if (startTime > 5 && mainVideo.currentTime < 5) {
         try {
-            // Load movie info
-            await this.loadMovieInfo();
-            
-            // Initialize player
-            await this.initializePlayer();
-            
-            // Bind controls
-            this.bindControls();
-            
-            // Auto-hide controls
-            this.setupAutoHideControls();
-            
-            // Load watch progress
-            this.loadWatchProgress();
-            
-        } catch (error) {
-            console.error('Player initialization error:', error);
-            this.showError('Không thể khởi tạo trình phát. Vui lòng thử lại.');
+          mainVideo.currentTime = startTime;
+          showToast(`Tiếp tục xem từ ${formatTime(startTime)}`, "fa-history", 2500);
+        } catch (e) {
+          console.warn("Failed to set resume currentTime:", e);
         }
+      }
     }
-    
-    async loadMovieInfo() {
-        const url = `/api/movie/hover-detail/${this.movieId}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        const movie = data.movie || data;
-        
-        document.getElementById('playerTitle').textContent = movie.title;
-        document.title = `${movie.title} - Đang xem | FFilm`;
+
+    if (mainVideo.readyState >= 1) {
+      applyResume();
+    } else {
+      mainVideo.addEventListener("loadedmetadata", applyResume, { once: true });
     }
-    
-    async initializePlayer() {
-        // Sample HLS manifest for testing
-        // In production, this should come from your backend: /api/movies/{id}/stream
-        const manifestUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-        
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        loadingOverlay.classList.remove('hidden');
-        
-        if (Hls.isSupported()) {
-            this.hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: false,
-                backBufferLength: 90
-            });
-            
-            this.hls.loadSource(manifestUrl);
-            this.hls.attachMedia(this.video);
-            
-            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('HLS manifest loaded, ready to play');
-                loadingOverlay.classList.add('hidden');
-                
-                // Auto play
-                const playPromise = this.video.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log('Auto-play prevented:', error);
-                    });
-                }
-            });
-            
-            this.hls.on(Hls.Events.ERROR, (event, data) => {
-                console.error('HLS error:', data);
-                if (data.fatal) {
-                    switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            this.showError('Lỗi kết nối mạng. Đang thử kết nối lại...');
-                            this.hls.startLoad();
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            this.showError('Lỗi phương tiện. Đang khôi phục...');
-                            this.hls.recoverMediaError();
-                            break;
-                        default:
-                            this.showError('Lỗi nghiêm trọng. Không thể phát video.');
-                            this.hls.destroy();
-                            break;
-                    }
-                }
-            });
-            
-            // Quality levels
-            this.hls.on(Hls.Events.LEVEL_LOADED, () => {
-                this.updateQualityOptions();
-            });
-            
-        } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS support (Safari)
-            this.video.src = manifestUrl;
-            
-            this.video.addEventListener('loadedmetadata', () => {
-                loadingOverlay.classList.add('hidden');
-                this.video.play();
-            });
-            
+
+    // Unmute & Attempt Play
+    mainVideo.muted = false;
+    mainVideo.play().catch((err) => {
+      console.log("Autoplay blocked by browser policy, awaiting user action:", err);
+    });
+
+    // Record initial history
+    recordHistory();
+
+    // Start progress heartbeat every 10 seconds
+    if (!heartbeatInterval) {
+      heartbeatInterval = setInterval(() => {
+        if (!mainVideo.paused && movieId && mainVideo.currentTime > 0) {
+          updateServerProgress(mainVideo.currentTime);
+        }
+      }, 10000);
+    }
+  }
+
+  // ----------------------------------------------------
+  // 6. AD PLAYER MANAGER
+  // ----------------------------------------------------
+  function initAdPlayer() {
+    if (!hasAd || !adVideo || !adContainer || !adUrl) {
+      startMainVideo();
+      return;
+    }
+
+    const skipDelaySeconds = 5;
+
+    // Pause main video while ad runs
+    mainVideo.pause();
+    mainVideo.muted = true;
+    mainVideo.controls = false;
+
+    // Play ad video
+    adVideo.muted = false;
+    adVideo.play().catch((err) => {
+      console.warn("Ad autoplay blocked, falling back to main video:", err);
+      startMainVideo();
+    });
+
+    // Countdown logic
+    function updateCountdown() {
+      const duration = adVideo.duration;
+      const current = adVideo.currentTime;
+
+      if (!isNaN(duration) && duration > 0) {
+        const remaining = Math.max(0, Math.ceil(duration - current));
+        if (adTimerDisplay) {
+          adTimerDisplay.textContent = remaining;
+        }
+      }
+
+      if (current >= skipDelaySeconds && skipAdBtn) {
+        skipAdBtn.style.display = "block";
+      }
+    }
+
+    adInterval = setInterval(updateCountdown, 500);
+
+    adVideo.addEventListener("ended", startMainVideo, { once: true });
+    adVideo.addEventListener("error", (e) => {
+      console.warn("Ad video playback error, skipping to main video:", e);
+      startMainVideo();
+    }, { once: true });
+
+    if (skipAdBtn) {
+      skipAdBtn.addEventListener("click", () => {
+        startMainVideo();
+      });
+    }
+  }
+
+  // ----------------------------------------------------
+  // 7. ERROR HANDLING & FALLBACK
+  // ----------------------------------------------------
+  function handlePlaybackError(e) {
+    console.error("Playback error detected on main video:", e);
+    if (errorOverlay) {
+      errorOverlay.style.display = "flex";
+    }
+  }
+
+  mainVideo.addEventListener("error", handlePlaybackError);
+
+  const mainSource = mainVideo.querySelector("source");
+  if (mainSource) {
+    mainSource.addEventListener("error", handlePlaybackError);
+  }
+
+  if (retryBtn) {
+    retryBtn.addEventListener("click", () => {
+      if (errorOverlay) {
+        errorOverlay.style.display = "none";
+      }
+      showToast("Đang tải lại...", "fa-sync fa-spin", 1500);
+      try {
+        mainVideo.load();
+        mainVideo.play().catch((err) => {
+          console.warn("Retry playback failed:", err);
+        });
+      } catch (err) {
+        console.error("Retry load error:", err);
+      }
+    });
+  }
+
+  // ----------------------------------------------------
+  // 8. PROGRESS ON PAUSE & UNLOAD
+  // ----------------------------------------------------
+  mainVideo.addEventListener("pause", () => {
+    if (movieId && mainVideo.currentTime > 0) {
+      updateServerProgress(mainVideo.currentTime);
+    }
+  });
+
+  const handleUnload = () => {
+    if (movieId && mainVideo && !mainVideo.paused && mainVideo.currentTime > 0) {
+      updateServerProgress(mainVideo.currentTime);
+    }
+  };
+
+  window.addEventListener("beforeunload", handleUnload);
+  window.addEventListener("pagehide", handleUnload);
+
+  // ----------------------------------------------------
+  // 9. DOUBLE CLICK FOR FULLSCREEN
+  // ----------------------------------------------------
+  mainVideo.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    toggleFullscreen();
+  });
+
+  // ----------------------------------------------------
+  // 10. KEYBOARD SHORTCUTS
+  // ----------------------------------------------------
+  document.addEventListener("keydown", (e) => {
+    const activeEl = document.activeElement;
+    if (
+      activeEl &&
+      (activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.isContentEditable)
+    ) {
+      return;
+    }
+
+    if (mainVideo.style.display === "none") {
+      return; // Do not control main video while ad is playing
+    }
+
+    switch (e.code) {
+      case "Space":
+      case "KeyK":
+        e.preventDefault();
+        if (mainVideo.paused) {
+          mainVideo.play().catch(() => {});
+          showToast("Phát", "fa-play");
         } else {
-            this.showError('Trình duyệt không hỗ trợ phát video HLS');
+          mainVideo.pause();
+          showToast("Tạm dừng", "fa-pause");
         }
-    }
-    
-    bindControls() {
-        // Play/Pause
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        playPauseBtn.addEventListener('click', () => this.togglePlayPause());
-        
-        this.video.addEventListener('click', () => this.togglePlayPause());
-        
-        // Video events
-        this.video.addEventListener('play', () => this.onPlay());
-        this.video.addEventListener('pause', () => this.onPause());
-        this.video.addEventListener('timeupdate', () => this.onTimeUpdate());
-        this.video.addEventListener('loadedmetadata', () => this.onLoadedMetadata());
-        this.video.addEventListener('ended', () => this.onEnded());
-        
-        // Progress bar
-        const progressContainer = document.getElementById('progressContainer');
-        progressContainer.addEventListener('click', (e) => this.seekTo(e));
-        
-        // Rewind/Forward
-        document.getElementById('rewindBtn').addEventListener('click', () => {
-            this.video.currentTime = Math.max(0, this.video.currentTime - 10);
-        });
-        
-        document.getElementById('forwardBtn').addEventListener('click', () => {
-            this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + 10);
-        });
-        
-        // Volume
-        const volumeBtn = document.getElementById('volumeBtn');
-        const volumeSlider = document.getElementById('volumeSlider');
-        
-        volumeBtn.addEventListener('click', () => this.toggleMute());
-        volumeSlider.addEventListener('input', (e) => {
-            this.video.volume = e.target.value / 100;
-            this.updateVolumeIcon();
-        });
-        
-        // Speed
-        const speedSelect = document.getElementById('speedSelect');
-        speedSelect.addEventListener('change', (e) => {
-            this.video.playbackRate = parseFloat(e.target.value);
-        });
-        
-        // Quality (HLS only)
-        const qualitySelect = document.getElementById('qualitySelect');
-        qualitySelect.addEventListener('change', (e) => {
-            this.changeQuality(e.target.value);
-        });
-        
-        // Picture-in-Picture
-        const pipBtn = document.getElementById('pipBtn');
-        if (document.pictureInPictureEnabled) {
-            pipBtn.addEventListener('click', () => this.togglePiP());
-        } else {
-            pipBtn.style.display = 'none';
-        }
-        
-        // Fullscreen
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
-        
-        // Episode list toggle
-        const episodeListBtn = document.getElementById('episodeListBtn');
-        const episodeSidebar = document.getElementById('episodeSidebar');
-        const closeEpisodes = document.getElementById('closeEpisodes');
-        
-        if (episodeListBtn) {
-            episodeListBtn.addEventListener('click', () => {
-                episodeSidebar.classList.toggle('active');
-            });
-        }
-        
-        if (closeEpisodes) {
-            closeEpisodes.addEventListener('click', () => {
-                episodeSidebar.classList.remove('active');
-            });
-        }
-        
-        // Retry button
-        const retryBtn = document.getElementById('retryBtn');
-        if (retryBtn) {
-            retryBtn.addEventListener('click', () => {
-                document.getElementById('errorOverlay').classList.remove('active');
-                this.initializePlayer();
-            });
-        }
-    }
-    
-    togglePlayPause() {
-        if (this.video.paused) {
-            this.video.play();
-        } else {
-            this.video.pause();
-        }
-    }
-    
-    onPlay() {
-        this.isPlaying = true;
-        const icon = document.querySelector('#playPauseBtn i');
-        icon.className = 'fas fa-pause';
-    }
-    
-    onPause() {
-        this.isPlaying = false;
-        const icon = document.querySelector('#playPauseBtn i');
-        icon.className = 'fas fa-play';
-    }
-    
-    onTimeUpdate() {
-        this.currentTime = this.video.currentTime;
-        
-        // Update progress bar
-        const progressBar = document.getElementById('progressBar');
-        const percentage = (this.currentTime / this.video.duration) * 100;
-        progressBar.style.width = `${percentage}%`;
-        
-        // Update time display
-        document.getElementById('currentTime').textContent = this.formatTime(this.currentTime);
-        
-        // Save progress every 10 seconds
-        if (Math.floor(this.currentTime) % 10 === 0) {
-            this.saveWatchProgress();
-        }
-    }
-    
-    onLoadedMetadata() {
-        this.duration = this.video.duration;
-        document.getElementById('duration').textContent = this.formatTime(this.duration);
-    }
-    
-    onEnded() {
-        console.log('Video ended');
-        this.saveWatchProgress();
-        // TODO: Show next episode or related movies
-    }
-    
-    seekTo(event) {
-        const progressContainer = event.currentTarget;
-        const rect = progressContainer.getBoundingClientRect();
-        const pos = (event.clientX - rect.left) / rect.width;
-        this.video.currentTime = pos * this.video.duration;
-    }
-    
-    toggleMute() {
-        this.video.muted = !this.video.muted;
-        this.updateVolumeIcon();
-        
-        const volumeSlider = document.getElementById('volumeSlider');
-        volumeSlider.value = this.video.muted ? 0 : this.video.volume * 100;
-    }
-    
-    updateVolumeIcon() {
-        const icon = document.querySelector('#volumeBtn i');
-        const volume = this.video.muted ? 0 : this.video.volume;
-        
-        if (volume === 0) {
-            icon.className = 'fas fa-volume-mute';
-        } else if (volume < 0.5) {
-            icon.className = 'fas fa-volume-down';
-        } else {
-            icon.className = 'fas fa-volume-up';
-        }
-    }
-    
-    updateQualityOptions() {
-        if (!this.hls) return;
-        
-        const qualitySelect = document.getElementById('qualitySelect');
-        const levels = this.hls.levels;
-        
-        qualitySelect.innerHTML = '<option value="-1">Tự động</option>';
-        
-        levels.forEach((level, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = `${level.height}p`;
-            qualitySelect.appendChild(option);
-        });
-    }
-    
-    changeQuality(levelIndex) {
-        if (!this.hls) return;
-        
-        const index = parseInt(levelIndex);
-        if (index === -1) {
-            this.hls.currentLevel = -1; // Auto
-        } else {
-            this.hls.currentLevel = index;
-        }
-    }
-    
-    async togglePiP() {
-        try {
-            if (document.pictureInPictureElement) {
-                await document.exitPictureInPicture();
-            } else {
-                await this.video.requestPictureInPicture();
-            }
-        } catch (error) {
-            console.error('PiP error:', error);
-        }
-    }
-    
-    toggleFullscreen() {
-        const playerWrapper = document.getElementById('playerWrapper');
-        
-        if (!document.fullscreenElement) {
-            playerWrapper.requestFullscreen().catch(err => {
-                console.error('Fullscreen error:', err);
-            });
-        } else {
-            document.exitFullscreen();
-        }
-        
-        // Update icon
-        const icon = document.querySelector('#fullscreenBtn i');
-        icon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
-    }
-    
-    handleKeyboard(event) {
-        // Prevent if typing in input
-        if (event.target.tagName === 'INPUT') return;
-        
-        switch(event.key) {
-            case ' ':
-                event.preventDefault();
-                this.togglePlayPause();
-                break;
-            case 'ArrowLeft':
-                this.video.currentTime -= 5;
-                break;
-            case 'ArrowRight':
-                this.video.currentTime += 5;
-                break;
-            case 'ArrowUp':
-                event.preventDefault();
-                this.video.volume = Math.min(1, this.video.volume + 0.1);
-                document.getElementById('volumeSlider').value = this.video.volume * 100;
-                this.updateVolumeIcon();
-                break;
-            case 'ArrowDown':
-                event.preventDefault();
-                this.video.volume = Math.max(0, this.video.volume - 0.1);
-                document.getElementById('volumeSlider').value = this.video.volume * 100;
-                this.updateVolumeIcon();
-                break;
-            case 'f':
-                this.toggleFullscreen();
-                break;
-            case 'm':
-                this.toggleMute();
-                break;
-        }
-    }
-    
-    setupAutoHideControls() {
-        const playerWrapper = document.getElementById('playerWrapper');
-        
-        const resetTimeout = () => {
-            clearTimeout(this.hideControlsTimeout);
-            playerWrapper.classList.remove('hide-controls');
-            
-            if (this.isPlaying) {
-                this.hideControlsTimeout = setTimeout(() => {
-                    playerWrapper.classList.add('hide-controls');
-                }, 3000);
-            }
-        };
-        
-        playerWrapper.addEventListener('mousemove', resetTimeout);
-        playerWrapper.addEventListener('touchstart', resetTimeout);
-        
-        this.video.addEventListener('play', resetTimeout);
-        this.video.addEventListener('pause', () => {
-            clearTimeout(this.hideControlsTimeout);
-            playerWrapper.classList.remove('hide-controls');
-        });
-    }
-    
-    formatTime(seconds) {
-        if (isNaN(seconds)) return '0:00';
-        
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.floor(seconds % 60);
-        
-        if (h > 0) {
-            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-    
-    saveWatchProgress() {
-        const progress = {
-            movieId: this.movieId,
-            currentTime: this.currentTime,
-            duration: this.duration,
-            timestamp: Date.now()
-        };
-        
-        localStorage.setItem(`progress_${this.movieId}`, JSON.stringify(progress));
-    }
-    
-    loadWatchProgress() {
-        const savedProgress = localStorage.getItem(`progress_${this.movieId}`);
-        
-        if (savedProgress) {
-            const progress = JSON.parse(savedProgress);
-            
-            // If watched more than 10% and less than 90%, offer to resume
-            const percentage = (progress.currentTime / progress.duration) * 100;
-            
-            if (percentage > 10 && percentage < 90) {
-                const resume = confirm(`Tiếp tục xem từ ${this.formatTime(progress.currentTime)}?`);
-                if (resume) {
-                    this.video.currentTime = progress.currentTime;
-                }
-            }
-        }
-    }
-    
-    showError(message) {
-        const errorOverlay = document.getElementById('errorOverlay');
-        const errorMessage = document.getElementById('errorMessage');
-        
-        errorMessage.textContent = message;
-        errorOverlay.classList.add('active');
-    }
-}
+        break;
 
-// Initialize when DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-    new VideoPlayer();
-});
+      case "ArrowLeft":
+      case "KeyJ":
+        e.preventDefault();
+        mainVideo.currentTime = Math.max(0, mainVideo.currentTime - 10);
+        showToast("-10 giây", "fa-backward");
+        break;
 
-// Thêm code này vào file player.js của bạn
+      case "ArrowRight":
+      case "KeyL":
+        e.preventDefault();
+        mainVideo.currentTime = Math.min(
+          mainVideo.duration || 999999,
+          mainVideo.currentTime + 10
+        );
+        showToast("+10 giây", "fa-forward");
+        break;
 
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // Tìm thẻ div cha chứa data-movie-id
-    const playerWrapper = document.getElementById('player-wrapper');
-    // Video Elements
-    const mainVideo = document.getElementById("defaultVideoPlayer");
-    
-    if (playerWrapper) {
-        // Lấy movieId từ data attribute
-        const movieId = playerWrapper.dataset.movieId;
-        // [THÊM] Lấy thời gian đã lưu từ Server
-        const savedTime = parseFloat(playerWrapper.dataset.startTime || "0");
-        let hasRecorded = false; // Cờ để đảm bảo chỉ gọi 1 lần
+      case "ArrowUp":
+        e.preventDefault();
+        mainVideo.volume = Math.min(1.0, parseFloat((mainVideo.volume + 0.1).toFixed(2)));
+        if (mainVideo.muted) mainVideo.muted = false;
+        showToast(`Âm lượng: ${Math.round(mainVideo.volume * 100)}%`, "fa-volume-up");
+        break;
 
-        // 1. [THÊM] Logic Tua Video khi bắt đầu (Resume)
-        // Chỉ tua nếu thời gian đã lưu > 5 giây (để tránh tua những cái mới tinh)
-        if (savedTime > 5) {
-            console.log("Resuming video at: " + savedTime);
-            mainVideo.currentTime = savedTime;
-        }
+      case "ArrowDown":
+        e.preventDefault();
+        mainVideo.volume = Math.max(0.0, parseFloat((mainVideo.volume - 0.1).toFixed(2)));
+        showToast(
+          `Âm lượng: ${Math.round(mainVideo.volume * 100)}%`,
+          mainVideo.volume === 0 ? "fa-volume-mute" : "fa-volume-down"
+        );
+        break;
 
-        // 2. [THÊM] Logic Gửi thời gian về Server (Heartbeat)
-        // Gửi mỗi 10 giây một lần
-        setInterval(() => {
-            if (!mainVideo.paused && movieId) {
-                updateServerProgress(movieId, mainVideo.currentTime);
-            }
-        }, 10000);
-        // Gửi khi pause hoặc rời trang
-        mainVideo.addEventListener('pause', () => {
-            if(movieId) updateServerProgress(movieId, mainVideo.currentTime);
-        });
-        
-        window.addEventListener('beforeunload', () => {
-             if(movieId && !mainVideo.paused) updateServerProgress(movieId, mainVideo.currentTime);
-        });
-        const recordHistory = async () => {
-            // Nếu đã gọi rồi hoặc không có movieId thì không làm gì cả
-            if (hasRecorded || !movieId) return; 
+      case "KeyM":
+        e.preventDefault();
+        mainVideo.muted = !mainVideo.muted;
+        showToast(
+          mainVideo.muted ? "Đã tắt tiếng" : "Đã bật tiếng",
+          mainVideo.muted ? "fa-volume-mute" : "fa-volume-up"
+        );
+        break;
 
-            console.log(`Recording history for movie ID: ${movieId}`);
-            hasRecorded = true; // Đánh dấu là đã gọi
-            
-            try {
-                const response = await fetch(`/api/history/record/${movieId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json'
-                        // Không cần CSRF token vì bạn đã tắt nó trong SecurityConfig
-                    }
-                });
-
-                if (response.ok) {
-                    console.log('Watch history recorded successfully.');
-                } else if (response.status === 401) {
-                    // Lỗi 401 (Unauthorized) nghĩa là user chưa đăng nhập
-                    console.log('User not logged in. Skipping history record.');
-                } 
-                else {
-                    // Các lỗi khác (500, 404...)
-                    console.error('Failed to record watch history.');
-                }
-            } catch (error) {
-                // Lỗi mạng, không thể kết nối
-                console.error('Error calling record history API:', error);
-            }
-        };
-
-        // === LOGIC GỌI HÀM ===
-        // Chúng ta gọi thẳng hàm khi trang player được tải.
-        // Điều này giả định rằng nếu user đã vào trang player, 
-        // họ có ý định xem (cách an toàn nhất cho <iframe>)
-        if(movieId) {
-             recordHistory();
-        }
+      case "KeyF":
+        e.preventDefault();
+        toggleFullscreen();
+        break;
     }
-    // Hàm gửi API cập nhật
-    function updateServerProgress(mid, time) {
-        // Sử dụng fetch để gửi POST request
-        // Sử dụng URLSearchParams để gửi dạng form-data/query param vì controller dùng @RequestParam
-        fetch(`/api/history/update-progress?movieId=${mid}&currentTime=${time}`, {
-            method: 'POST'
-        }).catch(err => console.error("Lỗi lưu tiến độ:", err));
-    }
+  });
+
+  // ----------------------------------------------------
+  // 11. START PLAYBACK FLOW
+  // ----------------------------------------------------
+  if (hasAd) {
+    initAdPlayer();
+  } else {
+    startMainVideo();
+  }
 });

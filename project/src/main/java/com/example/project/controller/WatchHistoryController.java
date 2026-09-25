@@ -32,11 +32,21 @@ public class WatchHistoryController {
 
     @PostMapping("/record/{movieId}")
     public ResponseEntity<?> recordWatch(@PathVariable int movieId,
-                                         @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
+                                         @AuthenticationPrincipal UserDetails userDetails,
+                                         HttpSession session) {
+        String email = null;
+        if (userDetails != null) {
+            email = userDetails.getUsername();
+        } else if (session != null) {
+            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+            if (userSession != null) {
+                email = userSession.getEmail();
+            }
+        }
+        if (email == null) {
             return ResponseEntity.status(401).build(); // Unauthorized
         }
-        watchHistoryService.recordWatchHistory(userDetails.getUsername(), movieId);
+        watchHistoryService.recordWatchHistory(email, movieId);
         return ResponseEntity.ok().build();
     }
 
@@ -57,15 +67,22 @@ public class WatchHistoryController {
     public ResponseEntity<?> updateProgress(
             @RequestParam int movieId,
             @RequestParam Double currentTime,
+            @AuthenticationPrincipal UserDetails userDetails,
             HttpSession session) { 
         
-        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-        
-        if (userSession == null) {
-            return ResponseEntity.status(401).build();
+        if (session != null) {
+            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+            if (userSession != null) {
+                watchHistoryService.updateWatchProgress(userSession.getId(), movieId, currentTime);
+                return ResponseEntity.ok().build();
+            }
+        }
+
+        if (userDetails != null) {
+            watchHistoryService.updateWatchProgressByEmail(userDetails.getUsername(), movieId, currentTime);
+            return ResponseEntity.ok().build();
         }
         
-        watchHistoryService.updateWatchProgress(userSession.getId(), movieId, currentTime);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(401).build();
     }
 }

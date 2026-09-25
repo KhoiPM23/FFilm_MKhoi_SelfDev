@@ -90,6 +90,13 @@ public class WatchHistoryService {
         }
     }
 
+    @Transactional
+    public void updateWatchProgressByEmail(String email, int movieId, Double currentTime) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+        updateWatchProgress(user.getUserID(), movieId, currentTime);
+    }
+
     public Double getWatchedTime(Integer userId, int movieId) {
 
         User user = new User(); user.setUserID(userId);
