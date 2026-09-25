@@ -46,9 +46,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
                 HttpSession session = servletRequest.getServletRequest().getSession(false);
                 if (session != null) {
-                    Object user = session.getAttribute("user");
-                    if (user instanceof UserSessionDto) {
-                        UserSessionDto userDto = (UserSessionDto) user;
+                    UserSessionDto userDto = null;
+                    if (session.getAttribute("admin") instanceof UserSessionDto) {
+                        userDto = (UserSessionDto) session.getAttribute("admin");
+                    } else if (session.getAttribute("contentManager") instanceof UserSessionDto) {
+                        userDto = (UserSessionDto) session.getAttribute("contentManager");
+                    } else if (session.getAttribute("moderator") instanceof UserSessionDto) {
+                        userDto = (UserSessionDto) session.getAttribute("moderator");
+                    } else if (session.getAttribute("user") instanceof UserSessionDto) {
+                        userDto = (UserSessionDto) session.getAttribute("user");
+                    }
+
+                    if (userDto != null) {
                         attributes.put("userId", userDto.getId());
                         attributes.put("userName", userDto.getUserName());
                         attributes.put("httpSessionId", session.getId());

@@ -294,8 +294,16 @@
     };
 
     window.startVoiceCall = function() {
-        // Similar to startVideoCall but audio only
-        if (!currentPartnerId) return;
+        if (!currentPartnerId) {
+            showToast('Vui lòng chọn người để gọi', 'error');
+            return;
+        }
+        
+        if (!myPeer || !myPeer.id) {
+            showToast('Đang khởi tạo kết nối...', 'info');
+            setTimeout(() => startVoiceCall(), 1000);
+            return;
+        }
         
         navigator.mediaDevices.getUserMedia({ video: false, audio: true })
             .then(stream => {
@@ -1077,36 +1085,43 @@
 
     // --- FIX 11: STRANGER BANNER LOGIC ---
     window.sendFriendRequest = function(partnerId, btnElement) {
-        const originalHtml = btnElement.innerHTML;
-        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        btnElement.disabled = true;
+        const id = partnerId || currentPartnerId;
+        const btn = btnElement || document.querySelector('.btn-stranger-add');
+        if (!id || !btn) return;
 
-        fetch(`/social/add-friend/${partnerId}`, { method: 'POST' })
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        fetch(`/social/add-friend/${id}`, { method: 'POST' })
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(() => {
-                btnElement.innerHTML = '<i class="fas fa-clock"></i> Đã gửi';
-                btnElement.classList.add('btn-stranger-pending');
-                btnElement.onclick = () => window.cancelFriendRequest(partnerId, btnElement);
-                btnElement.disabled = false;
+                btn.innerHTML = '<i class="fas fa-clock"></i> Đã gửi';
+                btn.classList.add('btn-stranger-pending');
+                btn.onclick = () => window.cancelFriendRequest(id, btn);
+                btn.disabled = false;
             })
             .catch(() => {
-                btnElement.innerHTML = originalHtml;
-                btnElement.disabled = false;
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
                 alert('Lỗi gửi lời mời');
             });
     };
 
     window.cancelFriendRequest = function(partnerId, btnElement) {
+        const id = partnerId || currentPartnerId;
+        const btn = btnElement || document.querySelector('.btn-stranger-add');
+        if (!id || !btn) return;
         if (!confirm('Hủy lời mời kết bạn?')) return;
         
-        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
-        fetch(`/social/unfriend/${partnerId}`, { method: 'POST' })
+        fetch(`/social/unfriend/${id}`, { method: 'POST' })
             .then(res => {
                 if (res.ok) {
-                    btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Kết bạn';
-                    btnElement.classList.remove('btn-stranger-pending');
-                    btnElement.onclick = () => window.sendFriendRequest(partnerId, btnElement);
+                    btn.innerHTML = '<i class="fas fa-user-plus"></i> Kết bạn';
+                    btn.classList.remove('btn-stranger-pending');
+                    btn.onclick = () => window.sendFriendRequest(id, btn);
                 }
             });
     };
@@ -4323,6 +4338,7 @@ function loadForwardRecipients() {
         $('#stickerSuggestions').css('opacity', 0);
         setTimeout(() => $('#stickerSuggestions').hide(), 300);
     }
+    window.hideStickerSuggestions = hideStickerSuggestions;
 
     // Find Sticker Suggestions by Keywords
     function findStickerSuggestions(keywords) {
@@ -4755,6 +4771,37 @@ function loadForwardRecipients() {
         `);
     }
 
+    window.viewProfile = function(partnerId) {
+        const id = partnerId || currentPartnerId;
+        if (id) {
+            window.location.href = `/profile/${id}`;
+        }
+    };
+
+    window.toggleNotifications = function(partnerId) {
+        const id = partnerId || currentPartnerId;
+        if (!id) return;
+        $.ajax({
+            url: '/api/v1/messenger/settings/notification',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ partnerId: id }),
+            success: function(res) {
+                const enabled = res && res.enabled;
+                if (enabled) {
+                    showToast('Đã bật thông báo cuộc trò chuyện', 'success');
+                    $('.info-header-actions .fa-bell-slash').removeClass('fa-bell-slash').addClass('fa-bell');
+                } else {
+                    showToast('Đã tắt thông báo cuộc trò chuyện', 'info');
+                    $('.info-header-actions .fa-bell').removeClass('fa-bell').addClass('fa-bell-slash');
+                }
+            },
+            error: function() {
+                showToast('Không thể cập nhật cài đặt thông báo', 'error');
+            }
+        });
+    };
+
     // FIX 3.2: Thêm CSS cho modal overlays
     // Thêm vào messenger.css hoặc inline style
     const modalCSS = `
@@ -4912,15 +4959,18 @@ function loadForwardRecipients() {
     // Toggle Sidebar Info
     window.toggleChatInfo = function() {
         const sidebar = $('#chatInfoSidebar');
+        const chatArea = $('.msg-chat-area');
         const btn = $('#btnToggleInfo');
         
         if (sidebar.hasClass('hidden')) {
             sidebar.removeClass('hidden');
+            chatArea.addClass('info-open');
             btn.addClass('active');
             // Load media khi mở sidebar
             loadSharedMedia();
         } else {
             sidebar.addClass('hidden');
+            chatArea.removeClass('info-open');
             btn.removeClass('active');
         }
     };
