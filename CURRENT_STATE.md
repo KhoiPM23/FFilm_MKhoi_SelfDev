@@ -42,6 +42,10 @@ This file records the MOST RECENT verified operational state of the project.
 - **Movie Sync Hardening**: 150ms seek debounce prevents seek storms. Periodic 5-second heartbeat sync maintains sub-1.5s synchronization across buffering and network latency. [FIXED]
 - **WebRTC Audio/Video Track Integrity**: `toggleCam` toggles `videoTrack.enabled` without terminating audio tracks. Added `myPeer.on('error')` handler and disconnect cleanup on `beforeunload`. [FIXED]
 - **Room Dissolution & Delete Endpoints**: Added `@DeleteMapping("/api/party/delete/{roomId}")` and `@MessageMapping("/party/{roomId}/admin/close")` broadcasting `ROOM_CLOSED` to cleanly tear down party sessions. [FIXED]
+- **PeerJS Server**: Updated from dead `peerjs-server.herokuapp.com` to official `0.peerjs.com`. Added null-safe initialization and guards around all `myPeer.on()` event registration. [FIXED]
+- **PeerJS CDN in room.html**: Added missing PeerJS CDN script tag. Without it, `new Peer()` threw `ReferenceError`. [FIXED]
+- **Missing /leave STOMP endpoint**: Added `@MessageMapping("/party/{roomId}/leave")` handler. Frontend `leaveRoom()` now properly triggers `handleDisconnect()` — no more ghost members on voluntary leave. [FIXED]
+- **beforeunload cleanup**: Enhanced to destroy PeerJS instance and send `/leave` STOMP signal on page close. [FIXED]
 - **Multi-session runtime**: Needs repro with two independent browser sessions (`[NEEDS REPRO]`).
 
 ## SECURITY & IDENTITY ENFORCEMENT
@@ -51,10 +55,12 @@ This file records the MOST RECENT verified operational state of the project.
 - **Presence Tracking (STOMP Handshake)**: Handshake session attributes populate `"userSession"` and `"userDto"` to activate `OnlineStatusService` online/offline events. [FIXED]
 
 ## MESSENGER & REAL-TIME CHAT
-- **Modularization**: Call/WebRTC logic extracted into `messenger-calls.js` (595 lines); Sticker/Tenor/Google Noto Emoji extracted into `messenger-stickers.js` (215 lines). [FIXED]
+- **Modularization**: Call/WebRTC logic extracted into `messenger-calls.js` (595 lines); Sticker/Tenor/Google Noto Emoji extracted into `messenger-stickers.js`. [FIXED]
 - **State Bridge**: `window.MessengerState` connects satellite modules cleanly with the core orchestrator. [FIXED]
 - **Database Schema**: SQL Server tables `messenger_messages`, `conversation_settings`, `call_logs` synchronized via migration. [FIXED]
 - **Script Ordering**: `messenger.html` loads core `messenger.js` prior to satellite modules, and error handlers clean up skeletons. [FIXED]
+- **Sticker Suggestion Functions**: `initStickerSuggestions`, `showStickerSuggestions`, `hideStickerSuggestions` restored to `messenger-stickers.js` (lost in extraction refactor). Exposed on `window.*`, guarded in `messenger.js` and `messenger.html`. [FIXED]
+- **MessengerApiController compile error**: `getUserID().equals()` on primitive `int` → changed to `==` in unsend and reaction broadcast handlers. [FIXED]
 
 ## NOTIFICATION & SOCIAL INTEGRITY
 - **STOMP Routing Bug**: Fixed critical Spring STOMP user destination mismatch; now routes to numeric `Principal.getName()` (`userId.toString()`). [FIXED]
@@ -76,6 +82,9 @@ This file records the MOST RECENT verified operational state of the project.
 - **AI Chatbot**: `/api/ai-agent/chat` verified via API and browser runtime with rich movie cards. [VERIFIED]
 
 ## NEXT TASKS
-- Multi-browser 2-party concurrent reproduction for Watch Party WebRTC video call and synchronized playback (`[NEEDS REPRO]`).
-- Profile page visual refinement and avatar upload.
-- Full E2E user regression pass.
+1. **[P2] Watch Party Movie State Persistence**: `currentMovieUrl/Id/Title` stored only in RAM (`WatchRoomRuntime`). Server restart loses the playing movie. Need to sync changes back to `WatchRoom` DB entity.
+2. **[NEEDS REPRO] Multi-browser Watch Party session**: Verify WebRTC video/audio call + STOMP sync with two real browser tabs. Requires human running 2 sessions.
+3. **Profile page visual refinement**: Avatar upload UI and user profile display polish.
+4. **Full E2E user regression pass**: End-to-end test of all user flows (register, login, watch movie, messenger, watch party, payment).
+5. **[PENDING HUMAN] API key rotation**: TMDB and Tenor historical credential rotation/revocation on provider side.
+6. **[PENDING HUMAN] Git history purge**: BFG/filter-repo to remove historical credential exposure (requires explicit owner authorization).

@@ -1,3 +1,15 @@
+## 2026-09-27 - Phase 8 Hotfix: Sticker Suggestions, PeerJS, Leave Endpoint, Compile Error
+
+- **Commit**: 3bd0aca pushed to origin/main
+- **Bugs Fixed**:
+  1. Missing hideStickerSuggestions / initStickerSuggestions (lost in refactor 54e95c3) - restored in messenger-stickers.js + exposed on window.*
+  2. Dead PeerJS server peerjs-server.herokuapp.com -> switched to 0.peerjs.com + null-safe guards in watch-party.js
+  3. Missing PeerJS CDN tag in room.html -> ReferenceError fixed
+  4. Missing /party/{roomId}/leave STOMP endpoint -> ghost members fixed, added leaveRoomStomp() in WatchPartyController + myPeer.destroy() in beforeunload
+  5. int dereference compile error getUserID().equals() -> changed to == in MessengerApiController.java lines 153 + 186
+- **Verification**: node -c all JS pass. mvnw compile BUILD SUCCESS
+- **Pending**: [P2] WatchParty movie state persistence to DB; [NEEDS REPRO] multi-browser WebRTC; profile page; E2E regression
+
 # Project Work Log
 
 ## 2026-09-26 - Checkpoint Run (Social Routing, Notifications, Watch Party Invitations, Messenger Modularization)
