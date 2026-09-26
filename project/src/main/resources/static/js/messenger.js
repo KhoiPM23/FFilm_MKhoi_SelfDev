@@ -415,6 +415,7 @@
             },
             error: function(xhr, status, err) {
                 console.error('loadConversations() failed:', xhr.status, xhr.statusText, xhr.responseText);
+                list.html('<div class="text-center py-4 text-muted small"><i class="fas fa-exclamation-circle text-danger mr-1"></i> Không thể tải hội thoại. Vui lòng thử lại.</div>');
                 // Helpful toast for debugging
                 if (typeof window.showToast === 'function') {
                     showToast('Lỗi tải danh sách hội thoại. Kiểm tra console/server logs.', 'error');
@@ -573,6 +574,8 @@
 
             // FIX: Khởi tạo reaction system sau khi load tin nhắn
             initReactionSystem();
+        }).fail(function() {
+            container.html('<div class="text-center mt-5 text-danger"><small><i class="fas fa-exclamation-triangle mr-1"></i> Không thể tải tin nhắn. Vui lòng thử lại sau.</small></div>');
         });
     }
 
