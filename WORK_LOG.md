@@ -1,5 +1,15 @@
 # Project Work Log
 
+## 2026-09-26 - Checkpoint Run (Social Routing, Notifications, Watch Party Invitations, Messenger Modularization)
+- **Task**: Checkpoint audit, regression sweep, and memory synchronization.
+- **Completed Work**:
+  - **Notification WebSocket Routing Fix**: Fixed Spring STOMP user routing bug in NotificationService.java where convertAndSendToUser used recipient.getUserName() instead of numeric principal userId.toString(). Real-time notifications now reliably deliver to client /user/queue/notifications.
+  - **Single Notification Read Endpoint**: Implemented POST /social/api/notifications/read/{id} with strict zero-IDOR ownership verification, returning HTTP 403 on invalid access. Updated header.html with keepalive fetch.
+  - **Watch Party Social Invitations**: Added GET /api/party/{roomId}/friends (returns friends list + active in-room status) and POST /api/party/{roomId}/invite (creates DB Notification and STOMP message with direct room link). Added in-room Mời bạn bè modal and triggers.
+  - **Messenger Script Ordering & Skeletons**: Reordered scripts in messenger.html so core messenger.js loads first. Added .fail() error cleanup in messenger.js so conversation and chat skeletons are never stuck on network drops.
+  - **Verification**: Verified via curl with authenticated session cookies for single read, mark-all-read, party friends, and party invite. Verified SQL Server notification record creation. Verified Maven compilation (BUILD SUCCESS).
+- **Git Commits**: 54e95c3, 05ae59d, 11cb6ba pushed to origin/main. Working tree clean.
+
 ## 2026-09-25 - Schema Synchronization and Runtime Baseline
 - **Task**: Synchronize User privacy schema with current entity
 - **Objective**: Complete bounded User schema drift investigation for commit 7de319a, resolve missing persistence fields, and establish a verified runtime baseline.
