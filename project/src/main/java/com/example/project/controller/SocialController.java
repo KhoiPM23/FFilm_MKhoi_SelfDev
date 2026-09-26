@@ -53,9 +53,7 @@ public class SocialController {
     @GetMapping("/profile/{userId}")
 
     public String userProfile(@PathVariable Integer userId, Model model, HttpSession session) {
-
-        UserSessionDto currentUser = (UserSessionDto) session.getAttribute("user");
-
+        UserSessionDto currentUser = getUserSession(session);
         Integer viewerId = (currentUser != null) ? currentUser.getId() : null;
 
 
@@ -187,53 +185,53 @@ public class SocialController {
 
 
     @PostMapping("/api/notifications/read-all")
-
     @ResponseBody
-
     public ResponseEntity<?> markAllRead(HttpSession session) {
-
-        UserSessionDto currentUser = (getUserSession(session));
-
+        UserSessionDto currentUser = getUserSession(session);
         if (currentUser != null) {
-
             notificationService.markAllAsRead(currentUser.getId());
-
         }
-
         return ResponseEntity.ok("OK");
-
     }
 
+    @PostMapping("/api/notifications/read/{id}")
+    @ResponseBody
+    public ResponseEntity<?> markNotificationRead(@PathVariable Long id, HttpSession session) {
+        UserSessionDto currentUser = getUserSession(session);
+        if (currentUser == null) return ResponseEntity.status(401).body("Unauthorized");
+        boolean success = notificationService.markAsRead(id, currentUser.getId());
+        if (!success) {
+            return ResponseEntity.status(403).body("Forbidden or not found");
+        }
+        return ResponseEntity.ok(Map.of("success", true, "id", id));
+    }
 
-
-    // Helper lấy session an toàn
-
+    // Helper lấy session an toàn với fallback mọi role
     private UserSessionDto getUserSession(HttpSession session) {
-
-        return (UserSessionDto) session.getAttribute("user");
-
+        if (session == null) return null;
+        if (session.getAttribute("user") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("user");
+        }
+        if (session.getAttribute("admin") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("admin");
+        }
+        if (session.getAttribute("moderator") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("moderator");
+        }
+        if (session.getAttribute("contentManager") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("contentManager");
+        }
+        return null;
     }
-
-
 
     // [NEW] API Hủy kết bạn
-
     @PostMapping("/unfriend/{targetId}")
-
     @ResponseBody
-
     public ResponseEntity<?> unfriendUser(@PathVariable Integer targetId, HttpSession session) {
-
-        UserSessionDto currentUser = (UserSessionDto) session.getAttribute("user");
-
+        UserSessionDto currentUser = getUserSession(session);
         if (currentUser == null) return ResponseEntity.status(401).body("Unauthorized");
 
-
-
         socialService.unfriendUser(currentUser.getId(), targetId);
-
         return ResponseEntity.ok("Unfriended");
-
     }
-
 }

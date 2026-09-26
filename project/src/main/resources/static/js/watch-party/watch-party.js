@@ -983,3 +983,109 @@ function sendReactionInRoom(emoji) {
         content: emoji
     }));
 }
+
+// --- INVITE FRIENDS SYSTEM ---
+var cachedFriendsForInvite = [];
+
+function openInviteFriendsModal() {
+    var modal = document.getElementById('inviteFriendsModal');
+    if (modal) modal.style.display = 'block';
+    
+    var searchInput = document.getElementById('inviteSearchInput');
+    if (searchInput) searchInput.value = '';
+
+    loadFriendsForInvite();
+}
+
+function closeInviteFriendsModal() {
+    var modal = document.getElementById('inviteFriendsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function loadFriendsForInvite() {
+    var container = document.getElementById('inviteFriendsList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Đang tải danh sách...</div>';
+
+    fetch('/api/party/' + roomId + '/friends')
+        .then(function(res) {
+            if (!res.ok) throw new Error('Không thể tải danh sách bạn bè');
+            return res.json();
+        })
+        .then(function(friends) {
+            cachedFriendsForInvite = friends || [];
+            renderInviteFriendsList(cachedFriendsForInvite);
+        })
+        .catch(function(err) {
+            console.error('Error fetching friends:', err);
+            container.innerHTML = '<div class="text-center text-danger py-4">Lỗi khi tải danh sách bạn bè</div>';
+        });
+}
+
+function renderInviteFriendsList(friends) {
+    var container = document.getElementById('inviteFriendsList');
+    if (!container) return;
+
+    if (!friends || friends.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">Không tìm thấy bạn bè nào để mời.</div>';
+        return;
+    }
+
+    var html = friends.map(function(f) {
+        var actionBtn = f.inRoom 
+            ? '<span style="font-size:0.8rem; color:#888; background:#222; padding:4px 10px; border-radius:12px;">Đang ở trong phòng</span>'
+            : '<button class="btn btn-sm btn-danger" style="background:#e50914; border:none; border-radius:15px; padding:4px 12px; font-size:0.8rem; cursor:pointer;" onclick="inviteFriendToRoom(' + f.id + ', this)"><i class="fas fa-paper-plane me-1"></i> Mời</button>';
+
+        return '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#202020; border-radius:8px; border:1px solid #333;">' +
+            '<div style="display:flex; align-items:center; gap:10px;">' +
+                '<img src="' + (f.avatar || '/images/placeholder-user.jpg') + '" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">' +
+                '<div style="font-weight:600; color:#fff; font-size:0.9rem;">' + f.name + '</div>' +
+            '</div>' +
+            '<div>' + actionBtn + '</div>' +
+        '</div>';
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+function filterFriendsToInvite() {
+    var searchEl = document.getElementById('inviteSearchInput');
+    var query = (searchEl ? searchEl.value : '').trim().toLowerCase();
+    if (!query) {
+        renderInviteFriendsList(cachedFriendsForInvite);
+        return;
+    }
+    var filtered = cachedFriendsForInvite.filter(function(f) {
+        return (f.name || '').toLowerCase().includes(query);
+    });
+    renderInviteFriendsList(filtered);
+}
+
+function inviteFriendToRoom(friendId, btnEl) {
+    if (!friendId || !btnEl) return;
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch('/api/party/' + roomId + '/invite?friendId=' + friendId, {
+        method: 'POST'
+    })
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            btnEl.innerHTML = '<i class="fas fa-check me-1"></i> Đã gửi';
+            btnEl.style.background = '#28a745';
+        } else {
+            btnEl.disabled = false;
+            btnEl.innerHTML = 'Thử lại';
+            alert(data.error || 'Không thể gửi lời mời');
+        }
+    })
+    .catch(function(err) {
+        console.error('Error sending invite:', err);
+        btnEl.disabled = false;
+        btnEl.innerHTML = 'Thử lại';
+    });
+}

@@ -70,10 +70,17 @@ public class NotificationService {
                 .build();
 
         messagingTemplate.convertAndSendToUser(
-            recipient.getUserName(), 
+            String.valueOf(recipient.getUserID()), 
             "/queue/notifications", 
             dto
         );
+        if (recipient.getUserName() != null && !recipient.getUserName().equals(String.valueOf(recipient.getUserID()))) {
+            messagingTemplate.convertAndSendToUser(
+                recipient.getUserName(), 
+                "/queue/notifications", 
+                dto
+            );
+        }
     }
 
     // --- LOGIC LẤY DANH SÁCH (CHO API) ---
@@ -90,15 +97,23 @@ public class NotificationService {
     }
 
     public void markAllAsRead(Integer userId) {
+        if (userId == null) return;
         User user = new User(); 
-        user.setUserID(userId); // Entity User dùng userID
-        // Lưu ý: Check kỹ tên method trong Repo, có thể là findByUser hoặc findByRecipient
-        List<Notification> list = notificationRepository.findByRecipientOrderByTimestampDesc(user); 
-        
-        for (Notification n : list) {
-            n.setRead(true);
+        user.setUserID(userId);
+        notificationRepository.markAllAsReadByRecipient(user);
+    }
+
+    public boolean markAsRead(Long notiId, Integer userId) {
+        if (notiId == null || userId == null) return false;
+        Notification noti = notificationRepository.findById(notiId).orElse(null);
+        if (noti == null) return false;
+        // Zero-IDOR check: verify recipient matches session user
+        if (noti.getRecipient() == null || !userId.equals(noti.getRecipient().getUserID())) {
+            return false;
         }
-        notificationRepository.saveAll(list); // [QUAN TRỌNG] Lưu xuống DB
+        noti.setRead(true);
+        notificationRepository.save(noti);
+        return true;
     }
 
     // --- HELPER: CONVERT DTO & TIME AGO ---

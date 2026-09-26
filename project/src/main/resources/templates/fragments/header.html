@@ -783,13 +783,19 @@
                     const avatarUrl = n.senderAvatar || '/images/placeholder-user.jpg';
                     const timeDisplay = n.timeAgo || 'Vừa xong';
 
-                    // Nút kết bạn (chỉ hiện khi type FRIEND_REQUEST và chưa đọc)
+                    // Nút kết bạn (chỉ hiện khi type FRIEND_REQUEST và chưa đọc) hoặc lời mời xem chung
                     let actionButtons = '';
                     if (n.type === 'FRIEND_REQUEST' && !n.read) {
                         actionButtons = `
                             <div class="noti-actions" id="action-group-${n.id}">
                                 <button class="btn-noti-action btn-accept" onclick="handleFriendAction(event, ${n.senderId}, 'accept', ${n.id})">Chấp nhận</button>
                                 <button class="btn-noti-action btn-deny" onclick="handleFriendAction(event, ${n.senderId}, 'deny', ${n.id})">Xóa</button>
+                            </div>
+                        `;
+                    } else if (n.type === 'PARTY_INVITE' && !n.read) {
+                        actionButtons = `
+                            <div class="noti-actions" id="action-group-${n.id}">
+                                <button class="btn-noti-action btn-accept" onclick="event.stopPropagation(); markOneRead(${n.id}, '${n.link}', true)">Tham gia ngay</button>
                             </div>
                         `;
                     }
@@ -823,9 +829,7 @@
                 updateBadgeUI();
 
                 // 4. Gọi API báo server đã đọc (quan trọng để F5 vẫn nhớ)
-                // Giả sử bạn chưa có API mark-one, có thể dùng mark-all hoặc tạo thêm.
-                // Ở đây tạm thời ta chỉ update UI. Nếu có API: 
-                // fetch('/social/api/notifications/read/' + id, {method: 'POST'});
+                fetch('/social/api/notifications/read/' + id, { method: 'POST', keepalive: true }).catch(() => {});
 
                 // 5. Chuyển trang
                 if (shouldRedirect && link && link !== 'null' && link !== '#') {

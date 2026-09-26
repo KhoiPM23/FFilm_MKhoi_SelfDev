@@ -26,10 +26,26 @@ public class WatchPartyController {
 
     @Autowired private WatchPartyService partyService;
     @Autowired private SimpMessagingTemplate messagingTemplate;
+    @Autowired private com.example.project.service.NotificationService notificationService;
+    @Autowired private com.example.project.repository.FriendRequestRepository friendRequestRepository;
+    @Autowired private com.example.project.repository.UserRepository userRepository;
 
-    // --- HELPER: Lấy User từ Session ---
+    // --- HELPER: Lấy User từ Session với fallback mọi role ---
     private UserSessionDto getUserFromSession(HttpSession session) {
-        return (UserSessionDto) session.getAttribute("user");
+        if (session == null) return null;
+        if (session.getAttribute("user") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("user");
+        }
+        if (session.getAttribute("admin") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("admin");
+        }
+        if (session.getAttribute("moderator") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("moderator");
+        }
+        if (session.getAttribute("contentManager") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("contentManager");
+        }
+        return null;
     }
 
     // --- VIEW HANDLERS ---
@@ -164,6 +180,84 @@ public class WatchPartyController {
         
         partyService.closeRoom(runtimeId);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @GetMapping("/api/party/{roomId}/friends")
+    @ResponseBody
+    public ResponseEntity<?> getFriendsForInvite(@PathVariable Long roomId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+
+        WatchRoom dbRoom = partyService.getRoomInfo(roomId);
+        if (dbRoom == null) return ResponseEntity.status(404).body(Map.of("error", "Room not found"));
+
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(String.valueOf(roomId));
+        java.util.Set<Integer> currentMemberUserIds = new java.util.HashSet<>();
+        if (runtime != null && runtime.getMembers() != null) {
+            for (RoomMember m : runtime.getMembers().values()) {
+                if (m.getUserId() != null) {
+                    currentMemberUserIds.add(m.getUserId());
+                }
+            }
+        }
+
+        List<com.example.project.model.FriendRequest> acceptedFriends = friendRequestRepository.findAllAcceptedByUserId(user.getId());
+        List<Map<String, Object>> friendsList = new java.util.ArrayList<>();
+
+        for (com.example.project.model.FriendRequest fr : acceptedFriends) {
+            com.example.project.model.User friend = (fr.getSender().getUserID() == user.getId()) 
+                    ? fr.getReceiver() 
+                    : fr.getSender();
+            
+            if (friend == null) continue;
+
+            Map<String, Object> friendMap = new HashMap<>();
+            friendMap.put("id", friend.getUserID());
+            friendMap.put("name", friend.getUserName());
+            
+            String safeAvatar = "/images/placeholder-user.jpg";
+            try {
+                String safeName = java.net.URLEncoder.encode(friend.getUserName(), java.nio.charset.StandardCharsets.UTF_8);
+                safeAvatar = "https://ui-avatars.com/api/?name=" + safeName + "&background=random&color=fff";
+            } catch (Exception ignored) {}
+            friendMap.put("avatar", safeAvatar);
+            friendMap.put("inRoom", currentMemberUserIds.contains(friend.getUserID()));
+            
+            friendsList.add(friendMap);
+        }
+
+        return ResponseEntity.ok(friendsList);
+    }
+
+    @PostMapping("/api/party/{roomId}/invite")
+    @ResponseBody
+    public ResponseEntity<?> inviteFriendToParty(@PathVariable Long roomId, 
+                                                 @RequestParam("friendId") Integer friendId, 
+                                                 HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+
+        WatchRoom dbRoom = partyService.getRoomInfo(roomId);
+        if (dbRoom == null) return ResponseEntity.status(404).body(Map.of("error", "Room not found"));
+
+        com.example.project.model.User senderUser = userRepository.findById(user.getId()).orElse(null);
+        if (senderUser == null) return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+
+        com.example.project.model.User recipient = userRepository.findById(friendId).orElse(null);
+        if (recipient == null) return ResponseEntity.status(404).body(Map.of("error", "Friend not found"));
+
+        String inviteContent = user.getUserName() + " đã mời bạn cùng xem phim trong phòng: " + dbRoom.getName();
+        String roomLink = "/watch-party/room/" + roomId;
+
+        notificationService.createNotification(
+            friendId, 
+            inviteContent, 
+            "PARTY_INVITE", 
+            roomLink, 
+            senderUser
+        );
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Đã gửi lời mời xem chung!"));
     }
 
     // --- WEBSOCKET HANDLERS ---
