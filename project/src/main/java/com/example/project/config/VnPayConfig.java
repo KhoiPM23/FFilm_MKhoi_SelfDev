@@ -42,7 +42,7 @@ public class VnPayConfig {
                 sb.append("=");
                 try {
                     // QUAN TRỌNG: Phải URL Encode giá trị trước khi hash
-                    sb.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                    sb.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
                 } catch (UnsupportedEncodingException e) {
                     log.error("Failed to URL encode field value for VNPay hashing", e);
                 }

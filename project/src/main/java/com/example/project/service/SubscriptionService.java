@@ -105,7 +105,11 @@ public class SubscriptionService {
         }
 
         Date startDate = new Date();
-        Date endDate = sub.getEndDate();
+        
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(startDate);
+        cal.add(Calendar.DAY_OF_MONTH, sub.getPlan().getDuration());
+        Date endDate = cal.getTime();
 
         // Cập nhật thông tin
         sub.setStartDate(startDate);

@@ -48,7 +48,7 @@ public class PaymentController {
     @GetMapping("/confirm/{subId}")
     public String showConfirmPage(
             @PathVariable Integer subId,
-            @SessionAttribute("user") UserSessionDto userDto,
+            @SessionAttribute(name = "user", required = false) UserSessionDto userDto,
             Model model,
             RedirectAttributes redirectAttributes) {
 
@@ -82,7 +82,7 @@ public class PaymentController {
     @GetMapping("/create-link/{subId}")
     public String createPaymentLink(
             @PathVariable Integer subId,
-            @SessionAttribute("user") UserSessionDto userDto,
+            @SessionAttribute(name = "user", required = false) UserSessionDto userDto,
             HttpServletRequest request, 
             RedirectAttributes redirectAttributes) {
 
@@ -185,7 +185,7 @@ public class PaymentController {
     @GetMapping("/simulate/{subId}")
     public String simulatePayment(
             @PathVariable Integer subId,
-            @SessionAttribute("user") UserSessionDto userDto,
+            @SessionAttribute(name = "user", required = false) UserSessionDto userDto,
             Model model,
             RedirectAttributes redirectAttributes) {
 
@@ -222,13 +222,14 @@ public class PaymentController {
 
             return "service/payment-success";
         } catch (Exception e) {
+            log.error("Lỗi kích hoạt trong simulatePayment", e);
             redirectAttributes.addFlashAttribute("error", "Lỗi kích hoạt: " + e.getMessage());
             return "redirect:/payment/confirm/" + subId;
         }
     }
 
     @GetMapping("/history")
-    public String showBillingHistory(@SessionAttribute("user") UserSessionDto userDto, Model model) {
+    public String showBillingHistory(@SessionAttribute(name = "user", required = false) UserSessionDto userDto, Model model) {
         if (userDto == null) return "redirect:/login";
 
         model.addAttribute("payments", billingService.getPaymentHistory(userDto.getId()));
