@@ -25,15 +25,12 @@ public class WebConfig implements WebMvcConfigurer {
         // Static resources
         registry.addResourceHandler("/**").addResourceLocations("classpath:/static/");
 
-        // [FIX CHUẨN] Dùng đường dẫn tuyệt đối từ thư mục gốc dự án
-        // user.dir trỏ đến folder chứa pom.xml
-        String projectPath = System.getProperty("user.dir");
-        
-        // Thêm "file:///" cho Windows hoặc "file:" cho Linux/Mac
-        String uploadPath = "file:///" + projectPath + "/uploads/"; 
+        // Dùng URI chuẩn tuyệt đối từ thư mục gốc
+        java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads").toAbsolutePath().normalize();
+        String uploadPath = uploadDir.toUri().toString();
         
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(uploadPath);
+                .addResourceLocations(uploadPath.endsWith("/") ? uploadPath : uploadPath + "/");
     }
 
     // // Helper để map thư mục ngoài vào URL

@@ -33,6 +33,7 @@ public class MessengerDto {
         private String statusClass;  // Class CSS: "unread" hoặc ""
 
         private boolean friend;
+        private String relationStatus; // FRIEND, PENDING_SENT, PENDING_RECEIVED, STRANGER
 
         private String lastActive;
     

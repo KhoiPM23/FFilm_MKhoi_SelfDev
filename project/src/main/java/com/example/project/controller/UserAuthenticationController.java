@@ -275,6 +275,15 @@ public class UserAuthenticationController {
         return "User/profile";
     }
 
+    @GetMapping("/profile/{userId}")
+    public String showOtherUserProfile(@PathVariable Integer userId, HttpSession session) {
+        UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+        if (userSession != null && userSession.getId() == userId) {
+            return "redirect:/profile";
+        }
+        return "redirect:/social/profile/" + userId;
+    }
+
     // --- 7. Xử lý Chỉnh sửa Profile ---
     /**
      * ĐÃ SỬA LỖI:

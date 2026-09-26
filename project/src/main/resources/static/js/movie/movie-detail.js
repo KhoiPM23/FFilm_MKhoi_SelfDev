@@ -84,6 +84,14 @@ async function loadAsyncCarousels() {
  * Đã cập nhật logic hiển thị Link Studio Detail.
  */
 async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, nextBtnId, sectionId, titleId) {
+    const container = document.getElementById(targetId);
+    if (sectionId) document.getElementById(sectionId).style.display = 'block';
+    if (container && renderType === 'card' && container.children.length === 0) {
+        container.innerHTML = Array(6).fill(0).map(() => `
+            <div class="movie-card" style="min-width: 200px; height: 300px; border-radius: 12px; background: rgba(255,255,255,0.05); animation: shimmer 1.5s infinite; flex-shrink: 0; margin-right: 15px;"></div>
+        `).join('');
+    }
+
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`API ${apiUrl} failed`);
@@ -237,7 +245,7 @@ function renderMovieCard(movie) {
     const playerId = `hover-player-async-${movie.id}`;
 
     return `
-        <div class="movie-card" data-movie-id="${movie.id}">
+        <div class="movie-card" data-movie-id="${movie.id}" onclick="window.location.href='/movie/detail/${movie.id}'" style="cursor: pointer;">
             <div class="movie-poster" style="position: relative;">
                 <img src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'" loading="lazy">
                 ${roleHtml} 
@@ -318,3 +326,23 @@ window.toggleFPTDescription = function() {
     btn.classList.toggle('expanded');
     btn.querySelector('span').textContent = btn.classList.contains('expanded') ? 'Ẩn bớt' : 'Xem thêm';
 }
+
+function displayHeroExtras() {
+    const heroBanner = document.getElementById('heroBanner');
+    if (!heroBanner) return;
+    const heroLogo = document.getElementById('heroLogo');
+    const heroTitleText = document.getElementById('heroTitleText');
+
+    const logoPath = heroBanner.dataset.logoPath;
+    if (logoPath && logoPath !== 'null' && logoPath !== '') {
+        if (heroLogo) {
+            heroLogo.src = `https://image.tmdb.org/t/p/w500${logoPath}`;
+            heroLogo.style.display = 'block';
+        }
+        if (heroTitleText) heroTitleText.style.display = 'none';
+    } else {
+        if (heroLogo) heroLogo.style.display = 'none';
+        if (heroTitleText) heroTitleText.style.display = 'block';
+    }
+}
+window.displayHeroExtras = displayHeroExtras;

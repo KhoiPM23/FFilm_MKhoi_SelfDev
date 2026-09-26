@@ -105,19 +105,23 @@ public class WatchPartyController {
         String runtimeId = String.valueOf(roomId);
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(runtimeId);
         
-        // Nếu phòng chưa có trong RAM (do mới khởi động lại server), start lại nó
+        // Nếu phòng chưa có trong RAM (do mới khởi động lại server hoặc phòng DB), tự động kích hoạt
         if (runtime == null) {
-             // Tự động start nếu là chủ phòng, hoặc báo lỗi nếu là khách
-             if (dbRoom.getOwner().getUserID() == user.getId()) {
-                 // Mock object member để start
-                 com.example.project.dto.RoomMember hostMember = new com.example.project.dto.RoomMember(
-                     session.getId(), user.getId(), user.getUserName(), null, null, false, false
-                 );
-                 partyService.startRoom(runtimeId, hostMember);
-                 runtime = partyService.getRuntimeRoom(runtimeId);
-             } else {
-                 return "redirect:/watch-party?error=room_not_active";
-             }
+            com.example.project.model.User owner = dbRoom.getOwner();
+            boolean isCurrentUserOwner = (owner != null && owner.getUserID() == user.getId());
+            com.example.project.dto.RoomMember hostMember = new com.example.project.dto.RoomMember(
+                isCurrentUserOwner ? session.getId() : "host_offline_" + (owner != null ? owner.getUserID() : 0),
+                owner != null ? owner.getUserID() : user.getId(),
+                owner != null ? owner.getUserName() : user.getUserName(),
+                null, null, false, false
+            );
+            partyService.startRoom(runtimeId, hostMember);
+            runtime = partyService.getRuntimeRoom(runtimeId);
+            if (!isCurrentUserOwner && user != null && user.getId() > 0) {
+                if ("PUBLIC".equalsIgnoreCase(dbRoom.getAccessType())) {
+                    runtime.getApprovedUserIds().add(user.getId());
+                }
+            }
         } else if (runtime.getHostUserId() == null && dbRoom.getOwner().getUserID() == user.getId()) {
              runtime.setHostUserId(user.getId());
              runtime.setHostName(user.getUserName());
@@ -300,6 +304,14 @@ public class WatchPartyController {
             joinMsg.put("sessionId", httpSessionId);
             joinMsg.put("userName", user.getUserName());
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", joinMsg);
+        }
+    }
+
+    @MessageMapping("/party/{roomId}/leave")
+    public void leaveRoomStomp(@DestinationVariable String roomId, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
+        String httpSessionId = (String) headerAccessor.getSessionAttributes().get("httpSessionId");
+        if (httpSessionId != null) {
+            partyService.handleDisconnect(httpSessionId);
         }
     }
 

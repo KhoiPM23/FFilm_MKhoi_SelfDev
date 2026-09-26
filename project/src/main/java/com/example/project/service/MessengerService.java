@@ -161,6 +161,7 @@ public class MessengerService {
                 dto.setRead(true);
                 dto.setLastMessageMine(false);
                 dto.setFriend(true);
+                dto.setRelationStatus("FRIEND");
                 
                 map.put(friend.getUserID(), dto);
             }
@@ -199,6 +200,19 @@ public class MessengerService {
 
         boolean isFriend = friendRequestRepository.isFriend(me.getUserID(), partner.getUserID());
         dto.setFriend(isFriend);
+        if (isFriend) {
+            dto.setRelationStatus("FRIEND");
+        } else {
+            var sent = friendRequestRepository.findBySenderAndReceiver(me, partner);
+            var received = friendRequestRepository.findBySenderAndReceiver(partner, me);
+            if (sent.isPresent() && sent.get().getStatus() == com.example.project.model.FriendRequest.Status.PENDING) {
+                dto.setRelationStatus("PENDING_SENT");
+            } else if (received.isPresent() && received.get().getStatus() == com.example.project.model.FriendRequest.Status.PENDING) {
+                dto.setRelationStatus("PENDING_RECEIVED");
+            } else {
+                dto.setRelationStatus("STRANGER");
+            }
+        }
         
         return dto;
     }
@@ -305,5 +319,18 @@ public class MessengerService {
     public List<MessengerDto.MessageDto> getSharedMedia(Integer currentUserId, Integer partnerId) {
         List<MessengerMessage> media = messengerRepository.findSharedMedia(currentUserId, partnerId);
         return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
+    }
+
+    // Reaction in-memory store
+    private final Map<Long, Map<String, Integer>> messageReactions = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public Map<String, Integer> addOrToggleReaction(Long messageId, Integer userId, String emoji) {
+        Map<String, Integer> reactions = messageReactions.computeIfAbsent(messageId, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        reactions.merge(emoji, 1, Integer::sum);
+        return new java.util.HashMap<>(reactions);
+    }
+
+    public Map<String, Integer> getReactions(Long messageId) {
+        return messageReactions.getOrDefault(messageId, java.util.Collections.emptyMap());
     }
 }

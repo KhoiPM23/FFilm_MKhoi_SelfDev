@@ -135,9 +135,12 @@
             </div>
         </div>
 
-        <div class="action-buttons">
-            <a th:href="@{'/payment/create-link/' + ${subId}}" class="btn-pay">
-                <i class="fas fa-credit-card"></i> Thanh Toán Ngay
+        <div class="action-buttons" style="flex-wrap: wrap;">
+            <a th:href="@{'/payment/simulate/' + ${subId}}" class="btn-pay" style="background: linear-gradient(135deg, #e50914 0%, #b80710 100%);">
+                <i class="fas fa-bolt"></i> Kích Hoạt Tức Thì (Thử Nghiệm)
+            </a>
+            <a th:href="@{'/payment/create-link/' + ${subId}}" class="btn-pay" style="background: linear-gradient(135deg, #0066cc 0%, #004499 100%);">
+                <i class="fas fa-credit-card"></i> Cổng VNPAY (Sandbox)
             </a>
             <a th:href="@{/subscriptionPlan}" class="btn-cancel">
                 <i class="fas fa-times"></i> Hủy & Chọn lại

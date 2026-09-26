@@ -235,6 +235,7 @@ public class MessengerMessage {
         FILE,
         SYSTEM,
         STICKER,
+        GIF,
         AUDIO,
         VIDEO,
         CALL_REQ,

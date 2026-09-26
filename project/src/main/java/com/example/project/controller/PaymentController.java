@@ -180,6 +180,53 @@ public class PaymentController {
             return "service/payment-cancel"; 
         }
     }
+
+    // [Direct / Simulated In-App Payment]
+    @GetMapping("/simulate/{subId}")
+    public String simulatePayment(
+            @PathVariable Integer subId,
+            @SessionAttribute("user") UserSessionDto userDto,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+
+        if (userDto == null) return "redirect:/login";
+
+        try {
+            Subscription sub = subscriptionService.getSubscriptionById(subId);
+            if (sub.getUser().getUserID() != userDto.getId()) {
+                throw new RuntimeException("Gói đăng ký không thuộc về tài khoản này.");
+            }
+            if (sub.isStatus()) {
+                redirectAttributes.addFlashAttribute("message", "Gói này đã được kích hoạt trước đó.");
+                return "redirect:/";
+            }
+
+            // Kích hoạt gói đăng ký
+            subscriptionService.activateSubscription(subId);
+
+            // Lưu lịch sử thanh toán
+            Payment payment = new Payment();
+            payment.setAmount(sub.getPlan().getPrice().doubleValue());
+            payment.setMethod("DIRECT_TEST");
+            payment.setStatus("SUCCESS");
+            payment.setPaymentDate(new Date());
+            payment.setSubscription(sub);
+            payment.setUser(sub.getUser());
+            billingService.savePayment(payment);
+
+            model.addAttribute("orderCode", "SIM_" + subId + "_" + (System.currentTimeMillis() % 100000));
+            model.addAttribute("planName", sub.getPlan().getPlanName());
+            model.addAttribute("transactionId", "TXN_SIM_" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            model.addAttribute("totalPrice", sub.getPlan().getPrice().longValue());
+            model.addAttribute("paymentTime", new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+
+            return "service/payment-success";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi kích hoạt: " + e.getMessage());
+            return "redirect:/payment/confirm/" + subId;
+        }
+    }
+
     @GetMapping("/history")
     public String showBillingHistory(@SessionAttribute("user") UserSessionDto userDto, Model model) {
         if (userDto == null) return "redirect:/login";

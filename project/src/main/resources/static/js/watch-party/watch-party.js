@@ -20,15 +20,25 @@ var roomMembers = {};
 var currentWaitingUsers = [];
 
 // --- PEERJS CONFIG (VIDEO CALL) ---
-var myPeer = new Peer(undefined, {
-    host: 'peerjs-server.herokuapp.com',
-    secure: true,
-    port: 443
-});
+var myPeer = null;
+try {
+    if (typeof Peer !== 'undefined') {
+        myPeer = new Peer(undefined, {
+            host: '0.peerjs.com',
+            secure: true,
+            port: 443,
+            path: '/'
+        });
 
-myPeer.on('error', function(err) {
-    console.warn("PeerJS non-fatal error:", err.type || err);
-});
+        myPeer.on('error', function(err) {
+            console.warn("PeerJS non-fatal error:", err.type || err);
+        });
+    } else {
+        console.warn("PeerJS library is not available.");
+    }
+} catch (e) {
+    console.warn("PeerJS initialization error:", e);
+}
 
 var myStream;
 var peers = {}; // Danh sách kết nối
@@ -182,35 +192,37 @@ function initFullFeatures() {
 var sessionToPeerId = {}; // Map sessionId -> peerId
 
 // --- WEBSOCKET & PEERJS LINK ---
-myPeer.on('open', id => {
-    console.log("My PeerJS ID is: " + id);
-    if (stompClient && stompClient.connected) {
-        stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
-    } else {
-        var checkStomp = setInterval(() => {
-            if (stompClient && stompClient.connected) {
-                stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
-                clearInterval(checkStomp);
-            }
-        }, 500);
-    }
-});
+if (myPeer) {
+    myPeer.on('open', id => {
+        console.log("My PeerJS ID is: " + id);
+        if (stompClient && stompClient.connected) {
+            stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
+        } else {
+            var checkStomp = setInterval(() => {
+                if (stompClient && stompClient.connected) {
+                    stompClient.send("/app/party/" + roomId + "/webrtc/register", {}, JSON.stringify({peerId: id}));
+                    clearInterval(checkStomp);
+                }
+            }, 500);
+        }
+    });
 
-// Nhận cuộc gọi
-myPeer.on('call', call => {
-    if (!myStream) {
-        navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
-            myStream = stream;
+    // Nhận cuộc gọi
+    myPeer.on('call', call => {
+        if (!myStream) {
+            navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
+                myStream = stream;
+                answerCall(call);
+            }).catch(err => {
+                console.error("Could not get media for answering call", err);
+                call.answer();
+                handleIncomingStream(call);
+            });
+        } else {
             answerCall(call);
-        }).catch(err => {
-            console.error("Could not get media for answering call", err);
-            call.answer();
-            handleIncomingStream(call);
-        });
-    } else {
-        answerCall(call);
-    }
-});
+        }
+    });
+}
 
 function answerCall(call) {
     call.answer(myStream);
@@ -230,17 +242,21 @@ function handleIncomingStream(call) {
 }
 
 function connectToNewUser(userId, stream) {
-    if (peers[userId]) return;
-    const call = myPeer.call(userId, stream);
-    const video = document.createElement('video');
-    video.id = 'video-' + userId;
-    call.on('stream', userVideoStream => {
-        addVideoStream(video, userVideoStream);
-    });
-    call.on('close', () => {
-        if (video.parentNode) video.parentNode.remove();
-    });
-    peers[userId] = call;
+    if (!myPeer || peers[userId]) return;
+    try {
+        const call = myPeer.call(userId, stream);
+        const video = document.createElement('video');
+        video.id = 'video-' + userId;
+        call.on('stream', userVideoStream => {
+            addVideoStream(video, userVideoStream);
+        });
+        call.on('close', () => {
+            if (video.parentNode) video.parentNode.remove();
+        });
+        peers[userId] = call;
+    } catch(e) {
+        console.warn("Failed to connect to peer:", userId, e);
+    }
 }
 
 function addVideoStream(video, stream) {
@@ -554,13 +570,108 @@ function sendReaction(emoji) {
 
 function showFloatingEmoji(emoji) {
     var container = document.getElementById('emojiContainer');
-    var el = document.createElement('div');
-    el.className = 'fly-emoji';
-    el.innerText = emoji;
-    el.style.right = Math.random() * 80 + 'px';
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+    if (!container) return;
+
+    // Spawn 4-6 particle bursts with physics
+    const count = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+            var el = document.createElement('div');
+            el.className = 'fly-emoji';
+            el.innerText = emoji;
+
+            const randomRight = 20 + Math.random() * 120;
+            const randomSize = 1.8 + Math.random() * 1.4; // 1.8rem - 3.2rem
+            const randomDuration = 1.8 + Math.random() * 0.9; // 1.8s - 2.7s
+            const randomXDrift = (Math.random() - 0.5) * 80;
+            const randomRotate = (Math.random() - 0.5) * 40;
+
+            el.style.right = randomRight + 'px';
+            el.style.fontSize = randomSize + 'rem';
+            el.style.setProperty('--x-drift', randomXDrift + 'px');
+            el.style.setProperty('--rotation', randomRotate + 'deg');
+            el.style.animationDuration = randomDuration + 's';
+
+            container.appendChild(el);
+            setTimeout(() => el.remove(), randomDuration * 1000 + 100);
+        }, i * 65);
+    }
 }
+
+window.toggleRoomEmojiPicker = function(event) {
+    event.stopPropagation();
+    const existing = document.getElementById('roomEmojiPickerPopup');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    const popup = document.createElement('div');
+    popup.id = 'roomEmojiPickerPopup';
+    popup.style.cssText = `
+        position: absolute;
+        bottom: 75px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 6px;
+        z-index: 100;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        animation: fadeIn 0.2s ease;
+    `;
+
+    const extraEmojis = [
+        '🥰', '😍', '🤩', '🥺', '😡', '🤔', '😴', '🤡',
+        '🥳', '🙏', '✨', '👀', '💀', '🤮', '🤝', '🚀',
+        '💖', '💔', '⚡', '🌟', '💪', '🎯', '👌', '🤗'
+    ];
+
+    extraEmojis.forEach(em => {
+        const btn = document.createElement('button');
+        btn.innerText = em;
+        btn.style.cssText = `
+            background: transparent; border: none; font-size: 1.5rem;
+            cursor: pointer; padding: 4px; border-radius: 8px;
+            transition: transform 0.15s;
+        `;
+        btn.onmouseenter = () => btn.style.transform = 'scale(1.3)';
+        btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+        btn.onclick = () => {
+            sendReaction(em);
+            popup.remove();
+        };
+        popup.appendChild(btn);
+    });
+
+    document.body.appendChild(popup);
+
+    setTimeout(() => {
+        const closeHandler = (e) => {
+            if (!popup.contains(e.target) && !e.target.closest('.btn-more-reaction')) {
+                popup.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        document.addEventListener('click', closeHandler);
+    }, 50);
+};
+
+window.leaveRoom = function() {
+    if (confirm("Bạn có chắc chắn muốn rời khỏi phòng chiếu?")) {
+        try {
+            if (stompClient && stompClient.connected) {
+                stompClient.send("/app/party/" + roomId + "/leave", {}, JSON.stringify({sessionId: sessionId}));
+            }
+        } catch(e) {}
+        window.location.href = '/watch-party';
+    }
+};
 
 // VIDEO PLAYER & SYNCHRONIZATION
 var video = document.getElementById('partyPlayer');
@@ -717,17 +828,32 @@ function renderMembersList() {
         var avatarChar = safeName.charAt(0).toUpperCase();
         var isMemberHost = m.isHost || (m.userId && m.userId == userId && isHost);
         
+        const profileUrl = m.userId ? `/social/profile/${m.userId}` : null;
+        const nameAndAvatarHtml = profileUrl ? `
+            <a href="${profileUrl}" target="_blank" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;" title="Xem trang cá nhân">
+                <div class="avatar" style="width:30px; height:30px; font-size:0.75rem; cursor:pointer;">${avatarChar}</div>
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; color:#fff; text-decoration:underline; text-decoration-color:transparent; transition:0.2s;" onmouseenter="this.style.textDecorationColor='#e50914'" onmouseleave="this.style.textDecorationColor='transparent'">
+                        ${safeName} ${isThisMe ? '<span style="font-size:0.75rem; color:#888;">(Bạn)</span>' : ''}
+                    </div>
+                    ${isMemberHost ? '<span style="font-size:0.75rem; color:#ffd700;"><i class="fas fa-crown"></i> Chủ phòng</span>' : '<span style="font-size:0.75rem; color:#888;">Thành viên</span>'}
+                </div>
+            </a>
+        ` : `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="avatar" style="width:30px; height:30px; font-size:0.75rem;">${avatarChar}</div>
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; color:#fff;">
+                        ${safeName} ${isThisMe ? '<span style="font-size:0.75rem; color:#888;">(Bạn)</span>' : ''}
+                    </div>
+                    ${isMemberHost ? '<span style="font-size:0.75rem; color:#ffd700;"><i class="fas fa-crown"></i> Chủ phòng</span>' : '<span style="font-size:0.75rem; color:#888;">Thành viên</span>'}
+                </div>
+            </div>
+        `;
+
         html += `
             <div style="display:flex; justify-content:space-between; align-items:center; background:#1c1c1c; padding:8px 12px; border-radius:8px; border:1px solid #2a2a2a;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <div class="avatar" style="width:30px; height:30px; font-size:0.75rem;">${avatarChar}</div>
-                    <div>
-                        <div style="font-weight:600; font-size:0.9rem; color:#fff;">
-                            ${safeName} ${isThisMe ? '<span style="font-size:0.75rem; color:#888;">(Bạn)</span>' : ''}
-                        </div>
-                        ${isMemberHost ? '<span style="font-size:0.75rem; color:#ffd700;"><i class="fas fa-crown"></i> Chủ phòng</span>' : '<span style="font-size:0.75rem; color:#888;">Thành viên</span>'}
-                    </div>
-                </div>
+                ${nameAndAvatarHtml}
                 ${(isHost && !isThisMe) ? `
                     <button onclick="kickUser('${escapeHtml(m.sessionId)}')" style="background:rgba(229,9,20,0.15); border:1px solid #e50914; color:#ff4d5a; padding:4px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Mời ra khỏi phòng">
                         <i class="fas fa-user-times"></i> Kick
@@ -880,6 +1006,14 @@ window.addEventListener('beforeunload', function() {
     Object.values(peers).forEach(call => {
         try { call.close(); } catch(e){}
     });
+    if (myPeer) {
+        try { myPeer.destroy(); } catch(e){}
+    }
+    try {
+        if (stompClient && stompClient.connected) {
+            stompClient.send("/app/party/" + roomId + "/leave", {}, JSON.stringify({sessionId: sessionId}));
+        }
+    } catch(e){}
 });
 // [THAY THẾ] Hàm debounceRoomSearch và performRoomSearch cũ bằng logic mới này
 

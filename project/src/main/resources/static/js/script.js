@@ -113,11 +113,6 @@
   function onPlayerReady(event) {
     event.target.playVideo();
     if (videoContainer) videoContainer.style.pointerEvents = "auto";
-
-    setTimeout(() => {
-      if (videoContainer) videoContainer.style.opacity = "1";
-      if (heroBanner) heroBanner.setAttribute("data-video-active", "true");
-    }, 1000);
     setupVolumeControl();
   }
 
@@ -126,7 +121,10 @@
    * @param {object} event - Sự kiện YT Player State Change.
    */
   function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.ENDED) {
+    if (event.data === YT.PlayerState.PLAYING) {
+      if (videoContainer) videoContainer.style.opacity = "1";
+      if (heroBanner) heroBanner.setAttribute("data-video-active", "true");
+    } else if (event.data === YT.PlayerState.ENDED) {
       heroPlayer.seekTo(5, true);
     }
   }
@@ -231,7 +229,31 @@
 
       // 7. Cập nhật các nút
       if (heroPlayLink) heroPlayLink.href = `/movie/detail/${newId}`;
-      if (heroLikeBtn) heroLikeBtn.setAttribute("data-movie-id", newId);
+      if (heroLikeBtn) {
+        heroLikeBtn.setAttribute("data-movie-id", newId);
+        heroLikeBtn.classList.remove("active");
+        const heartIcon = heroLikeBtn.querySelector("i");
+        if (heartIcon) {
+          heartIcon.className = "far fa-heart";
+          heartIcon.style.color = "";
+        }
+        fetch(`/favorites/api/check/${newId}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.isFavorite) {
+              heroLikeBtn.classList.add("active");
+              if (heartIcon) {
+                heartIcon.className = "fas fa-heart";
+                heartIcon.style.color = "#E50914";
+              }
+            }
+          })
+          .catch(() => {});
+      }
+      const volumeBtnEl = document.getElementById("volumeBtn");
+      if (volumeBtnEl) {
+        volumeBtnEl.innerHTML = '<i class="fas fa-volume-mute"></i>';
+      }
       if (heroShareBtn) {
         heroShareBtn.setAttribute("data-movie-id", newId);
         heroShareBtn.setAttribute("data-movie-title", movieData.title);
@@ -525,26 +547,41 @@
 
         slider.style.transform = `translateX(-${currentScroll}px)`;
 
-        prevBtn.disabled = currentScroll <= 0;
-        nextBtn.disabled = currentScroll >= maxScroll;
-
-        prevBtn.classList.toggle("disabled", prevBtn.disabled);
-        nextBtn.classList.toggle("disabled", nextBtn.disabled);
+        if (maxScroll <= 0) {
+          prevBtn.style.display = "none";
+          nextBtn.style.display = "none";
+        } else {
+          prevBtn.style.display = "block";
+          nextBtn.style.display = "block";
+          prevBtn.disabled = false;
+          nextBtn.disabled = false;
+          prevBtn.classList.remove("disabled");
+          nextBtn.classList.remove("disabled");
+        }
       }
 
       prevBtn.addEventListener("click", function () {
         const containerWidth = container.offsetWidth;
-        currentScroll = Math.max(0, currentScroll - containerWidth * 0.8);
+        const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
+        if (currentScroll <= 5) {
+          currentScroll = maxScroll; // Lướt về cuối danh sách
+        } else {
+          currentScroll = Math.max(0, currentScroll - containerWidth * 0.8);
+        }
         updateSliderState();
       });
 
       nextBtn.addEventListener("click", function () {
         const containerWidth = container.offsetWidth;
         const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
-        currentScroll = Math.min(
-          maxScroll,
-          currentScroll + containerWidth * 0.8
-        );
+        if (currentScroll >= maxScroll - 5) {
+          currentScroll = 0; // Vòng lặp vô hạn về đầu danh sách
+        } else {
+          currentScroll = Math.min(
+            maxScroll,
+            currentScroll + containerWidth * 0.8
+          );
+        }
         updateSliderState();
       });
 

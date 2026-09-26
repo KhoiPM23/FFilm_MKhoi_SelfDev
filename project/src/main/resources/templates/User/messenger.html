@@ -57,9 +57,37 @@
                         </div>
                     </div>
                     <div class="chat-actions">
+                        <i class="fas fa-search" title="Tìm kiếm trong đoạn chat" onclick="window.openChatSearch()"></i>
                         <i class="fas fa-phone-alt" title="Gọi thoại" onclick="window.startVoiceCall()"></i>
                         <i class="fas fa-video" title="Video Call" onclick="window.startVideoCall()"></i>
                         <i class="fas fa-info-circle" id="btnToggleInfo" title="Thông tin hội thoại" onclick="window.toggleChatInfo()"></i>
+                    </div>
+                </div>
+
+                <!-- Inline Chat Search (No Dimming) -->
+                <div id="inlineChatSearch" class="inline-chat-search" style="display: none;">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="inlineSearchInput" placeholder="Tìm kiếm trong cuộc trò chuyện..." oninput="window.handleInlineSearch(this.value)">
+                    <div class="search-nav-controls">
+                        <span class="search-nav-count" id="inlineSearchCounter">0/0</span>
+                        <button class="search-nav-btn" onclick="window.prevSearchResult()" title="Trước"><i class="fas fa-chevron-up"></i></button>
+                        <button class="search-nav-btn" onclick="window.nextSearchResult()" title="Tiếp"><i class="fas fa-chevron-down"></i></button>
+                        <button class="search-close-btn" onclick="window.closeInlineChatSearch()" title="Đóng"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <!-- Pinned Header Bar -->
+                <div id="pinnedHeaderBar" class="pinned-header-bar" style="display: none;" onclick="window.openPinnedMessagesModal()">
+                    <div class="pinned-header-left">
+                        <i class="fas fa-thumbtack"></i>
+                        <div class="pinned-text-wrapper">
+                            <span class="pinned-title">Đã ghim:</span>
+                            <span class="pinned-snippet" id="pinnedHeaderSnippet">Nội dung tin nhắn đã ghim</span>
+                        </div>
+                    </div>
+                    <div class="pinned-header-right">
+                        <span class="pinned-count-badge" id="pinnedHeaderCount">0</span>
+                        <i class="fas fa-chevron-right"></i>
                     </div>
                 </div>
 
@@ -71,7 +99,7 @@
                     </div>
                     <div class="stranger-actions">
                         <button class="btn-stranger-add" onclick="window.sendFriendRequest()">Kết bạn</button>
-                        <button class="btn-stranger-block" onclick="alert('Tính năng chặn đang phát triển')">Chặn</button>
+                        <button class="btn-stranger-block" onclick="window.blockUser()">Chặn</button>
                     </div>
                 </div>
 
@@ -158,7 +186,7 @@
                     <div id="stickerSuggestions" class="sticker-suggestions">
                         <div class="suggestions-header">
                             <span>Gợi ý stickers</span>
-                            <i class="fas fa-times close-suggestions" onclick="hideStickerSuggestions()"></i>
+                            <i class="fas fa-times close-suggestions" onclick="window.hideStickerSuggestions && window.hideStickerSuggestions()"></i>
                         </div>
                         <div id="suggestionsGrid" class="suggestions-grid"></div>
                     </div>
@@ -168,13 +196,13 @@
                 <div id="stickerMenu" class="sticker-menu">
                     <div class="sticker-header">
                         <div class="sticker-tabs">
-                            <button class="tab-btn active">Stickers</button>
-                            <button class="tab-btn">GIFs</button>
+                            <button class="tab-btn active" id="tabStickersBtn" onclick="window.switchStickerMainTab('stickers')">Stickers</button>
+                            <button class="tab-btn" id="tabGifsBtn" onclick="window.switchStickerMainTab('gifs')">GIFs</button>
                         </div>
                         <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
                     </div>
                     <div class="sticker-search">
-                        <input type="text" placeholder="Tìm kiếm stickers...">
+                        <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm stickers & GIFs..." oninput="window.searchStickersAndGifs(this.value)">
                         <i class="fas fa-search"></i>
                     </div>
                     <div class="sticker-grid" id="stickerGrid"></div>
@@ -253,10 +281,10 @@
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="accordion-content">
-                        <div class="info-action-btn text-warning">
-                            <i class="fas fa-bell-slash"></i> Tắt thông báo
+                        <div class="info-action-btn text-warning" onclick="window.toggleNotifications()">
+                            <i class="fas fa-bell-slash"></i> Bật/Tắt thông báo
                         </div>
-                        <div class="info-action-btn text-danger" onclick="alert('Chức năng chặn')">
+                        <div class="info-action-btn text-danger" onclick="window.blockUser()">
                             <i class="fas fa-ban"></i> Chặn
                         </div>
                     </div>

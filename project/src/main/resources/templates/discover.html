@@ -133,11 +133,10 @@
                     th:text="${banner.country}">
                     Quốc gia
                 </div>
+                <button class="description-toggle" id="descToggle" title="Mô tả phim">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
             </div>
-            
-            <button class="description-toggle" id="descToggle">
-                <i class="fas fa-chevron-down"></i>
-            </button>
             <p class="hero-description" id="heroDesc" th:text="${banner.overview}">Mô tả phim...</p>
             
             <div class="hero-actions">

@@ -65,6 +65,8 @@ class MovieRating {
 
         // Mouse leave: khôi phục về rating thực tế của user
         this.starsGroup.addEventListener('mouseleave', () => {
+            const stars = this.starsGroup.querySelectorAll('.star-item');
+            stars.forEach(s => s.classList.remove('hover'));
             this.renderStars(this.currentUserRating);
             if (this.statusEl) {
                 this.statusEl.textContent = this.currentUserRating ? this.labels[this.currentUserRating] || `${this.currentUserRating}/5 sao` : 'Chưa đánh giá';
@@ -84,6 +86,7 @@ class MovieRating {
         if (!this.starsGroup) return;
         const stars = this.starsGroup.querySelectorAll('.star-item');
         stars.forEach(star => {
+            star.classList.remove('hover');
             const val = parseInt(star.getAttribute('data-val'));
             if (rating && val <= rating) {
                 star.classList.add('active');

@@ -80,4 +80,33 @@ public class FileUploadController {
                 .body(Map.of("error", "Upload failed due to a server error."));
         }
     }
+
+    @PostMapping("/file")
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        try {
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+            String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String fileName = UUID.randomUUID().toString() + "-" + safeFilename;
+            Path filePath = uploadPath.resolve(fileName);
+
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+            String fileUrl = "/uploads/chat/" + encodedFileName;
+
+            return ResponseEntity.ok(Map.of(
+                "url", fileUrl,
+                "fileName", originalFilename,
+                "size", file.getSize()
+            ));
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", "Upload failed due to a server error."));
+        }
+    }
 }

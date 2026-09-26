@@ -1,29 +1,68 @@
 /**
- * messenger-stickers.js - Sticker, Tenor GIF, and Emoji Management
- * Modularized from messenger.js for maintainability and performance.
+ * messenger-stickers.js - Sticker and GIF Management
+ * Supporting Stickers, GIFs, instant search, and smooth scrolling.
  */
 (function() {
     'use strict';
 
-    let currentStickerCollection = 'popular';
-    let recentStickers = JSON.parse(localStorage.getItem('recentStickers') || '[]');
-    let suggestionTimeout = null;
+    let currentMainTab = 'stickers'; // 'stickers' or 'gifs'
     let searchTimeout = null;
-    let emojiPicker = null;
+    let tenorCache = {
+        stickers: [],
+        gifs: []
+    };
 
-    const STICKER_KEYWORDS = [
-        'cười', 'vui', 'buồn', 'khóc', 'yêu', 'tim', 'ok', 'like',
-        'cảm ơn', 'hoan hô', 'wink', 'dễ thương', 'ngon', 'ngầu',
-        'giận', 'tức', 'sợ', 'hoảng', 'ngượng', 'chó', 'mèo', 'cún',
-        'thỏ', 'cáo', 'gấu', 'heo', 'hổ', 'ngựa', 'hamburger', 'bánh',
-        'kem', 'kẹo', 'party', 'tiệc', 'quà', 'pháo hoa', 'noel',
-        'halloween', 'ý tưởng', 'bom', 'ngủ', 'mồ hôi', 'cơ bắp',
-        'khỏe', 'chóng mặt', 'nói', 'suy nghĩ', 'hôn', 'kim cương',
-        'hoa', 'chạy', 'bóng đá', 'bóng rổ', 'tennis', 'bơi', 'golf'
+    const BUILTIN_STICKERS = [
+        { id: 's1', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f600/512.gif', tags: ['cười', 'vui', 'smile', 'happy'] },
+        { id: 's2', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif', tags: ['cười', 'khóc', 'lol', 'laugh'] },
+        { id: 's3', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/512.gif', tags: ['yêu', 'tim', 'love', 'crush'] },
+        { id: 's4', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif', tags: ['thích', 'mê', 'heart', 'eyes'] },
+        { id: 's5', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.gif', tags: ['hôn', 'kiss', 'thương'] },
+        { id: 's6', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.gif', tags: ['sao', 'mắt', 'wow', 'star'] },
+        { id: 's7', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/512.gif', tags: ['tiệc', 'party', 'chúc mừng'] },
+        { id: 's8', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.gif', tags: ['ngầu', 'cool', 'kính râm'] },
+        { id: 's9', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/512.gif', tags: ['ôm', 'hug', 'thân thiện'] },
+        { id: 's10', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif', tags: ['ok', 'like', 'tuyệt', 'đồng ý'] },
+        { id: 's11', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif', tags: ['vỗ tay', 'hoan hô', 'clap', 'bravo'] },
+        { id: 's12', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif', tags: ['khóc', 'buồn', 'cry', 'sad'] },
+        { id: 's13', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/512.gif', tags: ['giận', 'tức', 'angry', 'mad'] },
+        { id: 's14', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f631/512.gif', tags: ['hét', 'sợ', 'scared', 'shock'] },
+        { id: 's15', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.gif', tags: ['bùng nổ', 'shock', 'mindblown'] },
+        { id: 's16', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f97a/512.gif', tags: ['năn nỉ', 'pleading', 'dễ thương'] },
+        { id: 's17', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f431/512.gif', tags: ['mèo', 'cat', 'meow'] },
+        { id: 's18', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f436/512.gif', tags: ['chó', 'dog', 'cún'] },
+        { id: 's19', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.gif', tags: ['pháo hoa', 'chúc mừng', 'celebrate'] },
+        { id: 's20', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif', tags: ['lửa', 'hot', 'cháy', 'fire'] },
+        { id: 's21', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.gif', tags: ['tim', 'đỏ', 'heart', 'love'] },
+        { id: 's22', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.gif', tags: ['tên lửa', 'bay', 'rocket', 'speed'] },
+        { id: 's23', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f923/512.gif', tags: ['lăn cười', 'rofl', 'cười lăn'] },
+        { id: 's24', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/512.gif', tags: ['suy nghĩ', 'thinking', 'hmm'] }
+    ];
+
+    const BUILTIN_GIFS = [
+        { id: 'g1', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif', tags: ['yes', 'đồng ý', 'gật đầu', 'ok'] },
+        { id: 'g2', url: 'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif', tags: ['cười', 'vui', 'laugh', 'funny'] },
+        { id: 'g3', url: 'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif', tags: ['vỗ tay', 'applaud', 'bravo', 'clap'] },
+        { id: 'g4', url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif', tags: ['cheers', 'nâng ly', 'chúc mừng', 'leo'] },
+        { id: 'g5', url: 'https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif', tags: ['nhảy', 'dance', 'quẩy', 'party'] },
+        { id: 'g6', url: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif', tags: ['shock', 'bất ngờ', 'wow', 'mindblown'] },
+        { id: 'g7', url: 'https://media.giphy.com/media/d2lcHJTG5Tscg/giphy.gif', tags: ['khóc', 'buồn', 'cry', 'sad'] },
+        { id: 'g8', url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif', tags: ['like', 'thumbs up', 'tuyệt', 'ok'] },
+        { id: 'g9', url: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif', tags: ['hào hứng', 'excited', 'yay'] },
+        { id: 'g10', url: 'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif', tags: ['chào', 'wave', 'hello', 'hi'] },
+        { id: 'g11', url: 'https://media.giphy.com/media/OPU6wzx8JrHna/giphy.gif', tags: ['mếu', 'buồn', 'sad', 'crying'] },
+        { id: 'g12', url: 'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif', tags: ['chớp mắt', 'blink', 'gì cơ'] },
+        { id: 'g13', url: 'https://media.giphy.com/media/3o85xGocUH8RYoDKKs/giphy.gif', tags: ['facepalm', 'bó tay', 'chán'] },
+        { id: 'g14', url: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif', tags: ['mèo quẩy', 'cat dance', 'party'] },
+        { id: 'g15', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', tags: ['popcorn', 'ăn bắp', 'xem kịch'] },
+        { id: 'g16', url: 'https://media.giphy.com/media/l0MYEqEzwMWFCg8rm/giphy.gif', tags: ['thả tim', 'heart', 'love'] }
     ];
 
     function getPartnerId() {
-        return window.MessengerState ? window.MessengerState.currentPartnerId : null;
+        if (window.MessengerState && window.MessengerState.currentPartnerId) {
+            return window.MessengerState.currentPartnerId;
+        }
+        return window.currentPartnerId || null;
     }
 
     function sendApi(payload) {
@@ -36,165 +75,106 @@
         console.warn('[MessengerStickers] sendApiRequest not available');
     }
 
-    function showToast(msg, type) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(msg, type);
-        } else {
-            console.log(`[Toast ${type}]`, msg);
-        }
-    }
-
     // Toggle Sticker Menu
     function toggleStickers() {
         const menu = $('#stickerMenu');
         if (!menu.length) return;
 
-        if (menu.hasClass('show')) {
-            menu.removeClass('show').hide();
+        if (menu.is(':visible')) {
+            menu.hide();
         } else {
-            hideStickerSuggestions();
             menu.css({
+                display: 'flex',
                 bottom: '80px',
                 left: '20px'
             });
-            menu.addClass('show').css('display', 'flex');
-
-            if ($('#stickerGrid').is(':empty')) {
-                loadStickerCategory(currentStickerCollection);
-            }
-            renderRecentStickers();
+            renderActiveTab();
+            setTimeout(() => {
+                $('#stickerSearchInput').focus();
+            }, 50);
         }
     }
 
-    // Initialize Sticker Menu HTML
-    function initStickerMenu() {
-        const menu = $('#stickerMenu');
-        if (!menu.length) return;
-
-        const categories = window.TENOR_CATEGORIES || {
-            popular: { name: 'Phổ biến' },
-            emotions: { name: 'Cảm xúc' },
-            animals: { name: 'Động vật' }
-        };
-
-        menu.html(`
-            <div class="sticker-header">
-                <div class="sticker-tabs" id="stickerTabs">
-                    ${Object.entries(categories).map(([id, cat]) => `
-                        <button class="tab-btn ${id === 'popular' ? 'active' : ''}" 
-                                data-category="${id}" 
-                                onclick="window.switchStickerCategory('${id}', this)">
-                            ${cat.name}
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="sticker-header-actions">
-                    <div class="sticker-search-box">
-                        <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm stickers..." 
-                            onkeyup="window.searchStickersDebounced(this.value)">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
-                </div>
-            </div>
-            
-            <div class="sticker-content">
-                <div class="sticker-grid" id="stickerGrid">
-                    <div class="loading-stickers">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Đang tải stickers...</p>
-                    </div>
-                </div>
-                
-                <div class="recent-stickers-section" id="recentStickersSection" style="display: none;">
-                    <div class="section-title">
-                        <i class="fas fa-history"></i>
-                        <span>Gần đây</span>
-                    </div>
-                    <div class="recent-stickers-grid" id="recentStickersGrid"></div>
-                </div>
-            </div>
-        `);
-
-        loadStickerCategory('popular');
-        renderRecentStickers();
+    function switchStickerMainTab(tab) {
+        currentMainTab = tab;
+        if (tab === 'stickers') {
+            $('#tabStickersBtn').addClass('active');
+            $('#tabGifsBtn').removeClass('active');
+            $('#stickerSearchInput').attr('placeholder', 'Tìm kiếm stickers...');
+        } else {
+            $('#tabGifsBtn').addClass('active');
+            $('#tabStickersBtn').removeClass('active');
+            $('#stickerSearchInput').attr('placeholder', 'Tìm kiếm GIFs...');
+        }
+        $('#stickerSearchInput').val('');
+        renderActiveTab();
     }
 
-    function getBuiltinStickers(category) {
-        const BUILTIN_PACK = [
-            { id: 'b1', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f600/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f600/512.gif', tags: ['cười', 'vui'] },
-            { id: 'b2', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif', tags: ['cười', 'khóc'] },
-            { id: 'b3', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/512.gif', tags: ['yêu', 'tim'] },
-            { id: 'b4', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif', tags: ['yêu', 'thích'] },
-            { id: 'b5', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.gif', tags: ['hôn', 'kiss'] },
-            { id: 'b6', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.gif', tags: ['sao', 'mắt'] },
-            { id: 'b7', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/512.gif', tags: ['tiệc', 'party'] },
-            { id: 'b8', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.gif', tags: ['ngầu', 'cool'] },
-            { id: 'b9', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/512.gif', tags: ['ôm', 'hug'] },
-            { id: 'b10', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif', tags: ['ok', 'like'] },
-            { id: 'b11', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif', tags: ['vỗ tay', 'hoan hô'] },
-            { id: 'b12', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif', tags: ['khóc', 'buồn'] },
-            { id: 'b13', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/512.gif', tags: ['giận', 'tức'] },
-            { id: 'b14', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f631/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f631/512.gif', tags: ['hét', 'sợ'] },
-            { id: 'b15', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f431/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f431/512.gif', tags: ['mèo', 'cat'] },
-            { id: 'b16', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f436/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f436/512.gif', tags: ['chó', 'dog'] },
-            { id: 'b17', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.gif', tags: ['chúc mừng', 'party'] },
-            { id: 'b18', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif', tags: ['lửa', 'hot'] },
-            { id: 'b19', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.gif', tags: ['tim', 'love'] },
-            { id: 'b20', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.gif', preview: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.gif', tags: ['tên lửa', 'bay'] }
-        ];
-
-        if (category === 'emotions') {
-            return BUILTIN_PACK.filter(s => s.tags.some(t => ['cười', 'khóc', 'buồn', 'giận', 'sợ', 'yêu'].includes(t)));
-        } else if (category === 'animals') {
-            return BUILTIN_PACK.filter(s => s.tags.some(t => ['mèo', 'chó'].includes(t)));
-        }
-        return BUILTIN_PACK;
+    function fetchTenorData(query = '') {
+        const isGif = (currentMainTab === 'gifs');
+        const endpoint = query 
+            ? `/api/tenor/search?q=${encodeURIComponent(query)}&limit=24`
+            : `/api/tenor/trending?limit=24`;
+        
+        return fetch(endpoint)
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(data => {
+                if (data && data.results && data.results.length > 0) {
+                    return data.results.map(r => ({
+                        id: r.id,
+                        url: r.media_formats?.gif?.url || r.media_formats?.tinygif?.url,
+                        tags: r.tags || []
+                    })).filter(x => !!x.url);
+                }
+                return [];
+            })
+            .catch(() => []);
     }
 
-    async function loadStickerCategory(category) {
-        const grid = $('#stickerGrid');
-        if (!grid.length) return;
-        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tải...</p></div>');
-
-        let stickers = [];
-        try {
-            if (typeof window.loadTenorStickers === 'function') {
-                stickers = await window.loadTenorStickers(category);
-            } else if (window.STICKER_COLLECTIONS && window.STICKER_COLLECTIONS[category]) {
-                stickers = window.STICKER_COLLECTIONS[category].items || [];
-            }
-        } catch (e) {
-            console.warn('[MessengerStickers] Failed to load remote stickers, using built-in:', e);
-        }
-
-        if (!stickers || stickers.length === 0) {
-            stickers = getBuiltinStickers(category);
-        }
-
-        renderStickerGrid(stickers);
-    }
-
-    function renderStickerGrid(stickers) {
+    function renderActiveTab(filterQuery = '') {
         const grid = $('#stickerGrid');
         if (!grid.length) return;
 
-        if (!stickers || stickers.length === 0) {
-            grid.html('<div class="text-center p-4 text-muted">Không tìm thấy sticker phù hợp</div>');
+        const query = (filterQuery || '').trim().toLowerCase();
+        const isGif = (currentMainTab === 'gifs');
+        let builtinItems = isGif ? BUILTIN_GIFS : BUILTIN_STICKERS;
+
+        if (query) {
+            builtinItems = builtinItems.filter(item => 
+                item.tags.some(tag => tag.toLowerCase().includes(query))
+            );
+        }
+
+        // Render builtin first
+        renderItems(builtinItems, isGif);
+
+        // Enhance with Tenor
+        fetchTenorData(query).then(tenorItems => {
+            if (tenorItems.length > 0) {
+                const combined = [...tenorItems, ...builtinItems];
+                renderItems(combined, isGif);
+            }
+        });
+    }
+
+    function renderItems(items, isGif) {
+        const grid = $('#stickerGrid');
+        if (!grid.length) return;
+
+        if (items.length === 0) {
+            grid.html(`<div style="grid-column: 1 / -1; text-align: center; color: #888; padding: 40px 10px;">
+                <i class="fas fa-search" style="font-size: 24px; margin-bottom: 8px; opacity: 0.5;"></i>
+                <p style="margin: 0; font-size: 13px;">Không tìm thấy ${isGif ? 'GIF' : 'sticker'} nào</p>
+            </div>`);
             return;
         }
 
         let html = '';
-        stickers.forEach((sticker, index) => {
-            const stickerDataStr = encodeURIComponent(JSON.stringify(sticker));
-            const stickerUrl = sticker.url || sticker.preview;
+        items.forEach((item) => {
+            const mediaType = isGif ? 'GIF' : 'STICKER';
             html += `
-                <div class="sticker-item" onclick="window.sendTenorSticker('${sticker.id || index}', '${stickerDataStr}')">
-                    <img src="${sticker.preview || stickerUrl}" 
-                        data-src="${stickerUrl}" 
-                        alt="Sticker" 
-                        loading="lazy"
-                        class="sticker-gif">
+                <div class="sticker-item" onclick="window.sendChosenSticker('${item.url}', '${mediaType}')">
+                    <img src="${item.url}" alt="${mediaType}" loading="lazy" onerror="this.parentElement.remove()">
                     <div class="sticker-hover">
                         <i class="fas fa-paper-plane"></i>
                     </div>
@@ -203,251 +183,165 @@
         });
 
         grid.html(html);
-
-        grid.find('.sticker-gif').each(function() {
-            const img = $(this);
-            if (img.attr('data-src')) {
-                img.attr('src', img.attr('data-src'));
-                img.removeAttr('data-src');
-            }
-        });
     }
 
-    function switchStickerCategory(categoryId, btnElement) {
-        currentStickerCollection = categoryId;
-        $('.tab-btn').removeClass('active');
-        $(btnElement).addClass('active');
-        loadStickerCategory(categoryId);
-    }
-
-    function searchStickersDebounced(query) {
+    function searchStickersAndGifs(query) {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
-            performStickerSearch(query);
+            renderActiveTab(query);
         }, 300);
     }
 
-    async function performStickerSearch(query) {
-        const grid = $('#stickerGrid');
-        if (!grid.length) return;
-
-        if (!query || query.trim() === '') {
-            const activeCategory = $('.tab-btn.active').data('category') || 'popular';
-            loadStickerCategory(activeCategory);
-            return;
-        }
-
-        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tìm kiếm...</p></div>');
-
-        let stickers = [];
-        if (typeof window.searchTenorStickers === 'function') {
-            stickers = await window.searchTenorStickers(query);
-        }
-        renderStickerGrid(stickers);
-    }
-
-    function sendTenorSticker(stickerId, stickerData) {
-        try {
-            const sticker = JSON.parse(decodeURIComponent(stickerData));
-            addToRecentStickers(sticker);
-            $('#stickerMenu').hide();
-
-            const partnerId = getPartnerId();
-            if (partnerId) {
-                const payload = {
-                    receiverId: partnerId,
-                    content: sticker.url,
-                    type: 'STICKER',
-                    metadata: {
-                        source: 'tenor',
-                        stickerId: sticker.id,
-                        width: sticker.width,
-                        height: sticker.height
-                    }
-                };
-                sendApi(payload);
-            } else {
-                showToast('Vui lòng chọn người nhận trước', 'error');
-            }
-        } catch (error) {
-            console.error('[MessengerStickers] Error sending tenor sticker:', error);
-        }
-    }
-
-    function sendSticker(url, source = 'local', index = 0) {
+    function sendChosenSticker(url, type = 'STICKER') {
         const partnerId = getPartnerId();
         if (!partnerId) {
-            showToast('Vui lòng chọn người nhận trước', 'error');
+            if (typeof window.showToast === 'function') {
+                window.showToast('Vui lòng chọn một cuộc trò chuyện trước', 'error');
+            } else {
+                alert('Vui lòng chọn người nhận');
+            }
             return;
         }
 
         $('#stickerMenu').hide();
-        addToRecentStickers({ url: url, preview: url });
+
+        const resolvedType = (type === 'GIF' || type === 'STICKER') ? type : 'STICKER';
+        const tempId = 'temp-' + Date.now();
+
+        // Optimistic UI append
+        if (typeof window.appendMessageToUI === 'function') {
+            window.appendMessageToUI({
+                id: tempId,
+                senderId: (window.currentUser ? window.currentUser.userID : 0),
+                content: url,
+                type: resolvedType,
+                formattedTime: 'Đang gửi...'
+            }, true);
+        }
 
         const payload = {
             receiverId: partnerId,
             content: url,
-            type: 'STICKER',
-            metadata: {
-                source: source,
-                index: index
-            }
+            type: resolvedType
         };
 
         sendApi(payload);
-    }
 
-    function addToRecentStickers(sticker) {
-        if (!sticker) return;
-        const stickerUrl = typeof sticker === 'string' ? sticker : sticker.url;
-        recentStickers = recentStickers.filter(s => (typeof s === 'string' ? s : s.url) !== stickerUrl);
-        recentStickers.unshift(sticker);
-        recentStickers = recentStickers.slice(0, 12);
-        localStorage.setItem('recentStickers', JSON.stringify(recentStickers));
-        renderRecentStickers();
-    }
-
-    function renderRecentStickers() {
-        const grid = $('#recentStickersGrid');
-        if (!grid.length) return;
-
-        if (recentStickers.length === 0) {
-            $('#recentStickersSection').hide();
-            return;
+        // Update preview in sidebar
+        if (typeof window.updateConversationPreview === 'function') {
+            window.updateConversationPreview({
+                senderId: (window.currentUser ? window.currentUser.userID : 0),
+                receiverId: partnerId,
+                content: resolvedType === 'STICKER' ? 'Đã gửi 1 nhãn dán' : 'Đã gửi 1 GIF',
+                type: resolvedType
+            });
         }
-
-        let html = '';
-        recentStickers.forEach(sticker => {
-            const stickerDataStr = encodeURIComponent(JSON.stringify(sticker));
-            const previewUrl = sticker.preview || sticker.url || sticker;
-            html += `
-                <div class="sticker-item recent" onclick="window.sendTenorSticker('${sticker.id || ''}', '${stickerDataStr}')">
-                    <img src="${previewUrl}" alt="Sticker">
-                </div>
-            `;
-        });
-
-        grid.html(html);
-        $('#recentStickersSection').show();
     }
 
-    function setupStickerSuggestions() {
-        const input = $('#msgInput');
-        if (!input.length) return;
+    let suggestionDebounce = null;
 
-        input.on('input', function() {
+    function initStickerSuggestions() {
+        const msgInput = $('#msgInput');
+        if (!msgInput.length) return;
+
+        msgInput.off('input.stickersug').on('input.stickersug', function() {
             const message = $(this).val().trim();
-            if (suggestionTimeout) clearTimeout(suggestionTimeout);
+            clearTimeout(suggestionDebounce);
 
             if (message.length >= 2) {
-                suggestionTimeout = setTimeout(() => {
-                    const keywords = analyzeMessageForStickers(message);
-                    if (keywords.length > 0) {
-                        showStickerSuggestions(keywords);
-                    } else {
-                        hideStickerSuggestions();
+                suggestionDebounce = setTimeout(async () => {
+                    if (typeof window.getStickerSuggestions === 'function') {
+                        try {
+                            const suggestions = await window.getStickerSuggestions(message);
+                            showStickerSuggestions(suggestions);
+                        } catch (err) {
+                            console.error('[Stickers] Error fetching suggestions:', err);
+                            hideStickerSuggestions();
+                        }
                     }
-                }, 500);
+                }, 400);
             } else {
                 hideStickerSuggestions();
             }
         });
-
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('#stickerSuggestions, #msgInput').length) {
-                hideStickerSuggestions();
-            }
-        });
     }
 
-    function analyzeMessageForStickers(message) {
-        const words = message.toLowerCase().split(/\s+/);
-        return words.filter(word => STICKER_KEYWORDS.some(k => k.includes(word) || word.includes(k)));
-    }
-
-    async function showStickerSuggestions(keywords) {
-        const container = $('#stickerSuggestions');
-        const grid = $('#suggestionsGrid');
-        if (!container.length || !grid.length) return;
-
-        let suggestions = [];
-        if (typeof window.getStickerSuggestions === 'function') {
-            suggestions = await window.getStickerSuggestions(keywords.join(' '));
-        }
-
-        if (!suggestions || suggestions.length === 0) {
+    function showStickerSuggestions(stickers) {
+        if (!stickers || stickers.length === 0) {
             hideStickerSuggestions();
             return;
         }
 
+        const container = $('#stickerSuggestions');
+        const grid = $('#suggestionsGrid');
+        if (!container.length || !grid.length) return;
+
         grid.empty();
-        suggestions.slice(0, 12).forEach(sticker => {
-            const stickerDataStr = encodeURIComponent(JSON.stringify(sticker));
+        stickers.slice(0, 12).forEach(sticker => {
+            const stickerData = encodeURIComponent(JSON.stringify(sticker));
+            const imgUrl = sticker.preview || sticker.url;
             grid.append(`
-                <div class="sticker-item" onclick="window.sendTenorSticker('${sticker.id}', '${stickerDataStr}')">
-                    <img src="${sticker.preview || sticker.url}" alt="Sticker">
+                <div class="sticker-item" onclick="window.sendTenorSticker('${sticker.id}', '${stickerData}')">
+                    <img src="${imgUrl}" alt="Sticker" loading="lazy">
                 </div>
             `);
         });
 
-        container.css('display', 'block');
-        setTimeout(() => container.css('opacity', 1), 10);
+        container.stop(true, true).css({ display: 'block' }).animate({ opacity: 1 }, 200);
     }
 
     function hideStickerSuggestions() {
         const container = $('#stickerSuggestions');
-        if (container.length) {
-            container.css('opacity', 0);
-            setTimeout(() => container.hide(), 300);
-        }
-    }
-
-    function initEmojiPicker() {
-        console.log('[MessengerStickers] Initializing Emoji Picker...');
-        const emojiBtn = document.getElementById('emojiBtn');
-        if (emojiBtn && typeof EmojiButton !== 'undefined') {
-            emojiPicker = new EmojiButton({
-                position: 'top-end',
-                theme: 'dark',
-                autoHide: true
-            });
-            emojiPicker.on('emoji', selection => {
-                const input = document.getElementById('msgInput');
-                if (input) {
-                    input.value += selection.emoji;
-                    input.focus();
-                }
-            });
-            emojiBtn.addEventListener('click', () => {
-                emojiPicker.togglePicker(emojiBtn);
-            });
-        }
+        if (!container.length) return;
+        container.stop(true, true).animate({ opacity: 0 }, 150, function() {
+            container.hide();
+        });
     }
 
     // Public API
     window.MessengerStickers = {
         init: function() {
-            initStickerMenu();
-            setupStickerSuggestions();
-            renderRecentStickers();
-            setTimeout(initEmojiPicker, 1000);
+            renderActiveTab();
+            initStickerSuggestions();
         },
         toggleStickers,
-        switchStickerCategory,
-        searchStickersDebounced,
-        sendTenorSticker,
-        sendSticker,
+        switchStickerMainTab,
+        searchStickersAndGifs,
+        sendChosenSticker,
+        initStickerSuggestions,
         hideStickerSuggestions
     };
 
-    // Backward-compatible global wrappers for inline HTML event handlers
+    // Global bindings
     window.toggleStickers = toggleStickers;
-    window.switchStickerCategory = switchStickerCategory;
-    window.searchStickersDebounced = searchStickersDebounced;
-    window.sendTenorSticker = sendTenorSticker;
-    window.sendSticker = sendSticker;
+    window.switchStickerMainTab = switchStickerMainTab;
+    window.searchStickersAndGifs = searchStickersAndGifs;
+    window.sendChosenSticker = sendChosenSticker;
+    window.initStickerSuggestions = initStickerSuggestions;
     window.hideStickerSuggestions = hideStickerSuggestions;
-    window.addToRecentStickers = addToRecentStickers;
-    window.getRecentStickers = function() { return recentStickers; };
+    window.sendSticker = function(url) { sendChosenSticker(url, 'STICKER'); };
+    window.sendTenorSticker = function(id, dataStr) {
+        try {
+            const data = JSON.parse(decodeURIComponent(dataStr));
+            sendChosenSticker(data.url || data.preview, 'STICKER');
+        } catch(e) {
+            sendChosenSticker(dataStr, 'STICKER');
+        }
+    };
+
+    $(document).ready(function() {
+        renderActiveTab();
+        initStickerSuggestions();
+        
+        // Close when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#stickerMenu, #stickerBtn').length) {
+                $('#stickerMenu').hide();
+            }
+            if (!$(e.target).closest('#stickerSuggestions, #msgInput').length) {
+                hideStickerSuggestions();
+            }
+        });
+    });
 
 })();

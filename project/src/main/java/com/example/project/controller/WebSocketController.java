@@ -22,33 +22,32 @@ public class WebSocketController {
     @MessageMapping("/typing")
     public void handleTyping(@Payload Map<String, Object> payload, Principal principal) {
         Integer receiverId = parseInteger(payload.get("receiverId"));
-        if (receiverId == null || principal == null) return;
-        Integer senderId = parseInteger(principal.getName());
-        String senderName = (String) payload.get("senderName");
+        if (receiverId == null) return;
+        Integer senderId = principal != null ? parseInteger(principal.getName()) : parseInteger(payload.get("senderId"));
+        String senderName = payload.get("senderName") != null ? (String) payload.get("senderName") : "Người dùng";
         
-        // Gửi đến người nhận bằng userId
-        messagingTemplate.convertAndSendToUser(
-            receiverId.toString(),
-            "/queue/typing",
-            Map.of(
-                "senderId", senderId,
-                "senderName", senderName,
-                "type", "TYPING",
-                "timestamp", LocalDateTime.now()
-            )
+        Map<String, Object> data = Map.of(
+            "senderId", senderId != null ? senderId : 0,
+            "senderName", senderName,
+            "type", "TYPING",
+            "timestamp", LocalDateTime.now()
         );
+        messagingTemplate.convertAndSendToUser(receiverId.toString(), "/queue/typing", data);
+        messagingTemplate.convertAndSend("/topic/user." + receiverId + ".typing", data);
     }
     
     @MessageMapping("/stop-typing")
     public void handleStopTyping(@Payload Map<String, Object> payload, Principal principal) {
         Integer receiverId = parseInteger(payload.get("receiverId"));
-        if (receiverId == null || principal == null) return;
+        if (receiverId == null) return;
+        Integer senderId = principal != null ? parseInteger(principal.getName()) : parseInteger(payload.get("senderId"));
         
-        messagingTemplate.convertAndSendToUser(
-            receiverId.toString(),
-            "/queue/typing",
-            Map.of("type", "STOP_TYPING")
+        Map<String, Object> data = Map.of(
+            "senderId", senderId != null ? senderId : 0,
+            "type", "STOP_TYPING"
         );
+        messagingTemplate.convertAndSendToUser(receiverId.toString(), "/queue/typing", data);
+        messagingTemplate.convertAndSend("/topic/user." + receiverId + ".typing", data);
     }
     
     @MessageMapping("/mark-seen")

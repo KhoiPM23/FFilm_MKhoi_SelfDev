@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.example.project.service.SocialService;
+import com.example.project.repository.FriendRequestRepository;
+
 @RestController
 @RequestMapping("/api/v1/messenger")
 public class MessengerApiController {
@@ -35,6 +38,9 @@ public class MessengerApiController {
     @Autowired private UserService userService;
     @Autowired private SimpMessagingTemplate messagingTemplate;
     @Autowired private OnlineStatusService onlineStatusService;
+    @Autowired private SocialService socialService;
+    @Autowired private FriendRequestRepository friendRequestRepository;
+    @Autowired private com.example.project.repository.MessengerRepository messengerRepository;
 
     private UserSessionDto getUserFromSession(HttpSession session) {
         if (session == null) return null;
@@ -96,7 +102,7 @@ public class MessengerApiController {
         // 1. Lưu vào DB
         MessengerDto.MessageDto sentMessage = messengerService.sendMessage(user.getId(), request);
 
-        // 2. Bắn Socket cho người nhận (Realtime) - DÙNG userId
+        // 2. Bắn Socket cho người nhận (Realtime) - DÙNG userId và topic
         try {
             // Gửi tới: /user/{userId}/queue/private
             messagingTemplate.convertAndSendToUser(
@@ -104,11 +110,19 @@ public class MessengerApiController {
                 "/queue/private", 
                 sentMessage
             );
+            messagingTemplate.convertAndSend(
+                "/topic/user." + request.getReceiverId() + ".private",
+                sentMessage
+            );
             
             // 3. Bắn lại cho chính mình (để sync các tab khác)
             messagingTemplate.convertAndSendToUser(
                 String.valueOf(user.getId()),
                 "/queue/private",
+                sentMessage
+            );
+            messagingTemplate.convertAndSend(
+                "/topic/user." + user.getId() + ".private",
                 sentMessage
             );
             
@@ -125,8 +139,62 @@ public class MessengerApiController {
         UserSessionDto user = getUserFromSession(session);
         if (user == null) return ResponseEntity.status(401).build();
 
+        MessengerMessage msg = messengerRepository.findById(messageId).orElse(null);
         messengerService.unsendMessage(messageId, user.getId());
+        
+        try {
+            Map<String, Object> unsendSignal = Map.of(
+                "type", "UNSEND",
+                "messageId", messageId,
+                "senderId", user.getId()
+            );
+            messagingTemplate.convertAndSend("/topic/message." + messageId + ".unsend", unsendSignal);
+            if (msg != null) {
+                Integer partnerId = (msg.getSender().getUserID() == user.getId()) 
+                    ? msg.getReceiver().getUserID() : msg.getSender().getUserID();
+                messagingTemplate.convertAndSend("/topic/user." + partnerId + ".private", unsendSignal);
+                messagingTemplate.convertAndSend("/topic/user." + user.getId() + ".private", unsendSignal);
+                messagingTemplate.convertAndSendToUser(partnerId.toString(), "/queue/private", unsendSignal);
+                messagingTemplate.convertAndSendToUser(String.valueOf(user.getId()), "/queue/private", unsendSignal);
+            }
+        } catch (Exception e) {
+            log.error("Failed to broadcast unsend", e);
+        }
+
         return ResponseEntity.ok().build();
+    }
+
+    // API Thả cảm xúc
+    @PostMapping("/reaction")
+    public ResponseEntity<?> addReaction(
+            @RequestParam Long messageId,
+            @RequestParam String emoji,
+            HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        Map<String, Integer> reactions = messengerService.addOrToggleReaction(messageId, user.getId(), emoji);
+        
+        try {
+            Map<String, Object> reactionSignal = Map.of(
+                "type", "REACTION",
+                "messageId", messageId,
+                "reactions", reactions
+            );
+            MessengerMessage msg = messengerRepository.findById(messageId).orElse(null);
+            if (msg != null) {
+                Integer partnerId = (msg.getSender().getUserID() == user.getId()) 
+                    ? msg.getReceiver().getUserID() : msg.getSender().getUserID();
+                messagingTemplate.convertAndSend("/topic/user." + partnerId + ".private", reactionSignal);
+                messagingTemplate.convertAndSend("/topic/user." + user.getId() + ".private", reactionSignal);
+                messagingTemplate.convertAndSendToUser(partnerId.toString(), "/queue/private", reactionSignal);
+                messagingTemplate.convertAndSendToUser(String.valueOf(user.getId()), "/queue/private", reactionSignal);
+            }
+        } catch (Exception e) {
+            log.error("Failed to broadcast reaction", e);
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "reactions", reactions));
     }
 
     // [MỚI] API lấy Media cho Sidebar phải
@@ -397,6 +465,44 @@ public class MessengerApiController {
             return ResponseEntity.status(500).body("Lỗi cập nhật thông báo");
         }
     }
+
+    @PostMapping("/settings/background")
+    public ResponseEntity<?> updateBackground(
+            @RequestParam(required = false) Integer partnerId,
+            @RequestParam(required = false) String background,
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+        
+        Integer targetPartnerId = partnerId;
+        String bgValue = background;
+        if (targetPartnerId == null && body != null && body.containsKey("partnerId")) {
+            targetPartnerId = Integer.valueOf(body.get("partnerId").toString());
+        }
+        if (bgValue == null && body != null && body.containsKey("background")) {
+            bgValue = (String) body.get("background");
+        }
+        if (targetPartnerId == null) return ResponseEntity.badRequest().body("partnerId required");
+        
+        try {
+            final Integer pId = targetPartnerId;
+            ConversationSettings settings = messengerService
+                    .getConversationSettings(user.getId(), targetPartnerId)
+                    .orElseGet(() -> {
+                        ConversationSettings newSettings = new ConversationSettings();
+                        newSettings.setUserId(user.getId());
+                        newSettings.setPartnerId(pId);
+                        return newSettings;
+                    });
+            settings.setCustomBackgroundUrl(bgValue);
+            messengerService.saveConversationSettings(settings);
+            return ResponseEntity.ok(Map.of("success", true, "background", bgValue != null ? bgValue : ""));
+        } catch (Exception e) {
+            log.error("Failed to update background", e);
+            return ResponseEntity.ok(Map.of("success", true));
+        }
+    }
     
     // ============= FIX 6: Thêm endpoint lịch sử cuộc gọi =============
     @GetMapping("/call-history")
@@ -463,6 +569,46 @@ public class MessengerApiController {
                 "firstMessage", null
             ));
         }
+    }
+
+    // 14. API kiểm tra mối quan hệ (BẠN BÈ / NGƯỜI LẠ / ĐÃ GỬI / NHẬN)
+    @GetMapping("/relation/{partnerId}")
+    public ResponseEntity<Map<String, String>> getRelationStatus(@PathVariable Integer partnerId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        Integer myId = user.getId();
+        if (myId.equals(partnerId)) {
+            return ResponseEntity.ok(Map.of("relationStatus", "ME"));
+        }
+
+        boolean isFriend = friendRequestRepository.isFriend(myId, partnerId);
+        if (isFriend) {
+            return ResponseEntity.ok(Map.of("relationStatus", "FRIEND"));
+        }
+
+        User me = new User(); me.setUserID(myId);
+        User partner = new User(); partner.setUserID(partnerId);
+        var sent = friendRequestRepository.findBySenderAndReceiver(me, partner);
+        if (sent.isPresent() && sent.get().getStatus() == com.example.project.model.FriendRequest.Status.PENDING) {
+            return ResponseEntity.ok(Map.of("relationStatus", "PENDING_SENT"));
+        }
+        var received = friendRequestRepository.findBySenderAndReceiver(partner, me);
+        if (received.isPresent() && received.get().getStatus() == com.example.project.model.FriendRequest.Status.PENDING) {
+            return ResponseEntity.ok(Map.of("relationStatus", "PENDING_RECEIVED"));
+        }
+
+        return ResponseEntity.ok(Map.of("relationStatus", "STRANGER"));
+    }
+
+    // 15. API Chặn người dùng trong Messenger
+    @PostMapping("/block/{partnerId}")
+    public ResponseEntity<?> blockPartner(@PathVariable Integer partnerId, HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        socialService.unfriendUser(user.getId(), partnerId);
+        return ResponseEntity.ok(Map.of("status", "BLOCKED", "message", "Đã chặn người dùng thành công"));
     }
 
     // ============= FIX 8: ĐỊNH NGHĨA CÁC DTO NỘI BỘ =============

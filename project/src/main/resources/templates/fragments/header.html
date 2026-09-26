@@ -15,7 +15,7 @@
       </div>
 
       <nav class="main-nav">
-        <a href="/" class="active"><i class="fas fa-home"></i>Trang chủ</a>
+        <a href="/" id="navHomeLink"><i class="fas fa-home"></i>Trang chủ</a>
         <a href="/discover?isFree=true" class="genre-item-flat" th:classappend="${isFree == true} ? 'active'">
           <i class="fas fa-gift"></i> Phim Miễn Phí
         </a>
@@ -109,13 +109,14 @@
             <div class="dropdown-header">
               Xin chào, <span th:text="${session.user.userName}">Minh Cường</span>
             </div>
-            <a th:href="@{/profile}" class="dropdown-item"><i class="fas fa-user-circle"></i> Profile</a>
+            <a th:href="@{/profile}" class="dropdown-item"><i class="fas fa-user-circle"></i> Hồ sơ cá nhân</a>
             <a th:href="@{/payment/history}" class="dropdown-item"><i class="fas fa-file-invoice-dollar"></i> Gói & Thanh toán</a>
             <a th:href="@{/history}" class="dropdown-item"><i class="fas fa-history"></i> Lịch sử xem</a>
             <a th:href="@{/recommended}" class="dropdown-item"><i class="fas fa-film"></i> Gợi ý phim</a>
             <div class="dropdown-divider"></div>
+            <a href="/messenger" class="dropdown-item" style="color: #0084ff;"><i class="fab fa-facebook-messenger"></i> Tin nhắn Chat</a>
             <a href="/watch-party" class="dropdown-item" style="color: #46d369;"><i class="fas fa-users"></i> Sảnh Xem Chung</a>
-            <a href="/my-rooms" class="dropdown-item" style="color: #e50914;"><i class="fas fa-video"></i> Quản Lý Phòng</a>
+            <a href="/my-rooms" class="dropdown-item" style="color: #f59e0b;"><i class="fas fa-video"></i> Quản Lý Phòng</a>
             <div class="dropdown-divider"></div>
             <a th:href="@{/logout}" class="dropdown-item logout-item"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
           </div>
@@ -385,40 +386,73 @@
           position: absolute;
           top: 100%;
           right: 0;
-          min-width: 150px;
-          background: #111;
-          border: 1px solid #333;
-          border-radius: 8px;
-          margin-top: 10px;
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+          min-width: 230px;
+          background: rgba(22, 22, 26, 0.96);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 14px;
+          margin-top: 12px;
+          padding: 8px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+          animation: dropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .user-dropdown-menu[hidden] {
           display: none;
         }
         .dropdown-header {
-          padding: 10px 15px;
-          color: #e50914;
-          font-weight: 600;
-          border-bottom: 1px solid #333;
+          padding: 12px 14px 10px;
+          color: #fff;
+          font-weight: 700;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           font-size: 0.95rem;
-        }
-        .dropdown-item {
-          padding: 10px 15px;
           display: flex;
           align-items: center;
-          gap: 10px;
-          color: #ccc;
+          gap: 6px;
+        }
+        .dropdown-header span {
+          color: #e50914;
+        }
+        .dropdown-item {
+          padding: 9px 12px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: #d1d5db;
           text-decoration: none;
-          transition: background 0.2s;
+          transition: all 0.2s ease;
           font-size: 0.9rem;
+          border-radius: 8px;
+          margin: 2px 0;
+        }
+        .dropdown-item i {
+          width: 18px;
+          text-align: center;
+          font-size: 0.95rem;
+          opacity: 0.85;
         }
         .dropdown-item:hover {
-          background: #e50914;
-          color: white;
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+          transform: translateX(4px);
+        }
+        .dropdown-divider {
+          height: 1px;
+          background: rgba(255, 255, 255, 0.08);
+          margin: 6px 4px;
         }
         .logout-item {
-          border-top: 1px solid #333;
-          margin-top: 5px;
+          color: #f87171 !important;
+          border-top: none;
+          margin-top: 2px;
+        }
+        .logout-item:hover {
+          background: rgba(239, 68, 68, 0.15) !important;
+          color: #ef4444 !important;
         }
 
         .auth-buttons {
@@ -885,6 +919,29 @@
                     })
                     .catch(err => console.error(err));
             }
+
+            // Dynamic Active State for Header Navigation
+            (function() {
+                const path = window.location.pathname;
+                const search = window.location.search;
+                const home = document.getElementById('navHomeLink');
+                if (home) {
+                    if (path === '/' || path === '') {
+                        home.classList.add('active');
+                    } else {
+                        home.classList.remove('active');
+                    }
+                }
+                if (path.startsWith('/discover')) {
+                    if (search.includes('isFree=true')) {
+                        const freeLink = document.querySelector('.genre-item-flat');
+                        if (freeLink) freeLink.classList.add('active');
+                    } else {
+                        const genreToggle = document.querySelector('.genre-toggle');
+                        if (genreToggle) genreToggle.classList.add('active');
+                    }
+                }
+            })();
         </script>
     </header>
   </body>

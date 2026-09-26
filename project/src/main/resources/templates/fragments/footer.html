@@ -1034,13 +1034,13 @@
                     display: flex;
                     gap: 12px;
                     overflow-x: auto;
-                    padding: 10px 4px 15px 4px;
-                    scrollbar-width: thin;
+                    padding: 8px 4px 12px 4px;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
                     scroll-behavior: smooth;
                     width: 100%;
                 }
-                .ai-movie-scroll::-webkit-scrollbar { height: 4px; }
-                .ai-movie-scroll::-webkit-scrollbar-thumb { background: #e50914; border-radius: 2px; }
+                .ai-movie-scroll::-webkit-scrollbar { display: none; }
                 
                 .ai-movie-card {
                     flex: 0 0 130px;
@@ -1307,7 +1307,7 @@
                 chatIcon.style.display = 'flex';
             }
             function showTyping() { if(typingIndicator) { typingIndicator.hidden = false; typingIndicator.style.display = 'flex'; scrollToBottom(); } }
-            function hideTyping() { if(typingIndicator) typingIndicator.hidden = true; }
+            function hideTyping() { if(typingIndicator) { typingIndicator.hidden = true; typingIndicator.style.display = 'none'; } }
             function autoResizeTextarea() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
             function scrollToBottom() { if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight; }
             function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -1323,6 +1323,18 @@
             }
 
             window.aiChat = { open: openChat, close: closeChat, send: sendMessage };
+
+            // Auto close when clicking outside
+            document.addEventListener('click', function(e) {
+                if (chatWindow && !chatWindow.hidden) {
+                    if (!chatWindow.contains(e.target) && !chatIcon.contains(e.target)) {
+                        closeChat();
+                    }
+                }
+            });
+
+            // Ensure typing indicator is cleanly hidden on initialization
+            hideTyping();
 
         })();
     </script>

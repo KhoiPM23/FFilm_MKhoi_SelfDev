@@ -28,6 +28,7 @@
     let recordingStartTime = 0;
     let pendingFile = null; // Lưu file đang chọn để preview
     let emojiPicker = null; // Instance của Emoji Button
+    window.emojiPickerState = { isOpen: false, picker: null };
 
     // Call State -> Extracted to messenger-calls.js
     let typingTimeout = null;
@@ -120,12 +121,16 @@
         });
         
         // Init sticker suggestions
-        initStickerSuggestions();
+        if (typeof window.initStickerSuggestions === 'function') {
+            window.initStickerSuggestions();
+        }
         
         // Close suggestions khi click outside
         $(document).on('click', function(e) {
             if (!$(e.target).closest('.sticker-suggestions, #msgInput').length) {
-                hideStickerSuggestions();
+                if (typeof window.hideStickerSuggestions === 'function') {
+                    window.hideStickerSuggestions();
+                }
             }
         });
         
@@ -176,22 +181,24 @@
         stompClient.connect({}, function(frame) {
             console.log('✅ WebSocket Connected:', frame);
             
-            // Subscribe đến private messages - DÙNG userId
+            // Subscribe đến private messages - DÙNG userId VÀ TOPIC FALLBACK
             stompClient.subscribe(`/user/${currentUser.userID}/queue/private`, function(payload) {
                 const msg = JSON.parse(payload.body);
                 handleSocketMessage(msg);
             });
+            stompClient.subscribe(`/topic/user.${currentUser.userID}.private`, function(payload) {
+                const msg = JSON.parse(payload.body);
+                handleSocketMessage(msg);
+            });
             
-            // Subscribe đến typing notifications
+            // Subscribe đến typing notifications (queue + topic)
             stompClient.subscribe(`/user/${currentUser.userID}/queue/typing`, function(payload) {
                 const data = JSON.parse(payload.body);
-                if (data.senderId === currentPartnerId) {
-                    if (data.type === 'TYPING') {
-                        showTypingIndicator(data.senderName);
-                    } else {
-                        hideTypingIndicator();
-                    }
-                }
+                handleTypingNotification(data);
+            });
+            stompClient.subscribe(`/topic/user.${currentUser.userID}.typing`, function(payload) {
+                const data = JSON.parse(payload.body);
+                handleTypingNotification(data);
             });
             
             // Subscribe đến seen notifications
@@ -262,6 +269,17 @@
         }
     }
 
+    function handleTypingNotification(data) {
+        if (!data || !currentPartnerId) return;
+        if (parseInt(data.senderId) === parseInt(currentPartnerId)) {
+            if (data.type === 'TYPING' || data.typing === true) {
+                showTypingIndicator(data.senderName || currentPartnerName);
+            } else {
+                hideTypingIndicator();
+            }
+        }
+    }
+
     function handleSocketMessage(msg) {
         console.log("Socket message received:", msg);
         
@@ -270,19 +288,50 @@
             return;
         }
 
-        // 2. Chat messages - LUÔN HIỆN NGAY KHI NHẬN
-        const senderId = msg.senderId;
-        const partnerId = (senderId === currentUser.userID) ? msg.receiverId : senderId;
+        // 2. Reaction events
+        if (msg.type === 'REACTION' && msg.messageId) {
+            updateMessageReactions(msg.messageId, msg.reactions);
+            return;
+        }
 
-        // Nếu đang xem chat này, append ngay
+        // 3. Unsend events
+        if (msg.type === 'UNSEND' && msg.messageId) {
+            const row = $(`#msg-${msg.messageId}`);
+            if (row.length) {
+                row.find('.bubble').addClass('deleted').text('Tin nhắn đã bị thu hồi');
+                row.find('.msg-actions').remove();
+            }
+            return;
+        }
+
+        // 4. Chat messages - check deduplication
+        const myId = parseInt(currentUser.userID);
+        const senderId = parseInt(msg.senderId);
+        const partnerId = (senderId === myId) ? parseInt(msg.receiverId) : senderId;
+
+        // Nếu đang xem chat này:
         if (currentPartnerId && currentPartnerId == partnerId) {
-            appendMessageToUI(msg);
-            if (senderId != currentUser.userID) {
-                markAsRead(msg.id);
+            // Deduplication: nếu tin nhắn đã có trong DOM thì bỏ qua
+            if (msg.id && $(`#msg-${msg.id}`).length) {
+                return;
+            }
+            // Nếu là tin nhắn của mình và có tin nhắn tạm thì cập nhật thay vì thêm mới
+            if (senderId === myId) {
+                const tempRow = $(`#messagesContainer .msg-row.mine[data-status="sending"]`).last();
+                if (tempRow.length && tempRow.find('.bubble').text() === msg.content) {
+                    tempRow.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                    tempRow.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
+                    return;
+                }
             }
             
-            // Phát âm thanh thông báo
-            notificationSound.play().catch(() => {});
+            appendMessageToUI(msg, senderId === myId);
+            
+            if (senderId !== myId) {
+                markAsRead(msg.id);
+                // Phát âm thanh thông báo
+                notificationSound.play().catch(() => {});
+            }
         }
 
         // Cập nhật conversation list mà không reload
@@ -315,13 +364,39 @@
 
     // [FIX] Update conversation list WITHOUT reload
     function updateConversationPreview(msg) {
-        const partnerId = (msg.senderId == currentUser.userID) ? msg.receiverId : msg.senderId;
-        const convItem = $(`.conv-item[onclick*="${partnerId}"]`);
+        const partnerId = (parseInt(msg.senderId) === parseInt(currentUser.userID)) 
+            ? parseInt(msg.receiverId) 
+            : parseInt(msg.senderId);
+            
+        let convItem = $(`#conv-${partnerId}`);
+        if (!convItem.length) {
+            convItem = $(`.conv-item[data-partner-id="${partnerId}"]`);
+        }
         
         if (convItem.length) {
-            const preview = msg.type === 'TEXT' ? msg.content : 'Đã gửi file';
+            const isMine = (parseInt(msg.senderId) === parseInt(currentUser.userID));
+            const prefix = isMine ? 'Bạn: ' : '';
+            let preview = '';
+            if (msg.type === 'TEXT') preview = prefix + msg.content;
+            else if (msg.type === 'IMAGE') preview = prefix + 'Đã gửi 1 ảnh';
+            else if (msg.type === 'STICKER') preview = prefix + 'Đã gửi 1 nhãn dán';
+            else if (msg.type === 'GIF') preview = prefix + 'Đã gửi 1 GIF';
+            else if (msg.type === 'AUDIO') preview = prefix + 'Đã gửi 1 tin nhắn thoại';
+            else preview = prefix + 'Đã gửi 1 tệp';
+            
             convItem.find('.conv-preview').text(preview);
             convItem.prependTo('#conversationList'); // Move to top
+            
+            if (!isMine && (!currentPartnerId || currentPartnerId !== partnerId)) {
+                convItem.addClass('unread');
+                let badge = convItem.find('.unread-badge');
+                if (!badge.length) {
+                    convItem.append('<div class="unread-badge">1</div>');
+                } else {
+                    let count = parseInt(badge.text()) || 0;
+                    badge.text(count + 1);
+                }
+            }
         } else {
             loadConversations(); // Only reload if new conversation
         }
@@ -386,7 +461,8 @@
 
                     list.append(`
                         <div class="conv-item ${active} ${unread} d-flex align-items-center p-2"
-                            onclick="window.selectConversation(${c.partnerId}, '${c.partnerName.replace(/'/g, "\\'")}', '${avatar}', '${isFriendStr}')"
+                            id="conv-${c.partnerId}" data-partner-id="${c.partnerId}"
+                            onclick="window.selectConversation(${c.partnerId}, '${c.partnerName.replace(/'/g, "\\'")}', '${avatar}', '${isFriendStr}', ${c.online}, '${c.lastActive || ''}', '${c.relationStatus || ''}')"
                             style="cursor:pointer; border-bottom:1px solid #333;">
 
                             <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
@@ -407,6 +483,9 @@
                             </div>
 
                             ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
+                            <button class="conv-more-btn" onclick="event.stopPropagation(); window.toggleConvMenu(event, ${c.partnerId})" title="Tùy chọn">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
                         </div>
                     `);
                 });
@@ -465,15 +544,77 @@
                     btn.innerHTML = '<i class="fas fa-user-plus"></i> Kết bạn';
                     btn.classList.remove('btn-stranger-pending');
                     btn.onclick = () => window.sendFriendRequest(id, btn);
+                    showToast('Đã hủy lời mời kết bạn', 'info');
                 }
             });
     };
 
+    window.acceptFriendRequest = function(partnerId, btnElement) {
+        const id = partnerId || currentPartnerId;
+        const btn = btnElement || document.querySelector('.btn-stranger-add');
+        if (!id || !btn) return;
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        fetch(`/social/accept-friend/${id}`, { method: 'POST' })
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(() => {
+                showToast('Đã trở thành bạn bè', 'success');
+                isCurrentPartnerFriend = true;
+                $('#strangerBanner').remove();
+                loadConversations();
+            })
+            .catch(() => {
+                showToast('Lỗi chấp nhận kết bạn', 'error');
+            });
+    };
+
+    window.blockUser = function(partnerId) {
+        const id = partnerId || currentPartnerId;
+        if (!id) return;
+        if (!confirm('Bạn có chắc chắn muốn chặn người dùng này không?')) return;
+        $.post(`/api/v1/messenger/block/${id}`)
+            .done(function() {
+                showToast('Đã chặn người dùng thành công', 'success');
+                $('#strangerBanner').remove();
+            })
+            .fail(function() {
+                showToast('Lỗi khi chặn người dùng', 'error');
+            });
+    };
+
+    window.renderStrangerBanner = function(partnerId, status) {
+        $('#strangerBanner').remove();
+        if (status === 'FRIEND') return;
+
+        let btnHtml = '';
+        if (status === 'PENDING_SENT') {
+            btnHtml = `<button class="btn-stranger-add btn-stranger-pending" onclick="window.cancelFriendRequest(${partnerId}, this)"><i class="fas fa-clock"></i> Đã gửi</button>`;
+        } else if (status === 'PENDING_RECEIVED') {
+            btnHtml = `<button class="btn-stranger-add" onclick="window.acceptFriendRequest(${partnerId}, this)"><i class="fas fa-check"></i> Chấp nhận</button>`;
+        } else {
+            btnHtml = `<button class="btn-stranger-add" onclick="window.sendFriendRequest(${partnerId}, this)"><i class="fas fa-user-plus"></i> Kết bạn</button>`;
+        }
+
+        const banner = `
+            <div id="strangerBanner" class="stranger-alert-bar">
+                <div class="stranger-content">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Tin nhắn từ người lạ. Hãy cẩn thận khi chia sẻ thông tin.</span>
+                </div>
+                <div class="stranger-actions">
+                    ${btnHtml}
+                    <button class="btn-stranger-block" onclick="window.blockUser(${partnerId})">Chặn</button>
+                </div>
+            </div>
+        `;
+        $('#messagesContainer').before(banner);
+    };
+
     // --- 3. SELECT AND LOAD THEME KHI CHỌN CONVERSATION ---
-    window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive) {
+    window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive, relationStatus) {
         currentPartnerId = parseInt(partnerId);
         currentPartnerName = name;
-        isCurrentPartnerFriend = (String(isFriend) === 'true');
+        isCurrentPartnerFriend = (String(isFriend) === 'true' || relationStatus === 'FRIEND');
 
         // UI Updates
         $('#emptyState').hide();
@@ -524,21 +665,21 @@
         }
 
         // [FIX] Banner Zalo (Vàng) - Chỉ hiện khi là người lạ
-        $('#strangerBanner').remove();
-        if (!isCurrentPartnerFriend) {
-            const banner = `
-                <div id="strangerBanner" class="stranger-alert-bar">
-                    <div class="stranger-content">
-                        <i class="fas fa-user-shield"></i>
-                        <span>Tin nhắn từ người lạ. Hãy cẩn thận khi chia sẻ thông tin.</span>
-                    </div>
-                    <div class="stranger-actions">
-                        <button class="btn-stranger-add" onclick="window.sendFriendRequest(${partnerId}, this)">Kết bạn</button>
-                        <button class="btn-stranger-block" onclick="alert('Tính năng chặn đang phát triển')">Chặn</button>
-                    </div>
-                </div>
-            `;
-            $('#messagesContainer').before(banner);
+        if (isCurrentPartnerFriend || relationStatus === 'FRIEND') {
+            $('#strangerBanner').remove();
+        } else {
+            window.renderStrangerBanner(partnerId, relationStatus || 'STRANGER');
+            // Query real relation status from server to guarantee sync
+            $.get(`/api/v1/messenger/relation/${partnerId}`).done(function(res) {
+                if (res && res.relationStatus) {
+                    if (res.relationStatus === 'FRIEND') {
+                        isCurrentPartnerFriend = true;
+                        $('#strangerBanner').remove();
+                    } else {
+                        window.renderStrangerBanner(partnerId, res.relationStatus);
+                    }
+                }
+            });
         }
 
         // Active Sidebar & Load
@@ -581,11 +722,28 @@
 
     // --- 4. RENDER UI (DÙNG CẤU TRÚC FILE CŨ CỦA BẠN) ---
     function appendMessageToUI(msg, forceMine = false) {
+        if (!msg) return;
         const myId = parseInt(currentUser.userID);
         let isMine = forceMine || (msg.senderId != currentPartnerId);
         const typeClass = isMine ? 'mine' : 'other';
-        const msgId = msg.id || 'temp-' + Date.now();
+        const msgId = msg.id || ('temp-' + Date.now());
         
+        // Deduplication check
+        if (msg.id) {
+            const existing = $(`#msg-${msg.id}`);
+            if (existing.length) {
+                if (msg.reactions) updateMessageReactions(msg.id, msg.reactions);
+                return;
+            }
+            if (isMine) {
+                const tempEl = $(`#messagesContainer .msg-row.mine[data-status="sending"]`).first();
+                if (tempEl.length) {
+                    tempEl.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                    return;
+                }
+            }
+        }
+
         // Reply block
         let replyHtml = '';
         if (msg.replyTo) {
@@ -594,7 +752,7 @@
             if (rContent.length > 40) rContent = rContent.substring(0, 40) + '...';
             
             replyHtml = `
-                <div class="reply-block" onclick="scrollToMessage(${msg.replyTo.id})">
+                <div class="reply-block" onclick="window.scrollToMessage('${msg.replyTo.id}')">
                     <div class="reply-name">${rName}</div>
                     <div>${rContent}</div>
                 </div>
@@ -604,16 +762,15 @@
         // Content
         let contentHtml = '';
         if (msg.isDeleted) {
-            contentHtml = '<div class="bubble" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>';
-        } else if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
-            const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : 'msg-image';
-            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:200px; border-radius:10px; cursor:pointer;">`;
+            contentHtml = '<div class="bubble deleted" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>';
+        } else if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
+            const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : (msg.type === 'GIF' ? 'msg-gif' : 'msg-image');
+            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">`;
         } else if (msg.type === 'AUDIO') {
             contentHtml = renderAudioPlayer(msg.content, msg.id);
-            // Auto-init sau khi append
             setTimeout(() => {
                 if (msg.id) {
-                    initAudioDuration(`audio-player-${msg.id}`);
+                    window.initAudioDuration(`audio-player-${msg.id}`);
                 }
             }, 100);
         } else if (msg.type === 'FILE') {
@@ -631,44 +788,54 @@
             contentHtml = `<div class="bubble">${replyHtml}${msg.content}</div>`;
         }
 
-        // Around line 1585, find the action buttons section and update to:
+        // Reactions
+        let reactionsHtml = '';
+        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+            reactionsHtml = '<div class="message-reactions">';
+            Object.entries(msg.reactions).forEach(([emoji, count]) => {
+                reactionsHtml += `
+                    <div class="reaction-item" onclick="window.addReaction('${msgId}', '${emoji}')">
+                        <span>${emoji}</span>
+                        <span class="reaction-count">${count}</span>
+                    </div>
+                `;
+            });
+            reactionsHtml += '</div>';
+        }
+
+        // Action Buttons
         let actionButtons = '';
         if (isMine) {
             actionButtons = `
-                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage(${msgId})">
+                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msgId}')">
                     <i class="fas fa-share"></i>
                 </div>
-                <div class="action-btn" title="Ghim" onclick="window.togglePinMessage(${msgId})">
+                <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msgId}')">
                     <i class="fas fa-thumbtack"></i>
                 </div>
-                <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, 'Bạn', '${msg.content?.substring(0,50) || '[File]'}')">
+                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
-                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="showReactionPicker(this, ${msgId})">
+                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
                     <i class="far fa-smile"></i>
                 </div>
-                <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage(${msgId})">
+                <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage('${msgId}')">
                     <i class="fas fa-trash"></i>
                 </div>
             `;
         } else {
             actionButtons = `
-                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage(${msgId})">
+                <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msgId}')">
                     <i class="fas fa-share"></i>
                 </div>
-                <div class="action-btn" title="Trả lời" onclick="window.startReply(${msgId}, '${currentPartnerName}', '${msg.content?.substring(0,50) || '[File]'}')">
+                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', '${currentPartnerName.replace(/'/g, "\\'")}', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
-                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="showReactionPicker(this, ${msgId})">
+                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
                     <i class="far fa-smile"></i>
                 </div>
             `;
         }
-
-        // Actions
-        const unsendBtn = (isMine && !msg.isDeleted) 
-            ? `<div class="action-btn" onclick="window.unsendMessage(${msgId})" title="Thu hồi"><i class="fas fa-trash"></i></div>` 
-            : '';
 
         const actionsHtml = `
             <div class="msg-actions">
@@ -679,10 +846,11 @@
         // Avatar
         let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
 
+        const statusAttr = msg.status ? `data-status="${msg.status}"` : '';
         const html = `
-            <div class="msg-row ${typeClass}" id="msg-${msgId}" data-msg-id="${msgId}">
+            <div class="msg-row ${typeClass}" id="msg-${msgId}" data-msg-id="${msgId}" ${statusAttr}>
                 ${avatarHtml}
-                <div class="msg-content">${contentHtml}</div>
+                <div class="msg-content">${contentHtml}${reactionsHtml}</div>
                 ${actionsHtml}
             </div>
         `;
@@ -748,26 +916,35 @@
         // [FIX QUAN TRỌNG] Kiểm tra xem có file đang chờ gửi không TRƯỚC
         if (pendingFile) {
             console.log("Đang gửi file...", pendingFile);
-            // Gọi hàm upload kèm theo nội dung text (làm caption)
             uploadAndSend(pendingFile.file, pendingFile.type, content);
-            return; // Dừng lại, không chạy logic gửi text phía dưới
+            return;
         }
 
         // Nếu không có file, mới kiểm tra text
         if (content && currentPartnerId) {
+            const tempId = 'temp-' + Date.now();
             // Optimistic UI: Hiện tin nhắn ngay lập tức
             appendMessageToUI({
+                id: tempId,
                 senderId: currentUser.userID,
                 content: content,
                 type: 'TEXT',
-                formattedTime: 'Đang gửi...'
+                replyTo: replyToId ? { id: replyToId, senderId: currentPartnerId, content: $('#replyingBar').text(), type: 'TEXT' } : null,
+                formattedTime: 'Đang gửi...',
+                status: 'sending'
             }, true);
 
-            // Gửi API
-            sendApiRequest({ receiverId: currentPartnerId, content: content, type: 'TEXT' });
+            // Gửi API kèm tempId
+            sendApiRequest({ 
+                receiverId: currentPartnerId, 
+                content: content, 
+                type: 'TEXT',
+                replyToId: replyToId
+            }, tempId);
             
             // Xóa ô nhập liệu
             $('#msgInput').val('').focus();
+            window.cancelReply();
         }
     };
 
@@ -813,60 +990,6 @@
             });
     };
 
-    window.loadPinnedMessages = function() {
-        if (!currentPartnerId) return;
-        
-        const container = $('#pinnedMessagesList');
-        if (!container.length) {
-            // Thêm section pinned messages vào sidebar
-            $('.accordion-item:eq(1) .accordion-content').append(`
-                <div class="pinned-section">
-                    <div class="section-title">
-                        <i class="fas fa-thumbtack"></i>
-                        <span>Tin nhắn đã ghim</span>
-                    </div>
-                    <div class="pinned-messages-list" id="pinnedMessagesList">
-                        <div class="loading-pinned">Đang tải...</div>
-                    </div>
-                </div>
-            `);
-        }
-        
-        $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
-            .done(function(messages) {
-                const list = $('#pinnedMessagesList');
-                list.empty();
-                
-                if (messages.length === 0) {
-                    list.html('<div class="no-pinned">Chưa có tin nhắn nào được ghim</div>');
-                    return;
-                }
-                
-                messages.forEach(msg => {
-                    const shortContent = msg.content.length > 30 ? 
-                        msg.content.substring(0, 30) + '...' : msg.content;
-                    const time = new Date(msg.timestamp).toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    
-                    list.append(`
-                        <div class="pinned-message-item" onclick="scrollToMessage(${msg.id})">
-                            <div class="pinned-content">${shortContent}</div>
-                            <div class="pinned-meta">
-                                <span class="pinned-time">${time}</span>
-                                <button class="btn-unpin" onclick="event.stopPropagation(); togglePinMessage(${msg.id})">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `);
-                });
-            })
-            .fail(function() {
-                $('#pinnedMessagesList').html('<div class="error-pinned">Lỗi tải tin đã ghim</div>');
-            });
-    };
 
     // ============= FIX 8: ADVANCED SEARCH SYSTEM =============
     window.openAdvancedSearch = function() {
@@ -1391,22 +1514,8 @@
         });
     };
 
-    function sendApiRequest(payload) {
+    function sendApiRequest(payload, tempId) {
         console.log("sendApiRequest payload:", payload);
-        
-        // Optimistic UI cho TEXT
-        // if (payload.type === 'TEXT' && payload.content.trim()) {
-        //     const tempMsg = {
-        //         id: 'temp-' + Date.now(),
-        //         senderId: currentUser.userID,
-        //         content: payload.content,
-        //         type: 'TEXT',
-        //         replyToId: payload.replyToId,
-        //         formattedTime: 'Đang gửi...',
-        //         status: 'SENDING'
-        //     };
-        //     appendMessageToUI(tempMsg, true);
-        // }
         
         $.ajax({
             url: '/api/v1/messenger/send',
@@ -1417,23 +1526,38 @@
                 console.log("sendApiRequest success:", msg);
                 
                 // Cập nhật tin nhắn tạm thành tin nhắn thật
-                if (payload.type === 'TEXT') {
-                    $(`#msg-temp-${msg.id}`).remove();
-                    appendMessageToUI(msg, true);
-                } else {
+                if (tempId && $(`#msg-${tempId}`).length) {
+                    const tempEl = $(`#msg-${tempId}`);
+                    tempEl.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                    tempEl.find('.msg-actions').html(`
+                        <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msg.id}')">
+                            <i class="fas fa-share"></i>
+                        </div>
+                        <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msg.id}')">
+                            <i class="fas fa-thumbtack"></i>
+                        </div>
+                        <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
+                            <i class="fas fa-reply"></i>
+                        </div>
+                        <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msg.id}')">
+                            <i class="far fa-smile"></i>
+                        </div>
+                        <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage('${msg.id}')">
+                            <i class="fas fa-trash"></i>
+                        </div>
+                    `);
+                    tempEl.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
+                } else if (!$(`#msg-${msg.id}`).length) {
                     appendMessageToUI(msg, true);
                 }
                 
                 scrollToBottom();
-                // updateConversationPreview(msg);
-                
-                // KHÔNG gọi loadConversations() - tránh reload
+                updateConversationPreview(msg);
             },
             error: function(e) { 
                 console.error("Send Error", e); 
-                // Xử lý lỗi cho tin nhắn tạm
-                if (payload.type === 'TEXT') {
-                    $(`#msg-temp-${msg.id} .bubble`).text('❌ Gửi thất bại').addClass('error');
+                if (tempId && $(`#msg-${tempId}`).length) {
+                    $(`#msg-${tempId} .bubble`).addClass('error').append('<span style="color:#ff4d4d;font-size:11px;display:block;">❌ Gửi thất bại</span>');
                 }
             }
         });
@@ -1448,10 +1572,34 @@
             return;
         }
         
+        let content = '';
+        let type = 'TEXT';
+        if (messageElement.find('img.msg-sticker').length) {
+            content = messageElement.find('img.msg-sticker').attr('src');
+            type = 'STICKER';
+        } else if (messageElement.find('img.msg-gif').length) {
+            content = messageElement.find('img.msg-gif').attr('src');
+            type = 'GIF';
+        } else if (messageElement.find('img.msg-image').length) {
+            content = messageElement.find('img.msg-image').attr('src');
+            type = 'IMAGE';
+        } else if (messageElement.find('audio source').length) {
+            content = messageElement.find('audio source').attr('src');
+            type = 'AUDIO';
+        } else if (messageElement.find('.msg-file a').length) {
+            content = messageElement.find('.msg-file a').attr('href');
+            type = 'FILE';
+        } else {
+            const bubbleClone = messageElement.find('.bubble').clone();
+            bubbleClone.children('.reply-block, .message-reactions').remove();
+            content = bubbleClone.text().trim();
+            type = 'TEXT';
+        }
+        
         selectedMessageToForward = {
             id: messageId,
-            content: messageElement.find('.msg-content').text() || messageElement.find('.bubble').text(),
-            type: messageElement.data('type') || 'TEXT',
+            content: content,
+            type: type,
             sender: currentUser.name
         };
         
@@ -1461,7 +1609,7 @@
         showForwardModal();
     };
 
-    function showForwardModal() {
+    window.showForwardModal = function() {
         if (!selectedMessageToForward) return;
         
         // Xóa modal cũ nếu có
@@ -1514,12 +1662,7 @@
         });
     }
 
-
-function loadForwardRecipients() {
-    
-}
-
-    function closeForwardModal() {
+    window.closeForwardModal = function() {
         $('.forward-modal-overlay, .forward-modal').remove();
         selectedMessageToForward = null;
         
@@ -1583,7 +1726,7 @@ function loadForwardRecipients() {
         });
     }
 
-    function executeForward() {
+    window.executeForward = function() {
         const selectedRecipients = [];
         $('input[name="forwardTo"]:checked').each(function() {
             selectedRecipients.push($(this).val());
@@ -1603,12 +1746,7 @@ function loadForwardRecipients() {
             const payload = {
                 receiverId: parseInt(recipientId),
                 content: selectedMessageToForward.content,
-                type: 'TEXT',
-                metadata: {
-                    forwarded: true,
-                    originalSender: selectedMessageToForward.sender,
-                    originalMessageId: selectedMessageToForward.id
-                }
+                type: selectedMessageToForward.type || 'TEXT'
             };
             
             $.ajax({
@@ -1658,7 +1796,7 @@ function loadForwardRecipients() {
         });
     }
 
-    function showForwardSuccess() {
+    window.showForwardSuccess = function() {
         const forwardBtn = $('.btn-forward');
         forwardBtn.removeClass('sent');
         forwardBtn.html('<i class="fas fa-check"></i> Đã chuyển tiếp');
@@ -1690,30 +1828,6 @@ function loadForwardRecipients() {
         });
     }
 
-    function showTypingIndicator(senderName) {
-        // Remove existing indicator
-        $('#typingIndicator').remove();
-        
-        const indicator = $(`
-            <div id="typingIndicator" class="typing-indicator">
-                <div class="typing-dots">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                </div>
-                <span style="margin-left: 8px; color: #aaa; font-size: 12px;">
-                    ${senderName} đang soạn tin...
-                </span>
-            </div>
-        `);
-        
-        $('#messagesContainer').append(indicator);
-        scrollToBottom();
-        
-        // Auto hide after 5 seconds
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(hideTypingIndicator, 5000);
-    }
 
     // Upload (Fix URL)
     function uploadAndSend(file, type, caption) {
@@ -1727,8 +1841,10 @@ function loadForwardRecipients() {
         $('#messagesContainer').append(`<div id="${tempId}" class="text-center small text-muted">Đang tải lên...</div>`);
         scrollToBottom();
 
+        const uploadUrl = (type === 'FILE') ? '/api/upload/file' : '/api/upload/image';
+
         $.ajax({
-            url: '/api/upload/image', 
+            url: uploadUrl, 
             type: 'POST',
             data: formData,
             processData: false,
@@ -1736,14 +1852,19 @@ function loadForwardRecipients() {
             success: function(res) {
                 $(`#${tempId}`).remove();
                 if(res.url) {
-                    // Send to server - let sendApiRequest handle UI append
                     sendApiRequest({ 
                         receiverId: currentPartnerId, 
                         content: res.url, 
                         type: type
                     });
                     
-                    // Only append caption as separate message if needed
+                    updateConversationPreview({
+                        senderId: currentUser.userID,
+                        receiverId: currentPartnerId,
+                        content: (type === 'FILE' ? 'Đã gửi 1 tệp đính kèm' : 'Đã gửi 1 ảnh'),
+                        type: type
+                    });
+                    
                     if(caption && caption.trim()) {
                         setTimeout(() => {
                             sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
@@ -1760,13 +1881,15 @@ function loadForwardRecipients() {
         });
     }
 
+
+
     // Hàm này gọi từ onchange của input file trong HTML
     window.handleFileSelect = function(input, type) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
             pendingFile = { file: file, type: type };
             
-            $('#mediaPreview').show().css('display', 'flex'); // ← THÊM .css('display', 'flex')
+            $('#mediaPreview').show().css('display', 'flex');
             
             if (type === 'IMAGE') {
                 const reader = new FileReader();
@@ -1813,8 +1936,9 @@ function loadForwardRecipients() {
     // Recording (Gán vào window)
     window.toggleRecording = function() {
         if (!isRecording) {
-            // BẮT ĐẦU
-            if (!navigator.mediaDevices) return alert("Lỗi Mic");
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return alert("Trình duyệt không hỗ trợ Mic");
+            }
             
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 mediaRecorder = new MediaRecorder(stream);
@@ -1824,13 +1948,11 @@ function loadForwardRecipients() {
                 mediaRecorder.start();
                 isRecording = true;
                 
-                // UI: Ẩn input, Hiện recording (Dùng class .show của CSS mới)
                 $('.input-actions').hide();
-                $('.recording-ui').addClass('show').css('display', 'flex'); // Force flex
+                $('.recording-ui').addClass('show').css('display', 'flex');
 
                 if (recordingTimer) clearInterval(recordingTimer);
 
-                // Timer
                 let sec = 0;
                 $('#recordTimer').text("00:00");
                 recordingTimer = setInterval(() => {
@@ -1841,17 +1963,19 @@ function loadForwardRecipients() {
                 }, 1000);
 
                 mediaRecorder.onstop = () => {
-                    if (!currentPartnerId) return;
+                    if (!currentPartnerId) {
+                        closeRecordingUI();
+                        return;
+                    }
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-
-                    console.log('Recording stopped — uploading audio blob, size:', blob.size);
-                    // Use the centralized helper that posts to /api/upload/audio and shows UI
                     uploadAudioFile(blob);
-
                     closeRecordingUI();
                 };
 
-            }).catch(err => alert("Cần quyền Mic"));
+            }).catch(err => {
+                console.error("Lỗi truy cập Mic:", err);
+                alert("Cần cấp quyền Microphone để ghi âm");
+            });
         }
     };
 
@@ -1861,25 +1985,40 @@ function loadForwardRecipients() {
         
         return `
             <div class="msg-audio-player" id="${playerId}">
-                <button class="audio-play-btn" onclick="toggleAudioPlay('${playerId}')">
+                <button class="audio-play-btn" onclick="window.toggleAudioPlay('${playerId}')">
                     <i class="fas fa-play"></i>
                 </button>
-                <div class="audio-progress-container" onclick="seekAudio(event, '${playerId}')">
+                <div class="audio-waveform-container" onclick="window.seekAudio(event, '${playerId}')">
+                    <div class="audio-waveform-bars">
+                        <span style="height: 35%"></span>
+                        <span style="height: 70%"></span>
+                        <span style="height: 50%"></span>
+                        <span style="height: 90%"></span>
+                        <span style="height: 65%"></span>
+                        <span style="height: 30%"></span>
+                        <span style="height: 85%"></span>
+                        <span style="height: 45%"></span>
+                        <span style="height: 95%"></span>
+                        <span style="height: 60%"></span>
+                        <span style="height: 40%"></span>
+                        <span style="height: 75%"></span>
+                    </div>
                     <div class="audio-progress-bar">
                         <div class="audio-progress-fill" id="${playerId}-progress"></div>
                     </div>
-                    <div class="audio-time-display">
-                        <span id="${playerId}-current-time">0:00</span>
-                        <span id="${playerId}-duration">--:--</span>
-                    </div>
+                </div>
+                <div class="audio-time-display">
+                    <span id="${playerId}-current-time">0:00</span>
+                    <span class="audio-divider">/</span>
+                    <span id="${playerId}-duration">0:00</span>
                 </div>
                 <audio id="${playerId}-audio" preload="metadata"
-                    onloadedmetadata="initAudioDuration('${playerId}')"
-                    ontimeupdate="updateAudioProgress('${playerId}')"
-                    onended="onAudioEnded('${playerId}')">
+                    onloadedmetadata="window.initAudioDuration('${playerId}')"
+                    ontimeupdate="window.updateAudioProgress('${playerId}')"
+                    onended="window.onAudioEnded('${playerId}')">
                     <source src="${audioUrl}" type="audio/webm">
                     <source src="${audioUrl}" type="audio/mpeg">
-                    Your browser does not support the audio element.
+                    Trình duyệt không hỗ trợ audio.
                 </audio>
                 <a href="${audioUrl}" download class="audio-download-btn" title="Tải xuống">
                     <i class="fas fa-download"></i>
@@ -1888,254 +2027,104 @@ function loadForwardRecipients() {
         `;
     }
 
-    // FIX 1.4: Thêm hàm initAudioDuration
+    function formatAudioTime(seconds) {
+        if (!seconds || isNaN(seconds) || seconds === Infinity) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
     window.initAudioDuration = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
         if (!audio) return;
         
-        // Đợi metadata load
+        const setDuration = () => {
+            let duration = audio.duration;
+            if (!duration || isNaN(duration) || duration === Infinity) {
+                // Fix Chromium WebM duration infinity bug
+                audio.currentTime = 1e101;
+                audio.ontimeupdate = function() {
+                    this.ontimeupdate = null;
+                    audio.currentTime = 0;
+                    duration = audio.duration;
+                    if (duration && !isNaN(duration) && duration !== Infinity) {
+                        $(`#${playerId}-duration`).text(formatAudioTime(duration));
+                    }
+                };
+            } else {
+                $(`#${playerId}-duration`).text(formatAudioTime(duration));
+            }
+        };
+
         if (audio.readyState >= 1) {
-            updateAudioDuration(playerId, audio.duration);
+            setDuration();
         } else {
-            audio.addEventListener('loadedmetadata', () => {
-                updateAudioDuration(playerId, audio.duration);
-            });
-            // Force load
-            audio.load();
+            audio.addEventListener('loadedmetadata', setDuration, { once: true });
         }
     };
-
-    function updateAudioDuration(playerId, duration) {
-        if (!duration || isNaN(duration) || duration === Infinity) {
-            console.warn('Invalid audio duration');
-            return;
-        }
-        
-        const mins = Math.floor(duration / 60);
-        const secs = Math.floor(duration % 60);
-        const durationElement = document.getElementById(playerId + '-duration');
-        if (durationElement) {
-            durationElement.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-    }
+    window.initAudioPlayer = window.initAudioDuration;
 
     window.toggleAudioPlay = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        const btnIcon = $(`#${playerId} .audio-play-btn i`);
+        const player = $(`#${playerId}`);
+        const btn = player.find('.audio-play-btn');
+        const btnIcon = btn.find('i');
         if (!audio) return;
+
+        // Pause any other playing audio
+        $('audio').each(function() {
+            if (this !== audio && !this.paused) {
+                this.pause();
+                const otherId = this.id.replace('-audio', '');
+                $(`#${otherId}`).removeClass('playing');
+                $(`#${otherId} .audio-play-btn`).removeClass('playing').find('i').removeClass('fa-pause').addClass('fa-play');
+            }
+        });
+
         if (audio.paused) {
             audio.play();
+            player.addClass('playing');
+            btn.addClass('playing');
             btnIcon.removeClass('fa-play').addClass('fa-pause');
         } else {
             audio.pause();
+            player.removeClass('playing');
+            btn.removeClass('playing');
             btnIcon.removeClass('fa-pause').addClass('fa-play');
         }
     };
 
     window.updateAudioProgress = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        if (!audio || !audio.duration) return;
+        if (!audio || !audio.duration || isNaN(audio.duration)) return;
         const progress = (audio.currentTime / audio.duration) * 100;
         $(`#${playerId}-progress`).css('width', progress + '%');
         const cur = Math.floor(audio.currentTime);
-        const mins = Math.floor(cur/60);
+        const mins = Math.floor(cur / 60);
         const secs = cur % 60;
-        $(`#${playerId}-time`).text(`${mins}:${secs.toString().padStart(2,'0')}`);
+        $(`#${playerId}-current-time`).text(`${mins}:${secs.toString().padStart(2, '0')}`);
     };
 
     window.seekAudio = function(event, playerId) {
         const audio = document.getElementById(playerId + '-audio');
-        if (!audio) return;
-        const rect = $(`#${playerId} .audio-progress-bar`)[0].getBoundingClientRect();
+        if (!audio || !audio.duration) return;
+        const container = $(`#${playerId} .audio-waveform-container`)[0];
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const ratio = Math.max(0, Math.min(1, x / rect.width));
         audio.currentTime = audio.duration * ratio;
-        updateAudioProgress(playerId);
+        window.updateAudioProgress(playerId);
     };
 
     window.onAudioEnded = function(playerId) {
-        $(`#${playerId} .audio-play-btn i`).removeClass('fa-pause').addClass('fa-play');
+        const player = $(`#${playerId}`);
+        player.removeClass('playing');
+        player.find('.audio-play-btn').removeClass('playing').find('i').removeClass('fa-pause').addClass('fa-play');
         $(`#${playerId}-progress`).css('width', '0%');
+        $(`#${playerId}-current-time`).text('0:00');
     };
 
-    // --- IN-CHAT SEARCH FEATURE ---
-    window.openChatSearch = function() {
-        const searchOverlay = $('<div class="chat-search-overlay"></div>');
-        const searchModal = $(`
-            <div class="chat-search-modal">
-                <div class="search-modal-header">
-                    <h3><i class="fas fa-search"></i> Tìm kiếm trong đoạn chat</h3>
-                    <button class="close-search" onclick="closeChatSearch()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="search-input-container">
-                    <input type="text" id="chatSearchInput" placeholder="Nhập từ khóa để tìm...">
-                    <button onclick="performChatSearch()">
-                        <i class="fas fa-search"></i>
-                    </button>
-                </div>
-                <div class="search-results" id="chatSearchResults">
-                    <div class="no-results">
-                        <i class="fas fa-search"></i>
-                        <p>Nhập từ khóa để tìm kiếm tin nhắn</p>
-                    </div>
-                </div>
-                <div class="search-navigation" style="display: none;">
-                    <button onclick="prevSearchResult()">
-                        <i class="fas fa-chevron-up"></i> Trước
-                    </button>
-                    <span id="searchCounter">0/0</span>
-                    <button onclick="nextSearchResult()">
-                        Sau <i class="fas fa-chevron-down"></i>
-                    </button>
-                </div>
-            </div>
-        `);
-        
-        $('body').append(searchOverlay).append(searchModal);
-        
-        // Focus input
-        setTimeout(() => $('#chatSearchInput').focus(), 100);
-        
-        // Enter key to search
-        $('#chatSearchInput').on('keypress', function(e) {
-            if (e.which === 13) performChatSearch();
-        });
-    };
-
-    function closeChatSearch() {
-        $('.chat-search-overlay, .chat-search-modal').remove();
-        removeHighlights();
-    }
-
-    function performChatSearch() {
-        const query = $('#chatSearchInput').val().trim();
-        if (!query) return;
-        
-        searchResults = [];
-        currentSearchIndex = -1;
-        
-        // Find messages containing query
-        $('.msg-row').each(function() {
-            const messageText = $(this).find('.bubble').text() || 
-                            $(this).find('.msg-file .file-name').text() ||
-                            '';
-            
-            if (messageText.toLowerCase().includes(query.toLowerCase())) {
-                const messageId = $(this).data('msg-id');
-                if (messageId) {
-                    searchResults.push({
-                        id: messageId,
-                        element: $(this),
-                        text: messageText
-                    });
-                }
-            }
-        });
-        
-        // Display results
-        const resultsContainer = $('#chatSearchResults');
-        const navigation = $('.search-navigation');
-        
-        if (searchResults.length === 0) {
-            resultsContainer.html(`
-                <div class="no-results">
-                    <i class="fas fa-search"></i>
-                    <p>Không tìm thấy kết quả cho "${query}"</p>
-                </div>
-            `);
-            navigation.hide();
-        } else {
-            // Highlight search results
-            removeHighlights();
-            highlightSearchResults(query);
-            
-            // Show results list
-            let resultsHtml = '<div class="results-list">';
-            searchResults.forEach((result, index) => {
-                const shortText = result.text.length > 60 ? 
-                    result.text.substring(0, 60) + '...' : result.text;
-                const date = result.element.find('.msg-timestamp').text();
-                
-                resultsHtml += `
-                    <div class="search-result-item" onclick="goToSearchResult(${index})">
-                        <div class="result-preview">
-                            <span class="result-text">${highlightText(shortText, query)}</span>
-                            <span class="result-date">${date}</span>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                `;
-            });
-            resultsHtml += '</div>';
-            
-            resultsContainer.html(resultsHtml);
-            navigation.show();
-            updateSearchCounter();
-            
-            // Go to first result
-            if (searchResults.length > 0) {
-                goToSearchResult(0);
-            }
-        }
-    }
-
-    function highlightSearchResults(query) {
-        searchResults.forEach(result => {
-            const bubble = result.element.find('.bubble');
-            const originalHtml = bubble.html();
-            const highlightedHtml = highlightText(originalHtml, query);
-            bubble.html(highlightedHtml);
-            bubble.addClass('search-highlight');
-        });
-    }
-
-    function highlightText(text, query) {
-        if (!query) return text;
-        
-        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        return text.replace(regex, '<mark class="search-highlight-mark">$1</mark>');
-    }
-
-    function removeHighlights() {
-        $('.search-highlight-mark').each(function() {
-            $(this).replaceWith($(this).text());
-        });
-        $('.bubble').removeClass('search-highlight');
-    }
-
-    function goToSearchResult(index) {
-        if (index < 0 || index >= searchResults.length) return;
-        
-        currentSearchIndex = index;
-        const result = searchResults[index];
-        
-        // Scroll to message
-        scrollToMessage(result.id);
-        
-        // Highlight current result
-        $('.search-result-item').removeClass('active');
-        $(`.search-result-item:eq(${index})`).addClass('active');
-        
-        updateSearchCounter();
-    }
-
-    function prevSearchResult() {
-        if (searchResults.length === 0) return;
-        currentSearchIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
-        goToSearchResult(currentSearchIndex);
-    }
-
-    function nextSearchResult() {
-        if (searchResults.length === 0) return;
-        currentSearchIndex = (currentSearchIndex + 1) % searchResults.length;
-        goToSearchResult(currentSearchIndex);
-    }
-
-    function updateSearchCounter() {
-        $('#searchCounter').text(`${currentSearchIndex + 1}/${searchResults.length}`);
-    }
 
     /**
      * COMPLETE EMOJI DATABASE WITH VIETNAMESE SUPPORT
@@ -2810,12 +2799,12 @@ function loadForwardRecipients() {
             setActiveCategoryTab('smileys');
             
             setTimeout(() => {
-                document.getElementById('emojiSearchInput').focus();
+                const searchInput = document.getElementById('emojiSearchInput');
+                if (searchInput) searchInput.focus();
             }, 100);
             
-            // isOpen = true;
-            window.emojiPickerState.isOpen = true; // SỬA Ở ĐÂY
-            window.emojiPickerState.picker = pickerContainer; // Lưu reference
+            window.emojiPickerState.isOpen = true;
+            window.emojiPickerState.picker = pickerContainer;
         }
 
         // Close picker
@@ -2824,7 +2813,6 @@ function loadForwardRecipients() {
             pickerContainer.style.transform = 'translateY(10px)';
             setTimeout(() => {
                 pickerContainer.style.display = 'none';
-                // isOpen = false;
                 window.emojiPickerState.isOpen = false;
                 hideEmojiTooltip();
             }, 300);
@@ -2832,28 +2820,32 @@ function loadForwardRecipients() {
 
         // Event listeners
         const trigger = document.getElementById('emojiTrigger');
+        if (trigger) {
+            $(trigger).off('click.emojipicker').on('click.emojipicker', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!window.emojiPickerState.isOpen) {
+                    openPicker();
+                } else {
+                    closePicker();
+                }
+            });
+        }
         
-        trigger.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            if (!isOpen) {
-                openPicker();
-            } else {
-                closePicker();
-            }
-        });
-        
-        document.getElementById('closeEmojiPicker').addEventListener('click', closePicker);
+        const closeBtn = document.getElementById('closeEmojiPicker');
+        if (closeBtn) closeBtn.addEventListener('click', closePicker);
         
         // Search input
         let searchTimeout;
-        document.getElementById('emojiSearchInput').addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                searchEmojis(e.target.value);
-            }, 200);
-        });
+        const searchInput = document.getElementById('emojiSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchEmojis(e.target.value);
+                }, 200);
+            });
+        }
         
         // Category tabs
         pickerContainer.querySelectorAll('.emoji-category-btn').forEach(btn => {
@@ -2863,52 +2855,69 @@ function loadForwardRecipients() {
         });
         
         // Scroll event
-        pickerContainer.querySelector('.emoji-content').addEventListener('scroll', updateActiveCategoryOnScroll);
+        const emojiContent = pickerContainer.querySelector('.emoji-content');
+        if (emojiContent) emojiContent.addEventListener('scroll', updateActiveCategoryOnScroll);
         
         // Click outside to close
         document.addEventListener('click', function(e) {
-            if (!pickerContainer.contains(e.target) && e.target !== trigger && isOpen) {
+            if (pickerContainer && !pickerContainer.contains(e.target) && e.target !== trigger && window.emojiPickerState.isOpen) {
                 closePicker();
             }
         });
         
         // ESC key to close
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && isOpen) {
+            if (e.key === 'Escape' && window.emojiPickerState.isOpen) {
                 closePicker();
             }
         });
+
+        // CRITICAL FIX: Append to document.body and register globally
+        document.body.appendChild(pickerContainer);
+        window.emojiPickerState.picker = pickerContainer;
+        window.emojiPickerState.openPicker = openPicker;
+        window.emojiPickerState.closePicker = closePicker;
         
-        console.log('✅ Premium Emoji Picker initialized');
+        console.log('✅ Premium Emoji Picker initialized and attached to body');
     }
 
     // Tạo hàm open/close riêng
     function openEmojiPicker() {
-        if (!window.emojiPickerState.picker) {
-            initEmojiPicker(); // Chỉ init nếu chưa có
+        if (!window.emojiPickerState.picker || !document.body.contains(window.emojiPickerState.picker)) {
+            initEmojiPicker();
         }
-        
-        const picker = window.emojiPickerState.picker;
-        picker.style.display = 'flex';
-        setTimeout(() => {
-            picker.style.opacity = '1';
-            picker.style.transform = 'translateY(0)';
-        }, 10);
-        
-        window.emojiPickerState.isOpen = true;
+        if (window.emojiPickerState.openPicker) {
+            window.emojiPickerState.openPicker();
+        } else {
+            const picker = window.emojiPickerState.picker;
+            if (picker) {
+                picker.style.display = 'flex';
+                setTimeout(() => {
+                    picker.style.opacity = '1';
+                    picker.style.transform = 'translateY(0)';
+                }, 10);
+                window.emojiPickerState.isOpen = true;
+            }
+        }
     }
 
     function closeEmojiPicker() {
-        if (!window.emojiPickerState.picker) return;
-        
-        const picker = window.emojiPickerState.picker;
-        picker.style.opacity = '0';
-        picker.style.transform = 'translateY(10px)';
-        setTimeout(() => {
-            picker.style.display = 'none';
-            window.emojiPickerState.isOpen = false;
-        }, 300);
+        if (window.emojiPickerState.closePicker) {
+            window.emojiPickerState.closePicker();
+        } else {
+            const picker = window.emojiPickerState.picker;
+            if (!picker) return;
+            picker.style.opacity = '0';
+            picker.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                picker.style.display = 'none';
+                window.emojiPickerState.isOpen = false;
+            }, 300);
+        }
     }
+
+    window.openEmojiPicker = openEmojiPicker;
+    window.closeEmojiPicker = closeEmojiPicker;
 
     // --- 1. LOGIC GHI ÂM (RECORDING) ---
 
@@ -3091,55 +3100,8 @@ function loadForwardRecipients() {
         });
     }
 
-    // Enhanced audio player
-    function renderAudioPlayer(audioUrl) {
-        const playerId = 'audio-player-' + Date.now();
-        
-        return `
-            <div class="msg-audio-player" id="${playerId}">
-                <button class="audio-play-btn" onclick="toggleAudioPlay('${playerId}')">
-                    <i class="fas fa-play"></i>
-                </button>
-                <div class="audio-progress-container" onclick="seekAudio(event, '${playerId}')">
-                    <div class="audio-progress-bar">
-                        <div class="audio-progress-fill" id="${playerId}-progress"></div>
-                    </div>
-                    <div class="audio-time-display">
-                        <span id="${playerId}-current-time">0:00</span>
-                        <span id="${playerId}-duration">0:00</span>
-                    </div>
-                </div>
-                <audio id="${playerId}-audio" preload="metadata"
-                    onloadedmetadata="initAudioPlayer('${playerId}')"
-                    ontimeupdate="updateAudioProgress('${playerId}')"
-                    onended="onAudioEnded('${playerId}')">
-                    <source src="${audioUrl}" type="audio/webm">
-                    <source src="${audioUrl}" type="audio/mpeg">
-                </audio>
-                <a href="${audioUrl}" download class="audio-download-btn" title="Tải xuống">
-                    <i class="fas fa-download"></i>
-                </a>
-            </div>
-        `;
-    }
-
     // Reaction system
     window.initReactionSystem = function() {
-        // Thêm reaction button cho các message chưa có
-        $('.msg-row').each(function() {
-            if (!$(this).find('.reaction-btn').length) {
-                const msgId = $(this).data('msg-id');
-                if (msgId) {
-                    $(this).append(`
-                        <div class="reaction-btn" onclick="showReactionPicker(this, ${msgId})">
-                            <i class="far fa-smile"></i>
-                        </div>
-                    `);
-                }
-            }
-        });
-        
-        // Hiển thị existing reactions nếu có
         $('.msg-row').each(function() {
             const msgId = $(this).data('msg-id');
             if (msgId) {
@@ -3148,22 +3110,22 @@ function loadForwardRecipients() {
         });
     };
 
-    window.showReactionPicker = function(button) {
-        // Remove any existing picker
+    window.showReactionPicker = function(button, directMsgId) {
         $('.reaction-picker').remove();
         
         const msgRow = $(button).closest('.msg-row');
-        const msgId = msgRow.data('msg-id');
+        const msgId = directMsgId || msgRow.data('msg-id');
+        if (!msgId) return;
         
         const picker = $(`
             <div class="reaction-picker active">
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '👍')">👍</span>
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '❤️')">❤️</span>
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😮')">😮</span>
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😢')">😢</span>
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😂')">😂</span>
-                <span class="reaction-emoji" onclick="addReaction(${msgId}, '😠')">😠</span>
-                <span class="reaction-emoji" onclick="showFullReactionPicker(${msgId})">
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '👍')">👍</span>
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '❤️')">❤️</span>
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '😮')">😮</span>
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '😢')">😢</span>
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '😂')">😂</span>
+                <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '😠')">😠</span>
+                <span class="reaction-emoji" onclick="window.showFullReactionPicker(${msgId})">
                     <i class="fas fa-plus"></i>
                 </span>
             </div>
@@ -3171,7 +3133,6 @@ function loadForwardRecipients() {
         
         msgRow.append(picker);
         
-        // Close picker when clicking outside
         setTimeout(() => {
             $(document).on('click.reaction', function(e) {
                 if (!$(e.target).closest('.reaction-picker, .reaction-btn').length) {
@@ -3182,25 +3143,69 @@ function loadForwardRecipients() {
         }, 100);
     };
 
+    window.showFullReactionPicker = function(messageId) {
+        $('.reaction-picker, .full-reaction-modal-overlay').remove();
+        
+        const popularEmojis = [
+            '👍', '❤️', '🔥', '😂', '😮', '😢', '👏', '🎉', '🍿', '💯',
+            '🥰', '😍', '🤩', '🥺', '😡', '🤔', '😴', '🤡', '🥳', '🙏',
+            '✨', '👀', '💀', '🤮', '🤝', '🚀', '💖', '💔', '⚡', '🌟',
+            '💪', '🎯', '👌', '🤗', '😎', '💐'
+        ];
+        
+        const overlay = $('<div class="full-reaction-modal-overlay"></div>');
+        const modal = $(`
+            <div class="full-reaction-modal">
+                <div class="full-reaction-header">
+                    <span><i class="far fa-smile me-2"></i>Thả cảm xúc</span>
+                    <button class="full-reaction-close" onclick="$('.full-reaction-modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="full-reaction-grid">
+                    ${popularEmojis.map(emoji => `
+                        <button class="full-reaction-item" onclick="window.addReaction(${messageId}, '${emoji}')">
+                            ${emoji}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+        
+        overlay.append(modal);
+        $('body').append(overlay);
+        
+        overlay.on('click', function(e) {
+            if ($(e.target).hasClass('full-reaction-modal-overlay')) {
+                overlay.remove();
+            }
+        });
+    };
+
     window.addReaction = function(messageId, emoji) {
         $.post('/api/v1/messenger/reaction', {
             messageId: messageId,
             emoji: emoji
         }).done(function(response) {
-            updateMessageReactions(messageId, response.reactions);
-            $('.reaction-picker').remove();
+            if (response && response.reactions) {
+                window.updateMessageReactions(messageId, response.reactions);
+            }
+            $('.reaction-picker, .full-reaction-modal-overlay').remove();
+        }).fail(function(err) {
+            console.error('Lỗi gửi reaction:', err);
         });
     };
 
     window.updateMessageReactions = function(messageId, reactions) {
         const msgRow = $(`#msg-${messageId}`);
-        let reactionsHtml = '';
+        if (!msgRow.length) return;
         
+        let reactionsHtml = '';
         if (reactions && Object.keys(reactions).length > 0) {
             reactionsHtml = '<div class="message-reactions">';
             Object.entries(reactions).forEach(([emoji, count]) => {
                 reactionsHtml += `
-                    <div class="reaction-item" onclick="showReactionDetails(${messageId}, '${emoji}')">
+                    <div class="reaction-item" onclick="window.addReaction(${messageId}, '${emoji}')" title="Nhấn để thả cảm xúc này">
                         <span>${emoji}</span>
                         <span class="reaction-count">${count}</span>
                     </div>
@@ -3219,30 +3224,25 @@ function loadForwardRecipients() {
         
         $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
             .done(function(messages) {
-                displayPinnedMessages(messages);
+                window.displayPinnedMessages(messages);
             });
     };
 
     window.displayPinnedMessages = function(messages) {
-        // Remove existing banner
-        $('.pinned-banner').remove();
+        const headerBar = $('#pinnedHeaderBar');
+        const snippet = $('#pinnedHeaderSnippet');
+        const countBadge = $('#pinnedHeaderCount');
         
         if (messages && messages.length > 0) {
-            const latest = messages[0];
-            const content = latest.content.length > 50 ? 
-                latest.content.substring(0, 50) + '...' : latest.content;
+            const latest = messages[messages.length - 1];
+            const content = latest.content.length > 60 ? 
+                latest.content.substring(0, 60) + '...' : latest.content;
             
-            const banner = $(`
-                <div class="pinned-banner" onclick="openPinnedMessagesModal()">
-                    <div class="pinned-content">
-                        <i class="fas fa-thumbtack"></i>
-                        <strong>Tin nhắn đã ghim:</strong> ${content}
-                    </div>
-                    <button class="btn-view-pinned">Xem tất cả (${messages.length})</button>
-                </div>
-            `);
-            
-            $('#messagesContainer').prepend(banner);
+            snippet.text(content);
+            countBadge.text(messages.length);
+            headerBar.slideDown(200);
+        } else {
+            headerBar.slideUp(200);
         }
     };
 
@@ -3512,57 +3512,117 @@ function loadForwardRecipients() {
             $(this).toggle(name.includes(query));
         });
     });
-    // --- REPLY & UNSEND LOGIC ---
-    
-
-    window.startReply = function(msgId, name, content) {
-        replyToId = msgId;
-        // Hiện thanh Replying Bar (Cần thêm HTML vào footer ở bước sau)
-        $('#replyingBar').css('display', 'flex');
-        $('#replyingBar').css('display', 'flex').html(`
-            <span>Đang trả lời ${name}: ${content}</span>
-            <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;margin-left:auto;"></i>
-        `);
-        $('#msgInput').focus();
-    };
-
-    window.cancelReply = function() {
-        replyToId = null;
-        $('#replyingBar').hide();
-    };
-
+    // --- UNSEND & INLINE CHAT SEARCH LOGIC ---
     window.unsendMessage = function(msgId) {
-        if(!confirm("Thu hồi tin nhắn này?")) return;
+        if (!confirm("Thu hồi tin nhắn này?")) return;
         
-        $.post(`/api/v1/messenger/unsend/${msgId}`, function() {
-            // Update UI ngay lập tức
-            const bubble = $(`#msg-${msgId} .msg-content`);
-            bubble.addClass('deleted').removeAttr('style').text('Tin nhắn đã bị thu hồi');
-            $(`#msg-${msgId} .msg-actions`).remove(); // Xóa menu action
-        });
+        $.post(`/api/v1/messenger/unsend/${msgId}`)
+            .done(function() {
+                const bubble = $(`#msg-${msgId} .msg-content`);
+                bubble.addClass('deleted').removeAttr('style').text('Tin nhắn đã bị thu hồi');
+                $(`#msg-${msgId} .msg-actions`).remove();
+                if (typeof showToast === 'function') showToast('Đã thu hồi tin nhắn', 'info');
+            })
+            .fail(function() {
+                if (typeof showToast === 'function') showToast('Lỗi khi thu hồi tin nhắn', 'error');
+            });
     };
 
-    // [CẬP NHẬT HÀM GỬI TIN] Để kèm replyToId
-    window.sendTextMessage = function() {
-        const content = $('#msgInput').val().trim();
+    let inlineSearchResults = [];
+    let inlineSearchIndex = -1;
 
-        if (pendingFile) {
-            uploadAndSend(pendingFile.file, pendingFile.type, content);
+    window.openChatSearch = function() {
+        $('#inlineChatSearch').slideDown(150);
+        $('#inlineSearchInput').val('').focus();
+        inlineSearchResults = [];
+        inlineSearchIndex = -1;
+        $('#inlineSearchCounter').text('0/0');
+    };
+
+    window.closeInlineChatSearch = function() {
+        $('#inlineChatSearch').slideUp(150);
+        removeHighlights();
+        inlineSearchResults = [];
+        inlineSearchIndex = -1;
+    };
+
+    window.handleInlineSearch = function(query) {
+        query = (query || '').trim();
+        removeHighlights();
+        inlineSearchResults = [];
+        inlineSearchIndex = -1;
+
+        if (!query) {
+            $('#inlineSearchCounter').text('0/0');
             return;
         }
 
-        if (content && currentPartnerId) {
-            const payload = { 
-                receiverId: currentPartnerId, 
-                content: content, 
-                type: 'TEXT',
-                replyToId: replyToId
-            };
-            
-            sendApiRequest(payload);
-            $('#msgInput').val('').focus();
-            window.cancelReply();
+        $('#messagesContainer .msg-row').each(function() {
+            const row = $(this);
+            const text = row.find('.bubble').text() || '';
+            if (text.toLowerCase().includes(query.toLowerCase())) {
+                const msgId = row.data('msg-id');
+                if (msgId) {
+                    inlineSearchResults.push({ id: msgId, el: row });
+                }
+            }
+        });
+
+        if (inlineSearchResults.length > 0) {
+            highlightSearchResults(query);
+            inlineSearchIndex = 0;
+            $('#inlineSearchCounter').text(`1/${inlineSearchResults.length}`);
+            window.scrollToMessage(inlineSearchResults[0].id);
+        } else {
+            $('#inlineSearchCounter').text('0/0');
         }
+    };
+
+    window.prevSearchResult = function() {
+        if (inlineSearchResults.length === 0) return;
+        inlineSearchIndex = (inlineSearchIndex - 1 + inlineSearchResults.length) % inlineSearchResults.length;
+        $('#inlineSearchCounter').text(`${inlineSearchIndex + 1}/${inlineSearchResults.length}`);
+        window.scrollToMessage(inlineSearchResults[inlineSearchIndex].id);
+    };
+
+    window.nextSearchResult = function() {
+        if (inlineSearchResults.length === 0) return;
+        inlineSearchIndex = (inlineSearchIndex + 1) % inlineSearchResults.length;
+        $('#inlineSearchCounter').text(`${inlineSearchIndex + 1}/${inlineSearchResults.length}`);
+        window.scrollToMessage(inlineSearchResults[inlineSearchIndex].id);
+    };
+
+    window.toggleConvMenu = function(event, partnerId) {
+        event.stopPropagation();
+        $('.conv-action-dropdown').remove();
+
+        const btn = $(event.currentTarget);
+        const convItem = btn.closest('.conv-item');
+
+        const dropdown = $(`
+            <div class="conv-action-dropdown" onclick="event.stopPropagation();">
+                <div class="dropdown-item" onclick="window.viewProfile(${partnerId})">
+                    <i class="fas fa-user-circle"></i> Xem trang cá nhân
+                </div>
+                <div class="dropdown-item" onclick="window.toggleNotifications(${partnerId}); $('.conv-action-dropdown').remove();">
+                    <i class="fas fa-bell"></i> Bật/Tắt thông báo
+                </div>
+                <div class="dropdown-item text-danger" onclick="window.blockUser(${partnerId}); $('.conv-action-dropdown').remove();">
+                    <i class="fas fa-ban"></i> Chặn người dùng
+                </div>
+            </div>
+        `);
+
+        convItem.append(dropdown);
+
+        setTimeout(() => {
+            $(document).on('click.convMenu', function(e) {
+                if (!$(e.target).closest('.conv-action-dropdown, .conv-more-btn').length) {
+                    $('.conv-action-dropdown').remove();
+                    $(document).off('click.convMenu');
+                }
+            });
+        }, 50);
     };
 
 
@@ -3632,7 +3692,7 @@ function loadForwardRecipients() {
     window.viewProfile = function(partnerId) {
         const id = partnerId || currentPartnerId;
         if (id) {
-            window.location.href = `/profile/${id}`;
+            window.location.href = `/social/profile/${id}`;
         }
     };
 
@@ -3769,26 +3829,6 @@ function loadForwardRecipients() {
     };
 
 
-    // --- 9. SIDEBAR & SETTINGS LOGIC ---
-
-    // Toggle Sidebar Info
-    window.toggleChatInfo = function() {
-        const sidebar = $('#chatInfoSidebar');
-        const chatArea = $('.msg-chat-area');
-        const btn = $('#btnToggleInfo');
-        
-        if (sidebar.hasClass('hidden')) {
-            sidebar.removeClass('hidden');
-            chatArea.addClass('info-open');
-            btn.addClass('active');
-            // Load media khi mở sidebar
-            loadSharedMedia();
-        } else {
-            sidebar.addClass('hidden');
-            chatArea.removeClass('info-open');
-            btn.removeClass('active');
-        }
-    };
 
     // --- FIX: SCROLL TO MESSAGE ---
     window.scrollToMessage = function(messageId) {
@@ -3797,7 +3837,7 @@ function loadForwardRecipients() {
             const container = $('#messagesContainer');
             const containerTop = container.offset().top;
             const messageTop = messageElement.offset().top;
-            const scrollTo = messageTop - containerTop - 100;
+            const scrollTo = container.scrollTop() + (messageTop - containerTop) - 80;
             
             container.animate({
                 scrollTop: scrollTo

@@ -37,11 +37,21 @@
           <div class="hero-title-container">
             <img
               id="heroLogo"
+              th:if="${movie.logoPath != null and movie.logoPath != '' and movie.logoPath != 'null'}"
+              th:src="'https://image.tmdb.org/t/p/w500' + ${movie.logoPath}"
+              alt="Movie Logo"
+              style="max-height: 160px; margin-bottom: 25px; display: block;"
+            />
+            <img
+              id="heroLogo"
+              th:unless="${movie.logoPath != null and movie.logoPath != '' and movie.logoPath != 'null'}"
               src=""
               alt="Movie Logo"
-              style="display: none; max-height: 160px; margin-bottom: 25px"
+              style="display: none; max-height: 160px; margin-bottom: 25px;"
             />
-            <h1 class="hero-title" id="heroTitleText" th:text="${movie.title}">
+            <h1 class="hero-title" id="heroTitleText"
+                th:style="${movie.logoPath != null and movie.logoPath != '' and movie.logoPath != 'null'} ? 'display: none;' : ''"
+                th:text="${movie.title}">
               Tên Phim
             </h1>
           </div>
@@ -315,13 +325,14 @@
             </h2>
           </div>
 
-          <div class="comment-input-box" th:if="${session.user != null}">
+          <div class="comment-input-box fpt-comment-box" th:if="${session.user != null}">
             <div class="user-avatar" th:text="${#strings.substring(session.user.userName, 0, 1).toUpperCase()}">U</div>
-            <div style="flex: 1;">
-              <input type="text" id="comment-input-field" placeholder="Chia sẻ cảm nghĩ hoặc đánh giá của bạn về bộ phim này..." class="comment-input-area" />
-              <div class="comment-actions" style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                <button class="action-button" id="btn-submit-comment" disabled>
-                  <i class="fas fa-paper-plane"></i> Gửi bình luận
+            <div class="comment-input-wrapper">
+              <textarea id="comment-input-field" placeholder="Chia sẻ cảm nghĩ hoặc đánh giá của bạn về bộ phim này..." class="comment-input-area" rows="2"></textarea>
+              <div class="comment-actions-bar">
+                <span class="comment-hint"><i class="fas fa-shield-alt"></i> Bình luận văn minh, tôn trọng người xem khác</span>
+                <button class="btn-fpt-submit" id="btn-submit-comment" disabled>
+                  <i class="fas fa-paper-plane"></i> <span>Gửi bình luận</span>
                 </button>
               </div>
             </div>
@@ -336,8 +347,19 @@
           </div>
 
           <div class="comment-list" id="comment-list">
-            <div style="text-align: center; color: #777; padding: 30px">
-              <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
+            <div class="comment-skeleton">
+              <div class="comment-skeleton-avatar"></div>
+              <div class="comment-skeleton-body">
+                <div class="comment-skeleton-line" style="width: 25%;"></div>
+                <div class="comment-skeleton-line" style="width: 70%;"></div>
+              </div>
+            </div>
+            <div class="comment-skeleton">
+              <div class="comment-skeleton-avatar"></div>
+              <div class="comment-skeleton-body">
+                <div class="comment-skeleton-line" style="width: 30%;"></div>
+                <div class="comment-skeleton-line" style="width: 85%;"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -567,6 +589,7 @@
             }
           });
       }
+      window.toggleHoverLike = toggleHoverLike;
     </script>
 
     <!-- Delete Comment Confirmation Modal -->
@@ -582,7 +605,7 @@
     </div>
 
     <!-- Hidden Current User ID for JS Handlers -->
-    <input type="hidden" id="currentUserId" th:value="${session.user != null ? (session.user.userID != null ? session.user.userID : session.user.id) : ''}" />
+    <input type="hidden" id="currentUserId" th:value="${session.user != null ? session.user.id : ''}" />
 
     <!-- Movie Rating & Comments Scripts -->
     <script th:src="@{/js/movie/comment-handler.js}"></script>

@@ -104,4 +104,19 @@ public class UserFavoriteController {
 
         return ResponseEntity.ok(favoriteMovieIds);
     }
+
+    @GetMapping("/api/check/{movieId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> checkFavorite(
+            @PathVariable Integer movieId,
+            @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
+        Map<String, Object> response = new HashMap<>();
+        if (userSession == null) {
+            response.put("isFavorite", false);
+            return ResponseEntity.ok(response);
+        }
+        boolean isFav = favoriteService.isFavorite(userSession.getId(), movieId);
+        response.put("isFavorite", isFav);
+        return ResponseEntity.ok(response);
+    }
 }

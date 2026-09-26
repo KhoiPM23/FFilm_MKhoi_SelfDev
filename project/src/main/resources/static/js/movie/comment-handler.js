@@ -14,6 +14,7 @@ class CommentHandler {
         const userIdEl = document.getElementById('currentUserId');
         this.currentUserId = userIdEl && userIdEl.value ? parseInt(userIdEl.value) : null;
         this.modalEl = document.getElementById('deleteConfirmModal');
+        window.commentHandler = this;
         this.init();
     }
 
@@ -141,8 +142,10 @@ class CommentHandler {
         if (!this.commentList) return;
         if (!comments || comments.length === 0) {
             this.commentList.innerHTML = `
-                <div style="text-align: center; color: #777; padding: 20px">
-                    Chưa có bình luận nào. Hãy là người đầu tiên!
+                <div class="comment-empty-state">
+                    <i class="far fa-comment-dots" style="font-size: 2.2rem; color: #555; margin-bottom: 12px; display: block;"></i>
+                    <p style="margin: 0; color: #888; font-size: 0.95rem;">Chưa có bình luận nào cho phim này.</p>
+                    <span style="color: #555; font-size: 0.85rem; margin-top: 4px; display: block;">Hãy là người đầu tiên chia sẻ cảm nghĩ của bạn!</span>
                 </div>
             `;
             return;
@@ -577,5 +580,5 @@ document.head.appendChild(style);
 
 // Initialize khi DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    new CommentHandler();
+    window.commentHandler = new CommentHandler();
 });
