@@ -2642,3 +2642,42 @@ body.messenger-body {
     min-width: 60px;
     text-align: center;
 }
+
+/* ========================================================== */
+/* ---- MODAL OVERLAYS (THEME, NICKNAME, BACKGROUND, PINNED) ---- */
+/* ========================================================== */
+.modal-overlay, .nickname-modal-overlay, .background-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.theme-modal, .nickname-modal, .background-modal, .stats-modal, .pinned-modal {
+    background: #242526;
+    border-radius: 16px;
+    width: 500px;
+    max-width: 90%;
+    max-height: 80%;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: modalAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}

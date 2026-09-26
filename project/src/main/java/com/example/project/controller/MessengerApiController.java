@@ -6,6 +6,7 @@ import com.example.project.dto.UserSessionDto;
 import com.example.project.model.MessengerMessage;
 import com.example.project.model.CallLog;
 import com.example.project.model.ConversationSettings;
+import com.example.project.model.User;
 import com.example.project.service.MessengerService;
 import com.example.project.service.OnlineStatusService;
 import com.example.project.service.UserService; 
@@ -35,11 +36,20 @@ public class MessengerApiController {
     @Autowired private SimpMessagingTemplate messagingTemplate;
     @Autowired private OnlineStatusService onlineStatusService;
 
-    // ============= FIX: SỬA LỖI PHƯƠNG THỨC HELPER =============
     private UserSessionDto getUserFromSession(HttpSession session) {
+        if (session == null) return null;
         Object sessionUser = session.getAttribute("user");
         if (sessionUser instanceof UserSessionDto) {
             return (UserSessionDto) sessionUser;
+        }
+        if (session.getAttribute("admin") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("admin");
+        }
+        if (session.getAttribute("contentManager") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("contentManager");
+        }
+        if (session.getAttribute("moderator") instanceof UserSessionDto) {
+            return (UserSessionDto) session.getAttribute("moderator");
         }
         return null;
     }
@@ -193,6 +203,37 @@ public class MessengerApiController {
             log.error("Failed to search messages for user {} and partner {}", user.getId(), partnerId, e);
             return ResponseEntity.status(500).body(List.of());
         }
+    }
+
+    // Endpoint tìm kiếm người dùng để bắt đầu chat mới
+    @GetMapping("/users")
+    public ResponseEntity<List<Map<String, Object>>> searchUsersForChat(
+            @RequestParam(required = false, defaultValue = "") String q,
+            HttpSession session) {
+        UserSessionDto currentUser = getUserFromSession(session);
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        String query = q.trim().toLowerCase();
+        List<User> allUsers = userService.getAllUsers();
+        List<Map<String, Object>> result = allUsers.stream()
+                .filter(u -> u.getUserID() != currentUser.getId())
+                .filter(u -> query.isEmpty()
+                        || (u.getUserName() != null && u.getUserName().toLowerCase().contains(query))
+                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(query)))
+                .limit(20)
+                .map(u -> {
+                    String displayName = (u.getUserName() != null && !u.getUserName().isBlank()) ? u.getUserName() : u.getEmail();
+                    String avatar = "https://ui-avatars.com/api/?name=" + java.net.URLEncoder.encode(displayName, java.nio.charset.StandardCharsets.UTF_8);
+                    return Map.<String, Object>of(
+                            "id", u.getUserID(),
+                            "name", displayName,
+                            "email", u.getEmail() != null ? u.getEmail() : "",
+                            "avatar", avatar
+                    );
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
     }
     
     // ============= FIX 3: Sửa endpoint togglePinMessage - SỬA LỖI CHÍNH =============

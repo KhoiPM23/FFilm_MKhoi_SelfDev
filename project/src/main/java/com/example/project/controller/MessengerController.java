@@ -15,9 +15,20 @@ public class MessengerController {
 
     @Autowired private UserService userService; // Giả sử đã có service này
 
-   @GetMapping("/messenger")
+    @GetMapping("/messenger")
     public String messengerPage(Model model, HttpSession session) {
-        UserSessionDto user = (UserSessionDto) session.getAttribute("user");
+        UserSessionDto user = null;
+        if (session != null) {
+            if (session.getAttribute("user") instanceof UserSessionDto) {
+                user = (UserSessionDto) session.getAttribute("user");
+            } else if (session.getAttribute("admin") instanceof UserSessionDto) {
+                user = (UserSessionDto) session.getAttribute("admin");
+            } else if (session.getAttribute("contentManager") instanceof UserSessionDto) {
+                user = (UserSessionDto) session.getAttribute("contentManager");
+            } else if (session.getAttribute("moderator") instanceof UserSessionDto) {
+                user = (UserSessionDto) session.getAttribute("moderator");
+            }
+        }
         if (user == null) return "redirect:/login";
         
         model.addAttribute("user", user); // ✅ ĐÃ CÓ

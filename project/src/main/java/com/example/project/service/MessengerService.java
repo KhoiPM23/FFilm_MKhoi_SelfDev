@@ -180,6 +180,7 @@ public class MessengerService {
         if (lastMsg.getType() == MessengerMessage.MessageType.FILE) preview = "Đã gửi 1 tệp đính kèm";
         if (lastMsg.getType() == MessengerMessage.MessageType.AUDIO) preview = "Đã gửi 1 tin nhắn thoại";
         if (lastMsg.getType() == MessengerMessage.MessageType.VIDEO) preview = "Đã gửi 1 video";
+        if (lastMsg.getType() == MessengerMessage.MessageType.STICKER) preview = "Đã gửi 1 nhãn dán";
         
         dto.setLastMessage(preview);
         dto.setLastMessageTime(lastMsg.getTimestamp());

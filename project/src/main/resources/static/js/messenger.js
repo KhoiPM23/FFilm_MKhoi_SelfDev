@@ -39,12 +39,14 @@
     const currentUser = window.currentUser || { userID: 0, name: 'Me' };
     const notificationSound = new Audio('/sounds/message-notification.mp3');
 
-    // Bridge shared state for modular scripts (e.g. messenger-calls.js)
+    // Bridge shared state for modular scripts (e.g. messenger-calls.js, messenger-stickers.js)
     window.MessengerState = {
         get stompClient() { return stompClient; },
         get currentPartnerId() { return currentPartnerId; },
         get currentPartnerName() { return currentPartnerName; },
-        get currentUser() { return currentUser; }
+        get currentUser() { return currentUser; },
+        sendApiRequest: function(payload) { return sendApiRequest(payload); },
+        showToast: function(msg, type) { return window.showToast(msg, type); }
     };
 
     let searchResults = [];
@@ -53,31 +55,14 @@
     let selectedMessageToForward = null;
     let forwardTimeout = null;
 
-    // --- CẤU HÌNH STICKER NỘI BỘ ---
-    let currentStickerCollection = 'popular';
-    let recentStickers = JSON.parse(localStorage.getItem('recentStickers') || '[]');
-    let suggestionTimeout = null;
-    
-
-    // Config Sticker
-    const STICKERS = [
-        "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
-        "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
-        "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
-        "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif"
-    ];
-
     // --- KHỞI TẠO ---
     $(document).ready(function() {
         console.log("Messenger Init Start...");
         connectWebSocket();
         loadConversations();
         bindEvents();
-        initStickerMenu();
         if (window.MessengerCalls) { window.MessengerCalls.init(); }
-        setupStickerSuggestions();
-        renderRecentStickers();
-        setTimeout(initEmojiPicker, 1000); // Delay xíu để thư viện load
+        if (window.MessengerStickers) { window.MessengerStickers.init(); }
     });
 
     function bindEvents() {
@@ -373,6 +358,19 @@
             success: function(data) {
                 list.empty();
                 if (!data || !Array.isArray(data)) return;
+
+                if (data.length === 0) {
+                    list.html(`
+                        <div class="empty-conversations text-center py-5 px-3 text-muted">
+                            <i class="far fa-comments fa-3x mb-3" style="opacity: 0.4;"></i>
+                            <p style="font-size: 0.9rem; margin-bottom: 12px; color: #aaa;">Chưa có cuộc trò chuyện nào</p>
+                            <button class="btn btn-sm btn-primary" onclick="window.openNewChatModal()" style="border-radius: 20px; padding: 6px 16px;">
+                                <i class="fas fa-edit mr-1"></i> Bắt đầu trò chuyện
+                            </button>
+                        </div>
+                    `);
+                    return;
+                }
 
                 data.forEach(c => {
                     const active = (c.partnerId == currentPartnerId) ? 'active' : '';
@@ -3293,6 +3291,90 @@ function loadForwardRecipients() {
             });
     };
 
+    // ============= NEW CHAT MODAL =============
+    window.openNewChatModal = function() {
+        $('#newChatModal').remove();
+
+        const modal = $(`
+            <div id="newChatModal" class="modal-overlay" style="display:flex;">
+                <div class="theme-modal new-chat-modal" style="max-width: 440px; width: 90%; background: #242526; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 28px rgba(0,0,0,0.5);">
+                    <div class="theme-modal-header" style="padding: 16px 20px; border-bottom: 1px solid #3a3b3c; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #e4e6eb; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-edit" style="color: #0084ff;"></i> Tin nhắn mới
+                        </h3>
+                        <button class="close-modal" onclick="$('#newChatModal').remove()" style="background: none; border: none; color: #b0b3b8; font-size: 1.2rem; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div style="padding: 12px 16px; border-bottom: 1px solid #3a3b3c;">
+                        <div class="search-wrapper" style="margin: 0; background: #3a3b3c; border-radius: 20px; padding: 6px 14px; display: flex; align-items: center;">
+                            <i class="fas fa-search text-muted mr-2" style="font-size: 0.85rem;"></i>
+                            <input type="text" id="newChatSearchInput" placeholder="Tìm người theo tên hoặc email..." 
+                                style="background: none; border: none; outline: none; color: #fff; width: 100%; font-size: 0.9rem;">
+                        </div>
+                    </div>
+                    <div id="newChatUsersList" style="max-height: 360px; overflow-y: auto; padding: 8px 0;">
+                        <div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        $('body').append(modal);
+
+        function loadUsers(query = '') {
+            $.get(`/api/v1/messenger/users?q=${encodeURIComponent(query)}`)
+                .done(function(users) {
+                    const container = $('#newChatUsersList');
+                    container.empty();
+
+                    if (!users || users.length === 0) {
+                        container.html('<div class="text-center py-4 text-muted"><small>Không tìm thấy người dùng phù hợp</small></div>');
+                        return;
+                    }
+
+                    users.forEach(u => {
+                        const row = $(`
+                            <div class="new-chat-user-row d-flex align-items-center px-3 py-2" 
+                                style="cursor: pointer; transition: background 0.2s; display: flex; align-items: center; padding: 8px 16px;"
+                                onmouseover="this.style.background='#3a3b3c'" 
+                                onmouseout="this.style.background='transparent'">
+                                <img src="${u.avatar}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px;">
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <div style="font-weight: 600; color: #e4e6eb; font-size: 0.95rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                                        ${u.name}
+                                    </div>
+                                    <small style="color: #b0b3b8; font-size: 0.8rem;">${u.email || ''}</small>
+                                </div>
+                                <i class="fas fa-paper-plane" style="color: #0084ff; font-size: 0.85rem; margin-left: auto;"></i>
+                            </div>
+                        `);
+
+                        row.on('click', function() {
+                            $('#newChatModal').remove();
+                            window.selectConversation(u.id, u.name, u.avatar, 'false', 'false', '');
+                        });
+
+                        container.append(row);
+                    });
+                })
+                .fail(function() {
+                    $('#newChatUsersList').html('<div class="text-center py-4 text-danger"><small>Lỗi tải danh sách người dùng</small></div>');
+                });
+        }
+
+        loadUsers();
+
+        let searchTimer = null;
+        $('#newChatSearchInput').on('input', function() {
+            clearTimeout(searchTimer);
+            const val = $(this).val().trim();
+            searchTimer = setTimeout(() => loadUsers(val), 250);
+        });
+
+        setTimeout(() => $('#newChatSearchInput').focus(), 100);
+    };
+
     // --- FIX 9: TYPING INDICATOR ---
     function showTypingIndicator() {
         const indicator = $('#typingIndicator');
@@ -3375,569 +3457,7 @@ function loadForwardRecipients() {
         });
     });
 
-    // --- 8. STICKER LOGIC (MESSENGER STYLE) ---
-
-    // Toggle Sticker Menu (Messenger Style)
-    window.toggleStickers = function() {
-        const menu = $('#stickerMenu');
-        const input = $('#msgInput');
-        
-        if (menu.hasClass('show')) {
-            menu.removeClass('show').hide();
-        } else {
-            // Hide suggestions if open
-            hideStickerSuggestions();
-            
-            // Position menu properly
-            menu.css({
-                bottom: '80px',
-                left: '20px'
-            });
-            
-            menu.addClass('show').css('display', 'flex');
-            
-            // Load stickers if not loaded
-            if ($('#stickerGrid').is(':empty')) {
-                renderStickerCollection(currentStickerCollection);
-            }
-            
-            // Render recent stickers
-            renderRecentStickers();
-        }
-    };
-
-    // Render Sticker Collection
-    function renderStickerCollection(collectionId) {
-        const grid = $('#stickerGrid');
-        const collection = window.STICKER_COLLECTIONS[collectionId];
-        
-        if (!collection) {
-            grid.html('<div class="text-center p-4 text-muted">Không có sticker</div>');
-            return;
-        }
-        
-        let html = '';
-        collection.items.forEach((sticker, index) => {
-            html += `
-                <div class="sticker-item" onclick="sendSticker('${sticker.url}', '${collectionId}', ${index})">
-                    <img src="${sticker.url}" alt="Sticker" loading="lazy">
-                </div>
-            `;
-        });
-        
-        grid.html(html);
-        $('#recentStickersSection').toggle(recentStickers.length > 0);
-    }
-
-    // Render recent stickers
-    function renderRecentStickers() {
-        const recentStickers = window.getRecentStickers();
-        const grid = $('#recentStickersGrid');
-        
-        if (recentStickers.length === 0) {
-            $('#recentStickersSection').hide();
-            return;
-        }
-        
-        let html = '';
-        recentStickers.forEach(sticker => {
-            html += `
-                <div class="sticker-item recent" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
-                    <img src="${sticker.preview || sticker.url}" alt="Sticker">
-                </div>
-            `;
-        });
-        
-        grid.html(html);
-    }
-
-    // Debounced search
-    let searchTimeout;
-    function searchStickersDebounced(query) {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            performStickerSearch(query);
-        }, 300);
-    }
-
-    // Tìm kiếm stickers
-    async function performStickerSearch(query) {
-        const grid = $('#stickerGrid');
-        
-        if (!query || query.trim() === '') {
-            // Quay lại category hiện tại
-            const activeCategory = $('.tab-btn.active').data('category') || 'popular';
-            loadStickerCategory(activeCategory);
-            return;
-        }
-        
-        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tìm kiếm...</p></div>');
-        
-        const stickers = await window.searchTenorStickers(query);
-        renderStickerGrid(stickers);
-    }
-
-    // Gửi sticker từ Tenor
-    window.sendTenorSticker = function(stickerId, stickerData) {
-        try {
-            const sticker = JSON.parse(decodeURIComponent(stickerData));
-            
-            // Thêm vào recent
-            window.addToRecentStickers(sticker);
-            
-            // Đóng menu
-            $('#stickerMenu').hide();
-            
-            // Gửi qua API
-            if (currentPartnerId) {
-                const payload = {
-                    receiverId: currentPartnerId,
-                    content: sticker.url,
-                    type: 'STICKER',
-                    metadata: {
-                        source: 'tenor',
-                        stickerId: sticker.id,
-                        width: sticker.width,
-                        height: sticker.height
-                    }
-                };
-                
-                sendApiRequest(payload);
-            }
-        } catch (error) {
-            console.error('Lỗi gửi sticker:', error);
-        }
-    };
-
-    // Add to Recent Stickers
-    function addToRecentStickers(stickerUrl) {
-        // Remove if exists
-        recentStickers = recentStickers.filter(s => s !== stickerUrl);
-        
-        // Add to beginning
-        recentStickers.unshift(stickerUrl);
-        
-        // Keep only last 12
-        recentStickers = recentStickers.slice(0, 12);
-        
-        // Save to localStorage
-        localStorage.setItem('recentStickers', JSON.stringify(recentStickers));
-        
-        // Update UI
-        renderRecentStickers();
-    }
-
-    function searchStickers(query) {
-        const grid = $('#stickerGrid');
-        
-        if (!query.trim()) {
-            renderStickerCollection(currentStickerCollection);
-            return;
-        }
-        
-        query = query.toLowerCase();
-        let results = [];
-        
-        // Search in all collections
-        Object.values(window.STICKER_COLLECTIONS).forEach(collection => {
-            collection.items.forEach(sticker => {
-                if (sticker.tags && sticker.tags.some(tag => tag.includes(query))) {
-                    results.push(sticker);
-                }
-            });
-        });
-        
-        if (results.length === 0) {
-            grid.html('<div class="text-center p-4 text-muted">Không tìm thấy sticker phù hợp</div>');
-            return;
-        }
-        
-        let html = '';
-        results.slice(0, 24).forEach((sticker, index) => {
-            html += `
-                <div class="sticker-item" onclick="sendSticker('${sticker.url}', 'search', ${index})">
-                    <img src="${sticker.url}" alt="Sticker">
-                </div>
-            `;
-        });
-        
-        grid.html(html);
-    }
-
-    // Switch Sticker Collection
-    window.switchStickerCollection = function(collectionId, element) {
-        currentStickerCollection = collectionId;
-        
-        // Update active state
-        $('.collection-btn').removeClass('active');
-        $(element).addClass('active');
-        
-        // Render collection
-        renderStickerCollection(collectionId);
-    };
-
-    // Search Stickers
-    window.searchStickers = function(query) {
-        if (!query.trim()) {
-            renderStickerCollection(currentStickerCollection);
-            return;
-        }
-        
-        const grid = $('#stickerGrid');
-        grid.empty();
-        
-        query = query.toLowerCase();
-        let foundStickers = [];
-        
-        // Search in all collections
-        Object.values(STICKER_COLLECTIONS).forEach(collection => {
-            collection.items.forEach(sticker => {
-                // Search in tags
-                const matches = sticker.tags.some(tag => tag.includes(query));
-                if (matches) {
-                    foundStickers.push(sticker);
-                }
-            });
-        });
-        
-        if (foundStickers.length === 0) {
-            grid.html('<div class="text-center text-muted p-4">Không tìm thấy sticker phù hợp</div>');
-            return;
-        }
-        
-        // Display found stickers
-        foundStickers.forEach(sticker => {
-            const item = $(`
-                <div class="sticker-item" data-sticker-id="${sticker.id}" data-url="${sticker.url}">
-                    <img src="${sticker.url}" alt="Sticker" style="width: 100%; height: 100%;">
-                </div>
-            `);
-            
-            item.on('click', function() {
-                sendSticker(sticker.url);
-                addToRecentStickers(sticker);
-            });
-            
-            grid.append(item);
-        });
-    };
-
-    // --- 9. STICKER SUGGESTIONS (ZALO STYLE) ---
-
-    // messenger.js - FIX 4: Real-time Sticker Suggestions
-    let suggestionDebounce;
-
-    function initStickerSuggestions() {
-        const msgInput = $('#msgInput');
-        
-        msgInput.on('input', async function() {
-            const message = $(this).val().trim();
-            
-            clearTimeout(suggestionDebounce);
-            
-            if (message.length >= 2) {
-                suggestionDebounce = setTimeout(async () => {
-                    const suggestions = await window.getStickerSuggestions(message);
-                    showStickerSuggestions(suggestions);
-                }, 500);
-            } else {
-                hideStickerSuggestions();
-            }
-        });
-    }
-
-    function showStickerSuggestions(stickers) {
-        if (!stickers || stickers.length === 0) {
-            hideStickerSuggestions();
-            return;
-        }
-        
-        const container = $('#stickerSuggestions');
-        const grid = $('#suggestionsGrid');
-        
-        grid.empty();
-        
-        stickers.slice(0, 12).forEach(sticker => {
-            grid.append(`
-                <div class="sticker-item" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
-                    <img src="${sticker.preview || sticker.url}" alt="Sticker">
-                </div>
-            `);
-        });
-        
-        container.css('display', 'block');
-        setTimeout(() => container.css('opacity', 1), 10);
-    }
-
-    function hideStickerSuggestions() {
-        $('#stickerSuggestions').css('opacity', 0);
-        setTimeout(() => $('#stickerSuggestions').hide(), 300);
-    }
-    window.hideStickerSuggestions = hideStickerSuggestions;
-
-    // Find Sticker Suggestions by Keywords
-    function findStickerSuggestions(keywords) {
-        const suggestions = new Set();
-        const keywordList = keywords.toLowerCase().split(' ');
-        
-        keywordList.forEach(keyword => {
-            if (STICKER_SUGGESTIONS[keyword]) {
-                STICKER_SUGGESTIONS[keyword].forEach(stickerId => {
-                    // Find sticker in all collections
-                    Object.values(STICKER_COLLECTIONS).forEach(collection => {
-                        const sticker = collection.items.find(s => s.id === stickerId);
-                        if (sticker) {
-                            suggestions.add(sticker);
-                        }
-                    });
-                });
-            }
-            
-            // Also search in tags
-            Object.values(STICKER_COLLECTIONS).forEach(collection => {
-                collection.items.forEach(sticker => {
-                    if (sticker.tags.some(tag => tag.includes(keyword))) {
-                        suggestions.add(sticker);
-                    }
-                });
-            });
-        });
-        
-        return Array.from(suggestions);
-    }
-
-    // Analyze message for sticker suggestions
-    function analyzeMessageForStickers(message) {
-        const words = message.toLowerCase().split(/\s+/);
-        const stickerKeywords = [
-            'cười', 'vui', 'buồn', 'khóc', 'yêu', 'tim', 'ok', 'like',
-            'cảm ơn', 'hoan hô', 'wink', 'dễ thương', 'ngon', 'ngầu',
-            'giận', 'tức', 'sợ', 'hoảng', 'ngượng', 'chó', 'mèo', 'cún',
-            'thỏ', 'cáo', 'gấu', 'heo', 'hổ', 'ngựa', 'hamburger', 'bánh',
-            'kem', 'kẹo', 'party', 'tiệc', 'quà', 'pháo hoa', 'noel',
-            'halloween', 'ý tưởng', 'bom', 'ngủ', 'mồ hôi', 'cơ bắp',
-            'khỏe', 'chóng mặt', 'nói', 'suy nghĩ', 'hôn', 'kim cương',
-            'hoa', 'chạy', 'bóng đá', 'bóng rổ', 'tennis', 'bơi', 'golf'
-        ];
-        
-        return words.filter(word => stickerKeywords.some(keyword => 
-            keyword.includes(word) || word.includes(keyword)
-        ));
-    }
-
-    // Initialize Sticker Menu HTML
-    function initStickerMenu() {
-        const menu = $('#stickerMenu');
-        
-        // HTML mới với design như Zalo
-        menu.html(`
-            <div class="sticker-header">
-                <div class="sticker-tabs" id="stickerTabs">
-                    ${Object.entries(window.TENOR_CATEGORIES).map(([id, cat]) => `
-                        <button class="tab-btn ${id === 'popular' ? 'active' : ''}" 
-                                data-category="${id}" 
-                                onclick="switchStickerCategory('${id}', this)">
-                            ${cat.name}
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="sticker-header-actions">
-                    <div class="sticker-search-box">
-                        <input type="text" id="stickerSearchInput" placeholder="Tìm kiếm stickers..." 
-                            onkeyup="searchStickersDebounced(this.value)">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <i class="fas fa-times close-sticker" onclick="window.toggleStickers()"></i>
-                </div>
-            </div>
-            
-            <div class="sticker-content">
-                <div class="sticker-grid" id="stickerGrid">
-                    <div class="loading-stickers">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Đang tải stickers...</p>
-                    </div>
-                </div>
-                
-                <div class="recent-stickers-section" id="recentStickersSection" style="display: none;">
-                    <div class="section-title">
-                        <i class="fas fa-history"></i>
-                        <span>Gần đây</span>
-                    </div>
-                    <div class="recent-stickers-grid" id="recentStickersGrid"></div>
-                </div>
-            </div>
-        `);
-        
-        // Load stickers phổ biến đầu tiên
-        loadStickerCategory('popular');
-        renderRecentStickers();
-    }
-
-    // Hàm load category mới
-    async function loadStickerCategory(category) {
-        const grid = $('#stickerGrid');
-        grid.html('<div class="loading-stickers"><i class="fas fa-spinner fa-spin"></i><p>Đang tải...</p></div>');
-        
-        const stickers = await window.loadTenorStickers(category);
-        renderStickerGrid(stickers);
-        
-        // Hiện recent section nếu có
-        const recentStickers = window.getRecentStickers();
-        if (recentStickers.length > 0) {
-            $('#recentStickersSection').show();
-            renderRecentStickers();
-        }
-    }
-
-    // Render sticker grid
-    function renderStickerGrid(stickers) {
-        const grid = $('#stickerGrid');
-        
-        if (!stickers || stickers.length === 0) {
-            grid.html('<div class="no-stickers"><i class="fas fa-image"></i><p>Không có stickers</p></div>');
-            return;
-        }
-        
-        let html = '';
-        stickers.forEach(sticker => {
-            html += `
-                <div class="sticker-item" onclick="sendTenorSticker('${sticker.id}', '${encodeURIComponent(JSON.stringify(sticker))}')">
-                    <img src="${sticker.preview || sticker.url}" 
-                        data-src="${sticker.url}" 
-                        alt="Sticker" 
-                        loading="lazy"
-                        class="sticker-gif">
-                    <div class="sticker-hover">
-                        <i class="fas fa-paper-plane"></i>
-                    </div>
-                </div>
-            `;
-        });
-        
-        grid.html(html);
-        
-        // Lazy load ảnh
-        $('.sticker-gif').each(function() {
-            const img = $(this);
-            if (img.attr('data-src')) {
-                img.attr('src', img.attr('data-src'));
-                img.removeAttr('data-src');
-            }
-        });
-    }
-
-    function renderStickerCollection(collectionId) {
-        const grid = $('#stickerGrid');
-        const collection = window.STICKER_COLLECTIONS[collectionId];
-        
-        if (!collection) return;
-        
-        grid.empty();
-        collection.items.forEach(sticker => {
-            const item = $(`<img src="${sticker.url}" class="sticker-item" style="width:80px; height:80px; cursor:pointer; border-radius:4px; padding:5px; transition:0.2s;">`);
-            item.on('click', function() {
-                window.sendSticker(sticker.url);
-            });
-            grid.append(item);
-        });
-    }
-
-    window.switchStickerCollection = function(id, btn) {
-        $('.collection-btn').removeClass('active');
-        $(btn).addClass('active');
-        renderStickerCollection(id);
-    };
-
-    window.searchStickers = function(query) {
-        if (!query.trim()) {
-            renderStickerCollection('popular');
-            return;
-        }
-        
-        const grid = $('#stickerGrid');
-        grid.empty();
-        
-        let found = [];
-        Object.values(window.STICKER_COLLECTIONS).forEach(col => {
-            col.items.forEach(s => {
-                if (s.tags.some(tag => tag.includes(query.toLowerCase()))) {
-                    found.push(s);
-                }
-            });
-        });
-        
-        if (found.length === 0) {
-            grid.html('<div class="text-center p-3">Không tìm thấy</div>');
-            return;
-        }
-        
-        found.forEach(s => {
-            const item = $(`<img src="${s.url}" class="sticker-item" style="width:80px; height:80px; cursor:pointer;">`);
-            item.on('click', () => window.sendSticker(s.url));
-            grid.append(item);
-        });
-    };
-
-    // Enhanced Message Input with Sticker Suggestions
-    function setupStickerSuggestions() {
-        const input = $('#msgInput');
-        
-        input.on('input', function() {
-            const message = $(this).val().trim();
-            
-            if (suggestionTimeout) {
-                clearTimeout(suggestionTimeout);
-            }
-            
-            if (message.length >= 2) {
-                suggestionTimeout = setTimeout(() => {
-                    const keywords = analyzeMessageForStickers(message);
-                    if (keywords.length > 0) {
-                        showStickerSuggestions(keywords);
-                    } else {
-                        hideStickerSuggestions();
-                    }
-                }, 500);
-            } else {
-                hideStickerSuggestions();
-            }
-        });
-        
-        // Hide suggestions when clicking outside
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('#stickerSuggestions, #msgInput').length) {
-                hideStickerSuggestions();
-            }
-        });
-    }
-
-    // Send Sticker Function (Updated)
-    window.sendSticker = function(url, source, index) {
-        if (!currentPartnerId) {
-            showToast('Vui lòng chọn người nhận trước', 'error');
-            return;
-        }
-        
-        // Close sticker menu
-        $('#stickerMenu').hide();
-        
-        // Add to recent
-        addToRecentStickers(url);
-        
-        // Send via API
-        const payload = {
-            receiverId: currentPartnerId,
-            content: url,
-            type: 'STICKER',
-            metadata: {
-                source: source,
-                index: index
-            }
-        };
-        
-        sendApiRequest(payload);
-    };
+    // --- 8. STICKER & EMOJI LOGIC -> Extracted to messenger-stickers.js ---
 
     // --- 6. URL CHECK (NGƯỜI LẠ) ---
     // messenger.js - checkUrlAndOpenChat()
@@ -4137,50 +3657,7 @@ function loadForwardRecipients() {
         });
     };
 
-    // FIX 3.2: Thêm CSS cho modal overlays
-    // Thêm vào messenger.css hoặc inline style
-    const modalCSS = `
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 9998;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(5px);
-    }
 
-    .theme-modal, .nickname-modal, .background-modal, .stats-modal {
-        background: #242526;
-        border-radius: 16px;
-        width: 500px;
-        max-width: 90%;
-        max-height: 80%;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        animation: modalAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    @keyframes modalAppear {
-        from {
-            opacity: 0;
-            transform: scale(0.9) translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-        }
-    }
-    `;
-
-    // Thêm CSS vào document
-    $(document).ready(function() {
-        $('head').append(`<style>${modalCSS}</style>`);
-    });
 
     // --- FIX 2: ONLINE STATUS UPDATE ---
     function updateOnlineStatus(partnerId, isOnline, lastActive) {
