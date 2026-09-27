@@ -47,18 +47,24 @@ public class DiscoverController {
                 .collect(Collectors.toList());
 
             // Xử lý Banner (Lấy phim đầu tiên của trang kết quả)
-            if (!movies.isEmpty()) {
-                Map<String, Object> bannerMap = movies.get(0);
+            // CỐ ĐỊNH BANNER: Luôn lấy banner và top movies từ trang 0 (trang đầu tiên) để khi chuyển page, phần top không bị giật/thay đổi
+            Page<Movie> page0Movies = (dbPage == 0) ? moviePage : getMoviesFromDbByFilter(0, pageSize, genres, quickFilter, isFree);
+            List<Map<String, Object>> topMoviesList = page0Movies.getContent().stream()
+                .map(movieService::convertToMap)
+                .collect(Collectors.toList());
+
+            if (!topMoviesList.isEmpty()) {
+                Map<String, Object> bannerMap = topMoviesList.get(0);
                 int movieID = (int) bannerMap.get("id");
                 // Lấy info từ DB
                 bannerMap.put("trailerKey", movieService.findBestTrailerKey(movieID));
                 bannerMap.put("logoPath", movieService.findBestLogoPath(movieID));
                 
                 model.addAttribute("banner", bannerMap);
-                // Top movies là 20 phim đầu
-                model.addAttribute("topMovies", movies.subList(0, Math.min(movies.size(), 20)));
+                // Top movies là 20 phim đầu của trang 1
+                model.addAttribute("topMovies", topMoviesList.subList(0, Math.min(topMoviesList.size(), 20)));
                 model.addAttribute("searchResults", movies);
-                model.addAttribute("hasResults", true);
+                model.addAttribute("hasResults", !movies.isEmpty());
             } else {
                 setEmptyResults(model, genres, quickFilter);
             }
