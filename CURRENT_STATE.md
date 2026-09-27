@@ -81,10 +81,11 @@ This file records the MOST RECENT verified operational state of the project.
 - **AI Search**: `/api/ai-search/suggest` verified via API and browser runtime. [VERIFIED]
 - **AI Chatbot**: `/api/ai-agent/chat` verified via API and browser runtime with rich movie cards. [VERIFIED]
 
-## NEXT TASKS
-1. **[P2] Watch Party Movie State Persistence**: `currentMovieUrl/Id/Title` stored only in RAM (`WatchRoomRuntime`). Server restart loses the playing movie. Need to sync changes back to `WatchRoom` DB entity.
-2. **[NEEDS REPRO] Multi-browser Watch Party session**: Verify WebRTC video/audio call + STOMP sync with two real browser tabs. Requires human running 2 sessions.
-3. **Profile page visual refinement**: Avatar upload UI and user profile display polish.
-4. **Full E2E user regression pass**: End-to-end test of all user flows (register, login, watch movie, messenger, watch party, payment).
-5. **[PENDING HUMAN] API key rotation**: TMDB and Tenor historical credential rotation/revocation on provider side.
-6. **[PENDING HUMAN] Git history purge**: BFG/filter-repo to remove historical credential exposure (requires explicit owner authorization).
+## PHASE 13 EXECUTION
+92. **Payment & Premium Playback**: Local simulation verified working via `/payment/simulate/{subId}`. Entitlement checks integrated in `MoviePlayerController`. Progress persistence and watch history correctly fetch `startTime`. Real VNPay blocked externally (`code 71`).
+93. **Movie Detail Hero**: Layout stabilized.
+94. **Rating Hover & Decoupling**: TMDB vs Community separation verified in `ReviewController`. Hover interaction validated.
+95. **Unicode Encoding**: Enforced `sendStringParametersAsUnicode=true` in `application.properties` JDBC URL to resolve `thấy` -> `th?y` issue in DB storage.
+96. **YouTube Hover Preview**: Verified that a `1200ms` opacity delay is structurally necessary to hide YouTube's native `< ▶ >` iframe controls while using the static `hover-card-image` as a seamless fallback.
+97. **Genre Pagination**: Fixed bug in `DiscoverController` where pagination altered the Hero Banner. Banner and top recommendations are now statically fetched from page 0.
+98. **Carousel UI**: Prevented double event binding with `dataset.initialized`. Trailer limit correctly enforced with CSS `repeat(3, 1fr)`.
