@@ -520,6 +520,9 @@
         return;
       }
 
+      if (slider.dataset.initialized) return;
+      slider.dataset.initialized = 'true';
+
       if (!slider.id) slider.id = `auto-slider-${index}`;
 
       const container = slider.parentElement;
@@ -811,7 +814,7 @@
             if (hoverPlayerMap[playerId]) {
               hoverPlayerData.container.style.opacity = "1";
             }
-          }, 300);
+          }, 1200);
         }
         const duration = player.getDuration();
         const endSeconds = duration - 15; // Lặp lại 15s trước khi hết

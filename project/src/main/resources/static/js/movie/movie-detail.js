@@ -88,7 +88,7 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
     if (sectionId) document.getElementById(sectionId).style.display = 'block';
     if (container && renderType === 'card' && container.children.length === 0) {
         container.innerHTML = Array(6).fill(0).map(() => `
-            <div class="movie-card" style="min-width: 200px; height: 300px; border-radius: 12px; background: rgba(255,255,255,0.05); animation: shimmer 1.5s infinite; flex-shrink: 0; margin-right: 15px;"></div>
+            <div class="movie-card" style="flex: 0 0 200px; height: 300px; border-radius: 12px; background: rgba(255,255,255,0.05); animation: shimmer 1.5s infinite;"></div>
         `).join('');
     }
 

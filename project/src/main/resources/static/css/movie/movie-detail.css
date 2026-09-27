@@ -116,9 +116,7 @@ body { background: #0c0c0c; }
 .trailer-section { margin-bottom: 60px; }
 .trailer-grid { 
     display: grid; 
-    /* [FIX] Dùng auto-fill để 1 video không bị giãn full màn hình. 
-       Tăng min-width lên 320px cho đẹp hơn. */
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+    grid-template-columns: repeat(3, 1fr); 
     gap: 20px; 
 }
 .trailer-card {
