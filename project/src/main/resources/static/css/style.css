@@ -26,7 +26,7 @@ body {
     right: 0;
     height: 70px;
     /*----- Lấy gradient từ index.html */
-    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -37,7 +37,7 @@ body {
 
 /*----- Hiệu ứng khi cuộn */
 .main-header.scrolled {
-    background: rgba(20,20,20,0.95);
+    background: rgba(20, 20, 20, 0.95);
     backdrop-filter: blur(10px);
 }
 
@@ -51,6 +51,7 @@ body {
     color: #E50914;
     cursor: pointer;
 }
+
 .main-header .logo img {
     height: 30px;
 }
@@ -61,20 +62,29 @@ body {
     gap: 10px;
     align-items: center;
 }
+
 .main-nav a {
-    color: #ddd;
+    color: #a3a3a3;
     text-decoration: none;
     font-size: 15px;
     font-weight: 500;
-    transition: color 0.3s;
+    transition: all 0.25s ease;
     white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
 }
-.main-nav a:hover,
-.main-nav a.active {
+
+.main-nav a:hover {
     color: #fff;
+}
+
+.main-nav a.active,
+#navHomeLink.active,
+#navHomeLink.active span {
+    color: #fff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.5) !important;
 }
 
 /*----- Right actions */
@@ -90,6 +100,7 @@ body {
     display: flex;
     align-items: center;
 }
+
 .search-box .fas,
 .search-box .fa-search,
 .search-box .search-toggle {
@@ -105,12 +116,14 @@ body {
     min-width: 34px;
     min-height: 34px;
 }
+
 .search-box .fas:hover,
 .search-box .fa-search:hover,
 .search-box .search-toggle:hover {
     color: #E50914 !important;
     background: rgba(229, 9, 20, 0.1);
 }
+
 .search-box .search-input {
     position: absolute;
     right: 0;
@@ -124,16 +137,19 @@ body {
     color: #fff;
     width: 280px;
     font-size: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001;
 }
+
 .search-box .search-input.active {
     display: block !important;
     animation: slideDown 0.3s ease;
 }
+
 .search-box .search-input::placeholder {
     color: #999;
 }
+
 .search-box .search-input:focus {
     border-color: #E50914;
     box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
@@ -145,6 +161,7 @@ body {
     display: flex;
     align-items: center;
 }
+
 .notification .bell-container {
     position: relative;
     cursor: pointer;
@@ -157,9 +174,11 @@ body {
     min-width: 34px;
     min-height: 34px;
 }
+
 .notification .bell-container:hover {
     background: rgba(229, 9, 20, 0.1);
 }
+
 .notification .fas,
 .notification .fa-bell {
     font-size: 18px !important;
@@ -168,10 +187,12 @@ body {
     align-items: center;
     transition: color 0.3s;
 }
+
 .notification .bell-container:hover .fas,
 .notification .bell-container:hover .fa-bell {
     color: #E50914 !important;
 }
+
 .notification .dot {
     position: absolute;
     top: 6px;
@@ -183,11 +204,24 @@ body {
     animation: pulse 2s infinite;
     z-index: 10;
 }
+
 @keyframes pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.7; transform: scale(1.1); }
-    100% { opacity: 1; transform: scale(1); }
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
+
 .notification .dropdown {
     display: none;
     position: absolute;
@@ -199,14 +233,16 @@ body {
     border-radius: 8px;
     font-size: 14px;
     min-width: 250px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     border: 1px solid #333;
     z-index: 1001;
 }
+
 .notification .dropdown.active {
     display: block !important;
     animation: slideDown 0.3s ease;
 }
+
 .notification .dropdown::before {
     content: '';
     position: absolute;
@@ -218,6 +254,7 @@ body {
     border-right: 8px solid transparent;
     border-bottom: 8px solid #222;
 }
+
 .notification .dropdown p {
     margin: 0;
     line-height: 1.4;
@@ -229,6 +266,7 @@ body {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -242,6 +280,7 @@ body {
     gap: 8px;
     font-size: 15px;
 }
+
 .lang-select .fas,
 .lang-select .fa-globe,
 .lang-select i {
@@ -249,6 +288,7 @@ body {
     font-size: 16px !important;
     display: flex !important;
 }
+
 .lang-select select {
     background: #222;
     color: #fff;
@@ -260,10 +300,12 @@ body {
     border-radius: 4px;
     transition: all 0.3s;
 }
+
 .lang-select select:hover {
     border-color: #E50914;
     background: #2a2a2a;
 }
+
 .lang-select select:focus {
     border-color: #E50914;
     box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.2);
@@ -281,11 +323,13 @@ body {
     transition: all 0.3s;
     box-shadow: 0 2px 8px rgba(229, 9, 20, 0.3);
 }
+
 .btn-buy:hover {
     background: linear-gradient(135deg, #f40612, #E50914);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
 }
+
 .btn-login {
     color: #fff;
     font-size: 14px;
@@ -295,13 +339,15 @@ body {
     border-radius: 4px;
     transition: all 0.3s;
 }
+
 .btn-login:hover {
     color: #E50914;
     background: rgba(229, 9, 20, 0.1);
 }
 
 /*----- FontAwesome fallback - CRITICAL */
-.fas, .fa {
+.fas,
+.fa {
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 900 !important;
     display: inline-block !important;
@@ -316,23 +362,23 @@ body {
     .main-header {
         padding: 10px 20px;
     }
-    
+
     .main-nav {
         gap: 15px;
     }
-    
+
     .main-nav a {
         font-size: 14px;
     }
-    
+
     .header-actions {
         gap: 15px;
     }
-    
+
     .search-box .search-input {
         width: 220px;
     }
-    
+
     .notification .dropdown {
         right: -30px;
         min-width: 200px;
@@ -360,37 +406,46 @@ body {
 
 /*----- Video Player Container */
 .hero-video-container {
-    opacity: 0; 
+    opacity: 0;
     transition: opacity 1s ease;
-    z-index: 5;
+    z-index: 2;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden; 
-    pointer-events: none; 
+    overflow: hidden;
+    pointer-events: none !important;
 }
+
 .hero-banner[data-video-active="true"] .hero-video-container {
-    opacity: 1; 
+    opacity: 1;
 }
-#heroPlayer {
-    width: 110%; 
-    height: 120%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%); 
-    pointer-events: none; 
+
+#heroPlayer,
+.hero-video-container iframe {
+    width: 120% !important;
+    height: 120% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    pointer-events: none !important;
+    border: none !important;
 }
+
+/* .hover-player-container iframe rules are in hover-card.css (authoritative) — removed duplicate here */
+
 
 /*----- Overlay */
 .hero-overlay {
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 30%, transparent 100%),
-                linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%);
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 30%, transparent 100%),
+        linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent 40%);
     pointer-events: none;
 }
 
@@ -409,18 +464,20 @@ body {
     min-height: 80px;
     margin-bottom: 15px;
 }
+
 .hero-logo-image {
     max-width: 400px;
     max-height: 120px;
     width: auto;
     height: auto;
     object-fit: contain;
-    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
 }
+
 .hero-title {
     font-size: 3.5rem;
     font-weight: 800;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
     line-height: 1.2;
 }
 
@@ -434,27 +491,32 @@ body {
     font-size: 1rem;
     font-weight: 600;
 }
-.hero-meta > div {
+
+.hero-meta>div {
     padding: 6px 14px;
     border-radius: 6px;
-    background: rgba(42, 42, 42, 0.85); 
+    background: rgba(42, 42, 42, 0.85);
     backdrop-filter: blur(8px);
     display: inline-flex;
     align-items: center;
     gap: 6px;
     transition: background 0.3s;
 }
-.hero-meta > div:hover {
+
+.hero-meta>div:hover {
     background: rgba(60, 60, 60, 0.9);
 }
+
 .hero-meta .content-rating {
     background: rgba(220, 53, 69, 0.85);
     font-weight: 700;
 }
+
 .hero-meta .rating i {
     color: #ffd700;
     font-size: 1rem;
 }
+
 .hero-meta .year,
 .hero-meta .duration,
 .hero-meta .country {
@@ -466,20 +528,22 @@ body {
     font-size: 1.1rem;
     line-height: 1.6;
     margin-bottom: 25px;
-    color: rgba(255,255,255,0.9);
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
-    max-height: 0; 
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.8);
+    max-height: 0;
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     transition: all 0.4s ease;
 }
+
 .hero-description.expanded {
-    max-height: 5.5em; 
-    -webkit-line-clamp: 3; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
+    max-height: 5.5em;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
 .description-toggle {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -497,16 +561,19 @@ body {
     justify-content: center;
     vertical-align: middle;
 }
+
 .description-toggle:hover {
-    background: #e50914;
-    border-color: #e50914;
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.45);
     color: #fff;
     transform: scale(1.1);
 }
+
 .description-toggle.expanded {
     transform: rotate(180deg);
-    background: #e50914;
-    border-color: #e50914;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #fff;
 }
 
 /*----- Actions */
@@ -515,24 +582,27 @@ body {
     gap: 12px;
     align-items: center;
 }
+
 .action-divider {
     height: 30px;
     width: 2px;
     background-color: rgba(255, 255, 255, 0.4);
     border-radius: 1px;
 }
+
 .hero-actions {
-    display: flex; 
+    display: flex;
     align-items: center;
     margin-top: 30px;
     gap: 12px;
 }
+
 .btn-play {
     padding: 14px 36px;
     background: linear-gradient(135deg, #e50914 0%, #c40812 100%);
     color: white;
     border: none;
-    border-radius: 10px; 
+    border-radius: 10px;
     font-size: 1.15rem;
     font-weight: 700;
     cursor: pointer;
@@ -543,16 +613,18 @@ body {
     text-decoration: none;
     box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
 }
+
 .btn-play:hover {
     background: linear-gradient(135deg, #f40612 0%, #d10711 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
 }
+
 .action-buttons-group .btn-circle {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: rgba(60, 60, 60, 0.75); 
+    background: rgba(60, 60, 60, 0.75);
     backdrop-filter: blur(10px);
     border: 2px solid rgba(255, 255, 255, 0.2);
     color: white;
@@ -563,11 +635,13 @@ body {
     justify-content: center;
     transition: all 0.3s ease;
 }
+
 .action-buttons-group .btn-circle:hover {
     background: rgba(255, 255, 255, 0.25);
     border-color: rgba(255, 255, 255, 0.4);
     transform: scale(1.08);
 }
+
 .action-buttons-group .volume-btn:hover {
     background: rgba(229, 9, 20, 0.8);
 }
@@ -575,68 +649,156 @@ body {
 /*----- Mini Carousel Container */
 .mini-carousel {
     position: absolute;
-    bottom: 200px; 
-    right: 50px; 
+    bottom: 160px;
+    right: 50px;
     z-index: 20;
-    max-width: 58%; 
-    overflow: hidden;
+    width: 620px;
+    max-width: 55%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
 }
+
 .mini-carousel-track {
     display: flex;
     gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 8px 8px;
-    scroll-behavior: smooth;
-    scrollbar-width: none; 
+    scroll-behavior: auto;
+    scrollbar-width: none;
     -ms-overflow-style: none;
+    flex: 1;
+    min-width: 0;
+    cursor: grab;
+    user-select: none;
 }
-.mini-carousel-track::-webkit-scrollbar { display: none; }
 
-/*----- Mini Carousel Card */
+.mini-carousel-track::-webkit-scrollbar {
+    display: none;
+}
+
+.mini-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(15, 15, 15, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    flex-shrink: 0;
+    z-index: 25;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.mini-nav-btn:hover {
+    background: rgba(229, 9, 20, 0.9);
+    border-color: #e50914;
+    transform: scale(1.15);
+    box-shadow: 0 0 16px rgba(229, 9, 20, 0.7);
+}
+
+.mini-nav-btn:active {
+    transform: scale(0.95);
+}
+
+/*----- Mini Carousel Card (Type A: ~5 visible cards on desktop) */
 .mini-card {
-    flex: 0 0 calc(100% / 7 - 10px);
-    width: 120px;
-    height: 67px; 
+    flex: 0 0 calc((100% - (10px * 4)) / 5);
+    max-width: calc((100% - (10px * 4)) / 5);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.3s ease;
+}
+
+.mini-card-poster {
+    width: 100%;
+    height: 67px;
     border-radius: 10px;
     overflow: hidden;
     position: relative;
-    cursor: pointer;
-    transition: all 0.3s ease;
     border: 3px solid transparent;
+    transition: all 0.3s ease;
 }
-.mini-card img {
+
+.mini-card-poster img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: none;
     filter: brightness(1.1) contrast(1.05);
 }
-.mini-card.active {
-    transform: scale(1.1);
+
+.mini-card.active .mini-card-poster {
+    transform: scale(1.06);
     border-color: #e50914;
     box-shadow: 0 0 20px rgba(229, 9, 20, 0.8);
 }
-.mini-card.active img {
-    filter: brightness(1.2) contrast(1.1); 
+
+/*----- Hot Movies Overlap -----*/
+.hero-banner+.movies.movie-list-section {
+    margin-top: -125px;
+    position: relative;
+    z-index: 30;
+    padding-top: 0;
 }
-.mini-card::after {
+
+.mini-card.active .mini-card-poster img {
+    filter: brightness(1.2) contrast(1.1);
+}
+
+.mini-card-poster::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.3); 
+    background: rgba(0, 0, 0, 0.3);
     transition: opacity 0.3s;
 }
-.mini-card.active::after {
-    opacity: 0; 
-}
-.mini-card:hover {
-    transform: scale(1.05);
-}
-.mini-card.active:hover {
-    transform: scale(1.12);
+
+.mini-card.active .mini-card-poster::after {
+    opacity: 0;
 }
 
+.mini-card:hover .mini-card-poster {
+    transform: scale(1.04);
+}
+
+.mini-card.active:hover .mini-card-poster {
+    transform: scale(1.08);
+}
+
+/*----- Hero Progress Bar (Belongs directly to the active Hero movie card) -----*/
+.mini-card-progress {
+    width: 100%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.mini-card.active .mini-card-progress {
+    opacity: 1;
+}
+
+.mini-card-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #ffffff;
+    border-radius: 2px;
+    transition: width 0.05s linear;
+}
 
 /*===============================================*/
 /*---- 3. CAROUSELS & MOVIE CARDS (LIST) ----*/
@@ -646,10 +808,16 @@ body {
 .movies {
     padding: 40px 0;
     position: relative;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
+
+.movies:first-of-type {
+    margin-top: -125px;
+    z-index: 20;
+}
+
 .movies.loaded {
     opacity: 1;
     transform: translateY(0);
@@ -664,15 +832,18 @@ body {
     margin-bottom: 20px;
     padding: 0 50px;
 }
+
 .section-title-wrapper {
     display: flex;
     align-items: center;
     gap: 20px;
 }
+
 .section-title {
     font-size: 1.8rem;
     font-weight: 700;
 }
+
 .view-more-link {
     color: #b3b3b3;
     text-decoration: none;
@@ -680,25 +851,30 @@ body {
     font-weight: 500;
     transition: all 0.3s;
 }
+
 .view-more-link:hover {
     color: #e50914;
     transform: translateX(5px);
 }
-.view-more-link i { margin-left: 5px; }
+
+.view-more-link i {
+    margin-left: 5px;
+}
 
 
 /*----- Viền chạy trên Header */
 .section-header::after {
     content: '';
     position: absolute;
-    bottom: 0; 
+    bottom: 0;
     left: 3.5%;
-    width: 0; 
+    width: 0;
     height: 2px;
     background: linear-gradient(to right, #E50914 0%, rgba(229, 9, 20, 0.6) 50%, rgba(229, 9, 20, 0) 100%);
     opacity: 0.9;
     transition: width 0.4s ease-out;
 }
+
 .movies.movie-list-section:hover .section-header::after {
     width: 500px;
 }
@@ -706,9 +882,18 @@ body {
 
 /*----- Carousel Navigation */
 .carousel-nav {
+    position: absolute;
+    top: calc(50% + 25px);
+    transform: translateY(-50%);
+    left: 10px;
+    right: 10px;
     display: flex;
-    gap: 10px;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 20;
+    width: auto;
 }
+
 .carousel-nav .nav-btn {
     width: 45px;
     height: 45px;
@@ -723,12 +908,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto;
 }
+
 .carousel-nav .nav-btn:hover:not(:disabled) {
     background: rgba(229, 9, 20, 0.9);
     border-color: rgba(229, 9, 20, 0.5);
     transform: scale(1.1);
 }
+
 .carousel-nav .nav-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
@@ -737,9 +925,11 @@ body {
 /*----- Carousel Slider */
 .movie-carousel {
     position: relative;
-    padding: 0 50px;
-    width: 100%;
+    margin: -65px 65px -50px 65px;
+    padding: 65px 0 70px 0;
+    overflow: hidden;
 }
+
 .movie-slider {
     display: flex;
     gap: 15px;
@@ -751,14 +941,59 @@ body {
 /*----- Movie Card Base */
 .movie-card {
     position: relative;
-    flex: 0 0 200px;
     background: transparent;
-    border-radius: 12px;
+    border-radius: 14px;
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     cursor: pointer;
     height: 300px;
-    z-index: 2; /* Đảm bảo nằm trên các layer background */
+    z-index: 2;
+    /* Đảm bảo nằm trên các layer background */
 }
+
+/* Sizing explicitly for carousel sliders (Type B: ~6 visible cards on desktop down to 1150px) */
+.movie-slider > .movie-card {
+    flex: 0 0 calc((100% - (15px * 5)) / 6);
+    max-width: calc((100% - (15px * 5)) / 6);
+}
+
+@media (max-width: 1150px) {
+    .movie-slider > .movie-card {
+        flex: 0 0 calc((100% - (15px * 4)) / 5);
+        max-width: calc((100% - (15px * 4)) / 5);
+    }
+}
+
+@media (max-width: 900px) {
+    .movie-slider > .movie-card {
+        flex: 0 0 calc((100% - (15px * 3)) / 4);
+        max-width: calc((100% - (15px * 3)) / 4);
+    }
+}
+
+@media (max-width: 650px) {
+    .movie-slider > .movie-card {
+        flex: 0 0 calc((100% - (15px * 2)) / 3);
+        max-width: calc((100% - (15px * 2)) / 3);
+    }
+}
+
+@media (max-width: 480px) {
+    .movie-slider > .movie-card {
+        flex: 0 0 calc((100% - 15px) / 2);
+        max-width: calc((100% - 15px) / 2);
+    }
+}
+
+/* Explicit full-width sizing in grid contexts (Genre discover, Search, User profile, etc.) */
+.results-grid .movie-card,
+.search-grid .movie-card,
+.movie-grid .movie-card,
+.room-search-grid .movie-card {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 auto;
+}
+
 .movie-card:hover {
     transform: scale(1.05) translateY(-5px);
     z-index: 10000 !important;
@@ -767,19 +1002,21 @@ body {
 /*----- Movie Poster */
 .movie-poster {
     position: relative;
-    border-radius: 8px;
+    border-radius: 14px;
     width: 100%;
     height: 100%;
     overflow: hidden;
     background: #2a2a2a;
 }
+
 .movie-poster img {
     width: 100%;
     height: 300px;
     object-fit: cover;
     transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 8px;
+    border-radius: 14px;
 }
+
 .movie-card:hover .movie-poster img {
     transform: scale(1.05);
 }
@@ -793,17 +1030,19 @@ body {
     z-index: 4;
     padding: 15px;
     text-align: center;
-    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 100%);
+    background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.8) 100%);
 }
+
 .movie-card:not(.ranked) .movie-poster::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%);
+    background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
     opacity: 0.5;
     z-index: 2;
     transition: all 0.3s ease;
 }
+
 .movie-card:not(.ranked):hover .movie-poster::after {
     opacity: 0.2;
 }
@@ -819,6 +1058,7 @@ body {
     color: #fff;
     line-height: 1.3;
 }
+
 .movie-rating {
     font-size: 14px;
     color: #bbb;
@@ -842,6 +1082,7 @@ body {
 .movie-card.ranked {
     position: relative;
 }
+
 .movie-card.ranked .movie-poster {
     position: relative;
 }
@@ -849,18 +1090,19 @@ body {
 /*----- Số thứ tự */
 .ranking-number {
     position: absolute;
-    bottom: 20%; 
+    bottom: 20%;
     left: 10%;
-    font-size: 100px; 
+    font-size: 100px;
     font-weight: 900;
     line-height: 1;
     z-index: 3;
     color: rgba(255, 255, 255, 0.45);
-    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2); 
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2);
     text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9), 0 0 10px rgba(255, 255, 255, 0.2);
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    transform: none; 
+    transform: none;
 }
+
 .movie-card.ranked:hover .ranking-number {
     transform: translate(5px, -5px) scale(1.05);
     color: rgba(255, 255, 255, 0.3);
@@ -870,11 +1112,12 @@ body {
 .ranking-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%);
+    background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
     opacity: 0.5;
     z-index: 2;
     transition: all 0.3s ease;
 }
+
 .movie-card.ranked:hover .ranking-overlay {
     opacity: 0.2;
 }
@@ -888,16 +1131,31 @@ body {
     z-index: 1;
     transition: opacity 0.3s ease;
 }
+
 .movie-card.ranked:hover .movie-poster::after {
     opacity: 0.8;
 }
 
 /*----- Định nghĩa 5 màu lặp lại */
-.movie-card.rank-1 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #E50914 120%); } 
-.movie-card.rank-2 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #007BFF 120%); }
-.movie-card.rank-3 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #28A745 120%); }
-.movie-card.rank-4 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #FFC107 120%); }
-.movie-card.rank-5 .movie-poster::after { background: linear-gradient(180deg, transparent 20%, #6F42C1 120%); }
+.movie-card.rank-1 .movie-poster::after {
+    background: linear-gradient(180deg, transparent 20%, #E50914 120%);
+}
+
+.movie-card.rank-2 .movie-poster::after {
+    background: linear-gradient(180deg, transparent 20%, #007BFF 120%);
+}
+
+.movie-card.rank-3 .movie-poster::after {
+    background: linear-gradient(180deg, transparent 20%, #28A745 120%);
+}
+
+.movie-card.rank-4 .movie-poster::after {
+    background: linear-gradient(180deg, transparent 20%, #FFC107 120%);
+}
+
+.movie-card.rank-5 .movie-poster::after {
+    background: linear-gradient(180deg, transparent 20%, #6F42C1 120%);
+}
 
 /*----- Hiển thị thông tin phim */
 .movie-card.ranked .movie-info {
@@ -910,6 +1168,7 @@ body {
     padding: 15px;
     text-align: center;
 }
+
 .movie-card.ranked .movie-info h3 {
     font-size: 1.1rem;
     font-weight: 600;
@@ -917,6 +1176,7 @@ body {
     white-space: normal;
     line-height: 1.3;
 }
+
 .movie-card.ranked .movie-info p.movie-rating {
     display: none;
 }
@@ -941,6 +1201,7 @@ body {
     opacity: 0;
     transition: opacity 0.3s ease;
 }
+
 .share-modal-overlay.active {
     display: flex;
     opacity: 1;
@@ -958,6 +1219,7 @@ body {
     transition: transform 0.3s ease;
     z-index: 2147483647 !important;
 }
+
 .share-modal-overlay.active .share-modal {
     transform: scale(1);
 }
@@ -970,6 +1232,7 @@ body {
     padding: 15px 20px;
     border-bottom: 1px solid #333;
 }
+
 .share-modal-header h4 {
     margin: 0;
     font-size: 1.2rem;
@@ -987,6 +1250,7 @@ body {
     opacity: 0.7;
     transition: opacity 0.2s;
 }
+
 .share-modal-close:hover {
     opacity: 1;
 }
@@ -998,6 +1262,7 @@ body {
     gap: 15px;
     padding: 20px;
 }
+
 .social-icon-link {
     display: flex;
     align-items: center;
@@ -1010,15 +1275,18 @@ body {
     font-size: 1rem;
     transition: background-color 0.2s;
 }
+
 .social-icon-link:hover {
     background-color: #333;
 }
+
 .social-icon-link img {
     width: 24px;
     height: 24px;
     object-fit: contain;
     border-radius: 4px;
 }
+
 .social-icon-link i {
     font-size: 1.2rem;
     width: 24px;
@@ -1032,6 +1300,7 @@ body {
     display: flex;
     gap: 10px;
 }
+
 #shareUrlInput {
     flex-grow: 1;
     padding: 10px;
@@ -1042,6 +1311,7 @@ body {
     font-size: 0.9rem;
     cursor: text;
 }
+
 #copyButton {
     padding: 10px 15px;
     background-color: #e50914;
@@ -1052,6 +1322,7 @@ body {
     font-weight: 600;
     transition: background-color 0.2s;
 }
+
 #copyButton:hover {
     background-color: #ff0015;
 }
@@ -1062,16 +1333,24 @@ body {
 /*====================================*/
 
 /*----- CHE DỮ LIỆU - NGĂN COPY & DRAG */
-.hero-banner, .movie-hover-card, .content-primary, .person-detail,
-.hero-content, .hover-card-content {
+.hero-banner,
+.movie-hover-card,
+.content-primary,
+.person-detail,
+.hero-content,
+.hover-card-content {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
 }
-.hero-banner img, .movie-hover-card img, 
-.movie-poster img, .person-detail img,
-.hover-card-image, .hero-logo-image {
+
+.hero-banner img,
+.movie-hover-card img,
+.movie-poster img,
+.person-detail img,
+.hover-card-image,
+.hero-logo-image {
     pointer-events: none;
     -webkit-user-drag: none;
     -khtml-user-drag: none;
@@ -1092,71 +1371,61 @@ footer {
 
 /*----- Responsive (Chung) */
 @media (max-width: 768px) {
-    .main-header { padding: 10px 20px; }
-    .main-nav { gap: 15px; }
-    .main-nav a { font-size: 14px; }
-    .header-actions { gap: 15px; }
-    .search-box .search-input { width: 220px; }
-    .notification .dropdown { right: -30px; min-width: 200px; }
+    .main-header {
+        padding: 10px 20px;
+    }
 
-    .movies { padding: 30px 20px; }
-    .section-header { flex-direction: column; gap: 15px; align-items: flex-start; }
-    .carousel-nav { align-self: flex-end; }
-    .movie-card { flex: 0 0 140px; }
-    .movie-poster { height: 210px; }
-    .nav-btn { width: 35px; height: 35px; font-size: 14px; }
+    .main-nav {
+        gap: 15px;
+    }
+
+    .main-nav a {
+        font-size: 14px;
+    }
+
+    .header-actions {
+        gap: 15px;
+    }
+
+    .search-box .search-input {
+        width: 220px;
+    }
+
+    .notification .dropdown {
+        right: -30px;
+        min-width: 200px;
+    }
+
+    .movies {
+        padding: 30px 20px;
+    }
+
+    .section-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+
+    .carousel-nav {
+        align-self: flex-end;
+    }
+
+    .movie-card {
+        flex: 0 0 140px;
+    }
+
+    .movie-poster {
+        height: 210px;
+    }
+
+    .nav-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
 }
 
-/* ========================================= */
-/* ---- CINEMATIC VIEW TRANSITIONS (NATIVE) ---- */
-/* ========================================= */
-
-/* Kích hoạt Native Transition */
-@view-transition {
-  navigation: auto;
-}
-
-/* --- TRANG CŨ (Rời đi) --- */
-::view-transition-old(root) {
-  /* Thời gian 0.6s, đường cong 'Ease-out Quint' cực mượt */
-  animation: 0.6s cubic-bezier(0.22, 1, 0.36, 1) both fade-out-scale;
-  /* Giữ nguyên vị trí để không bị nhảy layout */
-  transform-origin: center top;
-}
-
-/* --- TRANG MỚI (Đến) --- */
-::view-transition-new(root) {
-  /* Thời gian 0.6s, cùng nhịp điệu */
-  animation: 0.6s cubic-bezier(0.22, 1, 0.36, 1) both fade-in-slide;
-  /* Đảm bảo nằm trên trang cũ */
-  z-index: 9999; 
-}
-
-/* --- ĐỊNH NGHĨA HIỆU ỨNG --- */
-
-@keyframes fade-out-scale {
-  from { 
-    opacity: 1; 
-    transform: scale(1); 
-    filter: blur(0px);
-  }
-  to { 
-    opacity: 0; 
-    transform: scale(0.98); /* Thu nhỏ nhẹ tạo chiều sâu 3D */
-    filter: blur(2px);      /* Làm mờ nhẹ để focus vào trang mới */
-  }
-}
-
-@keyframes fade-in-slide {
-  from { 
-    opacity: 0; 
-    transform: translateY(30px); /* Trượt từ dưới lên một quãng vừa đủ */
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-}
+/* View transitions removed for instant page navigation */
 
 
 /* Thông báo nổi giống Facebook */
@@ -1167,7 +1436,7 @@ footer {
     padding: 15px;
     margin-top: 10px;
     border-radius: 4px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1175,9 +1444,30 @@ footer {
     min-width: 300px;
     animation: slideInLeft 0.3s ease;
 }
-.toast-avatar img { width: 40px; height: 40px; border-radius: 50%; }
-.toast-content p { margin: 0; font-size: 0.95rem; font-weight: 500; }
-@keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.toast-avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.toast-content p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
 
 /* ==========================================================================
    SKELETON LOADERS & PERCEIVED PERFORMANCE ENHANCEMENTS
@@ -1187,6 +1477,7 @@ footer {
     0% {
         background-position: -200% 0;
     }
+
     100% {
         background-position: 200% 0;
     }
@@ -1276,4 +1567,4 @@ footer {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
     width: 100%;
-}
+}

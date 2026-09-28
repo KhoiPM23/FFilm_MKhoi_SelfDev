@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
   <head>
     <meta charset="UTF-8" />
@@ -222,7 +222,8 @@
           <div
             th:each="movie : ${movies}"
             class="movie-card"
-            th:onclick="'window.location.href=\'/movie/detail/' + ${movie.movieID}"
+            th:attr="data-href=@{'/movie/detail/' + ${movie.movieID}}"
+            style="cursor:pointer;"
           >
             <div class="movie-poster">
               <img
@@ -241,11 +242,18 @@
           </div>
         </div>
 
-        <!-- Load More Button -->
-        <div class="load-more" th:if="${hasMore}" id="loadMoreContainer">
-          <button class="load-more-btn" id="loadMoreBtn">
-            <i class="fas fa-chevron-down"></i> Xem thêm
-          </button>
+        <!-- Infinite scroll state (hidden) -->
+        <div id="scrollState"
+             th:attr="data-page=${currentPage}, data-has-more=${hasMore}"
+             style="display:none;"></div>
+
+        <!-- Sentinel: IntersectionObserver triggers here -->
+        <div id="infiniteScrollSentinel" th:if="${hasMore}" style="height:1px;"></div>
+
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" style="display:none; text-align:center; padding:30px; color:#b3b3b3;">
+          <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#e50914;"></i>
+          <p style="margin-top:10px;">Đang tải thêm phim...</p>
         </div>
       </div>
     </section>
@@ -254,64 +262,68 @@
     <footer>
       <p>© 2025 FPTPlay Clone</p>
     </footer>
-
-    <!-- JavaScript: Load More với AJAX -->
+    <!-- JavaScript: Infinite Scroll voi IntersectionObserver -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const loadMoreBtn = document.getElementById("loadMoreBtn");
         const movieGrid = document.getElementById("movieGrid");
-        const loadMoreContainer = document.getElementById("loadMoreContainer");
+        const sentinel  = document.getElementById("infiniteScrollSentinel");
+        const loading   = document.getElementById("loadingIndicator");
+        const stateEl   = document.getElementById("scrollState");
+
+        if (!stateEl) return;
+
+        let nextPage  = parseInt(stateEl.dataset.page || "0") + 1;
+        let hasMore   = stateEl.dataset.hasMore === "true";
         let isLoading = false;
 
-        if (!loadMoreBtn) return;
+        // Click delegation cho ca card duoc them dong
+        movieGrid.addEventListener("click", function (e) {
+          var card = e.target.closest(".movie-card[data-href]");
+          if (card) window.location.href = card.getAttribute("data-href");
+        });
 
-        loadMoreBtn.addEventListener("click", function () {
-          if (isLoading) return;
+        if (!sentinel || !hasMore) return;
+
+        function loadNextPage() {
+          if (isLoading || !hasMore) return;
           isLoading = true;
+          if (loading) loading.style.display = "block";
 
-          const currentPage = /*[[${currentPage}]]*/ 0;
-          const nextPage = currentPage + 1;
           const url = new URL(window.location);
           url.searchParams.set("page", nextPage);
 
-          // Hiệu ứng loading
-          loadMoreBtn.classList.add("loading");
-          loadMoreBtn.innerHTML = '<i class="fas fa-spinner"></i> Đang tải...';
-
-          fetch(url, {
-            headers: { "X-Requested-With": "XMLHttpRequest" },
+          fetch(url.toString(), {
+            headers: { "X-Requested-With": "XMLHttpRequest" }
           })
-            .then((response) => response.text())
-            .then((html) => {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(html, "text/html");
-              const newMovies = doc.querySelectorAll("#movieGrid .movie-card");
-              const newHasMore =
-                doc.querySelector("#loadMoreContainer") !== null;
+          .then(function(r) { return r.text(); })
+          .then(function(html) {
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            const newCards = doc.querySelectorAll("#movieGrid .movie-card");
+            const newStateEl = doc.getElementById("scrollState");
+            const newHasMore = newStateEl ? newStateEl.dataset.hasMore === "true" : false;
 
-              // Thêm phim mới
-              newMovies.forEach((card) => {
-                movieGrid.appendChild(card);
-              });
+            newCards.forEach(function(card) { movieGrid.appendChild(card); });
 
-              // Cập nhật nút load more
-              if (newHasMore) {
-                loadMoreBtn.innerHTML =
-                  '<i class="fas fa-chevron-down"></i> Xem thêm';
-                loadMoreBtn.classList.remove("loading");
-              } else {
-                loadMoreContainer.remove();
-              }
+            hasMore = newHasMore;
+            nextPage++;
 
-              isLoading = false;
-            })
-            .catch((err) => {
-              console.error("Load more failed:", err);
-              loadMoreBtn.innerHTML =
-                '<i class="fas fa-exclamation-triangle"></i> Lỗi';
-              isLoading = false;
-            });
-        });
+            if (!hasMore) {
+              observer.disconnect();
+              if (sentinel.parentNode) sentinel.parentNode.removeChild(sentinel);
+            }
+          })
+          .catch(function(err) { console.error("Infinite scroll error:", err); })
+          .finally(function() {
+            isLoading = false;
+            if (loading) loading.style.display = "none";
+          });
+        }
+
+        var observer = new IntersectionObserver(function(entries) {
+          if (entries[0].isIntersecting) loadNextPage();
+        }, { rootMargin: "200px" });
+
+        observer.observe(sentinel);
       });
     </script>
   </body>

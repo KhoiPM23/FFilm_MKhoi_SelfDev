@@ -16,13 +16,33 @@ public class SocketMessage {
     private String timestamp;    
     
     private String mediaUrl;     // URL ảnh hoặc GIF
-    
-    // --- KHẮC PHỤC LỖI TẠI ĐÂY ---
-    
-    // 1. Dùng để định danh người nhận trong Chat Riêng (Messenger)
-    // Controller sẽ gọi msg.getReplyToId() nên bắt buộc phải có biến này
     private String replyToId; 
-    
-    // 2. Dùng để chứa thông tin tin nhắn gốc khi Reply (Trích dẫn)
     private SocketMessage replyTo; 
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getSender() { return sender; }
+    public void setSender(String sender) { this.sender = sender; }
+
+    public String getSenderAvatar() { return senderAvatar; }
+    public void setSenderAvatar(String senderAvatar) { this.senderAvatar = senderAvatar; }
+
+    public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
+
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+
+    public String getTimestamp() { return timestamp; }
+    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+
+    public String getMediaUrl() { return mediaUrl; }
+    public void setMediaUrl(String mediaUrl) { this.mediaUrl = mediaUrl; }
+
+    public String getReplyToId() { return replyToId; }
+    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
+
+    public SocketMessage getReplyTo() { return replyTo; }
+    public void setReplyTo(SocketMessage replyTo) { this.replyTo = replyTo; }
 }

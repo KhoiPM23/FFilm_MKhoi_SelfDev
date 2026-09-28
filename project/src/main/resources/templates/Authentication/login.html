@@ -130,6 +130,7 @@
     <div class="box">
       <h2>ĐĂNG NHẬP</h2>
       <form th:action="@{/login}" th:object="${user}" method="post" autocomplete="off">
+        <input type="hidden" name="redirect" th:value="${redirectUrl != null ? redirectUrl : (param.redirect != null ? param.redirect[0] : '')}" />
         <input type="email" th:field="*{email}" placeholder="Email" required autocomplete="off" />
         <input
           type="password"
@@ -147,10 +148,25 @@
         </div>
       </form>
 
+      <p th:if="${param.logout}" class="message" style="color: #00ff7f; text-align: center; margin-bottom: 15px; font-weight: 500;">
+        <i class="fas fa-check-circle"></i> Đã đăng xuất thành công.
+      </p>
       <p th:if="${loginError}" class="error" th:text="${loginError}"></p>
       <div class="extra">
         Chưa có tài khoản? <a th:href="@{/register}">Đăng ký ngay</a>
       </div>
     </div>
+
+    <script>
+      // Ngăn người dùng back lại thấy trang đăng nhập
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, null, window.location.href);
+      }
+      window.addEventListener("pageshow", function (event) {
+        if (event.persisted) {
+          window.location.reload();
+        }
+      });
+    </script>
   </body>
 </html>

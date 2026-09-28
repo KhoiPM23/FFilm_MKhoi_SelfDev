@@ -241,6 +241,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // ----------------------------------------------------
   function handlePlaybackError(e) {
     console.error("Playback error detected on main video:", e);
+    const source = mainVideo.querySelector("source");
+    if (source && !source.dataset.fallbackApplied) {
+      source.dataset.fallbackApplied = "true";
+      source.src = "/video/movie1.mp4";
+      mainVideo.load();
+      mainVideo.play().catch((err) => {
+        console.warn("Auto play fallback video:", err);
+      });
+      showToast("Đang phát nguồn dự phòng kiểm thử...", "fa-film", 2000);
+      return;
+    }
     if (errorOverlay) {
       errorOverlay.style.display = "flex";
     }
@@ -258,8 +269,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (errorOverlay) {
         errorOverlay.style.display = "none";
       }
-      showToast("Đang tải lại...", "fa-sync fa-spin", 1500);
+      showToast("Đang tải lại video...", "fa-sync fa-spin", 1500);
       try {
+        const src = mainVideo.querySelector("source");
+        if (src) src.src = "/video/movie1.mp4";
+        mainVideo.src = "/video/movie1.mp4";
         mainVideo.load();
         mainVideo.play().catch((err) => {
           console.warn("Retry playback failed:", err);

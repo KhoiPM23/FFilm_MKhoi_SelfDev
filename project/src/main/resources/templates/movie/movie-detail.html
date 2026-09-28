@@ -72,6 +72,7 @@
               <span id="heroCommunityRatingText" th:text="${communityRating != null and communityRating > 0 ? #numbers.formatDecimal(communityRating, 1, 1) : 'Chưa có'}">Chưa có</span>
               <span id="heroRatingCountText" class="rating-subcount" th:text="${ratingCount != null and ratingCount > 0 ? '(' + ratingCount + ')' : ''}"></span>
             </div>
+            <div class="hero-meta-break"></div>
             <div class="year" th:text="${movie.year}">...</div>
             <div class="duration" th:text="${movie.runtime} + ' phút'">
               0 phút
@@ -225,7 +226,7 @@
         <div
           class="trailer-section"
           id="trailerSection"
-          style="margin-bottom: 60px; display: none"
+          th:style="${trailers != null and !#lists.isEmpty(trailers)} ? 'margin-bottom: 60px; display: block;' : 'margin-bottom: 60px; display: none;'"
         >
           <h2
             class="section-title"
@@ -244,21 +245,28 @@
           <div
             class="trailer-grid"
             id="trailerGrid"
-            style="display: none"
-          ></div>
+            th:style="${trailers != null and !#lists.isEmpty(trailers)} ? 'display: grid;' : 'display: none;'"
+          >
+            <div
+              class="trailer-card"
+              th:each="t, iterStat : ${trailers}"
+              th:attr="data-key=${t.key}"
+              style="cursor:pointer;"
+            >
+              <img
+                th:src="'https://img.youtube.com/vi/' + ${t.key} + '/mqdefault.jpg'"
+                th:alt="${t.name}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
+              <i class="fas fa-play-circle trailer-play"></i>
+              <div class="trailer-title" th:text="${t.name != null ? t.name : 'Trailer ' + iterStat.count}">Trailer</div>
+            </div>
+          </div>
 
           <div
             class="fallback-message"
             id="trailerFallback"
-            style="
-              display: none;
-              background: rgba(255, 255, 255, 0.03);
-              border: 1px dashed rgba(255, 255, 255, 0.1);
-              border-radius: 8px;
-              padding: 40px 20px;
-              text-align: center;
-              color: #888;
-            "
+            th:style="${trailers == null or #lists.isEmpty(trailers)} ? 'display: block; background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 40px 20px; text-align: center; color: #888;' : 'display: none;'"
           >
             <i
               class="fas fa-video-slash"
@@ -291,7 +299,8 @@
             <div
               th:each="p : ${castList}"
               class="cast-card"
-              th:onclick="'window.location.href=\'/person/detail/' + ${p.id} + '\''"
+              th:attr="data-href=@{'/person/detail/' + ${p.id}}"
+              style="cursor:pointer;"
             >
               <div class="cast-img-wrapper">
                 <img
@@ -610,5 +619,22 @@
     <!-- Movie Rating & Comments Scripts -->
     <script th:src="@{/js/movie/comment-handler.js}"></script>
     <script th:src="@{/js/movie/movie-rating.js}"></script>
+
+    <!-- Event delegation cho trailer-card & cast-card (thay th:onclick) -->
+    <script>
+      document.addEventListener('click', function(e) {
+        var trailerCard = e.target.closest('.trailer-card[data-key]');
+        if (trailerCard) {
+          var key = trailerCard.getAttribute('data-key');
+          if (key && typeof openGlobalTrailer === 'function') openGlobalTrailer(key);
+          return;
+        }
+        var castCard = e.target.closest('.cast-card[data-href]');
+        if (castCard) {
+          var href = castCard.getAttribute('data-href');
+          if (href) window.location.href = href;
+        }
+      });
+    </script>
   </body>
 </html>

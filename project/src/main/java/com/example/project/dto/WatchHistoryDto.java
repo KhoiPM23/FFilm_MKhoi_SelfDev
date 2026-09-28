@@ -17,13 +17,15 @@ public class WatchHistoryDto {
     private Double currentTime;  // Thời gian đã xem (giây)
 
     public WatchHistoryDto(WatchHistory history) {
-        this.movieId = history.getMovie().getMovieID();
-        this.movieTitle = history.getMovie().getTitle();
-        this.moviePosterPath = history.getMovie().getPosterPath();
-        this.lastWatchedAt = history.getLastWatchedAt();
-        this.movieUrl = "/movie/player/" + history.getMovie().getMovieID();
-        this.duration = history.getMovie().getDuration(); // Lấy từ bảng Movie
-        this.currentTime = history.getCurrentTime();      // Lấy từ bảng WatchHistory
+        if (history != null && history.getMovie() != null) {
+            this.movieId = history.getMovie().getMovieID();
+            this.movieTitle = history.getMovie().getTitle();
+            this.moviePosterPath = history.getMovie().getPosterPath();
+            this.lastWatchedAt = history.getLastWatchedAt();
+            this.movieUrl = "/movie/player/" + history.getMovie().getMovieID();
+            this.duration = history.getMovie().getDuration();
+            this.currentTime = history.getCurrentTime();
+        }
     }
 
     // Getters and Setters

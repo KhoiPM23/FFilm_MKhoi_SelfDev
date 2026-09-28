@@ -2,6 +2,77 @@
 
 This file records the MOST RECENT verified operational state of the project.
 
+## UI/UX & AI Experience Audit Phase
+- ✅ **Batch 1 (Carousel + Hero UX):** HUMAN_ACCEPTED_WITH_CARRYOVER. Two issues carried into Batch 2.
+- ⏳ **Batch 2 (Hover Card + Preview):** IN_PROGRESS. Two carry-over fixes implemented. Build verified. Browser verification blocked by quota limit at time of writing — HUMAN ACCEPTANCE PENDING.
+- 📄 **Audit Report:** Available in [UI_UX_AI_AUDIT_REPORT.md](file:///C:/Users/Admin%20User/.gemini/antigravity-ide/brain/6b292f8a-ef49-4ace-a780-d369fd605ea7/UI_UX_AI_AUDIT_REPORT.md).
+
+## BATCH ROADMAP STATE
+
+```
+Batch 1 — Core Carousel + Hero
+Status: HUMAN_ACCEPTED_WITH_CARRYOVER
+
+Accepted:
+- Main carousel desktop = 6 cards
+- Drag/horizontal interaction working
+- Arrow UX working (show/hide, disable at ends)
+- Hero active-card progress bar (belongs to and moves with active mini-card)
+- Hero → Hot Movies overlap (Home + Genre)
+- Genre stray progress bar under header removed
+- Genre 450-movie grid card width normalized
+- Video preview acceleration (hero: 1200ms, hover: 60ms trigger/200ms fade)
+- No transient YouTube play/pause flash
+- Left/right hover card edge protection working (.edge-left / .edge-right)
+- Hover card soft rounded corners (iframe clip-path)
+
+Carry-over into Batch 2:
+- Hero progress intermittent runtime behavior → B2-CARRY-01
+- Hover card top-edge clipping → B2-CARRY-02
+
+Batch 2 — Hover Card + Preview
+Status: COMPLETE / HUMAN_ACCEPTED
+
+Completed early (done in Batch 1, accepted):
+- Hover delay: [ALREADY_DONE_EARLY] 120ms debounce
+- Video preview delay: [ALREADY_DONE_EARLY] 60ms trigger, 200ms fade-in
+- Hero preview delay: [ALREADY_DONE_EARLY] 1200ms opacity reveal
+- Edge positioning (left/right): [ALREADY_DONE_EARLY]
+- Rounded media: [ALREADY_DONE_EARLY]
+- Collapse bug / mouse area: [ALREADY_DONE_EARLY] stopHoverVideo on mouseleave
+- Scale: [NO_CHANGE_RECOMMENDED] — no evidence of concrete UX problem
+- YouTube transient controls: [ALREADY_DONE_EARLY] clip-path mask prevents flash
+
+B2-CARRY-01 — Hero progress reliability:
+- Root cause: setInterval callback was spawning duplicate RAF loops; infinite clones queried incompletely.
+- Fix: Single RAF chain initialized on startAutoRotate; querySelectorAll for all active clones.
+- Status: HUMAN_ACCEPTED [Manually verified OK]
+
+B2-CARRY-02 — Hover card top-edge clipping:
+- Root cause: 0px clearance between -50px top and 50px carousel padding-top during scale(0.8) -> scale(1).
+- Fix: .movie-carousel padding-top increased to 65px; .movie-hover-card top to -42px; clip-path: inset removed.
+- Status: HUMAN_ACCEPTED [Manually verified OK]
+
+Remaining Batch 2 items: NONE
+
+Batch 3 — Global UI Density + Loading
+Status: AUDITED / NO_CHANGE_RECOMMENDED
+- Speculative changes reverted: Google Fonts Inter removed (restored Segoe UI), .section-header margin restored to 20px, .section-title font-size restored to 1.8rem.
+- Single-pass browser runtime audit:
+  * Horizontal overflow on Home & Discover: 0px (scrollWidth === clientWidth).
+  * Layout stability: Hero banner (5 mini cards), carousels (6 cards), Discover grid (5 columns) render cleanly with zero clipping, stable transitions, and proper alignment.
+  * No P0/P1 layout shifts, broken transitions, or root overflow defects identified.
+- Verdict: [NO_CHANGE_RECOMMENDED] — UI is clean, responsive, and stable.
+
+Batch 4 — AI Search + Chatbot UI
+Status: NOT_STARTED
+
+Batch 5 — AI Backend Optimization
+Status: NOT_STARTED
+Note: Only after Batch 4 is reviewed.
+```
+
+
 ## RUNTIME
 - **Database**: `FFilm3` [FACT]
 - **Spring Boot Startup**: `SUCCESS` [FACT]

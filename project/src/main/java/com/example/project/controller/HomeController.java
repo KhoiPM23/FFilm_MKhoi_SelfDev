@@ -52,13 +52,34 @@ public class HomeController {
             // 2. Set Banner (Lấy phim đầu tiên trong list Hot)
             setBanner(model, hotMovies);
 
-            // 3. Trả về danh sách RỖNG cho 4 carousel còn lại
-            // (Lý do: Frontend dùng JS để tải bất đồng bộ các mục này -> Tăng tốc độ load
-            // trang chủ)
-            model.addAttribute("newMovies", new ArrayList<>());
-            model.addAttribute("animeMovies", new ArrayList<>());
-            model.addAttribute("kidsMovies", new ArrayList<>());
-            model.addAttribute("actionMovies", new ArrayList<>());
+            // 3. Tải các carousel còn lại từ DB
+            try {
+                Page<Movie> dbNew = movieService.getNewMoviesFromDB(carouselLimit);
+                model.addAttribute("newMovies", dbNew.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+            } catch (Exception ex) {
+                model.addAttribute("newMovies", new ArrayList<>());
+            }
+
+            try {
+                Page<Movie> dbAnime = movieService.getMoviesByGenreFromDB(16, carouselLimit, 0);
+                model.addAttribute("animeMovies", dbAnime.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+            } catch (Exception ex) {
+                model.addAttribute("animeMovies", new ArrayList<>());
+            }
+
+            try {
+                Page<Movie> dbKids = movieService.getMoviesByGenreFromDB(10751, carouselLimit, 0);
+                model.addAttribute("kidsMovies", dbKids.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+            } catch (Exception ex) {
+                model.addAttribute("kidsMovies", new ArrayList<>());
+            }
+
+            try {
+                Page<Movie> dbAction = movieService.getMoviesByGenreFromDB(28, carouselLimit, 0);
+                model.addAttribute("actionMovies", dbAction.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+            } catch (Exception ex) {
+                model.addAttribute("actionMovies", new ArrayList<>());
+            }
 
             return "index";
 

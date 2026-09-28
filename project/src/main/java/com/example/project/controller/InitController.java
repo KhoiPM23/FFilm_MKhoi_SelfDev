@@ -18,16 +18,23 @@ public class InitController implements ApplicationRunner { // [G13] Thêm implem
 
     private static final Logger log = LoggerFactory.getLogger(InitController.class);
 
+    @Autowired(required = false)
+    private javax.sql.DataSource dataSource;
+
     @Autowired
     private MovieService movieService;
 
-    /**
-     * [G13] Hàm này sẽ tự động chạy MỘT LẦN
-     * ngay sau khi Spring Boot khởi động xong.
-     */
     @Override
     public void run(ApplicationArguments args) throws Exception {
         System.out.println("...[DataInitializer] Đang chạy trình khởi tạo dữ liệu...");
+        if (dataSource != null) {
+            try {
+                org.springframework.jdbc.core.JdbcTemplate jdbcTemplate = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+                jdbcTemplate.execute("IF COL_LENGTH('WatchHistory', 'currentTime') IS NULL ALTER TABLE WatchHistory ADD currentTime FLOAT NOT NULL DEFAULT 0;");
+            } catch (Exception ex) {
+                log.warn("Kiểm tra cột WatchHistory.currentTime: {}", ex.getMessage());
+            }
+        }
         try {
             // Tự động gọi hàm initGenres
             movieService.initGenres();

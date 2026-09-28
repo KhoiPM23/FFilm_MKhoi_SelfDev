@@ -69,68 +69,92 @@ public class SocialService {
         }
 
         // 2. [FIX] ĐẾM SỐ LIỆU THẬT
-        profile.setFollowerCount(followRepository.countByFollowing(target));
-        profile.setFollowingCount(followRepository.countByFollower(target));
+        try {
+            profile.setFollowerCount(followRepository.countByFollowing(target));
+            profile.setFollowingCount(followRepository.countByFollower(target));
+        } catch (Exception e) {
+            profile.setFollowerCount(0);
+            profile.setFollowingCount(0);
+        }
         
-        // Lấy danh sách bạn bè (Status = ACCEPTED)
-        // Lưu ý: Cần thêm method findFriendsByUser(userId) vào FriendRequestRepository hoặc dùng query custom
-        // Ở đây tôi giả định dùng logic lọc từ FriendRequestRepository
         List<User> friendList = getFriendsListReal(target.getUserID());
         profile.setFriendCount(friendList.size());
 
         // 3. LOAD DATA (Check Privacy)
+        profile.setFriends(new ArrayList<>());
+        profile.setFavoriteMovies(new ArrayList<>());
+        profile.setRecentWatchedMovies(new ArrayList<>());
         
         // --- [FIX] LIST BẠN BÈ ---
-        if (target.isPublicFriendList() || "ME".equals(profile.getRelationStatus()) || "FRIEND".equals(profile.getRelationStatus())) {
-            List<PublicProfileDto.FriendDto> friendDtos = new ArrayList<>();
-            for (User u : friendList) {
-                PublicProfileDto.FriendDto dto = new PublicProfileDto.FriendDto();
-                dto.setId(u.getUserID());
-                dto.setName(u.getUserName());
-                try {
-                    String sName = URLEncoder.encode(u.getUserName(), StandardCharsets.UTF_8);
-                    dto.setAvatar("https://ui-avatars.com/api/?name=" + sName + "&background=random&color=fff");
-                } catch (Exception e) {}
-                friendDtos.add(dto);
+        try {
+            if (target.isPublicFriendList() || "ME".equals(profile.getRelationStatus()) || "FRIEND".equals(profile.getRelationStatus())) {
+                List<PublicProfileDto.FriendDto> friendDtos = new ArrayList<>();
+                for (User u : friendList) {
+                    if (u == null) continue;
+                    PublicProfileDto.FriendDto dto = new PublicProfileDto.FriendDto();
+                    dto.setId(u.getUserID());
+                    dto.setName(u.getUserName());
+                    try {
+                        String sName = URLEncoder.encode(u.getUserName(), StandardCharsets.UTF_8);
+                        dto.setAvatar("https://ui-avatars.com/api/?name=" + sName + "&background=random&color=fff");
+                    } catch (Exception e) {}
+                    friendDtos.add(dto);
+                }
+                profile.setFriends(friendDtos);
             }
-            profile.setFriends(friendDtos);
-        }
+        } catch (Exception ignored) {}
 
         // List Yêu thích
-        if (target.isPublicFavorites() || "ME".equals(profile.getRelationStatus())) {
-            List<UserFavorite> favorites = favoriteRepository.findByUser(target);
-            List<Map<String, Object>> favList = new ArrayList<>();
-            for (UserFavorite fav : favorites) {
-                if (fav.getMovie() != null) favList.add(mapToCardDto(fav.getMovie()));
+        try {
+            if (target.isPublicFavorites() || "ME".equals(profile.getRelationStatus())) {
+                List<UserFavorite> favorites = favoriteRepository.findByUser(target);
+                if (favorites != null) {
+                    List<Map<String, Object>> favList = new ArrayList<>();
+                    for (UserFavorite fav : favorites) {
+                        if (fav != null && fav.getMovie() != null) favList.add(mapToCardDto(fav.getMovie()));
+                    }
+                    profile.setFavoriteMovies(favList);
+                }
             }
-            profile.setFavoriteMovies(favList);
-        }
+        } catch (Exception ignored) {}
 
         // List Lịch sử
-        if (target.isPublicWatchHistory() || "ME".equals(profile.getRelationStatus())) {
-            var historyPage = historyRepository.findByUserOrderByLastWatchedAtDesc(target, PageRequest.of(0, 10));
-            List<Map<String, Object>> historyList = new ArrayList<>();
-            for (WatchHistory h : historyPage.getContent()) {
-                if (h.getMovie() != null) historyList.add(mapToCardDto(h.getMovie()));
+        try {
+            if (target.isPublicWatchHistory() || "ME".equals(profile.getRelationStatus())) {
+                var historyPage = historyRepository.findByUserOrderByLastWatchedAtDesc(target, PageRequest.of(0, 10));
+                if (historyPage != null && historyPage.getContent() != null) {
+                    List<Map<String, Object>> historyList = new ArrayList<>();
+                    for (WatchHistory h : historyPage.getContent()) {
+                        if (h != null && h.getMovie() != null) historyList.add(mapToCardDto(h.getMovie()));
+                    }
+                    profile.setRecentWatchedMovies(historyList);
+                }
             }
-            profile.setRecentWatchedMovies(historyList);
-        }
+        } catch (Exception ignored) {}
 
         return profile;
     }
 
     // Helper lấy list friend 2 chiều
     private List<User> getFriendsListReal(Integer userId) {
-        List<com.example.project.model.FriendRequest> acceptedRequests = friendRequestRepository.findAllAcceptedByUserId(userId); 
-        List<User> friends = new ArrayList<>();
-        for(com.example.project.model.FriendRequest fr : acceptedRequests) {
-            if(fr.getSender().getUserID() == userId) {
-                friends.add(fr.getReceiver());
-            } else if(fr.getReceiver().getUserID() == userId) {
-                friends.add(fr.getSender());
+        if (userId == null) return new ArrayList<>();
+        try {
+            List<com.example.project.model.FriendRequest> acceptedRequests = friendRequestRepository.findAllAcceptedByUserId(userId); 
+            List<User> friends = new ArrayList<>();
+            if (acceptedRequests != null) {
+                for (com.example.project.model.FriendRequest fr : acceptedRequests) {
+                    if (fr == null) continue;
+                    if (fr.getSender() != null && fr.getSender().getUserID() == userId.intValue() && fr.getReceiver() != null) {
+                        friends.add(fr.getReceiver());
+                    } else if (fr.getReceiver() != null && fr.getReceiver().getUserID() == userId.intValue() && fr.getSender() != null) {
+                        friends.add(fr.getSender());
+                    }
+                }
             }
+            return friends;
+        } catch (Exception e) {
+            return new ArrayList<>();
         }
-        return friends;
     }
 
     // Hàm chuyển đổi Movie Entity sang Map (Dữ liệu chuẩn cho Hover Card)

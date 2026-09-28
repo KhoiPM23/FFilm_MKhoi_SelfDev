@@ -515,3 +515,18 @@ efactor/batch-3-quick-wins
   - **WebSocket Session Attribute Alignment**: Added `"userSession"` to `WebSocketConfig` and fallback check in `WebSocketEventListener` to restore `OnlineStatusService` presence tracking.
 - **Commit**: `73f5327`. Pushed to `origin/main`.
 - **Verification**: `.\mvnw.cmd test` passed (`BUILD SUCCESS`, 1 test, 0 failures, 0 errors). Working tree clean, `HEAD == origin/main`.
+
+ # # #   2 0 2 6 - 0 9 - 2 9 :   U I / U X   &   A I   E x p e r i e n c e   I m p l e m e n t a t i o n   ( B a t c h   1 ) 
+ -   * * B a t c h   1   S c o p e * * :   I m p l e m e n t e d   H e r o   C a r o u s e l   P r o g r e s s   B a r ,   M a i n   C a r o u s e l   D r a g   I n t e r a c t i o n ,   a n d   H e r o   - >   H o t   M o v i e s   O v e r l a p .   R e m o v e d   d e c o r a t i v e   e m o j i s   f r o m   s e c t i o n   t i t l e s . 
+ -   * * S h a r e d   A r c h i t e c t u r e   D e c i s i o n * * :   [ K E E P _ C U R R E N T _ S T R U C T U R E ] .   D e c i d e d   a g a i n s t   e x t r a c t i n g   a   s h a r e d   m o v i e - c a r o u s e l . h t m l   f r a g m e n t   t o   a v o i d   c o m p l e x   c o n d i t i o n a l   l o g i c   a n d   p a g e - s p e c i f i c   h a c k s   ( e s p e c i a l l y   d u e   t o   a s y n c   J S   r e n d e r i n g   i n   i n d e x . h t m l ) .   R e u s e d   s h a r e d   J S   ( s c r i p t . j s )   a n d   C S S   b e h a v i o r   i n s t e a d . 
+ -   * * B e h a v i o r   C h a n g e s * * : 
+     -   M a i n   c a r o u s e l s   n o w   s u p p o r t   d r a g - t o - s c r o l l   v i a   P o i n t e r   E v e n t s   ( w o r k s   f o r   m o u s e   a n d   t o u c h ) . 
+     -   D r a g g i n g   p r e v e n t s   a c c i d e n t a l   c l i c k s   ( c l i c k s   a r e   i n t e r c e p t e d   a n d   s t o p P r o p a g a t i o n   i s   c a l l e d   i f   h a s M o v e d   i s   t r u e ) . 
+     -   H e r o   C a r o u s e l   a u t o m a t i c a l l y   s y n c s   a   p r o g r e s s   b a r   ( r u n s   l e f t - t o - r i g h t )   w i t h   t h e   s l i d e   t i m e r   ( 1 1 0 0 0 m s ) . 
+     -   P r o g r e s s   b a r   c o r r e c t l y   r e s e t s   o n   m a n u a l   s l i d e   n a v i g a t i o n   (  d v a n c e M i n i C a r o u s e l ) . 
+     -   H o t   M o v i e s   s e c t i o n   o v e r l a p s   t h e   H e r o   B a n n e r   s e a m l e s s l y   u s i n g   n e g a t i v e   m a r g i n   ( - 1 0 0 p x )   a n d   z - i n d e x . 
+ -   * * K n o w n   L i m i t a t i o n s * * :   B r o w s e r   s u b a g e n t   v e r i f i c a t i o n   w a s   s k i p p e d   d u e   t o   a   s e r v e r   e r r o r   ( 5 0 3   N o   c a p a c i t y   a v a i l a b l e   f o r   m o d e l   g e m i n i - 3 - f l a s h ) .   V i s u a l   r e g r e s s i o n   n e e d s   m a n u a l   v e r i f i c a t i o n   b y   t h e   u s e r . 
+ -   * * V e r i f i c a t i o n   S t a t u s * * :   B U I L D   S U C C E S S   ( M a v e n   t e s t s   p a s s e d ) .   B r o w s e r   v e r i f i c a t i o n   p e n d i n g . 
+ -   * * C o m m i t * * :   N o t   C o m m i t t e d   /   N o t   P u s h e d   y e t . 
+  
+ 

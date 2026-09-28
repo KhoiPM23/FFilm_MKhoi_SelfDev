@@ -78,6 +78,17 @@ public class MovieApiController {
         } catch (Exception e) { return ResponseEntity.status(500).body(null); }
     }
 
+    @GetMapping("/{id}/trailers")
+    public ResponseEntity<List<Map<String, Object>>> getMovieTrailers(@PathVariable("id") int movieID) {
+        try {
+            List<Map<String, Object>> trailers = movieService.findTrailers(movieID, 3);
+            return ResponseEntity.ok(trailers != null ? trailers : new ArrayList<>());
+        } catch (Exception e) {
+            log.warn("Failed to fetch trailers for movieId {}: {}", movieID, e.getMessage());
+            return ResponseEntity.ok(new ArrayList<>());
+        }
+    }
+
     //---- 3. API HOME CAROUSELS (Offline) ----
 
     @GetMapping("/home/new")
@@ -147,9 +158,14 @@ public class MovieApiController {
     }
     
     @GetMapping("/{id}/trending")
-    public ResponseEntity<List<Map<String, Object>>> getTrendingSidebar() {
-        Page<Movie> hot = movieService.getHotMoviesFromDB(10);
-        return ResponseEntity.ok(convertPage(hot));
+    public ResponseEntity<List<Map<String, Object>>> getTrendingSidebar(@PathVariable("id") int movieID) {
+        try {
+            Page<Movie> hot = movieService.getHotMoviesFromDB(10);
+            return ResponseEntity.ok(convertPage(hot));
+        } catch (Exception e) {
+            log.warn("Failed to fetch trending movies: {}", e.getMessage());
+            return ResponseEntity.ok(new ArrayList<>());
+        }
     }
 
     // Helper convert

@@ -54,11 +54,21 @@ public class WatchHistoryController {
     @GetMapping
     public ResponseEntity<Page<WatchHistoryDto>> getHistory(
             @AuthenticationPrincipal UserDetails userDetails,
+            HttpSession session,
             @PageableDefault(size = 20) Pageable pageable) {
-        if (userDetails == null) {
+        String email = null;
+        if (userDetails != null) {
+            email = userDetails.getUsername();
+        } else if (session != null) {
+            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
+            if (userSession != null) {
+                email = userSession.getEmail();
+            }
+        }
+        if (email == null) {
             return ResponseEntity.status(401).build(); 
         }
-        Page<WatchHistoryDto> historyPage = watchHistoryService.getWatchHistory(userDetails.getUsername(), pageable);
+        Page<WatchHistoryDto> historyPage = watchHistoryService.getWatchHistory(email, pageable);
         return ResponseEntity.ok(historyPage);
     }
 

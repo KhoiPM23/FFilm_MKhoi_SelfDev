@@ -9,6 +9,11 @@
 | **Local Internal IDs for Relational Tables** | `tmdbId` is an external reference and not a primary key in `Movie`. All satellite tables (Favorites, History, Reactions) MUST join using the internal `movieID`. | `GUIDELINE_DEV_Id_Handle.md` | Active |
 | **Credential Rotation & History Purge Requires Authorization** | Erasing Git history or revoking active credentials is a destructive action that requires human oversight to avoid crippling dependent services. | Task constraint (2026-09-25) | Active |
 | **Do not refactor unrelated code** | Focus must be kept strictly on the objective at hand to avoid introducing unintentional side effects. | Project workflow rules (2026-09-25) | Active |
+| **Do NOT increase hover-card scale by default** | Batch 2 audit concluded `[NO_CHANGE_RECOMMENDED]` — no browser evidence of a concrete UX problem requiring a scale increase. | Batch 2 audit (2026-09-29) | Active |
+| **Browser-first UI verification is mandatory** | Source inspection ≠ runtime verification. Build success ≠ browser acceptance. Any claim of FIXED or VERIFIED for UI requires browser evidence. If quota is exhausted, mark `[SOURCE_ONLY]`. | Workflow rule (2026-09-29) | Active |
+| **Read roadmap before acting each session** | Future agents must read `CURRENT_STATE.md` BATCH ROADMAP STATE section before touching any code. Never redo accepted work. Mark completed-early items `[ALREADY_DONE_EARLY]`. | Agent rule (2026-09-29) | Active |
+| **No AI backend optimization before Batch 5** | Do not jump to RAG, vector DB, fine-tuning, or embeddings without explicit authorization. | Batch roadmap rule (2026-09-29) | Active |
+| **No commit or push without explicit human authorization** | Applies at all times regardless of batch or task context. | Project safety rule | Active |
 
 ## Runtime Configuration
 - [DECISION] FFilm local development runtime uses port 8081 because host port 8080 is occupied by MiniTool ShadowMaker AgentService.

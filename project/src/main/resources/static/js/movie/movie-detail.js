@@ -26,33 +26,50 @@ document.addEventListener('DOMContentLoaded', () => {
  * [ĐÃ SỬA - OFFLINE] Không gọi API TMDB nữa.
  * Lấy Trailer Key trực tiếp từ thuộc tính data-trailer-key của Hero Banner.
  */
-function renderLocalTrailer() {
+async function renderLocalTrailer() {
     const sectionEl = document.getElementById('trailerSection');
     const gridEl = document.getElementById('trailerGrid');
     const fallbackEl = document.getElementById('trailerFallback');
     const heroBanner = document.getElementById('heroBanner');
+    const movieIdMeta = document.querySelector('meta[name="movie-id"]');
 
     if (!sectionEl || !gridEl || !fallbackEl || !heroBanner) return;
 
-    // 1. Lấy key từ DB đã được render ra HTML
-    const trailerKey = heroBanner.getAttribute('data-trailer-key');
-    
-    // 2. Kiểm tra có trailer không
-    if (trailerKey && trailerKey !== 'null' && trailerKey !== '') {
+    const fallbackKey = heroBanner.getAttribute('data-trailer-key');
+    let trailers = [];
+
+    if (fallbackKey && fallbackKey !== 'null' && fallbackKey !== '') {
+        trailers.push({ key: fallbackKey, name: 'Trailer Chính Thức' });
+    }
+
+    // Tải danh sách tối đa 3 trailers từ API
+    if (movieIdMeta && movieIdMeta.content) {
+        try {
+            const res = await fetch(`/api/movie/${movieIdMeta.content}/trailers`);
+            if (res.ok) {
+                const apiTrailers = await res.json();
+                if (Array.isArray(apiTrailers) && apiTrailers.length > 0) {
+                    trailers = apiTrailers.slice(0, 3);
+                }
+            }
+        } catch (err) {
+            console.log("Using local trailer fallback");
+        }
+    }
+
+    if (trailers.length > 0) {
         sectionEl.style.display = 'block';
         fallbackEl.style.display = 'none';
         gridEl.style.display = 'grid';
 
-        // 3. Render Video Card (Chỉ 1 video chính thức)
-        gridEl.innerHTML = `
-            <div class="trailer-card" onclick="openGlobalTrailer('${trailerKey}')">
-                <img src="https://img.youtube.com/vi/${trailerKey}/mqdefault.jpg" alt="Trailer Chính Thức">
+        gridEl.innerHTML = trailers.map((t, idx) => `
+            <div class="trailer-card" onclick="openGlobalTrailer('${t.key}')">
+                <img src="https://img.youtube.com/vi/${t.key}/mqdefault.jpg" alt="${t.name || 'Trailer'}">
                 <i class="fas fa-play-circle trailer-play"></i>
-                <div class="trailer-title">Trailer Chính Thức</div>
+                <div class="trailer-title">${t.name || ('Trailer ' + (idx + 1))}</div>
             </div>
-        `;
+        `).join('');
     } else {
-        // Không có trailer trong DB
         sectionEl.style.display = 'block';
         gridEl.style.display = 'none';
         fallbackEl.style.display = 'block';
@@ -89,6 +106,17 @@ async function loadAndRenderCarousel(apiUrl, targetId, renderType, prevBtnId, ne
     if (container && renderType === 'card' && container.children.length === 0) {
         container.innerHTML = Array(6).fill(0).map(() => `
             <div class="movie-card" style="flex: 0 0 200px; height: 300px; border-radius: 12px; background: rgba(255,255,255,0.05); animation: shimmer 1.5s infinite;"></div>
+        `).join('');
+    }
+    if (container && renderType === 'trending' && container.children.length === 0) {
+        container.innerHTML = Array(5).fill(0).map(() => `
+            <div class="trending-item skeleton-trending-item" style="display: flex; gap: 12px; margin-bottom: 14px; align-items: center; pointer-events: none;">
+                <div style="width: 70px; height: 95px; border-radius: 8px; background: linear-gradient(90deg, #181818 25%, #282828 50%, #181818 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; flex-shrink: 0;"></div>
+                <div style="flex: 1;">
+                    <div style="height: 15px; width: 85%; border-radius: 4px; background: linear-gradient(90deg, #181818 25%, #282828 50%, #181818 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; margin-bottom: 8px;"></div>
+                    <div style="height: 12px; width: 45%; border-radius: 4px; background: linear-gradient(90deg, #181818 25%, #282828 50%, #181818 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite;"></div>
+                </div>
+            </div>
         `).join('');
     }
 

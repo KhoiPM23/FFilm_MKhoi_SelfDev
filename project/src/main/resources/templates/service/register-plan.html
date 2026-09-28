@@ -215,7 +215,7 @@
       </p>
     </section>
 
-    <section class="pricing-section">
+    <section class="pricing-section" id="pricingSection">
       <h2 class="section-title">Các gói dịch vụ</h2>
       <div class="pricing-container">
         <div
@@ -263,6 +263,15 @@
       <div th:replace="~{fragments/footer :: footer}"></div>
     </footer>
 
-    <script></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const pricing = document.getElementById("pricingSection");
+        if (pricing) {
+          setTimeout(function () {
+            pricing.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+        }
+      });
+    </script>
   </body>
 </html>

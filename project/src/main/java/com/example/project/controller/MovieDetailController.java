@@ -74,14 +74,22 @@ public class MovieDetailController {
             }
             model.addAttribute("castList", castList);
 
-            // 2. Xử lý Trailer (Service đã xử lý)
-            List<Map<String, Object>> trailers = new ArrayList<>();
-            String tKey = (String) movieMap.get("trailerKey");
-            if (tKey != null && !tKey.isEmpty()) {
-                Map<String, Object> t = new HashMap<>();
-                t.put("key", tKey);
-                t.put("name", "Trailer Chính Thức");
-                trailers.add(t);
+            // 2. Xử lý Trailer (Lấy tối đa 3 trailers kết hợp từ DB và TMDB API)
+            List<Map<String, Object>> trailers = null;
+            try {
+                trailers = movieService.findTrailers(movieID, 3);
+            } catch (Exception e) {
+                log.warn("Lỗi khi lấy danh sách trailers cho phim {}: {}", movieID, e.getMessage());
+            }
+            if (trailers == null || trailers.isEmpty()) {
+                trailers = new ArrayList<>();
+                String tKey = (String) movieMap.get("trailerKey");
+                if (tKey != null && !tKey.isEmpty()) {
+                    Map<String, Object> t = new HashMap<>();
+                    t.put("key", tKey);
+                    t.put("name", "Trailer Chính Thức");
+                    trailers.add(t);
+                }
             }
             model.addAttribute("trailers", trailers);
 
@@ -128,14 +136,20 @@ public class MovieDetailController {
         movieData.put("backdrop", "/images/placeholder.jpg");
         movieData.put("poster", "/images/placeholder.jpg");
         movieData.put("rating", "0.0");
-
-        // THÊM CÁC TRƯỜNG BẮT BUỘC (Tránh lỗi 500 Template)
-        movieData.put("budget", 0L);
-        movieData.put("revenue", 0L);
-        movieData.put("director", "—");
+        movieData.put("isFree", false);
+        movieData.put("voteCount", 0);
+        movieData.put("genres", new ArrayList<>());
+        movieData.put("runtime", 0);
+        movieData.put("year", "—");
+        movieData.put("contentRating", "T");
         movieData.put("country", "—");
         movieData.put("language", "—");
+        movieData.put("director", "—");
         movieData.put("releaseDate", "—");
+        movieData.put("budget", 0L);
+        movieData.put("revenue", 0L);
+        movieData.put("logoPath", null);
+        movieData.put("trailerKey", null);
 
         model.addAttribute("movie", movieData);
         model.addAttribute("movieId", movieId);
@@ -146,8 +160,11 @@ public class MovieDetailController {
         model.addAttribute("communityRating", 0.0);
         model.addAttribute("ratingCount", 0L);
         model.addAttribute("userRating", null);
+        model.addAttribute("ratingSummary", new HashMap<>());
         if (!model.containsAttribute("isFavorite"))
             model.addAttribute("isFavorite", false);
+        if (!model.containsAttribute("isVip"))
+            model.addAttribute("isVip", false);
 
         return "movie/movie-detail";
     }

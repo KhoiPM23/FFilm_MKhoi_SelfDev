@@ -4,7 +4,8 @@
 
 <div class="movie-hover-card" 
      th:fragment="hoverCard(movie)" 
-     th:attr="data-movie-id=${movie.id}">
+     th:attr="data-movie-id=${movie.id}"
+     onclick="goToMovieDetail(this)">
     
     <div class="hover-card-media">
         <img class="hover-card-image"

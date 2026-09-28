@@ -1064,25 +1064,19 @@ public class MovieService {
      * Score = Rating * 0.7 + (Popularity/100) * 0.3
      * Yêu cầu: voteCount >= minVoteCount
      */
+    @org.springframework.cache.annotation.Cacheable(value = "hotMovies", key = "#limit")
     @Transactional(readOnly = true)
     public Page<Movie> getHotMoviesFromDB(int limit) {
-        // 1. Lấy danh sách ứng viên (Top 1000 phim có vote > 5, sort theo popularity để
-        // lấy pool tốt)
-        // Lưu ý: PageRequest ở đây dùng Popularity để fetch nhanh data "tiềm năng"
-        Page<Movie> candidates = movieRepository.findAll(
-                (root, query, cb) -> cb.ge(root.get("voteCount"), 5),
-                PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "popularity")));
+        int candidatePoolSize = Math.max(limit + 10, 30);
+        List<Movie> candidates = movieRepository.findHotCandidates(PageRequest.of(0, candidatePoolSize));
+        List<Movie> movies = new ArrayList<>(candidates);
 
-        List<Movie> movies = new ArrayList<>(candidates.getContent());
-
-        // 2. Sắp xếp lại bằng Java (In-memory) với công thức công bằng hơn
         movies.sort((m1, m2) -> {
             double score1 = calculateWeightedScore(m1);
             double score2 = calculateWeightedScore(m2);
             return Double.compare(score2, score1); // Descending
         });
 
-        // 3. Cắt list theo limit và trả về Page
         int actualLimit = Math.min(limit, movies.size());
         List<Movie> pagedList = movies.subList(0, actualLimit);
 
@@ -1266,19 +1260,36 @@ public class MovieService {
         return null;
     }
 
-    public List<Map<String, Object>> findTrailers(int tmdbId, int limit) {
+    public List<Map<String, Object>> findTrailers(int id, int limit) {
         List<Map<String, Object>> trailers = new ArrayList<>();
+        Set<String> existingKeys = new HashSet<>();
 
-        // Tìm phim trong DB bằng tmdbId
-        Optional<Movie> movieOpt = movieRepository.findByTmdbId(tmdbId);
+        // Tìm phim trong DB bằng movieID hoặc tmdbId
+        Movie movie = movieRepository.findById(id).orElse(null);
+        if (movie == null) {
+            movie = movieRepository.findByTmdbId(id).orElse(null);
+        }
 
-        if (movieOpt.isPresent()) {
-            Movie movie = movieOpt.get();
-            if (movie.getTrailerKey() != null && !movie.getTrailerKey().isEmpty()) {
-                Map<String, Object> trailer = new HashMap<>();
-                trailer.put("key", movie.getTrailerKey());
-                trailer.put("name", "Trailer Chính Thức");
-                trailers.add(trailer);
+        if (movie != null && movie.getTrailerKey() != null && !movie.getTrailerKey().isEmpty()) {
+            Map<String, Object> trailer = new HashMap<>();
+            trailer.put("key", movie.getTrailerKey());
+            trailer.put("name", "Trailer Chính Thức");
+            trailers.add(trailer);
+            existingKeys.add(movie.getTrailerKey());
+        }
+
+        // Bổ sung trailer/teaser nếu có kết nối TMDB (tối đa limit trailer)
+        if (movie != null && movie.getTmdbId() != null && movie.getTmdbId() > 0 && trailers.size() < limit && tmdbClient != null) {
+            try {
+                String path = "/movie/" + movie.getTmdbId() + "/videos";
+                String resp = tmdbClient.get(path, "language=vi-VN");
+                parseAndAddTrailers(resp, trailers, existingKeys, limit);
+                if (trailers.size() < limit) {
+                    String enResp = tmdbClient.get(path, "language=en-US");
+                    parseAndAddTrailers(enResp, trailers, existingKeys, limit);
+                }
+            } catch (Exception e) {
+                // Giữ trailer từ DB an toàn
             }
         }
         return trailers;

@@ -9,7 +9,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/style.css?v=2.2" />
   </head>
   <body>
     <div th:replace="fragments/header :: header"></div>
@@ -133,13 +133,17 @@
                         data-content-rating=${movie.contentRating}"
             onclick="switchBanner(this)"
           >
-            <img
-              th:src="@{${#strings.replace(movie.backdrop, '/original', '/w500')}}"
-              th:alt="${movie.title}"
-              onerror="this.src='/images/placeholder.jpg'"
-            />
-
-            <div class="mini-card-overlay"></div>
+            <div class="mini-card-poster">
+              <img
+                th:src="@{${#strings.replace(movie.backdrop, '/original', '/w500')}}"
+                th:alt="${movie.title}"
+                onerror="this.src='/images/placeholder.jpg'"
+              />
+              <div class="mini-card-overlay"></div>
+            </div>
+            <div class="mini-card-progress">
+              <div class="mini-card-progress-fill"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -148,7 +152,7 @@
     <section class="movies movie-list-section">
       <div class="section-header">
         <div class="section-title-wrapper">
-          <h2 class="section-title">🔥 Phim Hot</h2>
+          <h2 class="section-title">Phim Hot</h2>
           <a href="/discover?quickFilter=trending" class="view-more-link">
             Xem thêm <i class="fas fa-chevron-right"></i>
           </a>
@@ -200,7 +204,7 @@
     <section class="movies movie-list-section">
       <div class="section-header">
         <div class="section-title-wrapper">
-          <h2 class="section-title">🆕 Phim Mới Ra Mắt</h2>
+          <h2 class="section-title">Phim Mới Ra Mắt</h2>
           <a href="/discover?quickFilter=new" class="view-more-link">
             Xem thêm <i class="fas fa-chevron-right"></i>
           </a>
@@ -246,7 +250,7 @@
     <section class="movies movie-list-section">
       <div class="section-header">
         <div class="section-title-wrapper">
-          <h2 class="section-title">🎌 Anime Hot</h2>
+          <h2 class="section-title">Anime Hot</h2>
           <a href="/discover?genres=16" class="view-more-link">
             Xem thêm <i class="fas fa-chevron-right"></i>
           </a>
@@ -292,7 +296,7 @@
     <section class="movies movie-list-section">
       <div class="section-header">
         <div class="section-title-wrapper">
-          <h2 class="section-title">👶 Phim Cho Trẻ Em</h2>
+          <h2 class="section-title">Phim Cho Trẻ Em</h2>
           <a href="/discover?genres=10751" class="view-more-link">
             Xem thêm <i class="fas fa-chevron-right"></i>
           </a>
@@ -338,7 +342,7 @@
     <section class="movies movie-list-section">
       <div class="section-header">
         <div class="section-title-wrapper">
-          <h2 class="section-title">💥 Phim Hành Động Hot</h2>
+          <h2 class="section-title">Phim Hành Động Hot</h2>
           <a href="/discover?genres=28" class="view-more-link">
             Xem thêm <i class="fas fa-chevron-right"></i>
           </a>
@@ -406,14 +410,17 @@
         const slider = document.getElementById(targetSliderId);
         if (!slider) return;
 
+        // Ghi nhớ nội dung server-rendered đã có sẵn (nếu có)
+        const hasServerContent = slider.children.length > 0;
+
         try {
           const response = await fetch(apiUrl);
-          if (!response.ok) throw new Error("API failed");
+          if (!response.ok) throw new Error("API failed: " + response.status);
 
           const movies = await response.json();
 
           if (movies && movies.length > 0) {
-            // Render HTML
+            // Render HTML bằng dữ liệu API mới
             slider.innerHTML = movies
               .map((movie) => createMovieCardHTML(movie))
               .join("");
@@ -424,21 +431,18 @@
             }
 
             // Kích hoạt lại Carousels (từ script.js)
-            // Phải gọi initializeAllCarousels() vì các nút bấm đã có trong DOM
             if (typeof initializeAllCarousels === "function") {
               initializeAllCarousels();
             }
-          } else {
-            // Ẩn cả section nếu không có phim
-            if (slider.closest(".movie-list-section")) {
-              slider.closest(".movie-list-section").style.display = "none";
-            }
+          } else if (!hasServerContent) {
+            // Chỉ ẩn section nếu cả API lẫn server đều không có dữ liệu
+            const section = slider.closest(".movie-list-section");
+            if (section) section.style.display = "none";
           }
+          // Nếu API trả về rỗng nhưng server đã render → GIỮ NGUYÊN nội dung server
         } catch (error) {
-          console.error(`Lỗi tải ${targetSliderId}:`, error);
-          if (slider.closest(".movie-list-section")) {
-            slider.closest(".movie-list-section").style.display = "none";
-          }
+          console.warn(`Lỗi tải ${targetSliderId} qua API (giữ nội dung server):`, error);
+          // KHÔNG ẩn section - để server-rendered content tiếp tục hiển thị
         }
       }
 
@@ -568,7 +572,7 @@
 
     
     <script src="/js/movie/share-modal.js"></script>
-    <script src="/js/script.js"></script>
+    <script src="/js/script.js?v=2.2"></script>
 
     <div th:replace="fragments/share-modal :: shareModal"></div>
   </body>

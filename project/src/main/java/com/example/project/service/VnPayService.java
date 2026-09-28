@@ -42,9 +42,11 @@ public class VnPayService {
         String vnp_IpAddr = userIp;
         String vnp_TmnCode = VnPayConfig.vnp_TmnCode;
 
-        // Thời gian
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        // Thời gian - Asia/Ho_Chi_Minh là múi giờ UTC+7 đúng cho VNPay Việt Nam
+        // (Lưu ý: "Etc/GMT+7" trong POSIX là UTC-7 - SAI, phải dùng Asia/Ho_Chi_Minh)
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         String vnp_CreateDate = formatter.format(cld.getTime());
         
         cld.add(Calendar.MINUTE, 15);
@@ -79,12 +81,12 @@ public class VnPayService {
             String fieldName = (String) itr.next();
             String fieldValue = (String) vnp_Params.get(fieldName);
             if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                // Build hash data
+                // Build hash data - VNPay yêu cầu raw value (KHÔNG URL encode khi build hash string)
                 hashData.append(fieldName);
                 hashData.append('=');
-                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                hashData.append(fieldValue); // Raw value - KHÔNG encode
                 
-                // Build query
+                // Build query string - PHẢI URL encode cho query string
                 query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
                 query.append('=');
                 query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));

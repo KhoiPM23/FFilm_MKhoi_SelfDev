@@ -59,17 +59,12 @@ public class SocialController {
 
 
         try {
-
             PublicProfileDto profile = socialService.getUserProfile(viewerId, userId);
-
             model.addAttribute("profile", profile);
-
             return "User/public-profile";
-
         } catch (Exception e) {
-
-            return "redirect:/watch-party?error=profile_not_found";
-
+            e.printStackTrace();
+            return "redirect:/watch-party?error=" + java.net.URLEncoder.encode(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName(), java.nio.charset.StandardCharsets.UTF_8);
         }
 
     }

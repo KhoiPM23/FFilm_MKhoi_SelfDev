@@ -4,19 +4,22 @@
 
 .movie-hover-card {
     position: absolute;
-    top: -50px;
+    top: -42px;
     left: 50%;
     transform: translateX(-50%) scale(0.8);
-    width: 300px;
-    background: #1e1e1e;
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    width: 310px;
+    background: #181818;
+    border-radius: 16px;
+    overflow: hidden;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
     
     z-index: 99999; 
     
     opacity: 0;
     visibility: hidden;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease;
     pointer-events: none;
 }
 
@@ -30,14 +33,21 @@
     z-index: 10000;
 }
 
-/*----- Điều chỉnh vị trí khi tràn lề */
-.movie-hover-card.adjust-left {
-    transform: translateX(0) scale(1);
-    left: 0;
+/*----- Điều chỉnh vị trí khi tràn lề trái / phải */
+.movie-hover-card.adjust-left,
+.movie-hover-card.edge-left {
+    transform: translateX(0) scale(1) !important;
+    left: 0 !important;
+    right: auto !important;
+    transform-origin: left center !important;
 }
-.movie-hover-card.adjust-right {
-    transform: translateX(-100%) scale(1);
-    left: 100%;
+
+.movie-hover-card.adjust-right,
+.movie-hover-card.edge-right {
+    transform: translateX(0) scale(1) !important;
+    left: auto !important;
+    right: 0 !important;
+    transform-origin: right center !important;
 }
 
 
@@ -49,6 +59,9 @@
     position: relative;
     padding-top: 56.25%; 
     overflow: hidden;
+    border-radius: 15px 15px 0 0;
+    clip-path: inset(0 0 0 0 round 15px 15px 0 0);
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 .hover-card-image,
@@ -75,23 +88,26 @@
     width: 100%;
     height: 100%;
     overflow: hidden; 
-    border-radius: 8px 8px 0 0; 
-    transition: opacity 1s ease;
+    border-radius: 16px 16px 0 0; 
+    transition: opacity 0.3s ease;
     z-index: 1001;
 }
 
 .hover-player-container iframe {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 150% !important;  
-    height: 150% !important; 
-    transform: translate(-50%, -50%); 
-    pointer-events: none; 
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 175% !important;  
+    height: 175% !important; 
+    transform: translate(-50%, -50%) !important; 
+    pointer-events: none !important; 
+    border: none !important;
+    outline: none !important;
 }
 
 .hover-card-image {
     object-fit: cover;
+    border-radius: 16px 16px 0 0;
 }
 
 /*----- Nút điều khiển âm lượng */

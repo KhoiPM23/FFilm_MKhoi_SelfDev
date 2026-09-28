@@ -64,4 +64,37 @@ public class CallLog {
             timestamp = LocalDateTime.now();
         }
     }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    public Integer getPartnerId() { return partnerId; }
+    public void setPartnerId(Integer partnerId) { this.partnerId = partnerId; }
+
+    public String getPartnerName() { return partnerName; }
+    public void setPartnerName(String partnerName) { this.partnerName = partnerName; }
+
+    public CallType getCallType() { return callType; }
+    public void setCallType(CallType callType) { this.callType = callType; }
+
+    public Integer getDuration() { return duration; }
+    public void setDuration(Integer duration) { this.duration = duration; }
+
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    public CallStatus getCallStatus() { return callStatus; }
+    public void setCallStatus(CallStatus callStatus) { this.callStatus = callStatus; }
+
+    public boolean isVideo() { return isVideo; }
+    public void setVideo(boolean isVideo) { this.isVideo = isVideo; }
+
+    public String getPeerId() { return peerId; }
+    public void setPeerId(String peerId) { this.peerId = peerId; }
+
+    public Integer getInitiatorId() { return initiatorId; }
+    public void setInitiatorId(Integer initiatorId) { this.initiatorId = initiatorId; }
 }

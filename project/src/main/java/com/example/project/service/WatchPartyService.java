@@ -174,6 +174,54 @@ public class WatchPartyService {
         public int getMemberCount() {
             return members.size();
         }
+
+        public String getRoomId() { return roomId; }
+        public void setRoomId(String roomId) { this.roomId = roomId; }
+
+        public String getHostSessionId() { return hostSessionId; }
+        public void setHostSessionId(String hostSessionId) { this.hostSessionId = hostSessionId; }
+
+        public Integer getHostUserId() { return hostUserId; }
+        public void setHostUserId(Integer hostUserId) { this.hostUserId = hostUserId; }
+
+        public String getHostName() { return hostName; }
+        public void setHostName(String hostName) { this.hostName = hostName; }
+
+        public String getHostAvatar() { return hostAvatar; }
+        public void setHostAvatar(String hostAvatar) { this.hostAvatar = hostAvatar; }
+
+        public Integer getCurrentMovieId() { return currentMovieId; }
+        public void setCurrentMovieId(Integer currentMovieId) { this.currentMovieId = currentMovieId; }
+
+        public String getCurrentMovieUrl() { return currentMovieUrl; }
+        public void setCurrentMovieUrl(String currentMovieUrl) { this.currentMovieUrl = currentMovieUrl; }
+
+        public String getCurrentMovieTitle() { return currentMovieTitle; }
+        public void setCurrentMovieTitle(String currentMovieTitle) { this.currentMovieTitle = currentMovieTitle; }
+
+        public String getCurrentMoviePoster() { return currentMoviePoster; }
+        public void setCurrentMoviePoster(String currentMoviePoster) { this.currentMoviePoster = currentMoviePoster; }
+
+        public Double getCurrentPlaybackTime() { return currentPlaybackTime; }
+        public void setCurrentPlaybackTime(Double currentPlaybackTime) { this.currentPlaybackTime = currentPlaybackTime; }
+
+        public String getPlaybackStatus() { return playbackStatus; }
+        public void setPlaybackStatus(String playbackStatus) { this.playbackStatus = playbackStatus; }
+
+        public Long getLastSyncTimestamp() { return lastSyncTimestamp; }
+        public void setLastSyncTimestamp(Long lastSyncTimestamp) { this.lastSyncTimestamp = lastSyncTimestamp; }
+
+        public Map<String, RoomMember> getMembers() { return members; }
+        public void setMembers(Map<String, RoomMember> members) { this.members = members; }
+
+        public Map<String, RoomMember> getWaitingList() { return waitingList; }
+        public void setWaitingList(Map<String, RoomMember> waitingList) { this.waitingList = waitingList; }
+
+        public List<SocketMessage> getChatHistory() { return chatHistory; }
+        public void setChatHistory(List<SocketMessage> chatHistory) { this.chatHistory = chatHistory; }
+
+        public Set<Integer> getApprovedUserIds() { return approvedUserIds; }
+        public void setApprovedUserIds(Set<Integer> approvedUserIds) { this.approvedUserIds = approvedUserIds; }
     }
 
     public void startRoom(String roomId, RoomMember host) {

@@ -19,6 +19,8 @@ import com.example.project.model.WatchHistory;
 public interface WatchHistoryRepository extends JpaRepository<WatchHistory, Long> {
     Optional<WatchHistory> findByUserAndMovie(User user, Movie movie);
 
+    Optional<WatchHistory> findFirstByUserAndMovieOrderByLastWatchedAtDesc(User user, Movie movie);
+
     Page<WatchHistory> findByUserOrderByLastWatchedAtDesc(User user, Pageable pageable);
 
     @Query("SELECT wh.movie.movieID FROM WatchHistory wh WHERE wh.user.id = :userID")

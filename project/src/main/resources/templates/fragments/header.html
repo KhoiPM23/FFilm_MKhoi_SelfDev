@@ -9,13 +9,13 @@
   </head>
   <body>
     <header class="main-header" th:fragment="header" style="--accent: #e50914">
-      <div class="logo">
+      <a href="/" class="logo" style="text-decoration: none; cursor: pointer;">
         <img src="/images/footer/logo.jpg" alt="" />
         <span>FFilm</span>
-      </div>
+      </a>
 
       <nav class="main-nav">
-        <a href="/" id="navHomeLink"><i class="fas fa-home"></i>Trang chủ</a>
+        <a href="/" id="navHomeLink"><i class="fas fa-home"></i><span class="nav-text">Trang chủ</span></a>
         <a href="/discover?isFree=true" class="genre-item-flat" th:classappend="${isFree == true} ? 'active'">
           <i class="fas fa-gift"></i> Phim Miễn Phí
         </a>
@@ -93,10 +93,10 @@
         <a th:if="${session.user}" th:href="@{/favorites/my-list}" class="btn-buy">Yêu thích</a>
         <a th:unless="${session.user}" th:href="@{/login}" class="btn-buy">Yêu thích</a>
 
-        <a th:href="@{/subscriptionPlan}" class="btn-buy">Mua gói</a>
+        <a th:href="@{/subscriptionPlan#pricingSection}" class="btn-buy">Mua gói</a>
 
         <div th:unless="${session.user}" class="auth-buttons">
-          <a th:href="@{/login}" class="btn-login">Đăng nhập</a>
+          <a th:href="@{/login}" class="btn-login" onclick="this.href='/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search)">Đăng nhập</a>
           <a th:href="@{/register}" class="btn-register">Đăng ký</a>
         </div>
 
@@ -117,8 +117,7 @@
             <a href="/messenger" class="dropdown-item" style="color: #0084ff;"><i class="fab fa-facebook-messenger"></i> Tin nhắn Chat</a>
             <a href="/watch-party" class="dropdown-item" style="color: #46d369;"><i class="fas fa-users"></i> Sảnh Xem Chung</a>
             <a href="/my-rooms" class="dropdown-item" style="color: #f59e0b;"><i class="fas fa-video"></i> Quản Lý Phòng</a>
-            <div class="dropdown-divider"></div>
-            <a th:href="@{/logout}" class="dropdown-item logout-item"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
+            <a th:href="@{/logout}" class="dropdown-item logout-item" onclick="handleLogoutClick(event, this.href)"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
           </div>
         </div>
       </div>
@@ -263,9 +262,18 @@
           gap: 5px;
         }
         .genre-toggle:hover,
-        .main-nav a.active {
-          /* Thêm .active cho trang chủ */
-          color: #e50914;
+        .main-nav a.active,
+        #navHomeLink.active,
+        #navHomeLink.active span,
+        .genre-toggle.active,
+        .genre-item-flat.active {
+          color: #ffffff !important;
+          font-weight: 800 !important;
+          text-shadow: 0 0 12px rgba(255, 255, 255, 0.5) !important;
+        }
+        .main-nav a.active i,
+        #navHomeLink.active i {
+          color: #e50914 !important;
         }
 
         .genre-dropdown {
@@ -926,10 +934,14 @@
                 const search = window.location.search;
                 const home = document.getElementById('navHomeLink');
                 if (home) {
-                    if (path === '/' || path === '') {
+                    if (path === '/' || path === '' || path === '/index' || path === '/index.html') {
                         home.classList.add('active');
+                        home.style.fontWeight = '800';
+                        home.style.color = '#ffffff';
                     } else {
                         home.classList.remove('active');
+                        home.style.fontWeight = '';
+                        home.style.color = '';
                     }
                 }
                 if (path.startsWith('/discover')) {
@@ -942,6 +954,21 @@
                     }
                 }
             })();
+
+            window.handleLogoutClick = function (e, href) {
+                if (e) e.preventDefault();
+                let toast = document.getElementById('logoutToast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'logoutToast';
+                    toast.style.cssText = 'position:fixed;top:30px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,0.95);border:1px solid #e50914;color:#fff;padding:12px 28px;border-radius:30px;font-weight:600;font-size:15px;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,0.7);display:flex;align-items:center;gap:12px;backdrop-filter:blur(8px);';
+                    toast.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#e50914;"></i> Đang đăng xuất...';
+                    document.body.appendChild(toast);
+                }
+                setTimeout(function () {
+                    window.location.replace(href);
+                }, 150);
+            };
         </script>
     </header>
   </body>

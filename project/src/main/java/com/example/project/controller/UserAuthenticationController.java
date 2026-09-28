@@ -46,13 +46,78 @@ public class UserAuthenticationController {
     }
 
     @GetMapping("/login")
-    public String showLoginForm(Model model) {
+    public String showLoginForm(
+            @RequestParam(value = "redirect", required = false) String redirectParam,
+            jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response,
+            HttpSession session,
+            Model model) {
+        // Đã đăng nhập rồi thì không cho vào lại trang login
+        if (session.getAttribute("user") != null) {
+            return "redirect:/";
+        }
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
+
         // Nhận flash message (thông báo đổi mật khẩu thành công)
         if (model.containsAttribute("successMessage")) {
             model.addAttribute("successMessage", model.getAttribute("successMessage"));
         }
+
+        String savedRedirect = null;
+        if (redirectParam != null && !redirectParam.isBlank() && isValidRedirectUrl(redirectParam)) {
+            savedRedirect = redirectParam.trim();
+            session.setAttribute("PREV_URL", savedRedirect);
+        } else if (session.getAttribute("PREV_URL") != null) {
+            savedRedirect = (String) session.getAttribute("PREV_URL");
+        } else {
+            String referer = request.getHeader("Referer");
+            if (referer != null && !referer.isBlank()) {
+                String candidatePath = extractInternalPath(referer, request);
+                if (candidatePath != null && isValidRedirectUrl(candidatePath)) {
+                    savedRedirect = candidatePath;
+                    session.setAttribute("PREV_URL", savedRedirect);
+                }
+            }
+        }
+        model.addAttribute("redirectUrl", savedRedirect);
+
         model.addAttribute("user", new UserLoginDto());
         return "Authentication/login";
+    }
+
+    private boolean isValidRedirectUrl(String url) {
+        if (url == null || url.isBlank()) return false;
+        if (!url.startsWith("/") || url.startsWith("//") || url.startsWith("/\\")) return false;
+        String lower = url.toLowerCase();
+        if (lower.startsWith("/login") || lower.startsWith("/register") 
+            || lower.startsWith("/logout") || lower.startsWith("/forgot") 
+            || lower.startsWith("/reset") || lower.startsWith("/verify")
+            || lower.startsWith("/update-success")
+            || lower.startsWith("/api/") || lower.startsWith("/css/")
+            || lower.startsWith("/js/") || lower.startsWith("/images/")
+            || lower.startsWith("/video/") || lower.contains("favicon")) {
+            return false;
+        }
+        return true;
+    }
+
+    private String extractInternalPath(String referer, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            java.net.URI uri = new java.net.URI(referer);
+            if (uri.getHost() != null && !uri.getHost().equalsIgnoreCase(request.getServerName())) {
+                return null;
+            }
+            String path = uri.getRawPath();
+            if (path == null || path.isEmpty()) path = "/";
+            if (uri.getRawQuery() != null && !uri.getRawQuery().isEmpty()) {
+                path += "?" + uri.getRawQuery();
+            }
+            return path;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -64,6 +129,7 @@ public class UserAuthenticationController {
     @PostMapping("/login")
     public String login(
             @ModelAttribute("user") UserLoginDto dto,
+            @RequestParam(value = "redirect", required = false) String formRedirect,
             Model model,
             HttpSession session) {
         try {
@@ -94,8 +160,13 @@ public class UserAuthenticationController {
             session.removeAttribute("contentManager");
             session.removeAttribute("moderator");
 
-            // --- BƯỚC 3: CHUYỂN HƯỚNG ƯU TIÊN (PREV_URL) ---
-            String redirectUrl = (String) session.getAttribute("PREV_URL");
+            // --- BƯỚC 3: CHUYỂN HƯỚNG ƯU TIÊN (PREV_URL / formRedirect) ---
+            String redirectUrl = null;
+            if (formRedirect != null && !formRedirect.isBlank() && isValidRedirectUrl(formRedirect)) {
+                redirectUrl = formRedirect.trim();
+            } else {
+                redirectUrl = (String) session.getAttribute("PREV_URL");
+            }
             session.removeAttribute("PREV_URL"); // Dọn dẹp ngay lập tức
 
             // TẤT CẢ mọi người đều có thuộc tính "user" để dùng chung các tính năng cơ bản (Like, History, WatchParty)
@@ -142,9 +213,8 @@ public class UserAuthenticationController {
         session.removeAttribute("user");
         session.removeAttribute("admin");
         session.removeAttribute("contentManager");
-        session.removeAttribute("moderator");
         session.invalidate(); // Hủy session hoàn toàn
-        return "redirect:/login"; // Chuyển về trang login
+        return "redirect:/login?logout=true"; // Chuyển về trang login kèm thông báo
     }
 
     @PostMapping("/api/register")

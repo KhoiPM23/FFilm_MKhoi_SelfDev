@@ -22,13 +22,14 @@ public class VnPayConfig {
     private static final Logger log = LoggerFactory.getLogger(VnPayConfig.class);
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public static String vnp_TmnCode = "Q8LWQNYL";
-    public static String secretKey = "O3QPL6H304MZ4SAJ53E0BDU4B664P6TV";
+    public static String vnp_TmnCode = ""; // Sẽ được ghi đè bởi VnPayService từ application.properties
+    public static String secretKey = "";   // Sẽ được ghi đè bởi VnPayService từ application.properties
     public static String vnp_ApiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
     // ... (Giữ nguyên các hàm md5, Sha256, hmacSHA512, getIpAddress, getRandomNumber) ...
 
-    // --- SỬA LẠI HÀM NÀY ---
+    // Hàm hash các fields cho callback verification
+    // VNPay spec: sử dụng raw field values (KHÔNG URL encode) khi build chuỗi hash
     public static String hashAllFields(Map fields) {
         List fieldNames = new ArrayList(fields.keySet());
         Collections.sort(fieldNames);
@@ -40,12 +41,8 @@ public class VnPayConfig {
             if ((fieldValue != null) && (fieldValue.length() > 0)) {
                 sb.append(fieldName);
                 sb.append("=");
-                try {
-                    // QUAN TRỌNG: Phải URL Encode giá trị trước khi hash
-                    sb.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                } catch (UnsupportedEncodingException e) {
-                    log.error("Failed to URL encode field value for VNPay hashing", e);
-                }
+                // [FIX] KHÔNG URL encode value - VNPay yêu cầu raw values trong hash string
+                sb.append(fieldValue);
             }
             if (itr.hasNext()) {
                 sb.append("&");

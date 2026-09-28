@@ -62,6 +62,42 @@ public class MovieSearchFilters {
     // Thêm field này vào cuối class
     private Boolean isFree;        // Lọc phim miễn phí/trả phí
 
+    public String getKeyword() { return keyword; }
+    public void setKeyword(String keyword) { this.keyword = keyword; }
+
+    public List<String> getGenres() { return genres; }
+    public void setGenres(List<String> genres) { this.genres = genres; }
+
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
+
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
+    public Integer getYearFrom() { return yearFrom; }
+    public void setYearFrom(Integer yearFrom) { this.yearFrom = yearFrom; }
+
+    public Integer getYearTo() { return yearTo; }
+    public void setYearTo(Integer yearTo) { this.yearTo = yearTo; }
+
+    public Float getMinRating() { return minRating; }
+    public void setMinRating(Float minRating) { this.minRating = minRating; }
+
+    public Float getMaxRating() { return maxRating; }
+    public void setMaxRating(Float maxRating) { this.maxRating = maxRating; }
+
+    public Integer getMinDuration() { return minDuration; }
+    public void setMinDuration(Integer minDuration) { this.minDuration = minDuration; }
+
+    public Integer getMaxDuration() { return maxDuration; }
+    public void setMaxDuration(Integer maxDuration) { this.maxDuration = maxDuration; }
+
+    public String getDirector() { return director; }
+    public void setDirector(String director) { this.director = director; }
+
+    public String getActor() { return actor; }
+    public void setActor(String actor) { this.actor = actor; }
+
     public Boolean getIsFree() { return isFree; }
     public void setIsFree(Boolean isFree) { this.isFree = isFree; }
 }

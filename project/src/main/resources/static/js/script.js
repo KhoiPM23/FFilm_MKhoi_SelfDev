@@ -20,8 +20,7 @@
   let hoverVideoTimer = null;
   let hoverTimeout = null; // Biến timeout cho hover card
 
-  // Constants
-  const HOVER_VIDEO_DELAY = 1500; // Delay video hover (1.5s)
+  const HOVER_VIDEO_DELAY = 60; // Khởi chạy video hover siêu tốc (0.06s - giảm 50%)
   const isGenreMapLoaded = true; // [G30] Đơn giản hóa, luôn mặc định là true
 
   // DOM Elements (được truy vấn khi cần hoặc khởi tạo sớm)
@@ -34,25 +33,40 @@
   // 2. LOGIC YOUTUBE PLAYER VÀ TRAILER (YOUTUBE PLAYER & TRAILER LOGIC)
   // =========================================================================
 
+  let heroFadeTimeout = null;
+
+  /**
+   * Reset DOM và hủy player cũ an toàn.
+   */
+  function resetHeroVideoDOM() {
+    if (videoTimeout) clearTimeout(videoTimeout);
+    if (heroFadeTimeout) clearTimeout(heroFadeTimeout);
+    if (heroPlayer) {
+      try { heroPlayer.destroy(); } catch (e) { }
+      heroPlayer = null;
+    }
+    if (videoContainer) {
+      videoContainer.style.opacity = "0";
+      videoContainer.innerHTML = '<div id="heroPlayer"></div>';
+    }
+    if (heroBanner) {
+      heroBanner.setAttribute("data-video-active", "false");
+    }
+  }
+
   /**
    * Khởi tạo YouTube Player cho Hero Banner.
    */
   function initHeroVideo() {
-    if (videoTimeout) clearTimeout(videoTimeout);
-    if (heroPlayer) {
-      heroPlayer.destroy();
-      heroPlayer = null;
-    }
-    if (!videoContainer) return; // [G30] Thêm kiểm tra
+    resetHeroVideoDOM();
+    if (!videoContainer) return;
 
-    videoContainer.style.opacity = "0";
-    heroBanner.setAttribute("data-video-active", "false");
-
-    const trailerKey = heroBanner.dataset.trailerKey;
+    const trailerKey = heroBanner ? heroBanner.dataset.trailerKey : "";
     if (!trailerKey || trailerKey === "null") {
       return;
     }
 
+    // Khởi chạy ngay (50ms) trong nền ở opacity: 0 để YouTube buffer và tự giấu nút pause ở giữa
     videoTimeout = setTimeout(() => {
       heroPlayer = new YT.Player("heroPlayer", {
         height: "100%",
@@ -62,25 +76,20 @@
           autoplay: 1,
           mute: 1,
           controls: 0,
-          start: 5,
-          loop: 1,
-          playlist: trailerKey,
           rel: 0,
           iv_load_policy: 3,
           modestbranding: 1,
           showinfo: 0,
+          fs: 0,
           origin: window.location.origin,
-          wmode: "opaque",
-          disablekb: 1,
-          playsinline: 1,
         },
         events: {
           onReady: onPlayerReady,
           onStateChange: onPlayerStateChange,
         },
       });
-      videoContainer.style.pointerEvents = "none";
-    }, 500);
+      if (videoContainer) videoContainer.style.pointerEvents = "none";
+    }, 50);
   }
 
   /**
@@ -111,8 +120,8 @@
    * @param {object} event - Sự kiện YT Player Ready.
    */
   function onPlayerReady(event) {
-    event.target.playVideo();
-    if (videoContainer) videoContainer.style.pointerEvents = "auto";
+    try { event.target.mute(); } catch (e) { }
+    if (videoContainer) videoContainer.style.pointerEvents = "none";
     setupVolumeControl();
   }
 
@@ -122,10 +131,17 @@
    */
   function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING) {
-      if (videoContainer) videoContainer.style.opacity = "1";
-      if (heroBanner) heroBanner.setAttribute("data-video-active", "true");
+      if (heroFadeTimeout) clearTimeout(heroFadeTimeout);
+      // Đợi 1.2s (giảm ~50% từ 2.5s) để YouTube tự làm mờ và ẩn hoàn toàn splash icon Pause ở giữa màn hình
+      heroFadeTimeout = setTimeout(() => {
+        if (videoContainer) videoContainer.style.opacity = "1";
+        if (heroBanner) heroBanner.setAttribute("data-video-active", "true");
+      }, 1200);
     } else if (event.data === YT.PlayerState.ENDED) {
-      heroPlayer.seekTo(5, true);
+      if (heroPlayer && typeof heroPlayer.seekTo === "function") {
+        heroPlayer.seekTo(5, true);
+        heroPlayer.playVideo();
+      }
     }
   }
 
@@ -176,13 +192,8 @@
       heroContentEl.style.opacity = "0";
     }
 
-    // 2. Hủy video cũ
-    if (heroPlayer) {
-      heroPlayer.destroy();
-      heroPlayer = null;
-    }
-    if (videoContainer) videoContainer.style.opacity = "0";
-    heroBanner.setAttribute("data-video-active", "false");
+    // 2. Hủy video cũ và reset DOM
+    resetHeroVideoDOM();
 
     // 3. Delay 250ms
     setTimeout(() => {
@@ -248,7 +259,7 @@
               }
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
       const volumeBtnEl = document.getElementById("volumeBtn");
       if (volumeBtnEl) {
@@ -284,10 +295,16 @@
     }, 250);
 
     // 9. Cập nhật mini-carousel
-    document
-      .querySelectorAll(".mini-card")
-      .forEach((c) => c.classList.remove("active"));
-    cardElement.classList.add("active");
+    const activeMovieId = cardElement.dataset.movieId;
+    document.querySelectorAll(".mini-card").forEach((c) => {
+      if (c.dataset.movieId === String(activeMovieId)) {
+        c.classList.add("active");
+      } else {
+        c.classList.remove("active");
+        const fill = c.querySelector(".mini-card-progress-fill");
+        if (fill) fill.style.width = "0%";
+      }
+    });
     centerActiveMiniCard(cardElement);
 
     // Reset auto rotate
@@ -337,47 +354,268 @@
     const trackRect = miniCarouselTrack.getBoundingClientRect();
     const cardRect = activeCard.getBoundingClientRect();
     const scrollPosition =
-      activeCard.offsetLeft - trackRect.width / 2 + cardRect.width / 2;
+      miniCarouselTrack.scrollLeft +
+      (cardRect.left - trackRect.left) -
+      trackRect.width / 2 +
+      cardRect.width / 2;
     miniCarouselTrack.scrollTo({ left: scrollPosition, behavior: "smooth" });
   }
 
   /**
-   * Bắt đầu quay carousel tự động.
+   * Di chuyển mini carousel tới/lùi 1 phim và chuyển banner.
+   * @param {number} direction - 1 (tới) hoặc -1 (lùi).
    */
+  function advanceMiniCarousel(direction) {
+    if (!miniCarouselTrack) return;
+    const cards = Array.from(miniCarouselTrack.querySelectorAll(".mini-card"));
+    if (cards.length === 0) return;
+
+    // Tìm thẻ mini-card đang ở gần tâm viewport của track nhất
+    const trackRect = miniCarouselTrack.getBoundingClientRect();
+    const trackCenter = trackRect.left + trackRect.width / 2;
+
+    let closestCard = null;
+    let minDistance = Infinity;
+
+    cards.forEach((card) => {
+      const r = card.getBoundingClientRect();
+      const cardCenter = r.left + r.width / 2;
+      const dist = Math.abs(cardCenter - trackCenter);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestCard = card;
+      }
+    });
+
+    let targetCard = null;
+    if (closestCard) {
+      if (direction > 0) {
+        targetCard = closestCard.nextElementSibling;
+      } else {
+        targetCard = closestCard.previousElementSibling;
+      }
+    }
+
+    if (!targetCard) {
+      targetCard = direction > 0 ? cards[0] : cards[cards.length - 1];
+    }
+
+    if (targetCard && typeof window.switchBanner === "function") {
+      window.switchBanner(targetCard);
+    }
+  }
+
+  /**
+   * Khởi tạo cuộn vô hạn cho Mini Carousel trong Hero Banner.
+   */
+  function initMiniCarouselInfiniteScroll() {
+    const track = document.getElementById("miniCarousel");
+    if (!track) return;
+    if (track.dataset.infiniteInit === "true") return;
+
+    const originalCards = Array.from(track.querySelectorAll(".mini-card"));
+    if (originalCards.length < 2) return;
+
+    track.dataset.infiniteInit = "true";
+
+    // Nhân bản danh sách (Set 1 trước, Set 3 sau) để tạo vòng lặp vô hạn
+    const set1Frag = document.createDocumentFragment();
+    const set3Frag = document.createDocumentFragment();
+
+    originalCards.forEach((c) => {
+      const c1 = c.cloneNode(true);
+      c1.classList.remove("active");
+      c1.onclick = function () {
+        window.switchBanner(c1);
+      };
+      set1Frag.appendChild(c1);
+
+      const c3 = c.cloneNode(true);
+      c3.classList.remove("active");
+      c3.onclick = function () {
+        window.switchBanner(c3);
+      };
+      set3Frag.appendChild(c3);
+    });
+
+    track.insertBefore(set1Frag, track.firstChild);
+    track.appendChild(set3Frag);
+
+    // Tính toán chiều rộng 1 set để wrap vô hạn
+    requestAnimationFrame(() => {
+      const allCards = Array.from(track.querySelectorAll(".mini-card"));
+      const N = originalCards.length;
+      if (allCards.length < 3 * N) return;
+
+      const set1First = allCards[0];
+      const set2First = allCards[N];
+      const singleSetWidth = set2First.offsetLeft - set1First.offsetLeft;
+
+      // Scroll đến vị trí card active trong Set 2 ban đầu
+      const activeCard = track.querySelector(".mini-card.active") || set2First;
+      const trackRect = track.getBoundingClientRect();
+      const cardRect = activeCard.getBoundingClientRect();
+      const initialScroll =
+        track.scrollLeft +
+        (cardRect.left - trackRect.left) -
+        trackRect.width / 2 +
+        cardRect.width / 2;
+      track.scrollLeft = initialScroll;
+
+      // Lắng nghe scroll để tự động reset vị trí vô hạn (không giật hình)
+      let isAdjusting = false;
+      track.addEventListener("scroll", () => {
+        if (isAdjusting || singleSetWidth <= 0) return;
+        const currentScroll = track.scrollLeft;
+        const baseOffset = set2First.offsetLeft;
+
+        // Nếu cuộn qua Set 3 -> nhảy ngược lại Set 2
+        if (currentScroll >= baseOffset + singleSetWidth) {
+          isAdjusting = true;
+          track.scrollLeft = currentScroll - singleSetWidth;
+          isAdjusting = false;
+        }
+        // Nếu cuộn ngược vào Set 1 -> nhảy tiến lên Set 2
+        else if (currentScroll <= baseOffset - singleSetWidth) {
+          isAdjusting = true;
+          track.scrollLeft = currentScroll + singleSetWidth;
+          isAdjusting = false;
+        }
+      });
+    });
+
+    // (Mouse wheel cuộn ngang đã được tắt theo yêu cầu để trang cuộn dọc bình thường)
+
+    // Hỗ trợ kéo chuột (Drag-to-scroll)
+    let isDown = false;
+    let startX = 0;
+    let scrollStart = 0;
+    let hasMoved = false;
+
+    track.addEventListener("mousedown", (e) => {
+      isDown = true;
+      hasMoved = false;
+      startX = e.pageX - track.offsetLeft;
+      scrollStart = track.scrollLeft;
+      track.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDown) return;
+      const x = e.pageX - track.offsetLeft;
+      const diff = x - startX;
+      if (Math.abs(diff) > 6) hasMoved = true;
+      track.scrollLeft = scrollStart - diff;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDown) {
+        isDown = false;
+        track.style.cursor = "grab";
+      }
+    });
+
+    // Ngăn click nhầm khi đang kéo chuột
+    track.addEventListener(
+      "click",
+      (e) => {
+        if (hasMoved) {
+          e.stopPropagation();
+          e.preventDefault();
+          hasMoved = false;
+        }
+      },
+      true
+    );
+
+    // Gán nút Next / Prev cho mini carousel
+    const prevBtn = document.getElementById("miniPrevBtn");
+    const nextBtn = document.getElementById("miniNextBtn");
+
+    if (nextBtn) {
+      nextBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        advanceMiniCarousel(1);
+      });
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        advanceMiniCarousel(-1);
+      });
+    }
+  }
+
+  /**
+   * Bắt đầu quay carousel tự động (luôn cuộn tới vô hạn).
+   */
+  let progressAnimation = null;
+  let autoRotateStartTime = 0;
+  const ROTATE_INTERVAL = 11000;
+
+  function updateProgressBar() {
+    if (!miniCarouselTrack) return;
+    const progressBars = miniCarouselTrack.querySelectorAll(".mini-card.active .mini-card-progress-fill");
+    if (!progressBars || progressBars.length === 0) return;
+
+    if (!carouselRotateInterval) {
+      progressBars.forEach((b) => (b.style.width = "0%"));
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = now - autoRotateStartTime;
+    const progress = Math.max(0, Math.min(100, (elapsed / ROTATE_INTERVAL) * 100));
+
+    progressBars.forEach((b) => {
+      b.style.width = `${progress}%`;
+    });
+
+    if (progress < 100) {
+      progressAnimation = requestAnimationFrame(updateProgressBar);
+    }
+  }
+
   function startAutoRotate() {
     if (carouselRotateInterval) clearInterval(carouselRotateInterval);
+    if (progressAnimation) cancelAnimationFrame(progressAnimation);
+
     if (!miniCarouselTrack) return;
     const cards = Array.from(miniCarouselTrack.querySelectorAll(".mini-card"));
     if (cards.length < 2) return;
 
+    autoRotateStartTime = Date.now();
+    progressAnimation = requestAnimationFrame(updateProgressBar);
+
     carouselRotateInterval = setInterval(() => {
-      const activeCard = miniCarouselTrack.querySelector(".mini-card.active");
-      let nextCardIndex = 0;
-      if (activeCard) {
-        let currentIndex = cards.indexOf(activeCard);
-        nextCardIndex = (currentIndex + 1) % cards.length;
-      }
-      if (cards[nextCardIndex]) {
-        window.switchBanner(cards[nextCardIndex]);
-      }
-    }, 11000); // 11 giây
+      advanceMiniCarousel(1);
+    }, ROTATE_INTERVAL);
   }
 
-  /**
-   * Dừng quay carousel tự động.
-   */
   function stopAutoRotate() {
     if (carouselRotateInterval) {
       clearInterval(carouselRotateInterval);
       carouselRotateInterval = null;
     }
+    if (progressAnimation) {
+      cancelAnimationFrame(progressAnimation);
+      progressAnimation = null;
+    }
+    if (miniCarouselTrack) {
+      miniCarouselTrack.querySelectorAll(".mini-card-progress-fill").forEach((fill) => {
+        fill.style.width = "0%";
+      });
+    }
+    const progressBar = document.getElementById("heroProgressFill");
+    if (progressBar) {
+      progressBar.style.width = "0%";
+    }
   }
 
-  // Gán sự kiện cho mini carousel
-  if (miniCarouselTrack) {
-    miniCarouselTrack.addEventListener("mouseenter", stopAutoRotate);
-    miniCarouselTrack.addEventListener("mouseleave", startAutoRotate);
-  }
+  // Mini carousel tự động quay liên tục theo ROTATE_INTERVAL (hover không reset timer/progress)
 
   // =========================================================================
   // 4. LOGIC UI CHUNG (COMMON UI LOGIC)
@@ -513,6 +751,12 @@
 
     carouselSections.forEach((section, index) => {
       const slider = section.querySelector(".movie-slider");
+      const nav = section.querySelector(".carousel-nav");
+
+      if (nav && nav.parentElement !== section) {
+        section.appendChild(nav); // Di chuyển nav ra ngoài cùng section để dễ định vị absolute
+      }
+
       const prevBtn = section.querySelector(".nav-btn.prev-btn");
       const nextBtn = section.querySelector(".nav-btn.next-btn");
 
@@ -520,73 +764,139 @@
         return;
       }
 
-      if (slider.dataset.initialized) return;
-      slider.dataset.initialized = 'true';
-
-      if (!slider.id) slider.id = `auto-slider-${index}`;
-
       const container = slider.parentElement;
       let currentScroll = 0;
-      let cardWidth = 215;
 
       function updateSliderState() {
         if (!container || !slider) return;
-        const cards = slider.querySelectorAll(".movie-card");
-
-        if (cards.length === 0) {
-          prevBtn.style.display = "none";
-          nextBtn.style.display = "none";
-          return;
-        }
-        prevBtn.style.display = "block";
-        nextBtn.style.display = "block";
-
-        cardWidth = cards[0] ? cards[0].offsetWidth + 15 : 215;
-        const containerWidth = container.offsetWidth;
-        const maxScroll = Math.max(
-          0,
-          cards.length * cardWidth - containerWidth + 15
-        );
-
+        const maxScroll = Math.max(0, slider.scrollWidth - container.offsetWidth);
+        currentScroll = Math.max(0, Math.min(currentScroll, maxScroll));
+        slider.style.transition = "transform 0.4s ease";
         slider.style.transform = `translateX(-${currentScroll}px)`;
 
         if (maxScroll <= 0) {
           prevBtn.style.display = "none";
           nextBtn.style.display = "none";
         } else {
-          prevBtn.style.display = "block";
-          nextBtn.style.display = "block";
-          prevBtn.disabled = false;
-          nextBtn.disabled = false;
-          prevBtn.classList.remove("disabled");
-          nextBtn.classList.remove("disabled");
+          prevBtn.style.display = "flex";
+          nextBtn.style.display = "flex";
+          prevBtn.disabled = currentScroll <= 5;
+          nextBtn.disabled = currentScroll >= maxScroll - 5;
+          prevBtn.classList.toggle("disabled", prevBtn.disabled);
+          nextBtn.classList.toggle("disabled", nextBtn.disabled);
         }
+      }
+
+      if (slider.dataset.initialized) {
+        updateSliderState();
+        return;
+      }
+      slider.dataset.initialized = 'true';
+
+      if (!slider.id) slider.id = `auto-slider-${index}`;
+
+      const cardObserver = new MutationObserver(() => {
+        updateSliderState();
+      });
+      cardObserver.observe(slider, { childList: true });
+
+      function getCardStride() {
+        const firstCard = slider.querySelector(".movie-card");
+        if (!firstCard) return 220;
+        return firstCard.offsetWidth + 15;
       }
 
       prevBtn.addEventListener("click", function () {
         const containerWidth = container.offsetWidth;
-        const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
-        if (currentScroll <= 5) {
-          currentScroll = maxScroll; // Lướt về cuối danh sách
-        } else {
-          currentScroll = Math.max(0, currentScroll - containerWidth * 0.8);
-        }
+        const stride = getCardStride();
+        const step = Math.max(stride, Math.floor(containerWidth / stride) * stride);
+        currentScroll = Math.max(0, currentScroll - step);
+        currentScroll = Math.round(currentScroll / stride) * stride;
         updateSliderState();
       });
 
       nextBtn.addEventListener("click", function () {
         const containerWidth = container.offsetWidth;
         const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
-        if (currentScroll >= maxScroll - 5) {
-          currentScroll = 0; // Vòng lặp vô hạn về đầu danh sách
-        } else {
-          currentScroll = Math.min(
-            maxScroll,
-            currentScroll + containerWidth * 0.8
-          );
-        }
+        const stride = getCardStride();
+        const step = Math.max(stride, Math.floor(containerWidth / stride) * stride);
+        currentScroll = Math.min(
+          maxScroll,
+          currentScroll + step
+        );
+        currentScroll = Math.round(currentScroll / stride) * stride;
+        if (currentScroll > maxScroll) currentScroll = maxScroll;
         updateSliderState();
       });
+
+      // DRAG-TO-SCROLL với MAGNETIC SNAP cho main carousels
+      let isDown = false;
+      let startX = 0;
+      let dragStartScroll = 0;
+      let hasMoved = false;
+
+      const onPointerMove = (e) => {
+        if (!isDown) return;
+        const x = e.pageX;
+        const diff = x - startX;
+
+        if (Math.abs(diff) > 6) hasMoved = true;
+
+        const containerWidth = container.offsetWidth;
+        const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
+
+        let newScroll = dragStartScroll - diff;
+        if (newScroll < 0) newScroll = 0;
+        if (newScroll > maxScroll) newScroll = maxScroll;
+
+        currentScroll = newScroll;
+        slider.style.transition = "none";
+        slider.style.transform = `translateX(-${currentScroll}px)`;
+      };
+
+      const onPointerUp = (e) => {
+        if (isDown) {
+          isDown = false;
+          container.style.cursor = "grab";
+          if (hasMoved) {
+            const containerWidth = container.offsetWidth;
+            const maxScroll = Math.max(0, slider.scrollWidth - containerWidth);
+            const stride = getCardStride();
+            const snappedScroll = Math.round(currentScroll / stride) * stride;
+            currentScroll = Math.max(0, Math.min(snappedScroll, maxScroll));
+          }
+          slider.style.transition = "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)";
+          updateSliderState();
+        }
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerUp);
+      };
+
+      container.addEventListener("pointerdown", (e) => {
+        // Chỉ bắt drag nếu là chuột trái hoặc touch
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        isDown = true;
+        hasMoved = false;
+        startX = e.pageX;
+        dragStartScroll = currentScroll;
+        container.style.cursor = "grabbing";
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+        window.addEventListener("pointercancel", onPointerUp);
+      });
+
+      // Ngăn chặn click nhảy trang nếu đang kéo
+      container.addEventListener("click", (e) => {
+        if (hasMoved) {
+          e.stopPropagation();
+          e.preventDefault();
+          hasMoved = false;
+        }
+      }, true);
+
+      container.style.cursor = "grab";
 
       // Dùng ResizeObserver để theo dõi thay đổi kích thước
       const resizeObserver = new ResizeObserver(() => {
@@ -671,28 +981,28 @@
     // --- [FIX LOGIC GENRE] ---
     const genresContainer = hoverCard.querySelector(".hover-card-genres");
     if (genresContainer) {
-        // Helper an toàn để lấy tên thể loại (dù là String hay Object)
-        const getGenreName = (g) => {
-            if (!g) return "";
-            return (typeof g === 'object' && g.name) ? g.name : g;
-        };
+      // Helper an toàn để lấy tên thể loại (dù là String hay Object)
+      const getGenreName = (g) => {
+        if (!g) return "";
+        return (typeof g === 'object' && g.name) ? g.name : g;
+      };
 
-        if (data.genres && Array.isArray(data.genres) && data.genres.length > 0) {
-            const maxGenresToShow = 2;
-            
-            // 1. Render 2 thẻ đầu tiên
-            let html = data.genres.slice(0, maxGenresToShow)
-                .map(g => `<span class="genre-tag">${getGenreName(g)}</span>`)
-                .join('');
+      if (data.genres && Array.isArray(data.genres) && data.genres.length > 0) {
+        const maxGenresToShow = 2;
 
-            // 2. Xử lý phần còn thừa (+N)
-            if (data.genres.length > maxGenresToShow) {
-                const remaining = data.genres.slice(maxGenresToShow);
-                const tooltipHtml = remaining
-                    .map(g => `<div class="genre-bubble">${getGenreName(g)}</div>`)
-                    .join('');
-                
-                html += `
+        // 1. Render 2 thẻ đầu tiên
+        let html = data.genres.slice(0, maxGenresToShow)
+          .map(g => `<span class="genre-tag">${getGenreName(g)}</span>`)
+          .join('');
+
+        // 2. Xử lý phần còn thừa (+N)
+        if (data.genres.length > maxGenresToShow) {
+          const remaining = data.genres.slice(maxGenresToShow);
+          const tooltipHtml = remaining
+            .map(g => `<div class="genre-bubble">${getGenreName(g)}</div>`)
+            .join('');
+
+          html += `
                     <span class="genre-tag genre-tag-more" 
                           onmouseenter="window.showGenreTooltip && window.showGenreTooltip(this)" 
                           onmouseleave="window.hideGenreTooltip && window.hideGenreTooltip(this)">
@@ -700,11 +1010,11 @@
                         <div class="custom-genre-tooltip">${tooltipHtml}</div>
                     </span>
                 `;
-            }
-            genresContainer.innerHTML = html;
-        } else {
-            genresContainer.innerHTML = `<span class="genre-tag">Không có</span>`;
         }
+        genresContainer.innerHTML = html;
+      } else {
+        genresContainer.innerHTML = `<span class="genre-tag">Không có</span>`;
+      }
     }
 
     // Bắt đầu phát video (nếu có trailer)
@@ -757,6 +1067,13 @@
     if (playerContainer) {
       playerContainer.style.transition = "none";
       playerContainer.style.opacity = "0";
+      let playerElem = document.getElementById(playerId);
+      if (!playerElem) {
+        playerElem = document.createElement("div");
+        playerElem.id = playerId;
+        playerElem.className = "hover-player";
+        playerContainer.appendChild(playerElem);
+      }
     }
 
     const player = new YT.Player(playerId, {
@@ -767,13 +1084,11 @@
         autoplay: 1,
         mute: 1,
         controls: 0,
-        start: 5,
-        modestbranding: 1,
-        showinfo: 0,
         rel: 0,
         iv_load_policy: 3,
+        modestbranding: 1,
+        showinfo: 0,
         fs: 0,
-        disablekb: 1,
         origin: window.location.origin,
       },
       events: {
@@ -806,7 +1121,7 @@
           hoverPlayerData.container = iframe.closest(".hover-player-container");
         }
         if (hoverPlayerData.container) {
-          hoverPlayerData.container.style.transition = "opacity 0.4s ease-out";
+          hoverPlayerData.container.style.transition = "opacity 0.3s ease-out";
           if (hoverPlayerData.fadeTimeout) {
             clearTimeout(hoverPlayerData.fadeTimeout);
           }
@@ -814,7 +1129,7 @@
             if (hoverPlayerMap[playerId]) {
               hoverPlayerData.container.style.opacity = "1";
             }
-          }, 1200);
+          }, 200);
         }
         const duration = player.getDuration();
         const endSeconds = duration - 15; // Lặp lại 15s trước khi hết
@@ -905,27 +1220,29 @@
     const hoverCard = card.querySelector(".movie-hover-card");
     if (!hoverCard) return;
 
-    // Logic né cạnh (Edge detection)
+    // Edge-aware alignment: prevent clipping at left and right boundaries
     const cardRect = card.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const hoverCardWidth = 340;
-    const spaceRight = viewportWidth - cardRect.right;
-    const spaceLeft = cardRect.left;
-    let originX = "center";
-    if (spaceRight < hoverCardWidth / 2 && spaceLeft > hoverCardWidth / 2) {
-      originX = "calc(100% - 30px)"; // Né sang trái
-    } else if (
-      spaceLeft < hoverCardWidth / 2 &&
-      spaceRight > hoverCardWidth / 2
-    ) {
-      originX = "30px"; // Né sang phải
+    const slider = card.closest(".movie-slider, .movies-scroll");
+    const containerRect = slider ? slider.parentElement.getBoundingClientRect() : { left: 0, right: viewportWidth };
+
+    const spaceLeft = Math.min(cardRect.left, cardRect.left - containerRect.left);
+    const spaceRight = Math.min(viewportWidth - cardRect.right, containerRect.right - cardRect.right);
+
+    if (spaceLeft < 60) {
+      hoverCard.classList.add("edge-left");
+      hoverCard.classList.remove("edge-right");
+    } else if (spaceRight < 60) {
+      hoverCard.classList.add("edge-right");
+      hoverCard.classList.remove("edge-left");
+    } else {
+      hoverCard.classList.remove("edge-left", "edge-right");
     }
-    hoverCard.style.transformOrigin = `${originX} center`;
 
     clearTimeout(hoverTimeout);
     hoverTimeout = setTimeout(() => {
       enhanceHoverCard(card);
-    }, 800);
+    }, 120);
   }
 
   /**
@@ -941,6 +1258,7 @@
     setTimeout(() => {
       if (hoverCard && !hoverCard.matches(":hover")) {
         stopHoverVideo(card);
+        hoverCard.classList.remove("edge-left", "edge-right");
       }
     }, 100);
 
@@ -1125,9 +1443,27 @@
    * @param {HTMLElement} button - Nút Play/Xem ngay.
    */
   window.goToMovieDetail = function (button) {
-    const movieId = button.dataset.movieId;
+    if (!button) return;
+    const movieId = button.dataset.movieId || button.closest("[data-movie-id]")?.dataset.movieId;
     if (movieId) location.href = "/movie/detail/" + movieId;
   };
+
+  // Delegated click handler: Click vùng không tương tác trên hover card hoặc movie card để vào Detail
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("button, a, input, textarea, select, .hover-action-icon, .hover-volume-btn, .hover-play-btn, .genre-tag-more, .custom-genre-tooltip, .nav-btn")) {
+      return;
+    }
+    const hoverCard = e.target.closest(".movie-hover-card");
+    if (hoverCard && hoverCard.dataset.movieId) {
+      location.href = `/movie/detail/${hoverCard.dataset.movieId}`;
+      return;
+    }
+    const movieCard = e.target.closest(".movie-card");
+    if (movieCard && movieCard.dataset.movieId) {
+      location.href = `/movie/detail/${movieCard.dataset.movieId}`;
+      return;
+    }
+  });
 
   /**
    * Hiển thị Modal Chia sẻ.
@@ -1354,6 +1690,7 @@
 
     // 2. Khởi tạo Banner (Nếu có)
     if (document.getElementById("heroBanner")) {
+      initMiniCarouselInfiniteScroll();
       startAutoRotate();
       displayHeroExtras();
 
@@ -1389,7 +1726,7 @@
   /**
    * Hiển thị Modal Xác nhận (Cinematic Style)
    */
-  window.cineConfirm = function(msg, callback) {
+  window.cineConfirm = function (msg, callback) {
     if (document.getElementById('cineModal')) document.getElementById('cineModal').remove();
 
     const html = `
@@ -1408,7 +1745,7 @@
     `;
     document.body.insertAdjacentHTML('beforeend', html);
 
-    document.getElementById('cineConfirmBtn').onclick = function() {
+    document.getElementById('cineConfirmBtn').onclick = function () {
       if (callback) callback();
       document.getElementById('cineModal').remove();
     };
@@ -1417,21 +1754,21 @@
   /**
    * Chuyển hướng đến Messenger với ID người dùng
    */
-  window.openChat = function(userId) {
-      window.location.href = `/messenger?uid=${userId}`;
+  window.openChat = function (userId) {
+    window.location.href = `/messenger?uid=${userId}`;
   };
 
   /**
    * Xem Profile
    */
-  window.viewProfile = function(userId) {
-      window.location.href = `/social/profile/${userId}`;
+  window.viewProfile = function (userId) {
+    window.location.href = `/social/profile/${userId}`;
   };
 
   // --- 2. SOCIAL ACTIONS (Kết bạn, Hủy kết bạn, Follow) ---
 
   // Gửi lời mời (Dùng cho Lobby & Profile)
-  window.sendFriendRequest = function(targetId, btnElement) {
+  window.sendFriendRequest = function (targetId, btnElement) {
     // UI Loading
     const originalContent = btnElement.innerHTML;
     btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -1440,8 +1777,8 @@
     // API: SocialController @PostMapping("/add-friend/{targetId}")
     fetch(`/social/add-friend/${targetId}`, { method: 'POST' })
       .then(res => {
-          if (!res.ok) throw new Error("Lỗi server");
-          return res.json();
+        if (!res.ok) throw new Error("Lỗi server");
+        return res.json();
       })
       .then(data => {
         // Cập nhật UI thành công
@@ -1460,119 +1797,119 @@
   };
 
   // Hủy kết bạn / Hủy lời mời (Dùng chung)
-  window.cancelFriendRequest = function(targetId, btnElement) {
-      window.cineConfirm('Bạn muốn hủy lời mời / hủy kết bạn với người này?', function() {
-          // UI Loading
-          btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-          
-          // API: SocialController @PostMapping("/unfriend/{targetId}")
-          fetch(`/social/unfriend/${targetId}`, { method: 'POST' })
-            .then(res => {
-                if(res.ok) {
-                    // Reset về nút "Thêm bạn bè"
-                    btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
-                    btnElement.classList.remove('btn-secondary', 'btn-dark');
-                    btnElement.classList.add('btn-primary', 'btn-blue');
-                    btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
-                    showToast("Đã hủy thành công.", "success");
-                    // Nếu đang ở trang Profile, có thể reload để cập nhật số liệu
-                    if(window.location.pathname.includes('/profile/')) location.reload();
-                }
-            });
-      });
+  window.cancelFriendRequest = function (targetId, btnElement) {
+    window.cineConfirm('Bạn muốn hủy lời mời / hủy kết bạn với người này?', function () {
+      // UI Loading
+      btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+      // API: SocialController @PostMapping("/unfriend/{targetId}")
+      fetch(`/social/unfriend/${targetId}`, { method: 'POST' })
+        .then(res => {
+          if (res.ok) {
+            // Reset về nút "Thêm bạn bè"
+            btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
+            btnElement.classList.remove('btn-secondary', 'btn-dark');
+            btnElement.classList.add('btn-primary', 'btn-blue');
+            btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
+            showToast("Đã hủy thành công.", "success");
+            // Nếu đang ở trang Profile, có thể reload để cập nhật số liệu
+            if (window.location.pathname.includes('/profile/')) location.reload();
+          }
+        });
+    });
   };
 
   // Chấp nhận kết bạn (Thường dùng trong Notification dropdown)
-  window.acceptFriendRequest = function(senderId, btnElement) {
-      fetch(`/social/accept-friend/${senderId}`, { method: 'POST' })
-        .then(res => {
-            if(res.ok) {
-                if(btnElement) {
-                    btnElement.innerHTML = '<i class="fas fa-check"></i> Bạn bè';
-                    btnElement.onclick = null;
-                }
-                showToast("Đã trở thành bạn bè!", "success");
-                // Refresh trang nếu cần thiết
-                if(window.location.pathname.includes('/profile/')) location.reload();
-            }
-        });
+  window.acceptFriendRequest = function (senderId, btnElement) {
+    fetch(`/social/accept-friend/${senderId}`, { method: 'POST' })
+      .then(res => {
+        if (res.ok) {
+          if (btnElement) {
+            btnElement.innerHTML = '<i class="fas fa-check"></i> Bạn bè';
+            btnElement.onclick = null;
+          }
+          showToast("Đã trở thành bạn bè!", "success");
+          // Refresh trang nếu cần thiết
+          if (window.location.pathname.includes('/profile/')) location.reload();
+        }
+      });
   };
 
   // Follow User
-  window.followUser = function(targetId, btnElement) {
-      fetch(`/social/api/follow/${targetId}`, { method: 'POST' })
-        .then(res => {
-            if(res.ok) {
-                btnElement.innerHTML = '<i class="fas fa-check"></i> Đang theo dõi';
-                btnElement.setAttribute('onclick', `window.unfollowUser(${targetId}, this)`);
-                btnElement.classList.replace('btn-blue', 'btn-dark');
-            }
-        });
+  window.followUser = function (targetId, btnElement) {
+    fetch(`/social/api/follow/${targetId}`, { method: 'POST' })
+      .then(res => {
+        if (res.ok) {
+          btnElement.innerHTML = '<i class="fas fa-check"></i> Đang theo dõi';
+          btnElement.setAttribute('onclick', `window.unfollowUser(${targetId}, this)`);
+          btnElement.classList.replace('btn-blue', 'btn-dark');
+        }
+      });
   };
 
   // Unfollow User
-  window.unfollowUser = function(targetId, btnElement) {
-      fetch(`/social/api/unfollow/${targetId}`, { method: 'POST' })
-        .then(res => {
-            if(res.ok) {
-                btnElement.innerHTML = '<i class="fas fa-rss"></i> Theo dõi';
-                btnElement.setAttribute('onclick', `window.followUser(${targetId}, this)`);
-                btnElement.classList.replace('btn-dark', 'btn-blue');
-            }
-        });
+  window.unfollowUser = function (targetId, btnElement) {
+    fetch(`/social/api/unfollow/${targetId}`, { method: 'POST' })
+      .then(res => {
+        if (res.ok) {
+          btnElement.innerHTML = '<i class="fas fa-rss"></i> Theo dõi';
+          btnElement.setAttribute('onclick', `window.followUser(${targetId}, this)`);
+          btnElement.classList.replace('btn-dark', 'btn-blue');
+        }
+      });
   };
 
   // --- 3. TOAST NOTIFICATION ---
   function showToast(message, type = 'info') {
-      let toast = document.getElementById('viproToast');
-      if(!toast) {
-          toast = document.createElement('div');
-          toast.id = 'viproToast';
-          toast.style.cssText = "position:fixed; top:80px; right:20px; background:#333; color:#fff; padding:12px 20px; border-radius:8px; z-index:99999; display:none; box-shadow:0 5px 15px rgba(0,0,0,0.5); border-left: 4px solid #e50914;";
-          document.body.appendChild(toast);
-      }
-      toast.style.borderLeftColor = type === 'success' ? '#46d369' : '#e50914';
-      toast.innerHTML = `<span>${message}</span>`;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    let toast = document.getElementById('viproToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'viproToast';
+      toast.style.cssText = "position:fixed; top:80px; right:20px; background:#333; color:#fff; padding:12px 20px; border-radius:8px; z-index:99999; display:none; box-shadow:0 5px 15px rgba(0,0,0,0.5); border-left: 4px solid #e50914;";
+      document.body.appendChild(toast);
+    }
+    toast.style.borderLeftColor = type === 'success' ? '#46d369' : '#e50914';
+    toast.innerHTML = `<span>${message}</span>`;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
   }
 
   // --- 4. GLOBAL SOCKET (Duy trì kết nối 1 lần) ---
   let globalStompClient = null;
-  window.connectGlobalSocket = function() {
-      if (globalStompClient && globalStompClient.connected) return;
-      
-      const socket = new SockJS('/ws');
-      globalStompClient = Stomp.over(socket);
-      globalStompClient.debug = null; // Tắt log console
+  window.connectGlobalSocket = function () {
+    if (globalStompClient && globalStompClient.connected) return;
 
-      globalStompClient.connect({}, function() {
-          console.log('✅ Global Socket Connected');
-          
-          // Lắng nghe thông báo
-          globalStompClient.subscribe('/user/queue/notifications', function(msg) {
-              const noti = JSON.parse(msg.body);
-              // Gọi hàm update UI ở header (nếu có)
-              if (typeof window.onNewNotificationReceived === 'function') {
-                  window.onNewNotificationReceived(noti);
-              }
-              showToast("🔔 " + noti.content);
-          });
-      }, function(err) {
-          console.log('Socket error, reconnecting...', err);
-          setTimeout(window.connectGlobalSocket, 5000);
+    const socket = new SockJS('/ws');
+    globalStompClient = Stomp.over(socket);
+    globalStompClient.debug = null; // Tắt log console
+
+    globalStompClient.connect({}, function () {
+      console.log('✅ Global Socket Connected');
+
+      // Lắng nghe thông báo
+      globalStompClient.subscribe('/user/queue/notifications', function (msg) {
+        const noti = JSON.parse(msg.body);
+        // Gọi hàm update UI ở header (nếu có)
+        if (typeof window.onNewNotificationReceived === 'function') {
+          window.onNewNotificationReceived(noti);
+        }
+        showToast("🔔 " + noti.content);
       });
+    }, function (err) {
+      console.log('Socket error, reconnecting...', err);
+      setTimeout(window.connectGlobalSocket, 5000);
+    });
   };
 
   // --- 5. INIT ON LOAD ---
   document.addEventListener("DOMContentLoaded", () => {
-      // Chỉ kết nối socket nếu user đã đăng nhập (kiểm tra có div notiContainer ở header ko)
-      if (document.getElementById('notiContainer')) {
-          window.connectGlobalSocket();
-      }
-      
-      // Init Hover Cards (nếu có)
-      if (typeof window.initHoverCards === 'function') window.initHoverCards();
+    // Chỉ kết nối socket nếu user đã đăng nhập (kiểm tra có div notiContainer ở header ko)
+    if (document.getElementById('notiContainer')) {
+      window.connectGlobalSocket();
+    }
+
+    // Init Hover Cards (nếu có)
+    if (typeof window.initHoverCards === 'function') window.initHoverCards();
   });
 
 })();

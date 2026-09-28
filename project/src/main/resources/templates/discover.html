@@ -175,10 +175,15 @@
                             data-country=${movie.country}"
                     onclick="switchBanner(this)">
                     
-                    <img th:src="${movie.backdrop != null ? #strings.replace(movie.backdrop, '/original', '/w500') : '/images/placeholder.jpg'}" 
-                        th:alt="${movie.title}" 
-                        onerror="this.src='/images/placeholder.jpg'"> 
-                    <div class="mini-card-overlay"></div>
+                    <div class="mini-card-poster">
+                        <img th:src="${movie.backdrop != null ? #strings.replace(movie.backdrop, '/original', '/w500') : '/images/placeholder.jpg'}" 
+                            th:alt="${movie.title}" 
+                            onerror="this.src='/images/placeholder.jpg'"> 
+                        <div class="mini-card-overlay"></div>
+                    </div>
+                    <div class="mini-card-progress">
+                        <div class="mini-card-progress-fill"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -187,7 +192,7 @@
     <section class="movies movie-list-section" th:if="${topMovies != null && !topMovies.isEmpty()}">
         <div class="section-header">
             <div class="section-title-wrapper">
-                 <h2 class="section-title" th:text="'🔥 Top ' + ${pageTitle}">🔥 Top Phim</h2>
+                 <h2 class="section-title" th:text="'Top ' + ${pageTitle}">Top Phim</h2>
             </div>
             <div class="carousel-nav">
                 <button class="nav-btn prev-btn" id="rankPrevBtn"><i class="fas fa-chevron-left"></i></button>

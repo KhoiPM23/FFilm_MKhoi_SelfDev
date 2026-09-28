@@ -98,12 +98,16 @@ public class WatchHistoryService {
     }
 
     public Double getWatchedTime(Integer userId, int movieId) {
-
-        User user = new User(); user.setUserID(userId);
-        Movie movie = new Movie(); movie.setMovieID(movieId);
-        
-        return watchHistoryRepository.findByUserAndMovie(user, movie)
-                .map(WatchHistory::getCurrentTime)
-                .orElse(0.0);
+        if (userId == null || movieId <= 0) return 0.0;
+        try {
+            User user = new User(); user.setUserID(userId);
+            Movie movie = new Movie(); movie.setMovieID(movieId);
+            
+            return watchHistoryRepository.findFirstByUserAndMovieOrderByLastWatchedAtDesc(user, movie)
+                    .map(WatchHistory::getCurrentTime)
+                    .orElse(0.0);
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 }

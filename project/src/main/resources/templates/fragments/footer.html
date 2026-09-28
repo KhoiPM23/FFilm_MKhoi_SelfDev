@@ -12,7 +12,7 @@
 <body>
     <footer th:fragment="footer" class="site-footer">
     <!-- chatMessageofN -->
-        <div th:if="${session.user != null}">
+        <div>
 
             <style>
                 /* Wrapper */
@@ -20,13 +20,13 @@
                     font-family: 'Segoe UI', sans-serif;
                 }
 
-                /* Icon Chat Tròn */
+                /* Icon Chat Tròn - Luôn lơ lửng ngay trên bóng chat AI (bottom: 104px, right: 24px) */
                 #support-chat-icon-fixed {
                     position: fixed !important;
-                    bottom: 130px !important;
-                    right: 20px !important;
-                    width: 68px !important;
-                    height: 68px !important;
+                    bottom: 104px !important;
+                    right: 24px !important;
+                    width: 64px !important;
+                    height: 64px !important;
                     background-color: #141414;
                     border: 2px solid #E50914;
                     border-radius: 50%;
@@ -34,13 +34,14 @@
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
-                    z-index: 9999;
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-                    transition: transform 0.2s;
+                    z-index: 99999 !important;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+                    transition: transform 0.2s, box-shadow 0.2s;
                 }
 
                 #support-chat-icon-fixed:hover {
-                    transform: scale(1.1);
+                    transform: scale(1.1) translateY(-4px) !important;
+                    box-shadow: 0 8px 25px rgba(229, 9, 20, 0.6) !important;
                 }
 
                 #support-chat-icon-fixed i {
@@ -176,9 +177,9 @@
             </style>
 
             <div class="custom-chat-wrapper">
-                <meta name="_userIdentifier" th:content="${session.user.userName}">
+                <meta name="_userIdentifier" th:content="${session.user != null ? session.user.userName : ''}">
 
-                <div id="support-chat-icon-fixed" onclick="toggleChat()">
+                <div id="support-chat-icon-fixed" onclick="toggleChat()" title="Hỗ trợ khách hàng">
                     <i class="fas fa-headset"></i>
                     <div id="unread-badge" class="notification-badge">0</div>
                 </div>
@@ -200,7 +201,11 @@
             <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
             <script>
-                const userName = document.querySelector('meta[name="_userIdentifier"]').getAttribute('content');
+                function getChatUserName() {
+                    const meta = document.querySelector('meta[name="_userIdentifier"]');
+                    return meta ? (meta.getAttribute('content') || '') : '';
+                }
+                const userName = getChatUserName();
                 let stompClientFixed = null;
                 let supportUnreadCount = 0;
                 let isChatOpen = false;
@@ -210,13 +215,19 @@
 
                 // --- 1. UI CONTROL ---
                 function toggleChat() {
+                    const curUser = getChatUserName();
+                    if (!curUser) {
+                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+                        return;
+                    }
+
                     const win = document.getElementById('support-chat-window-fixed');
                     win.classList.toggle('show');
                     isChatOpen = win.classList.contains('show');
 
                     if (isChatOpen) {
                         // Reset badge ngay lập tức để trải nghiệm mượt
-                        unreadCount = 0;
+                        supportUnreadCount = 0;
                         updateBadge();
 
                         if (!stompClientFixed) connectToChat();
@@ -246,7 +257,8 @@
 
                 // --- 2. WEBSOCKET ---
                 function connectToChat() {
-                    if (stompClientFixed) return;
+                    const uName = getChatUserName();
+                    if (stompClientFixed || !uName) return;
 
                     const socket = new SockJS('/ws');
                     stompClientFixed = Stomp.over(socket);
@@ -759,17 +771,26 @@
         /* ==================== Typing Indicator ==================== */
 
         #ai-root-wrapper .ai-typing {
-            display: flex !important;
+            display: none !important;
             gap: 12px !important;
-            padding: 0 20px 16px !important;
+            padding: 0 20px 14px !important;
             animation: aiMessageSlideIn 0.3s ease-out !important;
+        }
+
+        #ai-root-wrapper .ai-typing.active {
+            display: flex !important;
+        }
+
+        #ai-root-wrapper .ai-typing[hidden],
+        #ai-root-wrapper .ai-typing.hidden {
+            display: none !important;
         }
 
         #ai-root-wrapper .typing-dots {
             display: flex !important;
             align-items: center !important;
             gap: 6px !important;
-            padding: 14px 18px !important;
+            padding: 10px 16px !important;
             background: rgba(102, 126, 234, 0.15) !important;
             border: 1px solid rgba(102, 126, 234, 0.3) !important;
             border-radius: 16px !important;
@@ -944,15 +965,9 @@
                         <div class="ai-message-avatar">
                             <i class="fas fa-robot"></i>
                         </div>
-                        <div class="ai-message-content">
-                            <p>Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
-                            <p>Tôi có thể giúp bạn:</p>
-                            <ul>
-                                <li>🎬 Tìm kiếm và gợi ý phim</li>
-                                <li>💰 Thông tin về gói đăng ký</li>
-                                <li>📋 Chính sách và câu hỏi thường gặp</li>
-                                <li>❓ Bất kỳ câu hỏi nào về FFilm</li>
-                            </ul>
+                        <div class="ai-message-content" style="padding: 10px 14px !important; font-size: 0.9rem !important;">
+                            <p style="margin-bottom: 4px !important; font-weight: 600;">Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
+                            <p style="font-size: 0.84rem; color: rgba(255,255,255,0.75); margin-bottom: 0 !important;">Bạn có thể hỏi tôi về phim, gói VIP hoặc gợi ý phim theo sở thích:</p>
                         </div>
                     </div>
 
@@ -1148,15 +1163,9 @@
                         <div class="ai-message-avatar">
                             <i class="fas fa-robot"></i>
                         </div>
-                        <div class="ai-message-content">
-                            <p>Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
-                            <p>Tôi có thể giúp bạn:</p>
-                            <ul>
-                                <li>🎬 Tìm kiếm và gợi ý phim</li>
-                                <li>💰 Thông tin về gói đăng ký</li>
-                                <li>📋 Chính sách và câu hỏi thường gặp</li>
-                                <li>❓ Bất kỳ câu hỏi nào về FFilm</li>
-                            </ul>
+                        <div class="ai-message-content" style="padding: 10px 14px !important; font-size: 0.9rem !important;">
+                            <p style="margin-bottom: 4px !important; font-weight: 600;">Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
+                            <p style="font-size: 0.84rem; color: rgba(255,255,255,0.75); margin-bottom: 0 !important;">Bạn có thể hỏi tôi về phim, gói VIP hoặc gợi ý phim theo sở thích:</p>
                         </div>
                     </div>
                     <div class="ai-suggestions" id="aiSuggestions">
@@ -1306,8 +1315,23 @@
                 chatWindow.hidden = true;
                 chatIcon.style.display = 'flex';
             }
-            function showTyping() { if(typingIndicator) { typingIndicator.hidden = false; typingIndicator.style.display = 'flex'; scrollToBottom(); } }
-            function hideTyping() { if(typingIndicator) { typingIndicator.hidden = true; typingIndicator.style.display = 'none'; } }
+            function showTyping() { 
+                if(typingIndicator) { 
+                    typingIndicator.hidden = false; 
+                    typingIndicator.classList.remove('hidden');
+                    typingIndicator.classList.add('active');
+                    typingIndicator.style.setProperty('display', 'flex', 'important'); 
+                    scrollToBottom(); 
+                } 
+            }
+            function hideTyping() { 
+                if(typingIndicator) { 
+                    typingIndicator.hidden = true; 
+                    typingIndicator.classList.remove('active');
+                    typingIndicator.classList.add('hidden');
+                    typingIndicator.style.setProperty('display', 'none', 'important'); 
+                } 
+            }
             function autoResizeTextarea() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
             function scrollToBottom() { if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight; }
             function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }

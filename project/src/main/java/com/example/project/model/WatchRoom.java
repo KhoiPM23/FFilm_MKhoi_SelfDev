@@ -44,6 +44,32 @@ public class WatchRoom {
     @Transient // Đánh dấu không lưu vào Database, chỉ dùng để hiển thị UI
     @Getter @Setter
     private Integer currentMovieId;
-    // ---------------------
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getAccessType() { return accessType; }
+    public void setAccessType(String accessType) { this.accessType = accessType; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public int getMaxUsers() { return maxUsers; }
+    public void setMaxUsers(int maxUsers) { this.maxUsers = maxUsers; }
+
+    public User getOwner() { return owner; }
+    public void setOwner(User owner) { this.owner = owner; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean isActive) { this.isActive = isActive; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Integer getCurrentMovieId() { return currentMovieId; }
+    public void setCurrentMovieId(Integer currentMovieId) { this.currentMovieId = currentMovieId; }
 
 }
