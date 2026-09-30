@@ -988,11 +988,17 @@ class CommentHandler {
                 this.updateCommentCount(this.rawComments.length);
                 this.renderComments();
             } else {
-                alert('Không thể xóa bình luận');
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'Không thể xóa bình luận');
             }
         } catch (err) {
             console.error('Error deleting comment:', err);
+            alert('Lỗi kết nối khi xóa bình luận');
         }
+    }
+
+    confirmDeleteAction() {
+        return this.confirmDelete();
     }
 
     updateCommentCount(count) {

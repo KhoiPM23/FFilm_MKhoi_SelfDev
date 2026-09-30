@@ -13,9 +13,9 @@
     overflow: visible;
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
-    
-    z-index: 999999 !important; 
-    
+
+    z-index: 999999 !important;
+
     opacity: 0;
     visibility: hidden;
     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease;
@@ -34,7 +34,7 @@
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) scale(1);
-    pointer-events: auto; 
+    pointer-events: auto;
     z-index: 999999 !important;
     /* Độ trễ tự nhiên (~0.38s) để người dùng lướt chuột thoải mái không bị strobe */
     transition-delay: 0.38s;
@@ -69,7 +69,7 @@
 
 .hover-card-media {
     position: relative;
-    padding-top: 56.25%; 
+    padding-top: 56.25%;
     overflow: hidden;
     border-radius: 15px 15px 0 0;
     clip-path: inset(0 0 0 0 round 15px 15px 0 0);
@@ -89,7 +89,7 @@
 
 /*----- Hiệu ứng video active */
 .hover-card-media.video-active-scale {
-    transform: scale(1.03); 
+    transform: scale(1.03);
 }
 
 /*----- Container video */
@@ -99,8 +99,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden; 
-    border-radius: 16px 16px 0 0; 
+    overflow: hidden;
+    border-radius: 16px 16px 0 0;
     transition: opacity 0.3s ease;
     z-index: 1001;
 }
@@ -109,10 +109,10 @@
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
-    width: 175% !important;  
-    height: 175% !important; 
-    transform: translate(-50%, -50%) !important; 
-    pointer-events: none !important; 
+    width: 175% !important;
+    height: 175% !important;
+    transform: translate(-50%, -50%) !important;
+    pointer-events: none !important;
     border: none !important;
     outline: none !important;
 }
@@ -139,6 +139,7 @@
     transition: background 0.2s;
     pointer-events: auto;
 }
+
 .hover-volume-btn:hover {
     background: rgba(229, 9, 20, 0.9);
 }
@@ -172,6 +173,7 @@
     font-size: 0.85rem;
     color: #aaa;
 }
+
 .meta-rating {
     color: gold;
 }
@@ -184,6 +186,7 @@
     border-radius: 4px;
     font-weight: 700;
 }
+
 .meta-quality {
     border: 1px solid #aaa;
     padding: 0 4px;
@@ -196,7 +199,7 @@
     font-size: 0.9rem;
     color: #ccc;
     display: -webkit-box;
-    -webkit-line-clamp: 3; 
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -208,6 +211,7 @@
     gap: 6px;
     margin-top: 5px;
 }
+
 .genre-tag {
     font-size: 0.8rem;
     color: #aaa;
@@ -243,6 +247,7 @@
     gap: 6px;
     transition: background 0.2s;
 }
+
 .hover-play-btn:hover {
     background: #b80d15;
 }
@@ -262,6 +267,7 @@
     align-items: center;
     justify-content: center;
 }
+
 .hover-action-icon:hover {
     border-color: #E50914;
     background: rgba(229, 9, 20, 0.7);
@@ -269,7 +275,7 @@
 }
 
 .hover-like-btn.liked i.fas {
-    color: #E50914; 
+    color: #E50914;
 }
 
 /*----- Loading States */
@@ -298,25 +304,31 @@
 /*----- Định dạng tooltip chính */
 .custom-genre-tooltip {
     position: absolute;
-    bottom: 100%; /* Đặt ngay phía trên nút +N */
-    left: 0; /* Căn lề trái với nút +N -> mở tự nhiên về bên PHẢI */
+    bottom: 100%;
+    /* Đặt ngay phía trên nút +N */
+    left: 0;
+    /* Căn lề trái với nút +N -> mở tự nhiên về bên PHẢI */
     right: auto;
-    transform: none; /* Bỏ căn giữa */
-    
+    transform: none;
+    /* Bỏ căn giữa */
+
     background: #1a1a1a;
     border: 1px solid #333;
     border-radius: 8px;
     padding: 8px;
-    
-    display: none; /* [QUAN TRỌNG] Để JS (showGenreTooltip) hoạt động */
-    
-    flex-direction: column; /* Hiển thị dọc */
+
+    display: none;
+    /* [QUAN TRỌNG] Để JS (showGenreTooltip) hoạt động */
+
+    flex-direction: column;
+    /* Hiển thị dọc */
     gap: 6px;
-    
+
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.85);
-    z-index: 100001; 
+    z-index: 100001;
     pointer-events: none;
-    margin-bottom: 5px; /* Khoảng cách 5px bên trên nút +N */
+    margin-bottom: 5px;
+    /* Khoảng cách 5px bên trên nút +N */
     min-width: 90px;
     max-width: 250px;
     white-space: nowrap;
@@ -324,11 +336,12 @@
 
 /*----- Định dạng từng mục trong tooltip */
 .custom-genre-tooltip .genre-bubble {
-    background-color: #333; 
-    color: #ccc; 
-    padding: 4px 8px; 
+    background-color: #333;
+    color: #ccc;
+    padding: 4px 8px;
     white-space: nowrap;
-    margin: 2px 0; /* [SỬA] Căn lề dọc */
+    margin: 2px 0;
+    /* [SỬA] Căn lề dọc */
     border-radius: 4px;
     font-size: 0.8rem;
 }

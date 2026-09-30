@@ -1145,7 +1145,7 @@
             if (hoverPlayerMap[playerId]) {
               hoverPlayerData.container.style.opacity = "1";
             }
-          }, 200);
+          }, 850);
         }
         const duration = player.getDuration();
         const endSeconds = duration - 15; // Lặp lại 15s trước khi hết
