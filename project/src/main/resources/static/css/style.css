@@ -60,7 +60,7 @@ body.page-transitioning {
     align-items: center;
     justify-content: space-between;
     padding: 0 50px;
-    z-index: 1000;
+    z-index: 10000000;
     transition: all 0.3s ease;
 }
 
