@@ -96,7 +96,7 @@
                 
                 // Kiểm tra đăng nhập (Biến global từ header.html)
                 if (typeof window.isUserLoggedIn !== 'undefined' && !window.isUserLoggedIn) {
-                    window.location.href = '/login';
+                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
                     return;
                 }
 
@@ -987,18 +987,6 @@
                 }
             }
             
-            // ============ AI SEARCH BUTTON ============
-            if (aiBtn) {
-                aiBtn.addEventListener('click', () => {
-                    // Open AI modal (assuming it exists in header fragment)
-                    const aiModal = document.getElementById('aiSearchModal');
-                    if (aiModal) {
-                        aiModal.hidden = false;
-                        document.body.style.overflow = 'hidden';
-                    }
-                });
-            }
-            
             // ============ INITIALIZE ============
             initFilters();
             initAISearch();
@@ -1021,14 +1009,8 @@
                 }
 
                 // [THÊM] KÍCH HOẠT CÁC CAROUSEL RENDER BỞI JAVA
-                if (typeof initCarousel === 'function') {
-                    // (trendingCarousel đã được init ở hàm loadTrendingCarousel)
-                    if (document.getElementById('relatedCarousel')) {
-                        initCarousel('relatedCarousel', 'relatedCarouselPrev', 'relatedCarouselNext');
-                    }
-                    if (document.getElementById('aiCarousel')) {
-                        initCarousel('aiCarousel', 'aiCarouselPrev', 'aiCarouselNext');
-                    }
+                if (typeof initializeAllCarousels === 'function') {
+                    initializeAllCarousels();
                 }
             });
             

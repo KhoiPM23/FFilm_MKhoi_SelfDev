@@ -47,8 +47,13 @@ public class Comment {
     private Movie movie;
 
     @ManyToOne
+    @JsonIgnoreProperties({ "parentComment", "movie", "user" })
     @JoinColumn(name = "parent_commentID")
     private Comment parentComment;
+
+    public Integer getParentCommentId() {
+        return parentComment != null ? parentComment.getCommentID() : null;
+    }
 
     public Comment() {
     }

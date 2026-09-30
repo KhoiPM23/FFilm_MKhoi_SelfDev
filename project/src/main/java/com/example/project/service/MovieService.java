@@ -425,7 +425,7 @@ public class MovieService {
 
             movie.setContentRating(extractContentRating(json));
 
-            String trailerKey = findBestTrailerKeyFromJSON(json);
+            String trailerKey = findTrailersKeyFromJSON(json, 3);
             if (trailerKey != null)
                 movie.setTrailerKey(trailerKey);
 
@@ -573,7 +573,7 @@ public class MovieService {
     }
 
     private String mapCertificationToVN(String cert) {
-        // Map chuẩn US -> VN (FPT Style)
+        // Map chuẩn US -> VN
         switch (cert.toUpperCase()) {
             case "G":
             case "TV-G":
@@ -999,6 +999,57 @@ public class MovieService {
         return null;
     }
 
+    // Helper: Tìm tối đa maxLimit (3) Trailer Youtube từ JSON
+    private String findTrailersKeyFromJSON(JSONObject json, int maxLimit) {
+        JSONObject videos = json.optJSONObject("videos");
+        if (videos == null)
+            return null;
+
+        JSONArray results = videos.optJSONArray("results");
+        if (results == null || results.length() == 0)
+            return null;
+
+        List<String> keys = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        // Ưu tiên 1: Youtube + Trailer + Tiếng Việt
+        for (int i = 0; i < results.length(); i++) {
+            if (keys.size() >= maxLimit) break;
+            JSONObject v = results.getJSONObject(i);
+            String site = v.optString("site");
+            String type = v.optString("type");
+            String key = v.optString("key");
+            if ("YouTube".equals(site) && "Trailer".equals(type) && "vi".equals(v.optString("iso_639_1")) && key != null && !seen.contains(key)) {
+                keys.add(key);
+                seen.add(key);
+            }
+        }
+        // Ưu tiên 2: Youtube + Trailer (Bất kỳ ngôn ngữ)
+        for (int i = 0; i < results.length(); i++) {
+            if (keys.size() >= maxLimit) break;
+            JSONObject v = results.getJSONObject(i);
+            String site = v.optString("site");
+            String type = v.optString("type");
+            String key = v.optString("key");
+            if ("YouTube".equals(site) && "Trailer".equals(type) && key != null && !seen.contains(key)) {
+                keys.add(key);
+                seen.add(key);
+            }
+        }
+        // Ưu tiên 3: Teaser
+        for (int i = 0; i < results.length(); i++) {
+            if (keys.size() >= maxLimit) break;
+            JSONObject v = results.getJSONObject(i);
+            String site = v.optString("site");
+            String key = v.optString("key");
+            if ("YouTube".equals(site) && key != null && !seen.contains(key)) {
+                keys.add(key);
+                seen.add(key);
+            }
+        }
+        return keys.isEmpty() ? null : String.join(",", keys);
+    }
+
     // Helper: Tìm Trailer Youtube tốt nhất từ JSON
     private String findBestTrailerKeyFromJSON(JSONObject json) {
         JSONObject videos = json.optJSONObject("videos");
@@ -1095,14 +1146,38 @@ public class MovieService {
     }
 
     // Lấy phim mới (ngày ra mắt mới nhất)
+    @org.springframework.cache.annotation.Cacheable(value = "newMovies", key = "#limit")
     public Page<Movie> getNewMoviesFromDB(int limit) {
         return movieRepository.findAllByOrderByReleaseDateDesc(PageRequest.of(0, limit));
     }
 
     // Lấy phim theo TMDB Genre ID
+    @org.springframework.cache.annotation.Cacheable(value = "genreMovies", key = "#tmdbGenreId + '-' + #limit + '-' + #page")
     public Page<Movie> getMoviesByGenreFromDB(int tmdbGenreId, int limit, int page) {
         return movieRepository.findAllByGenres_TmdbGenreId(tmdbGenreId,
                 PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "rating")));
+    }
+
+    // ---- CACHED MAP LISTS FOR ULTRA-FAST HOME & GENRE PAGES (< 0.27s) ----
+    @org.springframework.cache.annotation.Cacheable(value = "hotMoviesMap", key = "#limit")
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getHotMoviesMapList(int limit) {
+        Page<Movie> page = getHotMoviesFromDB(limit);
+        return page.getContent().stream().map(this::convertToMap).collect(Collectors.toList());
+    }
+
+    @org.springframework.cache.annotation.Cacheable(value = "newMoviesMap", key = "#limit")
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getNewMoviesMapList(int limit) {
+        Page<Movie> page = getNewMoviesFromDB(limit);
+        return page.getContent().stream().map(this::convertToMap).collect(Collectors.toList());
+    }
+
+    @org.springframework.cache.annotation.Cacheable(value = "genreMoviesMap", key = "#tmdbGenreId + '-' + #limit + '-' + #page")
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getGenreMoviesMapList(int tmdbGenreId, int limit, int page) {
+        Page<Movie> pageResult = getMoviesByGenreFromDB(tmdbGenreId, limit, page);
+        return pageResult.getContent().stream().map(this::convertToMap).collect(Collectors.toList());
     }
 
     // ---- 8. SEARCH & SYNC UTILS ----
@@ -1249,14 +1324,13 @@ public class MovieService {
 
     // ---- 10. TRAILER & LOGO FINDERS ----
 
-    // [CẬP NHẬT] Lấy Trailer Key từ DB (Offline Mode)
+    // [CẬP NHẬT] Lấy Trailer Key đầu tiên từ DB (Offline Mode)
     public String findBestTrailerKey(int movieID) {
         Movie movie = movieRepository.findById(movieID).orElse(null);
         if (movie != null && movie.getTrailerKey() != null && !movie.getTrailerKey().isEmpty()) {
-            return movie.getTrailerKey();
+            String[] keys = movie.getTrailerKey().split(",");
+            return keys[0].trim();
         }
-        // Fallback: Nếu DB chưa có (phim cũ chưa sync lại), có thể trả về null hoặc gọi
-        // API tạm (nhưng ta đang muốn bỏ API)
         return null;
     }
 
@@ -1271,22 +1345,35 @@ public class MovieService {
         }
 
         if (movie != null && movie.getTrailerKey() != null && !movie.getTrailerKey().isEmpty()) {
-            Map<String, Object> trailer = new HashMap<>();
-            trailer.put("key", movie.getTrailerKey());
-            trailer.put("name", "Trailer Chính Thức");
-            trailers.add(trailer);
-            existingKeys.add(movie.getTrailerKey());
+            String[] keys = movie.getTrailerKey().split(",");
+            for (int i = 0; i < keys.length && trailers.size() < limit; i++) {
+                String k = keys[i].trim();
+                if (!k.isEmpty() && !existingKeys.contains(k)) {
+                    Map<String, Object> trailer = new HashMap<>();
+                    trailer.put("key", k);
+                    trailer.put("name", i == 0 ? "Trailer Chính Thức" : "Trailer " + (i + 1));
+                    trailers.add(trailer);
+                    existingKeys.add(k);
+                }
+            }
         }
 
-        // Bổ sung trailer/teaser nếu có kết nối TMDB (tối đa limit trailer)
-        if (movie != null && movie.getTmdbId() != null && movie.getTmdbId() > 0 && trailers.size() < limit && tmdbClient != null) {
+        // Bổ sung trailer/teaser nếu DB chưa đủ limit và có kết nối TMDB
+        if (trailers.size() < limit && movie != null && movie.getTmdbId() != null && movie.getTmdbId() > 0 && tmdbClient != null) {
             try {
+                int initialCount = trailers.size();
                 String path = "/movie/" + movie.getTmdbId() + "/videos";
                 String resp = tmdbClient.get(path, "language=vi-VN");
                 parseAndAddTrailers(resp, trailers, existingKeys, limit);
                 if (trailers.size() < limit) {
                     String enResp = tmdbClient.get(path, "language=en-US");
                     parseAndAddTrailers(enResp, trailers, existingKeys, limit);
+                }
+                // Nếu tìm được thêm trailer từ TMDB, cập nhật ngược lại vào DB để các lần sau lấy 0ms!
+                if (trailers.size() > initialCount) {
+                    List<String> allKeys = new ArrayList<>(existingKeys);
+                    movie.setTrailerKey(String.join(",", allKeys));
+                    movieRepository.save(movie);
                 }
             } catch (Exception e) {
                 // Giữ trailer từ DB an toàn

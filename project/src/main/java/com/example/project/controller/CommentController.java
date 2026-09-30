@@ -83,6 +83,7 @@ public class CommentController {
             // Lấy dữ liệu từ payload
             int movieId = (Integer) payload.get("movieId");
             String content = (String) payload.get("content");
+            Integer parentCommentId = payload.get("parentCommentId") != null ? (Integer) payload.get("parentCommentId") : null;
 
             // Validate
             if (content == null || content.trim().isEmpty()) {
@@ -92,12 +93,12 @@ public class CommentController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            // Thêm comment
-            Comment newComment = commentService.addComment(movieId, userId, content);
+            // Thêm comment (hỗ trợ reply)
+            Comment newComment = commentService.addComment(movieId, userId, content, parentCommentId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Thêm bình luận thành công");
+            response.put("message", parentCommentId != null ? "Phản hồi bình luận thành công" : "Thêm bình luận thành công");
             response.put("comment", newComment);
 
             return ResponseEntity.ok(response);
@@ -107,6 +108,61 @@ public class CommentController {
             errorResponse.put("success", false);
             errorResponse.put("message", "Lỗi khi thêm comment: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Thả cảm xúc cho bình luận
+     * POST /api/comments/{commentId}/react
+     */
+    @PostMapping("/{commentId}/react")
+    public ResponseEntity<?> reactComment(
+            @PathVariable int commentId,
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+        try {
+            Object userObj = session.getAttribute("user");
+            if (userObj == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "Bạn cần đăng nhập để thả cảm xúc"));
+            }
+            int userId = (userObj instanceof UserSessionDto)
+                    ? ((UserSessionDto) userObj).getId()
+                    : ((com.example.project.model.User) userObj).getUserID();
+
+            String emoji = (String) payload.get("emoji");
+            Map<String, Object> reactionData = commentService.toggleReaction(commentId, userId, emoji);
+            Map<String, Object> res = new HashMap<>(reactionData);
+            res.put("success", true);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Lỗi thả cảm xúc: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy dữ liệu cảm xúc của các bình luận trong phim
+     * GET /api/comments/movie/{movieId}/reactions
+     */
+    @GetMapping("/movie/{movieId}/reactions")
+    public ResponseEntity<?> getReactionsForMovie(
+            @PathVariable int movieId,
+            HttpSession session) {
+        try {
+            Integer userId = null;
+            Object userObj = session.getAttribute("user");
+            if (userObj != null) {
+                userId = (userObj instanceof UserSessionDto)
+                        ? ((UserSessionDto) userObj).getId()
+                        : ((com.example.project.model.User) userObj).getUserID();
+            }
+
+            Map<Integer, Object> reactionMap = commentService.getMovieReactionsMap(movieId, userId);
+            return ResponseEntity.ok(Map.of("success", true, "reactions", reactionMap));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 

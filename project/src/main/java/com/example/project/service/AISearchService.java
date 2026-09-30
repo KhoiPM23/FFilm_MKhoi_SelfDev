@@ -361,14 +361,14 @@ public class AISearchService {
         if (text == null) return Collections.emptyList();
 
         List<String> suggestions = new ArrayList<>();
-        // [FIX VĐ 4] Bổ sung regex để loại bỏ nhiều ký tự đặc biệt hơn
-        text = text.replaceAll("(?i)(phim|tên|diễn viên|đạo diễn|gợi ý|suggestion|movie)", "");
         String[] tokens = text.split("[,;\\n]");
 
         for (String token : tokens) {
             String cleaned = token.trim()
-                    .replaceAll("^[\\-\\*•\\d\\.]+\\s*", "") // Xóa dấu gạch đầu dòng
-                    .replaceAll("[\"'`():\\[\\]]", ""); // [FIX VĐ 4] Xóa () [] : " ' `
+                    .replaceAll("^[\\-\\*•\\d\\.]+\\s*", "") // Xóa dấu gạch đầu dòng, số thứ tự
+                    .replaceAll("(?i)^(gợi ý|suggestion|phim|tên phim|diễn viên|đạo diễn)[:\\-\\s]+", "") // Xóa label đầu dòng
+                    .replaceAll("[\"'`():\\[\\]]", "") // Xóa () [] : " ' `
+                    .trim();
 
             if (!cleaned.isEmpty() && cleaned.length() > 2) {
                 suggestions.add(cleaned);

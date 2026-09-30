@@ -38,45 +38,34 @@ public class HomeController {
 
             int carouselLimit = 20;
 
-            // 1. Tải Phim Hot (Trending) từ DB
-            // Sử dụng hàm getHotMoviesFromDB đã có sẵn trong Service
-            Page<Movie> dbHotMovies = movieService.getHotMoviesFromDB(carouselLimit);
-
-            // Convert sang Map để Frontend dễ dùng (giữ nguyên cấu trúc dữ liệu cũ)
-            List<Map<String, Object>> hotMovies = dbHotMovies.getContent().stream()
-                    .map(movieService::convertToMap)
-                    .collect(Collectors.toList());
-
+            // 1. Tải Phim Hot (Trending) từ cache / DB
+            List<Map<String, Object>> hotMovies = movieService.getHotMoviesMapList(carouselLimit);
             model.addAttribute("hotMovies", hotMovies);
 
             // 2. Set Banner (Lấy phim đầu tiên trong list Hot)
             setBanner(model, hotMovies);
 
-            // 3. Tải các carousel còn lại từ DB
+            // 3. Tải các carousel còn lại từ cache / DB (tốc độ < 0.27s)
             try {
-                Page<Movie> dbNew = movieService.getNewMoviesFromDB(carouselLimit);
-                model.addAttribute("newMovies", dbNew.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+                model.addAttribute("newMovies", movieService.getNewMoviesMapList(carouselLimit));
             } catch (Exception ex) {
                 model.addAttribute("newMovies", new ArrayList<>());
             }
 
             try {
-                Page<Movie> dbAnime = movieService.getMoviesByGenreFromDB(16, carouselLimit, 0);
-                model.addAttribute("animeMovies", dbAnime.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+                model.addAttribute("animeMovies", movieService.getGenreMoviesMapList(16, carouselLimit, 0));
             } catch (Exception ex) {
                 model.addAttribute("animeMovies", new ArrayList<>());
             }
 
             try {
-                Page<Movie> dbKids = movieService.getMoviesByGenreFromDB(10751, carouselLimit, 0);
-                model.addAttribute("kidsMovies", dbKids.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+                model.addAttribute("kidsMovies", movieService.getGenreMoviesMapList(10751, carouselLimit, 0));
             } catch (Exception ex) {
                 model.addAttribute("kidsMovies", new ArrayList<>());
             }
 
             try {
-                Page<Movie> dbAction = movieService.getMoviesByGenreFromDB(28, carouselLimit, 0);
-                model.addAttribute("actionMovies", dbAction.getContent().stream().map(movieService::convertToMap).collect(Collectors.toList()));
+                model.addAttribute("actionMovies", movieService.getGenreMoviesMapList(28, carouselLimit, 0));
             } catch (Exception ex) {
                 model.addAttribute("actionMovies", new ArrayList<>());
             }
@@ -96,7 +85,7 @@ public class HomeController {
     private void setBanner(Model model, List<Map<String, Object>> hotMovies) {
         try {
             if (hotMovies != null && !hotMovies.isEmpty()) {
-                Map<String, Object> bannerMap = hotMovies.get(0);
+                Map<String, Object> bannerMap = new HashMap<>(hotMovies.get(0));
                 int movieID = (int) bannerMap.get("id"); // Lấy ID khóa chính (PK)
 
                 // [THAY ĐỔI] Gọi Service tìm Trailer/Logo trong DB

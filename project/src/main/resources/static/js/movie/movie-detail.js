@@ -347,7 +347,7 @@ window.toggleCast = function() {
     const btn = document.getElementById('castToggleBtn');
     btn.textContent = btn.textContent === 'Xem tất cả' ? 'Thu gọn' : 'Xem tất cả';
 }
-window.toggleFPTDescription = function() {
+window.toggleDescription = function() {
     document.getElementById('descContent').classList.toggle('expanded');
     document.getElementById('descText').classList.toggle('expanded');
     const btn = document.getElementById('descToggleBtn');

@@ -4,25 +4,30 @@
 
 .movie-hover-card {
     position: absolute;
-    top: -42px;
+    top: -55px;
     left: 50%;
     transform: translateX(-50%) scale(0.8);
     width: 310px;
     background: #181818;
     border-radius: 16px;
-    overflow: hidden;
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    overflow: visible;
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
     
-    z-index: 99999; 
+    z-index: 999999 !important; 
     
     opacity: 0;
     visibility: hidden;
     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease;
+    transition-delay: 0s;
     pointer-events: none;
 }
 
+.movie-card:hover,
+.movie-card:focus-within {
+    z-index: 999999 !important;
+    position: relative !important;
+}
 
 .movie-card:hover .movie-hover-card,
 .movie-hover-card:hover {
@@ -30,7 +35,14 @@
     visibility: visible;
     transform: translateX(-50%) scale(1);
     pointer-events: auto; 
-    z-index: 10000;
+    z-index: 999999 !important;
+    /* Độ trễ tự nhiên (~0.38s) để người dùng lướt chuột thoải mái không bị strobe */
+    transition-delay: 0.38s;
+}
+
+/* Đóng ngay lập tức khi rời chuột */
+.movie-card:not(:hover) .movie-hover-card {
+    transition-delay: 0s !important;
 }
 
 /*----- Điều chỉnh vị trí khi tràn lề trái / phải */
@@ -287,7 +299,8 @@
 .custom-genre-tooltip {
     position: absolute;
     bottom: 100%; /* Đặt ngay phía trên nút +N */
-    left: 0; /* Căn lề trái với nút +N */
+    left: 0; /* Căn lề trái với nút +N -> mở tự nhiên về bên PHẢI */
+    right: auto;
     transform: none; /* Bỏ căn giữa */
     
     background: #1a1a1a;
@@ -297,13 +310,16 @@
     
     display: none; /* [QUAN TRỌNG] Để JS (showGenreTooltip) hoạt động */
     
-    flex-direction: column; /* [SỬA] Hiển thị dọc */
+    flex-direction: column; /* Hiển thị dọc */
     gap: 6px;
     
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.85);
     z-index: 100001; 
     pointer-events: none;
     margin-bottom: 5px; /* Khoảng cách 5px bên trên nút +N */
+    min-width: 90px;
+    max-width: 250px;
+    white-space: nowrap;
 }
 
 /*----- Định dạng từng mục trong tooltip */

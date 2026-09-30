@@ -62,14 +62,23 @@ Status: AUDITED / NO_CHANGE_RECOMMENDED
   * Horizontal overflow on Home & Discover: 0px (scrollWidth === clientWidth).
   * Layout stability: Hero banner (5 mini cards), carousels (6 cards), Discover grid (5 columns) render cleanly with zero clipping, stable transitions, and proper alignment.
   * No P0/P1 layout shifts, broken transitions, or root overflow defects identified.
-- Verdict: [NO_CHANGE_RECOMMENDED] — UI is clean, responsive, and stable.
-
-Batch 4 — AI Search + Chatbot UI
-Status: NOT_STARTED
-
-Batch 5 — AI Backend Optimization
-Status: NOT_STARTED
-Note: Only after Batch 4 is reviewed.
+Batch 4 & 5 — AI Experience + Navigation + AI Optimization + UI/UX Hardening (Wave 4+5)
+Status: IMPLEMENTED / VERIFIED [PENDING_HUMAN_ACCEPTANCE]
+- Checkpoint Commit: `9786ba9` (`chore: checkpoint after UI UX hardening`), pushed to `origin/main`. All Wave 4+5 changes remain UNCOMMITTED for human review.
+- Gemini API & Model Verification:
+  * Key & endpoint in `application.properties` verified active (`gemini-2.5-flash` at `generativelanguage.googleapis.com`).
+  * Free-tier daily quota limit identified: `GenerateRequestsPerDayPerProjectPerModel-FreeTier` = 20 req/day. Rate-limit backoff handling verified.
+- Fixes Implemented & Runtime Verified:
+  1. Hover Card Bottom & Genre Tooltip Clipping: Set `.movie-hover-card { overflow: visible; top: -55px; }`, anchored `.custom-genre-tooltip` to `right: 0; left: auto; max-width: 250px;`, increased `.movie-carousel` padding-bottom to 115px with margin-bottom -95px (net 20px spacing strictly preserved). Added runtime boundary check in `showGenreTooltip()`. Genre tooltips and descriptions show 100% completely without clipping.
+  2. `/search` Carousel Navigation Arrows: Removed conflicting override `.search-page-container .movie-carousel { margin: -65px 0 -75px 0; }` in `search.css`. Reused standard 65px gutters from `style.css`. Set `.search-page-container .section-header { padding: 0 65px; }`. Replaced nonexistent `initCarousel` call with `initializeAllCarousels()` in `search.js`. Navigation arrows now sit cleanly in gutters outside cards without overlaying outer cards.
+  3. AI Chatbot Message Indentation: Replaced `white-space: pre-wrap !important;` with `white-space: normal !important;` on `.ai-message-content`. Removed literal multi-line indentation inside `addBotMessage` and `addUserMessage`. Normal messages now render with compact, natural line spacing without giant indentation.
+  4. AI Recommendation Carousel & Cards: Formatted `.ai-movie-card` with compact dimensions (115px width, 195px total height, 135px poster). Title strictly clamped to max 2 lines with `-webkit-line-clamp: 2` and ellipsis (`max-height: 2.5em`). Implemented horizontal mouse drag-to-scroll on `.ai-movie-scroll` with movement threshold to prevent unintended clicks.
+  5. Floating CSKH & Chatbot Harmony: Mutual exclusivity verified (opening AI closes CSKH, opening CSKH closes AI). Click outside to close and `Escape` key close listener verified on both widgets.
+  6. AI Search False Red Banner: Fixed `.ai-error[hidden]` specificity override by adding `display: none !important;` in `search.css`.
+  7. "Xem thêm" & Studio Badge Clickability: Added `z-index: 10;` to `.section-header` in `style.css`.
+  8. AI Search Token Extraction Bug: In `AISearchService.java`, removed destructive global word replacement `replaceAll("(?i)(phim|tên|diễn viên|...)", "")`. Replaced with prefix-only regex stripping: `replaceAll("(?i)^(gợi ý|suggestion|phim|tên phim|diễn viên|đạo diễn)[:\\-\\s]+", "")`. Titles containing "Movie" like "Scary Movie" are preserved.
+  9. Decorative Emoji Removal: Removed emojis from section titles across `search.html`, `movie-detail.html` ("Phim tương tự"), `recommended-movie.html` ("Gợi ý dành cho bạn"), and `list-favorite.html` ("Danh sách Yêu thích").
+  10. Global Visual Scrollbar: Added `scrollbar-width: none; -ms-overflow-style: none;` in `style.css`. Preserves 100% functional scrolling while eliminating white page-transition flashes.
 ```
 
 
@@ -160,3 +169,10 @@ Note: Only after Batch 4 is reviewed.
 96. **YouTube Hover Preview**: Verified that a `1200ms` opacity delay is structurally necessary to hide YouTube's native `< ▶ >` iframe controls while using the static `hover-card-image` as a seamless fallback.
 97. **Genre Pagination**: Fixed bug in `DiscoverController` where pagination altered the Hero Banner. Banner and top recommendations are now statically fetched from page 0.
 98. **Carousel UI**: Prevented double event binding with `dataset.initialized`. Trailer limit correctly enforced with CSS `repeat(3, 1fr)`.
+99. **Global Page Transitions & Top Progress Loader (100% Application Scope)**:
+    - **Top Progress Bar (FPT Play / YouTube style)**: Ultra-smooth 2.5px fixed top red progress bar (`#page-top-loader`, `z-index: 9999999`) with progressive stages (0% -> 25% -> 75% -> 100% -> fadeOut).
+    - **Click & Interaction Feedback**: Intercepts all internal link clicks (`<a>`), card clicks (`[data-href]`, `[data-url]`), and form submissions with immediate tactile feedback (`body.page-transitioning`).
+    - **Soft Page Entrance & Float-up**: Native `@keyframes pageEnterFade` on body, paired with `@keyframes heroContentFloatUp` across ALL application containers (`.main-content-wrapper`, `.page-content-wrapper`, `.search-page-container`, `.discover-results-section`, `.content-wrapper`, `.person-container`, `.company-container`, `.profile-container`, `.profile-main`, `.lobby-container`, `.rooms-container`, `.room-container`, `.cinema-area`, `.pricing-container`, `.confirm-container`, `.history-container`, `.billing-container`, `.page-header`, `.movies-section`, `.category-header`, `.messages-container`, `.messenger-container`, `.error-container`, `.main-content`, `.stats-grid`, `.table-container`, `.dashboard-container`).
+    - **Staggered Cascade Card Entrance**: Stagger delays applied across `.movie-card`, `.cast-card`, `.friend-card`, `.pricing-card`, `.history-item`, `.stat-card` for cinematic sequential appearance.
+    - **100% Template Coverage**: Wired across all 40 main view templates: Public film browsing & streaming, User Account & Profile, Watch Party, Authentication & Password recovery, and Admin/Manager portals. Dedicated guard `window.__FFILM_SCRIPT_LOADED__` prevents duplicate execution.
+

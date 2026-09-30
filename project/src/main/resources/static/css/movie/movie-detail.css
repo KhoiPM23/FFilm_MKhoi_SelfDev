@@ -14,6 +14,7 @@ body {
     display: flex;
     align-items: flex-end;
     padding-bottom: 25px;
+    animation: heroReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .hero-banner .hero-content {
@@ -25,6 +26,7 @@ body {
     max-width: 650px;
     padding-top: 0;
     z-index: 10;
+    animation: heroContentFloatUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .movie-main-info {
@@ -647,8 +649,8 @@ body {
     color: #fff;
 }
 
-/* FPT Play Style Comment Box */
-.fpt-comment-box {
+/* Comment Box Styles */
+.comment-input-box {
     display: flex;
     gap: 16px;
     background: rgba(255, 255, 255, 0.03);
@@ -659,13 +661,13 @@ body {
     transition: all 0.3s ease;
 }
 
-.fpt-comment-box:focus-within {
+.comment-input-box:focus-within {
     border-color: rgba(229, 9, 20, 0.5);
     box-shadow: 0 0 20px rgba(229, 9, 20, 0.15);
     background: rgba(255, 255, 255, 0.05);
 }
 
-.fpt-comment-box .user-avatar {
+.comment-input-box .user-avatar {
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -686,7 +688,7 @@ body {
     flex-direction: column;
 }
 
-.fpt-comment-box .comment-input-area {
+.comment-input-box .comment-input-area {
     width: 100%;
     background: transparent;
     border: none;
@@ -701,11 +703,11 @@ body {
     transition: border-color 0.3s;
 }
 
-.fpt-comment-box .comment-input-area:focus {
+.comment-input-box .comment-input-area:focus {
     border-bottom-color: rgba(229, 9, 20, 0.6);
 }
 
-.fpt-comment-box .comment-input-area::placeholder {
+.comment-input-box .comment-input-area::placeholder {
     color: #777;
 }
 
@@ -724,7 +726,7 @@ body {
     gap: 6px;
 }
 
-.btn-fpt-submit {
+.btn-comment-submit {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -740,17 +742,17 @@ body {
     box-shadow: 0 4px 14px rgba(229, 9, 20, 0.35);
 }
 
-.btn-fpt-submit:hover:not(:disabled) {
+.btn-comment-submit:hover:not(:disabled) {
     background: linear-gradient(135deg, #ff1e2d 0%, #ff4252 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(229, 9, 20, 0.55);
 }
 
-.btn-fpt-submit:active:not(:disabled) {
+.btn-comment-submit:active:not(:disabled) {
     transform: translateY(0);
 }
 
-.btn-fpt-submit:disabled {
+.btn-comment-submit:disabled {
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.3);
     cursor: not-allowed;

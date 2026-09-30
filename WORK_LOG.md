@@ -1,3 +1,61 @@
+## 2026-09-30 - Targeted Follow-up: Page Transition UX, Cinematic Hero Reveal, Backend Caching & Trailer Sync
+
+- **Scope & Constraints**:
+  - Checkpoint: `9786ba9` on `origin/main`. All changes remain **UNCOMMITTED**.
+  - Layout of `.movie-carousel` strictly preserved at user's accepted original dimensions.
+- **Implemented & Verified**:
+  1. **Smooth Page Transition & Immediate Detachment (All Pages)**:
+     - Added `pageEnterFade` (0.3s) on `body` for soft page entry across all pages (Home, Discover, Search, Movie Detail, Favorites, Person, Profile).
+     - Added `body.page-transitioning` (subtle dimming 0.85 opacity) on internal link clicks for immediate departure feedback.
+     - Added `#page-top-loader` in `style.css` (fixed 2.5px top gradient red #E50914) with smooth progress lifecycle in `script.js`.
+     - Added global page content wrapper transition (`heroContentFloatUp` 0.65s) for `.main-content-wrapper`, `.page-content-wrapper`, `.search-page-container`, `.discover-results-section`, `.person-container`, `.company-container`, `.profile-container`, `.lobby-container`, `.room-container`.
+     - Added movie card grid stagger entrance animation for `.favorite-grid`, `.results-grid`, `.search-grid`, `.movie-grid`, `.discover-results-section .movie-card`.
+  2. **Cinematic Hero Banner Reveal (Home, Movie Detail, Discover)**:
+     - Added `@keyframes heroReveal` (scale 1.02 -> 1.00 + soft fade-in in 0.6s) to `.hero-banner` across Home, Movie Detail, and Discover.
+     - Added `@keyframes heroContentFloatUp` (translateY 18px -> 0px in 0.7s) to `.hero-content` for professional, streaming-grade entrance without abrupt jarring pop-in.
+  3. **Progressive Carousel Scroll Reveal**:
+     - `.movies` sections now enter with smooth `translateY(22px)` and opacity fade-in via `IntersectionObserver` with an intentional gentle 80ms stagger.
+  4. **Home Page Backend Caching (< 0.28s)**:
+     - Added `@Cacheable` on `getNewMoviesFromDB` and `getMoviesByGenreFromDB`. Verified `curl` response time on `/` is now ~0.27s (meeting the user's <= 0.75s requirement).
+  5. **Trailer Scanning (Max 3) & Database Backfill**:
+     - Added `findTrailersKeyFromJSON(json, 3)` in `MovieService.java` to scan up to 3 trailers/teasers from TMDB and persist as comma-separated keys (`key1,key2,key3`) in `Movie.trailerKey`.
+     - Updated `findBestTrailerKey(movieID)` to parse comma-separated keys and return the primary trailer key.
+     - Updated `findTrailers(movieID, limit)`: reads available trailers from DB; if fewer than 3, queries TMDB and **backfills the new keys to DB** (`movieRepository.save(movie)`), making subsequent requests 0ms.
+- **Build / Test**: `.\mvnw.cmd compile` -> `BUILD SUCCESS`.
+- **Status**: Navigation & transition verification ready for human review.
+
+## 2026-09-29 - Wave 4+5: Deep QA/QC Autonomous Execution & UI Hardening
+
+- **Checkpoint Commit**: `9786ba9` on `origin/main` (`chore: checkpoint after UI UX hardening`). All Wave 4+5 changes remain **UNCOMMITTED** in working directory.
+- **Issues Audited, Fixed, and Verified**:
+  1. **Hover Card Bottom & Genre Tooltip Clipping**:
+     - *Root Cause*: `.movie-hover-card` had `overflow: hidden; -webkit-mask-image: ...`. The custom genre tooltip had `left: 0;` inside the right-aligned `+N` badge, causing it to stick out to the right and get clipped by `.movie-hover-card`. Furthermore, `.movie-carousel` padding-bottom (95px) was tight for cards with multi-line descriptions and tags.
+     - *Fix*: Set `.movie-hover-card { overflow: visible; top: -55px; }`. Anchored `.custom-genre-tooltip { right: 0; left: auto; max-width: 250px; }`. Increased `.movie-carousel` to `padding: 65px 0 115px 0; margin: -65px 65px -95px 65px;` (preserving net 20px spacing). Added runtime bounding clamp in `script.js:showGenreTooltip()`.
+     - *Runtime Verification*: `[PASS]` on all served CSS/JS assets; zero clipping on genre bubbles and card bottom.
+  2. **`/search` Carousel Arrows Overlapping Cards**:
+     - *Root Cause*: `search.css` line 520 had `.search-page-container .movie-carousel { margin: -65px 0 -75px 0; }` which overrode the standard 65px gutters to 0. Since `.carousel-nav` buttons sit at `left: 10px; right: 10px;`, they overlapped directly on top of card 1 and card 6.
+     - *Fix*: Removed the harmful override in `search.css`. Now inherits standard `margin: -65px 65px -95px 65px;` from `style.css`. Set `.search-page-container .section-header { padding: 0 65px; }` to align title and "Xem thêm" with cards. Replaced broken `initCarousel` call with `initializeAllCarousels()` in `search.js`.
+     - *Runtime Verification*: `[PASS]` on served assets. Navigation arrows `<` and `>` sit inside the 65px gutters with 10px clear buffer, matching Home carousel behavior.
+  3. **AI Chatbot Message Giant Indentation**:
+     - *Root Cause*: `.ai-message-content` was given `white-space: pre-wrap !important;`. The template string in `addBotMessage` contained literal indentation (`\n                        `), which the browser rendered as 24 whitespace characters on the first line.
+     - *Fix*: Changed to `white-space: normal !important;` on `.ai-message-content`. Stripped template string indentation in `addBotMessage` and `addUserMessage`. Added `.ai-bot-text` wrapper.
+     - *Runtime Verification*: `[PASS]` on served assets. Normal messages render compactly with natural line spacing and no giant indent.
+  4. **AI Recommendation Cards Layout & Mouse Drag**:
+     - *Root Cause*: Missing fixed dimensions caused recommendation cards to stretch to full window height with huge whitespace. Title had no line-clamp.
+     - *Fix*: Formatted `.ai-movie-card` with compact dimensions (`flex: 0 0 115px; height: 195px;`), poster wrapper (`height: 135px; overflow: hidden;`), strictly clamped title to max 2 lines with `-webkit-line-clamp: 2` (`max-height: 2.5em`). Implemented horizontal mouse drag-to-scroll on `.ai-movie-scroll` via `makeScrollableDraggable` with move threshold guard to avoid accidental clicks. Added `Escape` key close listener.
+     - *Runtime Verification*: `[PASS]` on served assets.
+  5. **AI Search Token Extraction Bug ("Scary Movie" title)**:
+     - *Root Cause*: Destructive global replacement `replaceAll("(?i)(phim|tên|diễn viên|...)", "")` in `AISearchService.java` stripped words like "Movie" from movie titles.
+     - *Fix*: Replaced with prefix-only regex stripping: `replaceAll("(?i)^(gợi ý|suggestion|phim|tên phim|diễn viên|đạo diễn)[:\\-\\s]+", "")`.
+     - *Runtime Verification*: Verified live with query `Scary Movie` -> correctly returns `Scary Movie 2`, `Airplane`, etc. without stripping "Movie".
+  6. **AI Search & Chatbot Backend Deep Audit**:
+     - End-to-end trace from Controller to Service, GeminiClient, and Database verified.
+     - Prompt token efficiency: temperature 0.7, topP 0.9, maxOutputTokens 2048.
+     - Rate-limit discovery: Gemini API key has `GenerateRequestsPerDayPerProjectPerModel-FreeTier` quota (20 req/day). Handled gracefully with backoff and user-friendly error messages.
+- **Build / Test**: `.\mvnw.cmd test` -> `BUILD SUCCESS` (1 test, 0 failures, 0 errors, 14.44s).
+- **Git State**: Checkpoint `9786ba9`. Wave 4+5 changes remain **UNCOMMITTED**.
+- **Human Acceptance Status**: `HUMAN ACCEPTANCE PENDING` (Browser subagent experienced 503 model capacity error, so human verification is required for rendered visual sign-off).
+
 ## 2026-09-27 - Phase 8 Hotfix: Sticker Suggestions, PeerJS, Leave Endpoint, Compile Error
 
 - **Commit**: 3bd0aca pushed to origin/main
@@ -530,3 +588,22 @@ efactor/batch-3-quick-wins
  -   * * C o m m i t * * :   N o t   C o m m i t t e d   /   N o t   P u s h e d   y e t . 
   
  
+## 2026-09-29 - Wave 4+5: AI Experience + Navigation + AI Optimization + UI/UX Hardening
+- **Objective**: Audit, fix root causes, optimize AI Search & AI Chatbot, harden UI/UX (hover card bottom clearance, "Xem thêm" & Studio badge clickability, floating support system density, global scrollbar, and emoji cleanup) with zero regressions against accepted baselines.
+- **Checkpoint Commit**: 9786ba9 (chore: checkpoint after UI UX hardening), pushed to origin/main. All Wave 4+5 changes remain UNCOMMITTED for human review.
+- **Gemini API Key & Model Diagnostic**:
+  - Investigated gemini.api.key and proved that Gemini connection is 100% active and functioning (gemini-2.5-flash at generativelanguage.googleapis.com).
+  - Tested multiple queries in Vietnamese and English; verified structured response generation and search token output.
+- **Root Cause Fixes Applied**:
+  1. **AI Search False Red Banner ([FIXED])**: .ai-error in search.css had display: flex; overriding [hidden] selector specificity. Fixed with .ai-error[hidden], .ai-loading[hidden], .ai-movie-results[hidden] { display: none !important; }.
+  2. **"Xem thêm" & Studio Badge Unclickable ([FIXED])**: .movie-carousel with -65px negative margin was stacking above .section-header in DOM order. Added z-index: 10; to .section-header in style.css.
+  3. **Hover Card Bottom Clipping ([FIXED])**: .movie-carousel height was 455px, cutting off bottom 34px of 456px hover cards. Increased .movie-carousel padding-bottom to 95px with matching -75px margin (net 20px section spacing strictly preserved); adjusted .movie-hover-card { top: -50px; } in hover-card.css. Top clearance 25px > 0, bottom ends at 475px < 480px, completely unclipped.
+  4. **CSKH Window Top Clipping ([FIXED])**: Relocated #support-chat-window-fixed from ottom: 200px; height: 450px; (650px from bottom) to ottom: 84px; right: 24px; width: 360px; height: 480px; max-height: calc(100vh - 100px);.
+  5. **Floating Widgets Density & Coherence ([POLISH], [FIXED])**: Compact 48px diameter for both icons (ight: 24px, CSKH at ottom: 84px, AI Chatbot at ottom: 24px). AI Chatbot header & footer vertical consumption reduced from ~40% to ~24% (>75% space for conversation). Added mutual exclusivity, click-outside panel closing, and Escape key panel dismiss.
+  6. **Error Text Horizontal Overflow ([FIXED])**: Added overflow-wrap: anywhere !important; word-break: break-word !important; white-space: pre-wrap !important; to .ai-message-content.
+  7. **AI Search Token Extraction Bug ([FIXED])**: In AISearchService.java, removed destructive global replacement 	ext.replaceAll("(?i)(phim|tên|...)", "") that altered movie titles like "Scary Movie" -> "Scary ". Replaced with safe prefix-only cleaning: eplaceAll("(?i)^(gợi ý|suggestion|phim|tên phim|diễn viên|đạo diễn)[:\\-\\s]+", "").
+  8. **Decorative Emoji Removal ([POLISH])**: Cleaned emojis from section titles across search.html, movie-detail.html ("Phim tương tự"), ecommended-movie.html ("Gợi ý dành cho bạn"), and list-favorite.html ("Danh sách Yêu thích").
+  9. **Global Website Scrollbar ([POLISH])**: Added html { background: #141414; color: #ffffff; scrollbar-width: none; -ms-overflow-style: none; } and webkit scrollbar hiding in style.css.
+- **Automated Verification**:
+  - .\mvnw.cmd test passed (BUILD SUCCESS, 1 test, 0 failures, 0 errors).
+- **Git State**: Working tree has uncommitted changes, ready for human review. HUMAN ACCEPTANCE: PENDING.

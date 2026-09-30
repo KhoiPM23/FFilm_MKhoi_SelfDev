@@ -11,6 +11,7 @@
     </title>
 
     <input type="hidden" id="currentUserId" th:value="${session.user?.id}" />
+    <input type="hidden" id="currentUserName" th:value="${session.user?.userName}" />
 
     <meta
       th:if="${movie?.movieID}"
@@ -19,6 +20,7 @@
     />
     <link rel="stylesheet" href="/css/footer.css" />
     <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" th:href="@{/css/comment.css}" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -1148,42 +1150,54 @@
             </div>
           </div>
 
-          <div class="comments-section">
-          <div class="comments-header">
-            <h2 class="comments-count">
-              <span id="comment-count">0</span>
-              Bình luận
-            </h2>
-          </div>
-
-          <div class="comment-input-box" th:if="${session.user != null}">
-            <div class="user-avatar">
-              <span th:text="${#strings.substring(session.user.userName,0,1).toUpperCase()}">U</span>
+          <div class="comments-section comments-wrapper">
+            <div class="comments-header-main">
+              <div class="comments-title-row">
+                <h2 class="comments-title-main">
+                  <i class="fas fa-comments" style="color: #e50914; margin-right: 4px;"></i>
+                  Bình luận (<span id="comment-count">0</span>)
+                </h2>
+              </div>
+              <div class="comments-sort-tabs">
+                <button type="button" class="sort-tab-btn active" data-sort="top">Nổi bật nhất</button>
+                <button type="button" class="sort-tab-btn" data-sort="newest">Mới nhất</button>
+              </div>
             </div>
-            <div style="flex: 1">
-              <input type="text" id="comment-input-field" placeholder="Viết bình luận..." class="comment-input-field" />
-              <div class="comment-actions">
-                <button class="action-button" id="btn-submit-comment" disabled>
-                  Gửi
-                </button>
+
+            <div class="comment-input-box" th:if="${session.user != null}">
+              <div class="user-avatar">
+                <span th:text="${#strings.substring(session.user.userName,0,1).toUpperCase()}">U</span>
+              </div>
+              <div class="comment-input-wrapper">
+                <div class="comment-input-field-relative">
+                  <input type="text" id="comment-input-field" placeholder="Gửi bình luận..." class="comment-input-line" autocomplete="off" />
+                  <button type="button" class="btn-open-emoji-picker" id="btn-open-emoji" title="Chọn biểu cảm">
+                    <i class="far fa-smile"></i>
+                  </button>
+                </div>
+                <div class="comment-actions-bar">
+                  <span class="comment-hint"><i class="fas fa-shield-alt"></i> Bình luận văn minh, tôn trọng người xem khác</span>
+                  <button class="btn-comment-submit" id="btn-submit-comment" disabled>
+                    <i class="fas fa-paper-plane"></i> <span>Gửi bình luận</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment-input-box" th:unless="${session.user != null}"
+              style="background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 8px; text-align: center; border: 1px dashed rgba(255,255,255,0.15);">
+              <p style="color: #888; margin: 0;">
+                <i class="fas fa-lock" style="margin-right: 8px; color: #e50914;"></i>
+                Bạn cần <a href="/login" style="color: #e50914; text-decoration: none; font-weight: 600;">đăng nhập</a> để bình luận
+              </p>
+            </div>
+
+            <div class="comment-list-main" id="comment-list">
+              <div style="text-align: center; color: #777; padding: 20px">
+                <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
               </div>
             </div>
           </div>
-
-          <div class="comment-input-box" th:unless="${session.user != null}"
-            style="background: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
-            <p style="color: #888; margin: 0;">
-              <i class="fas fa-lock" style="margin-right: 8px;"></i>
-              Bạn cần <a href="/login" style="color: #e50914; text-decoration: none;">đăng nhập</a> để bình luận
-            </p>
-          </div>
-
-          <div class="comment-list" id="comment-list">
-            <div style="text-align: center; color: #777; padding: 20px">
-              <i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...
-            </div>
-          </div>
-        </div>
         </div>
         <div class="sidebar">
           <h3 class="section-title">Có thể bạn thích</h3>
@@ -1519,6 +1533,7 @@
         }
       });
     </script>
+    <script th:src="@{/js/emoji-data.js}"></script>
     <script th:src="@{/js/movie/comment-handler.js}"></script>
     <script th:src="@{/js/movie/player.js}"></script>
   </body>

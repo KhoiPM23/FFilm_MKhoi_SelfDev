@@ -7,6 +7,9 @@
 (function () {
   "use strict";
 
+  if (window.__FFILM_SCRIPT_LOADED__) return;
+  window.__FFILM_SCRIPT_LOADED__ = true;
+
   // =========================================================================
   // 1. CẤU HÌNH VÀ BIẾN TOÀN CỤC (GLOBAL CONFIG AND STATE)
   // =========================================================================
@@ -186,16 +189,16 @@
     const movieData = cardElement.dataset;
     const heroContentEl = document.querySelector(".hero-content");
 
-    // 1. Fade-out nội dung cũ
+    // 1. Slide-out nội dung cũ mượt mà sang trái
     if (heroContentEl) {
-      heroContentEl.style.transition = "opacity 0.25s ease-out";
-      heroContentEl.style.opacity = "0";
+      heroContentEl.classList.remove("slide-in-prep", "slide-in-active");
+      heroContentEl.classList.add("slide-out");
     }
 
     // 2. Hủy video cũ và reset DOM
     resetHeroVideoDOM();
 
-    // 3. Delay 250ms
+    // 3. Delay 220ms
     setTimeout(() => {
       // 4. Cập nhật banner data (CƠ BẢN)
       heroBanner.style.backgroundImage = `url(${movieData.backdrop})`;
@@ -278,21 +281,17 @@
       if (heroOverview) heroOverview.classList.remove("expanded");
       if (descToggleBtn) descToggleBtn.classList.remove("expanded");
 
-      // 8. Hiệu ứng Fade-in
+      // 8. Hiệu ứng Slide-in từ trái sang phải mượt mà (không giựt)
       if (heroContentEl) {
-        heroContentEl.style.transition = "none";
-        heroContentEl.style.transform = "translateX(-60px)";
-        heroContentEl.style.opacity = "0";
-        heroContentEl.offsetHeight;
-
-        setTimeout(() => {
-          heroContentEl.style.transition =
-            "transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.6s ease-out";
-          heroContentEl.style.transform = "translateX(0)";
-          heroContentEl.style.opacity = "1";
-        }, 50);
+        heroContentEl.classList.remove("slide-out");
+        heroContentEl.classList.add("slide-in-prep");
+        void heroContentEl.offsetWidth; // Force reflow
+        requestAnimationFrame(() => {
+          heroContentEl.classList.remove("slide-in-prep");
+          heroContentEl.classList.add("slide-in-active");
+        });
       }
-    }, 250);
+    }, 220);
 
     // 9. Cập nhật mini-carousel
     const activeMovieId = cardElement.dataset.movieId;
@@ -722,13 +721,15 @@
       (entries, observer) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add("loaded");
+            setTimeout(() => {
+              entry.target.classList.add("loaded");
+            }, 80);
             observer.unobserve(entry.target);
           }
         });
       },
       {
-        rootMargin: "0px 0px -100px 0px",
+        rootMargin: "0px 0px -50px 0px",
         threshold: 0.05,
       }
     );
@@ -1032,7 +1033,18 @@
    */
   window.showGenreTooltip = function (element) {
     const tooltip = element.querySelector(".custom-genre-tooltip");
-    if (tooltip) tooltip.style.display = "flex";
+    if (!tooltip) return;
+    tooltip.style.left = "";
+    tooltip.style.right = "";
+    tooltip.style.display = "flex";
+
+    // Only adjust if protruding outside the entire browser viewport (to prevent page scrollbar)
+    const tipRect = tooltip.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    if (tipRect.right > viewportWidth - 8) {
+      tooltip.style.left = "auto";
+      tooltip.style.right = "0";
+    }
   };
 
   /**
@@ -1041,7 +1053,11 @@
    */
   window.hideGenreTooltip = function (element) {
     const tooltip = element.querySelector(".custom-genre-tooltip");
-    if (tooltip) tooltip.style.display = "none";
+    if (tooltip) {
+      tooltip.style.display = "none";
+      tooltip.style.left = "";
+      tooltip.style.right = "";
+    }
   };
 
   /**
@@ -1227,12 +1243,15 @@
     const containerRect = slider ? slider.parentElement.getBoundingClientRect() : { left: 0, right: viewportWidth };
 
     const spaceLeft = Math.min(cardRect.left, cardRect.left - containerRect.left);
-    const spaceRight = Math.min(viewportWidth - cardRect.right, containerRect.right - cardRect.right);
+
+    // Edge-aware: align left edge at left boundary, align right edge at right boundary
+    const spaceRight = viewportWidth - cardRect.right;
 
     if (spaceLeft < 60) {
       hoverCard.classList.add("edge-left");
       hoverCard.classList.remove("edge-right");
-    } else if (spaceRight < 60) {
+    } else if (spaceRight < 100) {
+      // Card nằm sát mép phải viewport → mở hover card về bên trái để không bị khuất
       hoverCard.classList.add("edge-right");
       hoverCard.classList.remove("edge-left");
     } else {
@@ -1911,5 +1930,133 @@
     // Init Hover Cards (nếu có)
     if (typeof window.initHoverCards === 'function') window.initHoverCards();
   });
+
+  // =======================================================
+  // 6. TOP PAGE PROGRESS LOADER (YOUTUBE STYLE)
+  // =======================================================
+  (function initTopPageLoader() {
+    let loader = document.getElementById("page-top-loader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "page-top-loader";
+      if (document.body) {
+        document.body.prepend(loader);
+      } else {
+        document.addEventListener("DOMContentLoaded", () => document.body.prepend(loader), { once: true });
+      }
+    }
+
+    let loaderTimeout = null;
+
+    function startLoader() {
+      if (!loader) loader = document.getElementById("page-top-loader");
+      if (!loader) return;
+      if (loaderTimeout) clearTimeout(loaderTimeout);
+      loader.classList.remove("done");
+      loader.classList.add("loading");
+      loader.style.width = "25%";
+      loaderTimeout = setTimeout(() => {
+        loader.style.width = "75%";
+      }, 120);
+    }
+
+    function finishLoader() {
+      if (document.body) document.body.classList.remove("page-transitioning");
+      if (!loader) loader = document.getElementById("page-top-loader");
+      if (!loader) return;
+      if (loaderTimeout) clearTimeout(loaderTimeout);
+      if (loader.classList.contains("loading")) {
+        loader.classList.add("done");
+        setTimeout(() => {
+          loader.classList.remove("loading", "done");
+          loader.style.width = "0%";
+        }, 400);
+      }
+    }
+
+    // Expose helpers globally
+    window.startPageLoader = startLoader;
+    window.finishPageLoader = finishLoader;
+    window.triggerPageTransition = function(url) {
+      if (document.body) document.body.classList.add("page-transitioning");
+      startLoader();
+      if (url) {
+        setTimeout(() => { window.location.href = url; }, 50);
+      }
+    };
+
+    // Finish loader when page is ready
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      finishLoader();
+    } else {
+      window.addEventListener("DOMContentLoaded", finishLoader, { once: true });
+    }
+    window.addEventListener("load", finishLoader, { once: true });
+    window.addEventListener("pageshow", finishLoader);
+
+    // Intercept internal link clicks and card elements with data-href
+    document.addEventListener("click", function (e) {
+      const targetEl = e.target.closest("a, [data-href], [data-url]");
+      if (!targetEl) return;
+
+      let href = "";
+      const isAnchor = targetEl.tagName.toLowerCase() === "a";
+      if (isAnchor) {
+        href = targetEl.getAttribute("href");
+        if (
+          !href ||
+          href.startsWith("#") ||
+          href.startsWith("javascript:") ||
+          targetEl.target === "_blank" ||
+          targetEl.hasAttribute("download") ||
+          targetEl.dataset.noLoader !== undefined
+        ) {
+          return;
+        }
+      } else {
+        // [data-href] or [data-url]
+        href = targetEl.getAttribute("data-href") || targetEl.getAttribute("data-url");
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+      }
+
+      // Only trigger for same-origin links
+      try {
+        const targetUrl = new URL(href, window.location.origin);
+        if (targetUrl.origin === window.location.origin) {
+          if (targetUrl.pathname === window.location.pathname && targetUrl.search === window.location.search && targetUrl.hash) {
+            return; // In-page anchor jump
+          }
+          if (document.body) document.body.classList.add("page-transitioning");
+          startLoader();
+
+          if (!isAnchor && !targetEl.onclick && !e.defaultPrevented) {
+            setTimeout(() => {
+              window.location.href = targetUrl.href;
+            }, 60);
+          }
+        }
+      } catch (err) {
+        // Ignore invalid URL
+      }
+    });
+
+    // Form submission feedback
+    document.addEventListener("submit", function(e) {
+      const form = e.target;
+      if (form && form.target !== "_blank") {
+        if (document.body) document.body.classList.add("page-transitioning");
+        startLoader();
+      }
+    });
+
+    window.addEventListener("pagehide", () => {
+      if (loader) loader.style.width = "95%";
+    });
+
+    // Fallback: auto-hide if navigation takes longer than 8s or gets cancelled
+    window.addEventListener("beforeunload", () => {
+      setTimeout(() => finishLoader(), 8000);
+    });
+  })();
 
 })();

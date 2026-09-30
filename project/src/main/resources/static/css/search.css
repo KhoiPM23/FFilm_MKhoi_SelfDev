@@ -12,6 +12,11 @@
             padding: 100px 50px 80px;
         }
 
+        .search-page-container .movies {
+            margin-top: 20px;
+            padding: 20px 0;
+        }
+
         /* Hero Section */
         .search-hero {
             text-align: center;
@@ -67,7 +72,14 @@
         }
 
         /* live suggestions */
-        .live-suggestions { display: none; }
+        .live-suggestions { 
+            display: none; 
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .live-suggestions::-webkit-scrollbar { 
+            display: none; 
+        }
         .live-suggestions.show { display: block; }
         .suggestion-item { display:flex; gap:10px; padding:8px; align-items:center; cursor:pointer; border-radius:8px; }
         .suggestion-item img { width:46px; height:64px; object-fit:cover; border-radius:4px; }
@@ -494,24 +506,15 @@
             }
         }
 
-        .movies.movie-list-section {
+        .search-page-container .movies.movie-list-section {
             position: relative;
             z-index: 1;
-            left: 0;
-            /* Kéo section ra sát mép trái container cha (do container cha đang padding 50px) */
-            margin-left: -150px;
-            /* Bù lại chiều rộng đã bị kéo */
-            width: calc(100% + 100px);
-            /* Padding trong để nội dung thẳng hàng lại với header */
-            padding: 40px 50px;
+            margin-left: 0;
+            width: 100%;
+            padding: 30px 0;
         }
-        /* Responsive cho màn hình nhỏ */
-        @media (max-width: 768px) {
-            .movies.movie-list-section {
-                margin-left: -20px;
-                width: calc(100% + 40px);
-                padding: 30px 20px;
-            }
+        .search-page-container .section-header {
+            padding: 0 65px;
         }
 
         .fire-icon {
@@ -884,6 +887,12 @@
             border-color: #46d369;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(70, 211, 105, 0.3);
+        }
+
+        .ai-error[hidden],
+        .ai-loading[hidden],
+        .ai-movie-results[hidden] {
+            display: none !important;
         }
 
         .ai-error {

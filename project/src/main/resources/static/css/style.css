@@ -5,13 +5,42 @@
     box-sizing: border-box;
 }
 
+html {
+    background: #141414;
+    color: #ffffff;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+@keyframes pageEnterFade {
+    0% {
+        opacity: 0.88;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
 body {
     font-family: "Segoe UI", Arial, sans-serif;
     background: #141414;
     color: #ffffff;
     line-height: 1.5;
     overflow-x: hidden;
+    animation: pageEnterFade 0.3s ease-out;
+}
 
+body.page-transitioning {
+    opacity: 0.85;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
 }
 
 /*==================================================*/
@@ -389,6 +418,28 @@ body {
 /*---- 2. HERO BANNER & COMPONENTS ----*/
 /*=======================================*/
 
+@keyframes heroReveal {
+    0% {
+        opacity: 0.35;
+        transform: scale(1.02);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes heroContentFloatUp {
+    0% {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /*----- Hero Banner */
 .hero-banner {
     padding-top: 70px;
@@ -402,7 +453,9 @@ body {
     background-position: center center;
     background-repeat: no-repeat;
     transition: background-image 0.5s ease;
+    animation: heroReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
 
 /*----- Video Player Container */
 .hero-video-container {
@@ -449,14 +502,33 @@ body {
     pointer-events: none;
 }
 
-/*----- Content Positioning */
+/*----- Content Positioning & Smooth Slide Animation -----*/
 .hero-content {
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    transition: opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     position: absolute;
     bottom: 25%;
     left: 50px;
     max-width: 600px;
     z-index: 10;
+    will-change: transform, opacity;
+}
+
+.hero-content.slide-out {
+    opacity: 0 !important;
+    transform: translateX(-40px) !important;
+    transition: transform 0.22s ease-in, opacity 0.2s ease-in !important;
+}
+
+.hero-content.slide-in-prep {
+    opacity: 0 !important;
+    transform: translateX(-60px) !important;
+    transition: none !important;
+}
+
+.hero-content.slide-in-active {
+    opacity: 1 !important;
+    transform: translateX(0) !important;
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease-out !important;
 }
 
 /*----- Title and Logo */
@@ -808,19 +880,36 @@ body {
 .movies {
     padding: 40px 0;
     position: relative;
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.movies:first-of-type {
+.movies.loaded,
+.movies:first-of-type,
+.hero-banner ~ .movies:first-of-type,
+.hero-banner + .movies {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hero-banner ~ .movies:first-of-type,
+.hero-banner + .movies {
     margin-top: -125px;
     z-index: 20;
 }
 
-.movies.loaded {
-    opacity: 1;
-    transform: translateY(0);
+.movies:hover,
+.movies:focus-within,
+.movies:has(.movie-card:hover),
+.movies.movie-list-section:has(.movie-card:hover) {
+    z-index: 999998 !important;
+}
+
+.movie-carousel:has(.movie-card:hover),
+.movie-slider:has(.movie-card:hover) {
+    z-index: 999998 !important;
+    position: relative !important;
 }
 
 /*----- Header Section */
@@ -831,6 +920,7 @@ body {
     align-items: center;
     margin-bottom: 20px;
     padding: 0 50px;
+    z-index: 10;
 }
 
 .section-title-wrapper {
@@ -925,8 +1015,8 @@ body {
 /*----- Carousel Slider */
 .movie-carousel {
     position: relative;
-    margin: -65px 65px -50px 65px;
-    padding: 65px 0 70px 0;
+    margin: -65px 65px -95px 65px;
+    padding: 65px 0 115px 0;
     overflow: hidden;
 }
 
@@ -1567,4 +1657,140 @@ footer {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
     width: 100%;
+}
+
+/*=======================================================*/
+/*---- TOP PAGE PROGRESS LOADER ----*/
+/*=======================================================*/
+#page-top-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, #ff1744, #e50914, #ff5252);
+    box-shadow: 0 0 10px rgba(229, 9, 20, 0.8), 0 0 5px rgba(255, 23, 68, 0.6);
+    z-index: 9999999;
+    pointer-events: none;
+    opacity: 0;
+    border-radius: 0 2px 2px 0;
+    transition: width 0.25s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.2s ease;
+}
+
+#page-top-loader.loading {
+    opacity: 1;
+}
+
+#page-top-loader.done {
+    width: 100% !important;
+    opacity: 0;
+    transition: width 0.15s ease, opacity 0.25s ease 0.15s;
+}
+
+/*=======================================================*/
+/*---- GLOBAL PAGE CONTENT TRANSITIONS (ALL PAGES) ----*/
+/*=======================================================*/
+.main-content-wrapper,
+.page-content-wrapper,
+.search-page-container,
+.discover-results-section,
+.person-container,
+.company-container,
+.profile-container,
+.profile-main,
+.lobby-container,
+.rooms-container,
+.room-container,
+.cinema-area,
+.content-wrapper,
+.pricing-container,
+.confirm-container,
+.history-container,
+.billing-container,
+.page-header,
+.movies-section,
+.category-header,
+.messages-container,
+.messenger-container,
+.error-container,
+.main-content,
+.stats-grid,
+.table-container,
+.dashboard-container {
+    animation: heroContentFloatUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.favorite-grid .movie-card,
+.results-grid .movie-card,
+.search-grid .movie-card,
+.movie-grid .movie-card,
+.movies-grid .movie-card,
+.movie-list-container .movie-card,
+.discover-results-section .movie-card,
+.movie-list-section .movie-card,
+.cast-grid .cast-card,
+.friend-grid .friend-card,
+.pricing-grid .pricing-card,
+.history-list .history-item,
+.dashboard-card,
+.stat-card {
+    animation: heroContentFloatUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Stagger cascade reveal for grids and lists */
+.favorite-grid .movie-card:nth-child(1),
+.results-grid .movie-card:nth-child(1),
+.search-grid .movie-card:nth-child(1),
+.movie-grid .movie-card:nth-child(1),
+.movies-grid .movie-card:nth-child(1),
+.movie-list-container .movie-card:nth-child(1),
+.pricing-grid .pricing-card:nth-child(1),
+.stat-card:nth-child(1) { animation-delay: 0.04s; }
+
+.favorite-grid .movie-card:nth-child(2),
+.results-grid .movie-card:nth-child(2),
+.search-grid .movie-card:nth-child(2),
+.movie-grid .movie-card:nth-child(2),
+.movies-grid .movie-card:nth-child(2),
+.movie-list-container .movie-card:nth-child(2),
+.pricing-grid .pricing-card:nth-child(2),
+.stat-card:nth-child(2) { animation-delay: 0.08s; }
+
+.favorite-grid .movie-card:nth-child(3),
+.results-grid .movie-card:nth-child(3),
+.search-grid .movie-card:nth-child(3),
+.movie-grid .movie-card:nth-child(3),
+.movies-grid .movie-card:nth-child(3),
+.movie-list-container .movie-card:nth-child(3),
+.pricing-grid .pricing-card:nth-child(3),
+.stat-card:nth-child(3) { animation-delay: 0.12s; }
+
+.favorite-grid .movie-card:nth-child(4),
+.results-grid .movie-card:nth-child(4),
+.search-grid .movie-card:nth-child(4),
+.movie-grid .movie-card:nth-child(4),
+.movies-grid .movie-card:nth-child(4),
+.movie-list-container .movie-card:nth-child(4),
+.stat-card:nth-child(4) { animation-delay: 0.16s; }
+
+.favorite-grid .movie-card:nth-child(5),
+.results-grid .movie-card:nth-child(5),
+.search-grid .movie-card:nth-child(5),
+.movie-grid .movie-card:nth-child(5),
+.movies-grid .movie-card:nth-child(5),
+.movie-list-container .movie-card:nth-child(5) { animation-delay: 0.20s; }
+
+.favorite-grid .movie-card:nth-child(6),
+.results-grid .movie-card:nth-child(6),
+.search-grid .movie-card:nth-child(6),
+.movie-grid .movie-card:nth-child(6),
+.movies-grid .movie-card:nth-child(6),
+.movie-list-container .movie-card:nth-child(6) { animation-delay: 0.24s; }
+
+/* Image placeholder shimmer while loading */
+img.lazy-load:not(.loaded),
+.movie-poster img[loading="lazy"]:not([src]) {
+    background: linear-gradient(90deg, #252830 25%, #323742 50%, #252830 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
