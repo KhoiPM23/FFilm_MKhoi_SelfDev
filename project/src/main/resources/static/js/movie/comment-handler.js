@@ -245,10 +245,11 @@ class CommentHandler {
                 rootComments.push(c);
             } else {
                 const rootId = getRootId(c) || parentId;
-                // Annotate reply with @mention name
+                // Annotate reply with @mention name and root reference
                 const directParent = commentMap[parentId];
                 c._replyToName = directParent?.user?.userName || null;
                 c._replyToId = parentId;
+                c._rootId = rootId;  // ← used by createReplyHTML for flat threading
                 if (!repliesByRoot[rootId]) repliesByRoot[rootId] = [];
                 repliesByRoot[rootId].push(c);
             }
@@ -288,6 +289,7 @@ class CommentHandler {
         const createAt = this.formatTimeAgo(comment.createAt);
         const content = this.escapeHtml(comment.content);
         const commentUserId = comment.user?.userID || comment.user?.id;
+        const safeUserName = (userName || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
         const isOwner = this.currentUserId && (this.currentUserId === commentUserId);
 
@@ -387,7 +389,7 @@ class CommentHandler {
                             ${this.renderFloatingReactionPalette(comment.commentID)}
                         </div>
 
-                        <button type="button" class="btn-reply-trigger" onclick="window.commentHandler.toggleReplyBox(${comment.commentID}, '${userName}')">
+                        <button type="button" class="btn-reply-trigger" onclick="window.commentHandler.toggleReplyBox(${comment.commentID}, '${safeUserName}', ${comment.commentID})">
                             Trả lời
                         </button>
 
@@ -412,6 +414,7 @@ class CommentHandler {
         const createAt = this.formatTimeAgo(reply.createAt);
         const content = this.escapeHtml(reply.content);
         const commentUserId = reply.user?.userID || reply.user?.id;
+        const safeUserName = (userName || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
         const isOwner = this.currentUserId && (this.currentUserId === commentUserId);
 
@@ -452,10 +455,11 @@ class CommentHandler {
             `;
         }
 
-        // Root comment ID for flat threading (reply button always opens on root)
+        // Root comment ID for flat threading (thread container uses rootId)
         const rootIdForReply = reply._rootId || (reply.parentCommentId ?? reply.commentID);
-        // @mention for nested replies
-        const mentionHTML = reply._replyToName
+        // @mention for nested replies (when replying to another reply)
+        const isNestedReply = reply._replyToId && reply._rootId && (reply._replyToId !== reply._rootId);
+        const mentionHTML = (reply._replyToName && isNestedReply)
             ? `<span class="reply-mention">@${this.escapeHtml(reply._replyToName)}</span> `
             : '';
 
@@ -485,12 +489,15 @@ class CommentHandler {
                             ${this.renderFloatingReactionPalette(reply.commentID)}
                         </div>
 
-                        <button type="button" class="btn-reply-trigger" onclick="window.commentHandler.toggleReplyBox(${rootIdForReply}, '${userName}')">
+                        <button type="button" class="btn-reply-trigger" onclick="window.commentHandler.toggleReplyBox(${reply.commentID}, '${safeUserName}', ${rootIdForReply})">
                             Trả lời
                         </button>
 
                         ${reactionsBadgeHTML}
                     </div>
+
+                    <!-- Inline Reply Input Box for this specific reply -->
+                    <div id="reply-box-container-${reply.commentID}"></div>
                 </div>
             </div>
         `;
@@ -619,61 +626,71 @@ class CommentHandler {
 
     /**
      * Mở / Đóng inline reply box
+     * @param {number} targetCommentId ID của comment được trả lời (root hoặc reply con)
+     * @param {string} targetUserName Tên của người dùng được trả lời
+     * @param {number} rootCommentId ID của root comment chứa thread này
      */
-    toggleReplyBox(parentCommentId, targetUserName) {
+    toggleReplyBox(targetCommentId, targetUserName, rootCommentId) {
         if (!this.currentUserId) {
             alert('Bạn cần đăng nhập để phản hồi bình luận');
             return;
         }
 
-        const container = document.getElementById(`reply-box-container-${parentCommentId}`);
+        const container = document.getElementById(`reply-box-container-${targetCommentId}`);
         if (!container) return;
 
-        if (this.activeReplyBoxId === parentCommentId && container.innerHTML.trim() !== '') {
+        if (this.activeReplyBoxId === targetCommentId && container.innerHTML.trim() !== '') {
             container.innerHTML = '';
             this.activeReplyBoxId = null;
             return;
         }
 
-        this.activeReplyBoxId = parentCommentId;
+        // Đóng các reply box khác đang mở
+        if (this.activeReplyBoxId && this.activeReplyBoxId !== targetCommentId) {
+            const prevContainer = document.getElementById(`reply-box-container-${this.activeReplyBoxId}`);
+            if (prevContainer) prevContainer.innerHTML = '';
+        }
+
+        this.activeReplyBoxId = targetCommentId;
+        const actualRootId = rootCommentId || targetCommentId;
 
         // Render reply box
         container.innerHTML = `
-            <div class="inline-reply-box">
-                <div class="comment-avatar-circle current-user-avatar" style="width: 32px; height: 32px; font-size: 0.82rem;">${this.currentUserInitial}</div>
+            <div class="inline-reply-box" style="margin-top: 8px;">
+                <div class="comment-avatar-circle current-user-avatar" style="width: 28px; height: 28px; font-size: 0.8rem;">${this.currentUserInitial}</div>
                 <div class="comment-input-wrapper" style="flex: 1;">
                     <div class="comment-input-field-relative">
-                        <input type="text" id="reply-input-${parentCommentId}" class="comment-input-line" 
-                               placeholder="Phản hồi cho ${targetUserName}..." autocomplete="off" />
-                        <button type="button" class="btn-open-emoji-picker" id="btn-emoji-reply-${parentCommentId}">
+                        <input type="text" id="reply-input-${targetCommentId}" class="comment-input-line" 
+                               placeholder="Phản hồi cho ${this.escapeHtml(targetUserName)}..." autocomplete="off" />
+                        <button type="button" class="btn-open-emoji-picker" id="btn-emoji-reply-${targetCommentId}">
                             <i class="far fa-smile"></i>
                         </button>
                     </div>
                     <div class="reply-actions-bar">
-                        <button type="button" class="btn-cancel-reply" onclick="window.commentHandler.closeReplyBox(${parentCommentId})">Hủy</button>
-                        <button type="button" class="btn-submit-reply" id="btn-send-reply-${parentCommentId}">Trả lời</button>
+                        <button type="button" class="btn-cancel-reply" onclick="window.commentHandler.closeReplyBox(${targetCommentId})">Hủy</button>
+                        <button type="button" class="btn-submit-reply" id="btn-send-reply-${targetCommentId}">Trả lời</button>
                     </div>
                 </div>
             </div>
         `;
 
-        const replyInput = document.getElementById(`reply-input-${parentCommentId}`);
-        const replySubmit = document.getElementById(`btn-send-reply-${parentCommentId}`);
-        const replyEmoji = document.getElementById(`btn-emoji-reply-${parentCommentId}`);
+        const replyInput = document.getElementById(`reply-input-${targetCommentId}`);
+        const replySubmit = document.getElementById(`btn-send-reply-${targetCommentId}`);
+        const replyEmoji = document.getElementById(`btn-emoji-reply-${targetCommentId}`);
 
         if (replyInput) {
             replyInput.focus();
             replyInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    this.submitReply(parentCommentId, replyInput.value);
+                    this.submitReply(targetCommentId, replyInput.value, actualRootId);
                 }
             });
         }
 
         if (replySubmit && replyInput) {
             replySubmit.addEventListener('click', () => {
-                this.submitReply(parentCommentId, replyInput.value);
+                this.submitReply(targetCommentId, replyInput.value, actualRootId);
             });
         }
 
@@ -685,14 +702,18 @@ class CommentHandler {
         }
     }
 
-    closeReplyBox(parentCommentId) {
-        const container = document.getElementById(`reply-box-container-${parentCommentId}`);
+    closeReplyBox(targetCommentId) {
+        const container = document.getElementById(`reply-box-container-${targetCommentId}`);
         if (container) container.innerHTML = '';
-        this.activeReplyBoxId = null;
+        if (this.activeReplyBoxId === targetCommentId) {
+            this.activeReplyBoxId = null;
+        }
     }
 
-    async submitReply(parentCommentId, content) {
+    async submitReply(targetCommentId, content, rootId) {
         if (!content || !content.trim()) return;
+
+        const actualRootId = rootId || targetCommentId;
 
         try {
             const res = await fetch('/api/comments', {
@@ -701,17 +722,17 @@ class CommentHandler {
                 body: JSON.stringify({
                     movieId: this.movieId,
                     content: content.trim(),
-                    parentCommentId: parentCommentId
+                    parentCommentId: targetCommentId
                 })
             });
 
             const data = await res.json();
             if (data.success && data.comment) {
                 // Annotate with parentCommentId for immediate local rendering
-                data.comment.parentCommentId = parentCommentId;
+                data.comment.parentCommentId = targetCommentId;
                 this.rawComments.push(data.comment);
-                this.expandedReplies.add(parentCommentId);
-                this.closeReplyBox(parentCommentId);
+                this.expandedReplies.add(actualRootId);
+                this.closeReplyBox(targetCommentId);
                 this.updateCommentCount(this.rawComments.length);
                 this.renderComments();
             } else {
