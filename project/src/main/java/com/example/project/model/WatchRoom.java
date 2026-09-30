@@ -42,7 +42,6 @@ public class WatchRoom {
     }
 
     @Transient // Đánh dấu không lưu vào Database, chỉ dùng để hiển thị UI
-    @Getter @Setter
     private Integer currentMovieId;
 
     public Long getId() { return id; }
