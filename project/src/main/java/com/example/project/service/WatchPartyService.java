@@ -234,7 +234,7 @@ public class WatchPartyService {
             runtime.getApprovedUserIds().add(host.getUserId());
         }
         activeRooms.put(roomId, runtime);
-        updateRoomActiveStatus(Long.valueOf(roomId), true);
+        updateRoomActiveStatus(roomId, true);
     }
 
     // Logic xin vào phòng
@@ -299,9 +299,7 @@ public class WatchPartyService {
 
     public boolean closeRoom(String roomId) {
         WatchRoomRuntime runtime = activeRooms.remove(roomId);
-        try {
-            updateRoomActiveStatus(Long.valueOf(roomId), false);
-        } catch (Exception ignored) {}
+        updateRoomActiveStatus(roomId, false);
         return runtime != null;
     }
 
@@ -313,8 +311,30 @@ public class WatchPartyService {
         return activeRooms.values();
     }
 
+    private final java.util.concurrent.ScheduledExecutorService disconnectScheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    private final Map<String, java.util.concurrent.ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
+
+    public void scheduleDisconnect(String sessionId, long delayMillis) {
+        if (sessionId == null) return;
+        cancelPendingDisconnect(sessionId);
+        java.util.concurrent.ScheduledFuture<?> future = disconnectScheduler.schedule(() -> {
+            pendingDisconnects.remove(sessionId);
+            handleDisconnect(sessionId);
+        }, delayMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+        pendingDisconnects.put(sessionId, future);
+    }
+
+    public void cancelPendingDisconnect(String sessionId) {
+        if (sessionId == null) return;
+        java.util.concurrent.ScheduledFuture<?> future = pendingDisconnects.remove(sessionId);
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
     // Logic thoát phòng & chuyển Host
     public String handleDisconnect(String sessionId) {
+        cancelPendingDisconnect(sessionId);
         for (WatchRoomRuntime room : activeRooms.values()) {
             if (room.getMembers().containsKey(sessionId)) {
                 RoomMember leavingMember = room.getMembers().remove(sessionId);
@@ -329,7 +349,7 @@ public class WatchPartyService {
                 if (sessionId.equals(room.getHostSessionId())) {
                     if (room.getMembers().isEmpty()) {
                         activeRooms.remove(room.getRoomId());
-                        updateRoomActiveStatus(Long.valueOf(room.getRoomId()), false);
+                        updateRoomActiveStatus(room.getRoomId(), false);
                         return null; 
                     } else {
                         // Deterministic migration: Pick the earliest joined member
@@ -365,12 +385,16 @@ public class WatchPartyService {
         return null;
     }
 
-    private void updateRoomActiveStatus(Long roomId, boolean status) {
-        WatchRoom dbRoom = roomRepository.findById(roomId).orElse(null);
-        if (dbRoom != null) {
-            dbRoom.setActive(status);
-            roomRepository.save(dbRoom);
-        }
+    private void updateRoomActiveStatus(String roomIdStr, boolean status) {
+        if (roomIdStr == null) return;
+        try {
+            Long roomId = Long.valueOf(roomIdStr);
+            WatchRoom dbRoom = roomRepository.findById(roomId).orElse(null);
+            if (dbRoom != null) {
+                dbRoom.setActive(status);
+                roomRepository.save(dbRoom);
+            }
+        } catch (Exception ignored) {}
     }
 
     /**

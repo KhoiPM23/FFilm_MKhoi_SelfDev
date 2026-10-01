@@ -36,6 +36,7 @@ public class MessengerDto {
         private String relationStatus; // FRIEND, PENDING_SENT, PENDING_RECEIVED, STRANGER
 
         private String lastActive;
+        private Long lastActiveTimestamp;
     
         public void setLastActive(String lastActive) {
             this.lastActive = lastActive;
@@ -43,6 +44,14 @@ public class MessengerDto {
         
         public String getLastActive() {
             return this.lastActive;
+        }
+
+        public void setLastActiveTimestamp(Long lastActiveTimestamp) {
+            this.lastActiveTimestamp = lastActiveTimestamp;
+        }
+
+        public Long getLastActiveTimestamp() {
+            return this.lastActiveTimestamp;
         }
     }
 
@@ -62,9 +71,12 @@ public class MessengerDto {
         private LocalDateTime timestamp;
         private String formattedTime;
         private String senderAvatar;
-
         private boolean isDeleted;   // [MỚI]
         private MessageDto replyTo;  // [MỚI] Object tin nhắn gốc (để hiện preview)
+        private Boolean isPinned;
+        private java.util.Map<String, Integer> reactions;
+        private Integer callDuration;
+        private String callStatus;
     }
     
     @Data

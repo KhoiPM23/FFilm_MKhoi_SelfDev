@@ -109,9 +109,10 @@
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
-    width: 175% !important;
-    height: 175% !important;
-    transform: translate(-50%, -50%) !important;
+    width: 200% !important;
+    height: 200% !important;
+    transform: translate(-50%, -50%) scale(0.7) !important;
+    transform-origin: center center !important;
     pointer-events: none !important;
     border: none !important;
     outline: none !important;

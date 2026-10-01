@@ -1251,6 +1251,7 @@ public class MovieService {
                         ? (backdrop.startsWith("http") ? backdrop : "https://image.tmdb.org/t/p/original" + backdrop)
                         : "/images/placeholder.jpg");
         map.put("isFree", movie.isFree());
+        map.put("url", (movie.getUrl() != null && !movie.getUrl().isBlank()) ? movie.getUrl() : "/video/movie1.mp4");
         // Metadata an toàn
         map.put("contentRating", movie.getContentRating() != null ? movie.getContentRating() : "T");
 

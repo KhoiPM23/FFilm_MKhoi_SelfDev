@@ -248,8 +248,14 @@ public class MessengerMessage {
         SENT, DELIVERED, READ
     }
 
-    public void setMetadata(String string) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setMetadata'");
+    @Column(name = "metadata", columnDefinition = "NVARCHAR(MAX)")
+    private String metadata;
+
+    public String getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(String metadata) {
+        this.metadata = metadata;
     }
 }

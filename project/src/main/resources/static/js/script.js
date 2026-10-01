@@ -139,7 +139,7 @@
       heroFadeTimeout = setTimeout(() => {
         if (videoContainer) videoContainer.style.opacity = "1";
         if (heroBanner) heroBanner.setAttribute("data-video-active", "true");
-      }, 1200);
+      }, 1000);
     } else if (event.data === YT.PlayerState.ENDED) {
       if (heroPlayer && typeof heroPlayer.seekTo === "function") {
         heroPlayer.seekTo(5, true);
@@ -1145,7 +1145,7 @@
             if (hoverPlayerMap[playerId]) {
               hoverPlayerData.container.style.opacity = "1";
             }
-          }, 850);
+          }, 200);
         }
         const duration = player.getDuration();
         const endSeconds = duration - 15; // Lặp lại 15s trước khi hết
@@ -1977,7 +1977,7 @@
     // Expose helpers globally
     window.startPageLoader = startLoader;
     window.finishPageLoader = finishLoader;
-    window.triggerPageTransition = function(url) {
+    window.triggerPageTransition = function (url) {
       if (document.body) document.body.classList.add("page-transitioning");
       startLoader();
       if (url) {
@@ -2041,7 +2041,7 @@
     });
 
     // Form submission feedback
-    document.addEventListener("submit", function(e) {
+    document.addEventListener("submit", function (e) {
       const form = e.target;
       if (form && form.target !== "_blank") {
         if (document.body) document.body.classList.add("page-transitioning");

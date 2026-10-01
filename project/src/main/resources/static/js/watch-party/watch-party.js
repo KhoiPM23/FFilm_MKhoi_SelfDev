@@ -1,12 +1,15 @@
 // watch-party.js - Ultimate Version (Giphy Integrated)
 // Nếu chưa có key, dùng tạm list backup này để test
 const BACKUP_STICKERS = [
-    "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
-    "https://media.giphy.com/media/l0HlO3BJ8LxrZ4VRu/giphy.gif",
-    "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
-    "https://media.giphy.com/media/l0HlI9qB6L8l756z6/giphy.gif",
-    "https://media.giphy.com/media/3o6Zt481isNBF5POT6/giphy.gif",
-    "https://media.giphy.com/media/3o7qDEq2bMbcbPRQ2c/giphy.gif"
+    "https://media.tenor.com/2sM7Ew83X6sAAAAC/popcorn-eating.gif",
+    "https://media.tenor.com/Q6k3eU0WkP4AAAAC/heart-love.gif",
+    "https://media.tenor.com/yU5Jj_3v0mEAAAAC/cat-dance.gif",
+    "https://media.tenor.com/6U8Yq0iU2vUAAAAC/cheers-leonardo-dicaprio.gif",
+    "https://media.tenor.com/2_8zX49Y1hAAAAAC/mind-blown.gif",
+    "https://media.tenor.com/c4Yg5zR6SgQAAAAC/laughing-lmao.gif",
+    "https://media.tenor.com/N_wU9uWvT14AAAAC/thumbs-up-agree.gif",
+    "https://media.tenor.com/1O2-fQx1m-wAAAAC/applause-clapping.gif",
+    "https://media.tenor.com/sN_tW9f3EAgAAAAC/crying-sad.gif"
 ];
 
 var socket = new SockJS('/ws');
@@ -89,9 +92,22 @@ function initFullFeatures() {
         var history = JSON.parse(payload.body);
         history.forEach(drawMessage);
     });
-    stompClient.send("/app/party/" + roomId + "/getHistory", {}, JSON.stringify({sessionId: sessionId}));
 
     // 3. Phim & Sync
+    // 3.1 Targeted initial state for joining session
+    stompClient.subscribe('/topic/party/' + roomId + '/loadMovie/' + sessionId, function (payload) {
+        var movie = JSON.parse(payload.body);
+        loadMovie(movie.url, movie.title);
+    });
+
+    stompClient.subscribe('/topic/party/' + roomId + '/sync/' + sessionId, function (payload) {
+        if (!isHost) {
+            var action = JSON.parse(payload.body);
+            handleVideoSync(action);
+        }
+    });
+
+    // 3.2 Broadcast room updates
     stompClient.subscribe('/topic/party/' + roomId + '/loadMovie', function (payload) {
         var movie = JSON.parse(payload.body);
         loadMovie(movie.url, movie.title);
@@ -117,7 +133,7 @@ function initFullFeatures() {
                 sessionId: msg.sessionId,
                 userName: msg.userName,
                 userId: msg.userId,
-                isHost: false
+                isHost: !!msg.isHost
             };
             renderMembersList();
             drawSystemMessage(msg.userName + " đã tham gia phòng chiếu.");
@@ -138,6 +154,7 @@ function initFullFeatures() {
                         videoEl.parentNode.remove();
                     }
                     delete sessionToPeerId[msg.sessionId];
+                    updateVideoGridVisibility();
                 }
             }
         } else if (msg.type === 'HOST_CHANGED') {
@@ -164,7 +181,7 @@ function initFullFeatures() {
         }
     });
 
-    // Nhận danh sách members hiện tại
+    // 5. Nhận danh sách members hiện tại (Targeted to this session)
     stompClient.subscribe('/topic/party/' + roomId + '/members/' + sessionId, function (payload) {
         var members = JSON.parse(payload.body);
         roomMembers = {};
@@ -177,7 +194,7 @@ function initFullFeatures() {
         renderMembersList();
     });
 
-    // Subscribe waiting list updates (Host only)
+    // 6. Subscribe waiting list updates (Host only)
     if (isHost) {
         stompClient.subscribe('/topic/party/' + roomId + '/waitingUpdate', (payload) => {
             try {
@@ -185,6 +202,16 @@ function initFullFeatures() {
                 updateWaitingNotifUI();
             } catch(e) {}
         });
+    }
+
+    // Tự động load phim nếu phòng đã có phim từ server model
+    if (typeof currentMovieUrl !== 'undefined' && currentMovieUrl) {
+        loadMovie(currentMovieUrl, (typeof currentMovieTitle !== 'undefined' && currentMovieTitle) ? currentMovieTitle : '');
+    }
+
+    // Yêu cầu lịch sử và trạng thái phòng SAU KHI ĐÃ ĐĂNG KÝ MỌI KÊNH NHẬN
+    stompClient.send("/app/party/" + roomId + "/getHistory", {}, JSON.stringify({sessionId: sessionId}));
+    if (isHost) {
         stompClient.send("/app/party/" + roomId + "/waitingList", {}, {});
     }
 }
@@ -224,8 +251,24 @@ if (myPeer) {
     });
 }
 
+function updateVideoGridVisibility() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid) return;
+    const localVisible = document.getElementById('localCamContainer') && document.getElementById('localCamContainer').style.display !== 'none';
+    const remoteVisible = grid.querySelectorAll('.user-cam:not(#localCamContainer)').length > 0;
+    if (localVisible || remoteVisible) {
+        grid.classList.remove('collapsed');
+    } else {
+        grid.classList.add('collapsed');
+    }
+}
+
 function answerCall(call) {
-    call.answer(myStream);
+    if (myStream) {
+        call.answer(myStream);
+    } else {
+        call.answer();
+    }
     handleIncomingStream(call);
 }
 
@@ -233,25 +276,33 @@ function handleIncomingStream(call) {
     const video = document.createElement('video');
     video.id = 'video-' + call.peer;
     call.on('stream', userVideoStream => {
-        addVideoStream(video, userVideoStream);
+        addVideoStream(video, userVideoStream, call.peer);
     });
     call.on('close', () => {
-        if (video.parentNode) video.parentNode.remove();
+        const camEl = document.getElementById('user-cam-' + video.id);
+        if (camEl) camEl.remove();
+        updateVideoGridVisibility();
     });
     peers[call.peer] = call;
 }
 
 function connectToNewUser(userId, stream) {
-    if (!myPeer || peers[userId]) return;
+    if (!myPeer || !userId) return;
+    if (peers[userId]) {
+        try { peers[userId].close(); } catch(e) {}
+        delete peers[userId];
+    }
     try {
         const call = myPeer.call(userId, stream);
         const video = document.createElement('video');
         video.id = 'video-' + userId;
         call.on('stream', userVideoStream => {
-            addVideoStream(video, userVideoStream);
+            addVideoStream(video, userVideoStream, userId);
         });
         call.on('close', () => {
-            if (video.parentNode) video.parentNode.remove();
+            const camEl = document.getElementById('user-cam-' + video.id);
+            if (camEl) camEl.remove();
+            updateVideoGridVisibility();
         });
         peers[userId] = call;
     } catch(e) {
@@ -259,16 +310,35 @@ function connectToNewUser(userId, stream) {
     }
 }
 
-function addVideoStream(video, stream) {
+function addVideoStream(video, stream, peerId) {
     video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
     video.addEventListener('loadedmetadata', () => { video.play().catch(e=>{}); });
     
-    if (!document.getElementById(video.id)) {
-        const div = document.createElement('div');
-        div.className = 'user-cam';
-        div.appendChild(video);
-        document.getElementById('videoGrid').appendChild(div);
+    const containerId = 'user-cam-' + video.id;
+    let userCam = document.getElementById(containerId);
+    if (!userCam) {
+        userCam = document.createElement('div');
+        userCam.className = 'user-cam';
+        userCam.id = containerId;
+        userCam.appendChild(video);
+
+        let peerName = 'Thành viên';
+        if (peerId) {
+            const member = Object.values(roomMembers).find(m => m.peerId === peerId || sessionToPeerId[m.sessionId] === peerId);
+            if (member && member.userName) {
+                peerName = member.userName;
+            }
+        }
+        const lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.textContent = peerName;
+        userCam.appendChild(lbl);
+
+        document.getElementById('videoGrid').appendChild(userCam);
     }
+    updateVideoGridVisibility();
 }
 
 // --- CAM/MIC CONTROLS ---
@@ -285,6 +355,7 @@ function toggleCam() {
             myStream.getVideoTracks().forEach(track => { track.enabled = false; });
         }
         if (container) container.style.display = 'none';
+        updateVideoGridVisibility();
     } else {
         // Bật Cam
         if (myStream && myStream.getVideoTracks().length > 0) {
@@ -296,6 +367,14 @@ function toggleCam() {
             if (container) container.style.display = 'block';
             btn.classList.add('active');
             btn.innerHTML = '<i class="fas fa-video"></i>';
+            updateVideoGridVisibility();
+
+            // Connect/renegotiate with all peers in room
+            Object.entries(sessionToPeerId).forEach(([sId, pId]) => {
+                if (sId !== sessionId && pId) {
+                    connectToNewUser(pId, myStream);
+                }
+            });
         } else {
             navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
                 myStream = stream;
@@ -306,9 +385,12 @@ function toggleCam() {
                 if (container) container.style.display = 'block';
                 btn.classList.add('active');
                 btn.innerHTML = '<i class="fas fa-video"></i>';
+                updateVideoGridVisibility();
                 
-                Object.keys(peers).forEach(peerId => {
-                    connectToNewUser(peerId, myStream);
+                Object.entries(sessionToPeerId).forEach(([sId, pId]) => {
+                    if (sId !== sessionId && pId) {
+                        connectToNewUser(pId, myStream);
+                    }
                 });
             }).catch(err => {
                 console.warn("Could not access camera:", err);
@@ -397,6 +479,7 @@ function escapeHtml(unsafe) {
 }
 
 function drawMessage(msg) {
+    if (!msg || msg.type === 'REACTION') return; // Ephemeral reactions fly on cinema screen, never drawn as message bubble
     var chatBox = document.getElementById('chatBox');
     var isMine = msg.sender === username;
     
@@ -511,10 +594,39 @@ function sendSticker(url) {
     stompClient.send("/app/party/" + roomId + "/chat", {}, JSON.stringify(msg));
     cancelReply();
     
-    // Đóng dropdown sau khi chọn
-    var dropdownBtn = document.querySelector('.dropup button');
-    if(dropdownBtn) dropdownBtn.click();
+    // Đóng sticker picker popover sau khi chọn
+    var picker = document.getElementById('roomStickerPicker');
+    if (picker) picker.style.display = 'none';
 }
+
+window.toggleRoomStickerPicker = function(event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    var picker = document.getElementById('roomStickerPicker');
+    if (!picker) return;
+    if (picker.style.display === 'none' || picker.style.display === '') {
+        picker.style.display = 'flex';
+        // Auto load if empty
+        var list = document.getElementById('stickerList');
+        if (list && list.children.length === 0) {
+            loadTenorStickers();
+        }
+    } else {
+        picker.style.display = 'none';
+    }
+};
+
+// Global click outside to close room sticker picker
+document.addEventListener('click', function(e) {
+    var picker = document.getElementById('roomStickerPicker');
+    if (picker && picker.style.display !== 'none') {
+        if (!e.target.closest('#roomStickerPicker') && !e.target.closest('.sticker-picker-container')) {
+            picker.style.display = 'none';
+        }
+    }
+});
 
 // --- CORE UTILS (SYNC, SEARCH...) ---
 
@@ -716,21 +828,32 @@ function handleVideoSync(action) {
     isSyncing = true;
     
     var targetTime = typeof action.currentTime === 'number' ? action.currentTime : parseFloat(action.currentTime);
+
+    function applySeek(time) {
+        if (isNaN(time)) return;
+        if (video.readyState >= 1) {
+            video.currentTime = time;
+        } else {
+            var onMeta = function() {
+                video.currentTime = time;
+                video.removeEventListener('loadedmetadata', onMeta);
+            };
+            video.addEventListener('loadedmetadata', onMeta);
+        }
+    }
     
     if (action.type === 'PLAY') {
         if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 1.5) {
-            video.currentTime = targetTime;
+            applySeek(targetTime);
         }
         video.play().catch(function(e) { console.warn("Autoplay blocked:", e); });
     } else if (action.type === 'PAUSE') {
         video.pause();
         if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 0.5) {
-            video.currentTime = targetTime;
+            applySeek(targetTime);
         }
     } else if (action.type === 'SEEK' || action.type === 'SEEKED') {
-        if (!isNaN(targetTime)) {
-            video.currentTime = targetTime;
-        }
+        applySeek(targetTime);
         if (action.playbackStatus === 'PLAY') {
             video.play().catch(function(e) {});
         } else if (action.playbackStatus === 'PAUSE') {
@@ -739,7 +862,7 @@ function handleVideoSync(action) {
     } else if (action.type === 'HEARTBEAT') {
         // Continuous smooth drift correction
         if (!isNaN(targetTime) && Math.abs(video.currentTime - targetTime) > 2.0) {
-            video.currentTime = targetTime;
+            applySeek(targetTime);
         }
         if (action.playbackStatus === 'PLAY' && video.paused) {
             video.play().catch(function(e) {});
@@ -757,8 +880,23 @@ function loadMovie(url, title) {
     var v = document.getElementById('partyPlayer');
     if (v) {
         v.style.display = 'block';
-        v.src = url || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"; 
-        v.play().catch(function(e) { console.warn("Video play error:", e); });
+        var targetUrl = (url && url.trim().length > 0) ? url : "/video/movie1.mp4";
+        var currentSrc = v.currentSrc || v.src || "";
+        var isSame = (currentSrc === targetUrl) || (targetUrl && currentSrc.endsWith(targetUrl));
+        if (!isSame) {
+            v.src = targetUrl;
+            v.load();
+        }
+        var playPromise = v.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(e) {
+                console.warn("Autoplay with sound prevented, attempting muted play:", e);
+                v.muted = true;
+                v.play().catch(function(err) {
+                    console.warn("User interaction required to start video:", err);
+                });
+            });
+        }
     }
 }
 
@@ -977,20 +1115,15 @@ function performSearch() {
     `;
     document.getElementById('searchResults').innerHTML = mockHtml;
 }
-function selectMovie(id, title, url) {
-    fetch(`/api/movie/${id}/info`)
-        .then(res => res.json())
-        .then(data => {
-            const poster = data.poster || '/images/placeholder.jpg';
-            stompClient.send("/app/party/" + roomId + "/changeMovie", {}, 
-                JSON.stringify({ id: id, title: title, url: url, poster: poster }));
-            closeSearchModal();
-        })
-        .catch(() => {
-            stompClient.send("/app/party/" + roomId + "/changeMovie", {}, 
-                JSON.stringify({ id: id, title: title, url: url, poster: '/images/placeholder.jpg' }));
-            closeSearchModal();
-        });
+function selectMovie(id, title, url, poster) {
+    var finalUrl = (url && url.trim().length > 0) ? url : "/video/movie1.mp4";
+    var finalPoster = (poster && poster.trim().length > 0) ? poster : '/images/placeholder.jpg';
+    if (stompClient && stompClient.connected) {
+        stompClient.send("/app/party/" + roomId + "/changeMovie", {},
+            JSON.stringify({ id: id, title: title, url: finalUrl, poster: finalPoster }));
+    }
+    loadMovie(finalUrl, title);
+    closeSearchModal();
 }
 // View Full Image
 window.viewImage = function(src) {
@@ -1081,7 +1214,7 @@ function createRoomMovieCard(movie) {
             </div>
             <div class="hover-card-content">
                 <div class="hover-card-actions">
-                    <button class="hover-play-btn" onclick="selectMovie(${movie.id}, '${safeTitle}', '${movie.url || ''}')">
+                    <button class="hover-play-btn" onclick="selectMovie(${movie.id}, '${safeTitle}', '${movie.url || '/video/movie1.mp4'}', '${poster}')">
                         <i class="fas fa-play"></i> Chiếu Ngay
                     </button>
                     <button class="hover-action-icon" onclick="sendReactionInRoom('❤️')"><i class="far fa-heart"></i></button>

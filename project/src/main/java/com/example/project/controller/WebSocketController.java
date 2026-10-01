@@ -64,10 +64,15 @@ public class WebSocketController {
         if (partnerId == null || userId == null) return;
         
         // Thông báo cho người gửi
+        Map<String, Object> seenData = Map.of("messageId", messageId, "seenBy", userId);
         messagingTemplate.convertAndSendToUser(
             partnerId.toString(),
             "/queue/seen",
-            Map.of("messageId", messageId, "seenBy", userId)
+            seenData
+        );
+        messagingTemplate.convertAndSend(
+            "/topic/user." + partnerId + ".seen",
+            seenData
         );
     }
 
@@ -102,6 +107,9 @@ public class WebSocketController {
         Map<String, Object> response = new HashMap<>();
         response.put("type", type);
         response.put("senderId", senderId);
+        if (payload.get("callId") != null) {
+            response.put("callId", payload.get("callId"));
+        }
         if (payload.get("peerId") != null) {
             response.put("peerId", payload.get("peerId"));
         }
@@ -121,5 +129,33 @@ public class WebSocketController {
             "/queue/call",
             response
         );
+        messagingTemplate.convertAndSend(
+            "/topic/user." + receiverId + ".call",
+            response
+        );
+    }
+
+    @MessageMapping("/call-accepted")
+    public void handleCallAccepted(@Payload Map<String, Object> payload, Principal principal) {
+        if (payload == null) return;
+        Integer receiverId = parseInteger(payload.get("receiverId"));
+        Integer senderId = null;
+        if (principal != null) {
+            try {
+                senderId = Integer.valueOf(principal.getName());
+            } catch (NumberFormatException ignored) {}
+        }
+        if (receiverId == null || senderId == null) return;
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", "CALL_ACCEPT");
+        response.put("senderId", senderId);
+        if (payload.get("peerId") != null) {
+            response.put("peerId", payload.get("peerId"));
+        }
+        response.put("timestamp", LocalDateTime.now().toString());
+
+        messagingTemplate.convertAndSendToUser(receiverId.toString(), "/queue/call", response);
+        messagingTemplate.convertAndSend("/topic/user." + receiverId + ".call", response);
     }
 }

@@ -32,6 +32,7 @@ public class MessengerService {
     @Autowired private FriendRequestRepository friendRequestRepository;
     @Autowired private CallLogRepository callLogRepository;
     @Autowired private ConversationSettingsRepository conversationSettingsRepository;
+    @Autowired(required = false) private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     // ============= FIX 1: Thêm các phương thức mới =============
     
@@ -105,6 +106,111 @@ public class MessengerService {
         return callLogRepository.countMissedCallsSince(userId, since);
     }
 
+    @Transactional
+    public MessengerDto.MessageDto recordCallMessage(Integer callerId, Integer calleeId, String callType, String statusStr, int duration, String callId) {
+        String lockKey = ("CALL_LOCK_" + (callId != null && !callId.trim().isEmpty() ? callId.trim() : (callerId + "_" + calleeId))).intern();
+        synchronized (lockKey) {
+            User caller = userRepository.findById(callerId)
+                    .orElseThrow(() -> new RuntimeException("Caller not found: " + callerId));
+            User callee = userRepository.findById(calleeId)
+                    .orElseThrow(() -> new RuntimeException("Callee not found: " + calleeId));
+
+            // Idempotency check if callId is provided
+            if (callId != null && !callId.trim().isEmpty()) {
+                List<MessengerMessage> existingByCallId = messengerRepository.findByCallIdInMetadata(callId.trim());
+                if (existingByCallId != null && !existingByCallId.isEmpty()) {
+                    return convertToMessageDto(existingByCallId.get(0)); // Already recorded!
+                }
+                List<MessengerMessage> existing = messengerRepository.findConversation(caller, callee);
+                if (existing != null) {
+                    for (MessengerMessage em : existing) {
+                        if (em.getMetadata() != null && em.getMetadata().contains(callId)) {
+                            return convertToMessageDto(em); // Already recorded!
+                        }
+                    }
+                }
+            }
+
+        MessengerMessage.CallStatus status;
+        try {
+            status = MessengerMessage.CallStatus.valueOf(statusStr.toUpperCase());
+        } catch (Exception e) {
+            status = MessengerMessage.CallStatus.COMPLETED;
+        }
+
+        boolean isVideo = "VIDEO".equalsIgnoreCase(callType);
+        String contentText;
+        if (status == MessengerMessage.CallStatus.MISSED) {
+            contentText = isVideo ? "Cuộc gọi video nhỡ" : "Cuộc gọi thoại nhỡ";
+        } else if (status == MessengerMessage.CallStatus.REJECTED) {
+            contentText = isVideo ? "Cuộc gọi video bị từ chối" : "Cuộc gọi thoại bị từ chối";
+        } else {
+            contentText = isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại";
+        }
+
+        String metadataJson = "{\"callId\":\"" + (callId != null ? callId : "") + "\",\"isVideo\":" + isVideo + "}";
+
+        MessengerMessage message = new MessengerMessage();
+        message.setSender(caller);
+        message.setReceiver(callee);
+        message.setType(MessengerMessage.MessageType.CALL_END);
+        message.setMediaUrl(isVideo ? "VIDEO" : "AUDIO");
+        message.setContent(contentText);
+        message.setStatus(MessengerMessage.MessageStatus.SENT);
+        message.setTimestamp(LocalDateTime.now());
+        message.setCallDuration(duration);
+        message.setCallStatus(status);
+        message.setMetadata(metadataJson);
+
+        MessengerMessage saved = messengerRepository.save(message);
+
+        // Also save CallLog for general call log history
+        try {
+            CallLog log = new CallLog();
+            log.setUserId(callerId);
+            log.setPartnerId(calleeId);
+            log.setPartnerName(callee.getUserName());
+            log.setCallType(CallLog.CallType.OUTGOING);
+            log.setDuration(duration);
+            log.setTimestamp(saved.getTimestamp());
+            log.setCallStatus(status == MessengerMessage.CallStatus.MISSED ? CallLog.CallStatus.MISSED :
+                             (status == MessengerMessage.CallStatus.REJECTED ? CallLog.CallStatus.REJECTED : CallLog.CallStatus.COMPLETED));
+            log.setVideo(isVideo);
+            log.setInitiatorId(callerId);
+            callLogRepository.save(log);
+
+            CallLog calleeLog = new CallLog();
+            calleeLog.setUserId(calleeId);
+            calleeLog.setPartnerId(callerId);
+            calleeLog.setPartnerName(caller.getUserName());
+            calleeLog.setCallType(status == MessengerMessage.CallStatus.MISSED ? CallLog.CallType.MISSED : CallLog.CallType.INCOMING);
+            calleeLog.setDuration(duration);
+            calleeLog.setTimestamp(saved.getTimestamp());
+            calleeLog.setCallStatus(status == MessengerMessage.CallStatus.MISSED ? CallLog.CallStatus.MISSED :
+                                   (status == MessengerMessage.CallStatus.REJECTED ? CallLog.CallStatus.REJECTED : CallLog.CallStatus.COMPLETED));
+            calleeLog.setVideo(isVideo);
+            calleeLog.setInitiatorId(callerId);
+            callLogRepository.save(calleeLog);
+        } catch (Exception ex) {
+            // Non-fatal
+        }
+
+        MessengerDto.MessageDto dto = convertToMessageDto(saved);
+
+        // Broadcast STOMP event in real time to both participants
+        if (messagingTemplate != null) {
+            try {
+                messagingTemplate.convertAndSendToUser(callerId.toString(), "/queue/private", dto);
+                messagingTemplate.convertAndSendToUser(calleeId.toString(), "/queue/private", dto);
+                messagingTemplate.convertAndSend("/topic/user." + callerId + ".private", dto);
+                messagingTemplate.convertAndSend("/topic/user." + calleeId + ".private", dto);
+            } catch (Exception ignored) {}
+        }
+
+        return dto;
+        }
+    }
+
     // ConversationSettings methods
     public Optional<ConversationSettings> getConversationSettings(Integer userId, Integer partnerId) {
         return conversationSettingsRepository.findByUserIdAndPartnerId(userId, partnerId);
@@ -129,6 +235,18 @@ public class MessengerService {
         User me = userRepository.findById(currentUserId).orElse(null);
         if (me == null) return new ArrayList<>();
 
+        Map<Integer, ConversationSettings> settingsMap = new HashMap<>();
+        try {
+            List<ConversationSettings> settingsList = conversationSettingsRepository.findByUserId(currentUserId);
+            if (settingsList != null) {
+                for (ConversationSettings s : settingsList) {
+                    if (s.getPartnerId() != null) {
+                        settingsMap.put(s.getPartnerId(), s);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         // BƯỚC 1: Lấy tin nhắn và bạn bè như cũ
         List<MessengerMessage> messages = messengerRepository.findAllMessagesByUser(currentUserId);
         
@@ -137,7 +255,8 @@ public class MessengerService {
             User partner = isSender ? msg.getReceiver() : msg.getSender();
             
             if (!map.containsKey(partner.getUserID())) {
-                MessengerDto.ConversationDto dto = createConversationDto(me, partner, msg, isSender);
+                ConversationSettings s = settingsMap.get(partner.getUserID());
+                MessengerDto.ConversationDto dto = createConversationDto(me, partner, msg, isSender, s);
                 map.put(partner.getUserID(), dto);
             }
         }
@@ -152,7 +271,12 @@ public class MessengerService {
             if (!map.containsKey(friend.getUserID())) {
                 MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
                 dto.setPartnerId(friend.getUserID());
-                dto.setPartnerName(friend.getUserName());
+                String friendName = friend.getUserName();
+                ConversationSettings s = settingsMap.get(friend.getUserID());
+                if (s != null && s.getNickname() != null && !s.getNickname().trim().isEmpty()) {
+                    friendName = s.getNickname().trim();
+                }
+                dto.setPartnerName(friendName);
                 dto.setPartnerAvatar(generateAvatar(friend.getUserName()));
                 dto.setLastMessage("Các bạn đã là bạn bè trên FFilm");
                 dto.setLastMessageTime(LocalDateTime.now());
@@ -170,10 +294,14 @@ public class MessengerService {
         return new ArrayList<>(map.values());
     }
     
-    private MessengerDto.ConversationDto createConversationDto(User me, User partner, MessengerMessage lastMsg, boolean isSender) {
+    private MessengerDto.ConversationDto createConversationDto(User me, User partner, MessengerMessage lastMsg, boolean isSender, ConversationSettings settings) {
         MessengerDto.ConversationDto dto = new MessengerDto.ConversationDto();
         dto.setPartnerId(partner.getUserID());
-        dto.setPartnerName(partner.getUserName());
+        String displayName = partner.getUserName();
+        if (settings != null && settings.getNickname() != null && !settings.getNickname().trim().isEmpty()) {
+            displayName = settings.getNickname().trim();
+        }
+        dto.setPartnerName(displayName);
         dto.setPartnerAvatar(generateAvatar(partner.getUserName()));
         
         String preview = lastMsg.getContent();
@@ -182,6 +310,16 @@ public class MessengerService {
         if (lastMsg.getType() == MessengerMessage.MessageType.AUDIO) preview = "Đã gửi 1 tin nhắn thoại";
         if (lastMsg.getType() == MessengerMessage.MessageType.VIDEO) preview = "Đã gửi 1 video";
         if (lastMsg.getType() == MessengerMessage.MessageType.STICKER) preview = "Đã gửi 1 nhãn dán";
+        if (lastMsg.getType() == MessengerMessage.MessageType.CALL_END) {
+            boolean isVideo = "VIDEO".equalsIgnoreCase(lastMsg.getMediaUrl()) || (lastMsg.getContent() != null && lastMsg.getContent().toLowerCase().contains("video"));
+            if (lastMsg.getCallStatus() == MessengerMessage.CallStatus.MISSED) {
+                preview = isVideo ? "Cuộc gọi video nhỡ" : "Cuộc gọi thoại nhỡ";
+            } else if (lastMsg.getCallStatus() == MessengerMessage.CallStatus.REJECTED) {
+                preview = isVideo ? "Cuộc gọi video bị từ chối" : "Cuộc gọi thoại bị từ chối";
+            } else {
+                preview = isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại";
+            }
+        }
         
         dto.setLastMessage(preview);
         dto.setLastMessageTime(lastMsg.getTimestamp());
@@ -282,18 +420,25 @@ public class MessengerService {
                     .build();
         }
 
+        Map<String, Integer> reactionMap = getReactions(m.getId(), m.getMetadata());
+
         return MessengerDto.MessageDto.builder()
                 .id(m.getId())
                 .senderId(m.getSender().getUserID())
                 .receiverId(m.getReceiver().getUserID())
                 .content(m.isDeleted() ? "Tin nhắn đã bị thu hồi" : m.getContent()) // [MỚI] Check delete
                 .type(m.getType())
+                .mediaUrl(m.getMediaUrl())
                 .status(m.getStatus())
                 .timestamp(m.getTimestamp())
                 .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
                 .senderAvatar(avatar)
                 .isDeleted(m.isDeleted()) // [MỚI]
                 .replyTo(replyDto)        // [MỚI]
+                .isPinned(m.isPinned())
+                .reactions(reactionMap)
+                .callDuration(m.getCallDuration())
+                .callStatus(m.getCallStatus() != null ? m.getCallStatus().name() : null)
                 .build();
     }
 
@@ -321,16 +466,62 @@ public class MessengerService {
         return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
     }
 
-    // Reaction in-memory store
+    // Reaction in-memory store + DB metadata persistence
     private final Map<Long, Map<String, Integer>> messageReactions = new java.util.concurrent.ConcurrentHashMap<>();
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     public Map<String, Integer> addOrToggleReaction(Long messageId, Integer userId, String emoji) {
-        Map<String, Integer> reactions = messageReactions.computeIfAbsent(messageId, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        MessengerMessage message = messengerRepository.findById(messageId).orElse(null);
+        Map<String, Integer> reactions = messageReactions.computeIfAbsent(messageId, k -> {
+            if (message != null && message.getMetadata() != null) {
+                return new java.util.concurrent.ConcurrentHashMap<>(getReactions(messageId, message.getMetadata()));
+            }
+            return new java.util.concurrent.ConcurrentHashMap<>();
+        });
         reactions.merge(emoji, 1, Integer::sum);
+
+        if (message != null) {
+            try {
+                Map<String, Object> metaMap = new HashMap<>();
+                if (message.getMetadata() != null && message.getMetadata().startsWith("{")) {
+                    try {
+                        metaMap = objectMapper.readValue(message.getMetadata(), Map.class);
+                    } catch (Exception ignored) {}
+                }
+                metaMap.put("reactions", new HashMap<>(reactions));
+                message.setMetadata(objectMapper.writeValueAsString(metaMap));
+                messengerRepository.save(message);
+            } catch (Exception ignored) {}
+        }
+
         return new java.util.HashMap<>(reactions);
     }
 
     public Map<String, Integer> getReactions(Long messageId) {
-        return messageReactions.getOrDefault(messageId, java.util.Collections.emptyMap());
+        return getReactions(messageId, null);
+    }
+
+    public Map<String, Integer> getReactions(Long messageId, String metadata) {
+        if (messageId != null && messageReactions.containsKey(messageId)) {
+            return messageReactions.get(messageId);
+        }
+        if (metadata != null && metadata.startsWith("{")) {
+            try {
+                Map<String, Object> map = objectMapper.readValue(metadata, Map.class);
+                if (map.containsKey("reactions") && map.get("reactions") instanceof Map) {
+                    Map<String, Integer> rMap = new HashMap<>();
+                    ((Map<?, ?>) map.get("reactions")).forEach((k, v) -> {
+                        if (k != null && v instanceof Number) {
+                            rMap.put(k.toString(), ((Number) v).intValue());
+                        }
+                    });
+                    if (messageId != null) {
+                        messageReactions.put(messageId, rMap);
+                    }
+                    return rMap;
+                }
+            } catch (Exception ignored) {}
+        }
+        return java.util.Collections.emptyMap();
     }
 }

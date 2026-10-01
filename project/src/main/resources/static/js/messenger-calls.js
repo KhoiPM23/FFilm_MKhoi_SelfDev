@@ -15,10 +15,15 @@
     let callTimerInterval = null;
     let callTimeout = null;
     let callDuration = 0;
-    let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar, callType }
+    let incomingCallData = null; // { peerId, senderId, senderName, senderAvatar, callType, callId }
+    let currentCallId = null;
+    let callInitiatorId = null;
+    let currentCallType = 'VIDEO';
 
     let availableCameras = [];
     let currentCameraIndex = 0;
+    let recordedCallIds = new Set();
+    let isEndingCall = false;
 
     // Shared state accessors (set by core messenger.js)
     function getState() {
@@ -63,6 +68,7 @@
 
         myPeer.on('call', (call) => {
             console.log('📞 Incoming call from:', call.peer);
+            if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
 
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
@@ -98,6 +104,11 @@
             return;
         }
 
+        currentCallType = 'VIDEO';
+        callInitiatorId = state.currentUser ? state.currentUser.userID : null;
+        currentCallId = 'call_' + (callInitiatorId || '0') + '_' + state.currentPartnerId + '_' + Date.now();
+        window.activeCallSessionId = currentCallId;
+
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
                 localStream = stream;
@@ -106,6 +117,7 @@
 
                 const callData = {
                     type: 'CALL_REQ',
+                    callId: currentCallId,
                     senderId: state.currentUser.userID,
                     senderName: state.currentUser.name,
                     senderAvatar: $('#headerAvatar').attr('src'),
@@ -119,6 +131,7 @@
 
                 callTimeout = setTimeout(() => {
                     if (!currentCall) {
+                        recordCallRecord(state.currentPartnerId, 'VIDEO', 'MISSED', 0, currentCallId, callInitiatorId);
                         window.endCall();
                         showToast('Không có phản hồi từ người nhận', 'error');
                     }
@@ -142,6 +155,11 @@
             return;
         }
 
+        currentCallType = 'AUDIO';
+        callInitiatorId = state.currentUser ? state.currentUser.userID : null;
+        currentCallId = 'call_' + (callInitiatorId || '0') + '_' + state.currentPartnerId + '_' + Date.now();
+        window.activeCallSessionId = currentCallId;
+
         navigator.mediaDevices.getUserMedia({ video: false, audio: true })
             .then(stream => {
                 localStream = stream;
@@ -149,6 +167,7 @@
 
                 const callData = {
                     type: 'CALL_REQ',
+                    callId: currentCallId,
                     senderId: state.currentUser.userID,
                     senderName: state.currentUser.name,
                     senderAvatar: $('#headerAvatar').attr('src'),
@@ -161,7 +180,10 @@
                 state.stompClient.send('/app/call', {}, JSON.stringify(callData));
 
                 callTimeout = setTimeout(() => {
-                    if (!currentCall) window.endCall();
+                    if (!currentCall) {
+                        recordCallRecord(state.currentPartnerId, 'AUDIO', 'MISSED', 0, currentCallId, callInitiatorId);
+                        window.endCall();
+                    }
                 }, 30000);
             })
             .catch(err => {
@@ -205,10 +227,20 @@
         const state = getState();
 
         if (incomingCallData) {
+            recordCallRecord(
+                incomingCallData.senderId,
+                incomingCallData.callType || 'VIDEO',
+                'REJECTED',
+                0,
+                incomingCallData.callId,
+                incomingCallData.senderId
+            );
+
             state.stompClient.send('/app/call', {}, JSON.stringify({
                 type: 'CALL_DENY',
+                callId: incomingCallData.callId,
                 receiverId: incomingCallData.senderId,
-                senderId: state.currentUser.userID
+                senderId: state.currentUser ? state.currentUser.userID : null
             }));
         }
 
@@ -221,10 +253,25 @@
     };
 
     window.endCall = function() {
+        if (isEndingCall) return;
+        isEndingCall = true;
+        setTimeout(() => { isEndingCall = false; }, 1000);
+
         const state = getState();
 
         if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
         if (callTimerInterval) clearInterval(callTimerInterval);
+
+        const duration = callDuration;
+        const targetId = state.currentPartnerId || (incomingCallData ? incomingCallData.senderId : null);
+        const thisCallId = currentCallId || window.activeCallSessionId || (incomingCallData ? incomingCallData.callId : null);
+        const initiator = callInitiatorId || (incomingCallData ? incomingCallData.senderId : (state.currentUser ? state.currentUser.userID : null));
+        const cType = currentCallType || (incomingCallData ? incomingCallData.callType : 'VIDEO');
+
+        if (targetId && thisCallId) {
+            const callStatus = duration > 0 ? 'COMPLETED' : 'MISSED';
+            recordCallRecord(targetId, cType, callStatus, duration, thisCallId, initiator);
+        }
 
         if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
         if (remoteStream) { remoteStream.getTracks().forEach(t => t.stop()); remoteStream = null; }
@@ -236,12 +283,13 @@
 
         if (currentCall) { try { currentCall.close(); } catch (e) {} currentCall = null; }
 
-        const targetId = state.currentPartnerId || (incomingCallData ? incomingCallData.senderId : null);
         if (targetId && state.stompClient && state.stompClient.connected) {
             state.stompClient.send('/app/call', {}, JSON.stringify({
                 type: 'CALL_END',
+                callId: thisCallId,
+                duration: duration,
                 receiverId: targetId,
-                senderId: state.currentUser.userID
+                senderId: state.currentUser ? state.currentUser.userID : null
             }));
         }
 
@@ -250,6 +298,9 @@
             incomingCallData.ringtone.currentTime = 0;
         }
         incomingCallData = null;
+        currentCallId = null;
+        window.activeCallSessionId = null;
+        callDuration = 0;
 
         $('#videoCallModal').hide();
         $('#incomingCallModal').hide();
@@ -259,6 +310,7 @@
 
     function setupCallHandlers(call) {
         call.on('stream', (stream) => {
+            if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
             remoteStream = stream;
             document.getElementById('remoteVideo').srcObject = remoteStream;
             $('.remote-info-overlay').fadeOut();
@@ -401,6 +453,47 @@
         });
     }
 
+    function recordCallRecord(partnerId, callType, status, duration, callId, initiatorId) {
+        if (!partnerId) return;
+        const state = getState();
+        const cid = callId || window.activeCallSessionId || (incomingCallData ? incomingCallData.callId : null);
+        if (!cid) return;
+        if (recordedCallIds.has(cid)) {
+            return;
+        }
+        recordedCallIds.add(cid);
+
+        if ($(`.msg-row[data-call-id="${cid}"]`).length) {
+            return;
+        }
+
+        const payload = {
+            partnerId: partnerId,
+            initiatorId: initiatorId || (state.currentUser ? state.currentUser.userID : null),
+            callType: callType || 'VIDEO',
+            status: status || 'COMPLETED',
+            duration: duration || 0,
+            callId: cid
+        };
+
+        $.ajax({
+            url: '/api/v1/messenger/call-record',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(messageDto) {
+                if (messageDto && messageDto.id && window.appendMessageToUI) {
+                    if (!$(`#msg-${messageDto.id}`).length && !$(`.msg-row[data-call-id="${cid}"]`).length) {
+                        window.appendMessageToUI(messageDto);
+                    }
+                }
+            },
+            error: function(err) {
+                console.warn('Call record save error:', err);
+            }
+        });
+    }
+
     function saveCallLog() {
         const state = getState();
         if (!state.currentPartnerId || callDuration < 3) return;
@@ -426,7 +519,8 @@
     // --- 4. CALL HISTORY ---
     window.openCallHistory = function() {
         const state = getState();
-        const modal = $('<div class="call-history-modal-overlay"></div>');
+        $('.call-history-modal-overlay, .call-history-modal').remove();
+        const modal = $('<div class="modal-overlay call-history-modal-overlay"></div>');
         const content = $(`
             <div class="call-history-modal">
                 <div class="call-history-header">
@@ -450,7 +544,11 @@
             </div>
         `);
 
-        $('body').append(modal).append(content);
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeCallHistory();
+        });
+        $('body').append(modal);
         window.loadCallHistory('ALL');
 
         $('.tab-btn').click(function() {
@@ -541,14 +639,22 @@
         if (!callData || !callData.type) return;
 
         if (callData.type === 'CALL_REQ') {
+            currentCallId = callData.callId || ('call_' + callData.senderId + '_' + (getState().currentUser ? getState().currentUser.userID : '0') + '_' + Date.now());
+            window.activeCallSessionId = currentCallId;
+            currentCallType = callData.callType || 'VIDEO';
+            callInitiatorId = callData.senderId;
             incomingCallData = {
+                callId: currentCallId,
                 peerId: callData.peerId,
                 senderId: callData.senderId,
                 senderName: callData.senderName || 'Người dùng',
                 senderAvatar: callData.senderAvatar,
-                callType: callData.callType || 'VIDEO'
+                callType: currentCallType
             };
             showIncomingCallModal(incomingCallData);
+        } else if (callData.type === 'CALL_ACCEPT') {
+            if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
+            $('#callStatusText').text('Đã chấp nhận, đang kết nối thiết bị...');
         } else if (callData.type === 'CALL_DENY' || callData.type === 'CALL_REJECT') {
             closeCallModal();
             showToast('Người nhận đã từ chối cuộc gọi', 'info');
@@ -561,22 +667,31 @@
     // Handle CALL_REQ from socket messages (delegated by core handleSocketMessage)
     function handleCallSocketMessage(msg) {
         if (msg.type === 'CALL_REQ') {
+            currentCallId = msg.callId || currentCallId;
+            if (currentCallId) window.activeCallSessionId = currentCallId;
             incomingCallData = {
-                peerId: msg.content,
+                callId: msg.callId || currentCallId,
+                peerId: msg.content || msg.peerId,
                 senderId: msg.senderId,
                 senderName: msg.senderName || 'Người dùng',
-                senderAvatar: msg.senderAvatar
+                senderAvatar: msg.senderAvatar,
+                callType: msg.callType || 'VIDEO'
             };
             showIncomingCallModal(incomingCallData);
             return true;
         }
         if (msg.type === 'CALL_DENY' || msg.type === 'CALL_REJECT') {
             closeCallModal();
+            if (msg.id) return false;
             showToast('Người nhận đã từ chối cuộc gọi', 'info');
             return true;
         }
         if (msg.type === 'CALL_END') {
             closeCallModal();
+            if (msg.id) {
+                // Persisted conversation message DTO! Pass through to handleSocketMessage to render in chat
+                return false;
+            }
             showToast('Cuộc gọi đã kết thúc', 'info');
             return true;
         }

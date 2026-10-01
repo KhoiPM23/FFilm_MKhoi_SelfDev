@@ -17,6 +17,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Map;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+
 @Service
 public class SocialService {
 
@@ -25,8 +27,8 @@ public class SocialService {
     @Autowired private WatchHistoryRepository historyRepository;
     @Autowired private FriendRequestRepository friendRequestRepository;
     @Autowired private NotificationService notificationService;
-
     @Autowired private FavoriteRepository favoriteRepository;
+    @Autowired(required = false) private SimpMessagingTemplate messagingTemplate;
 
     @Transactional(readOnly = true)
     public PublicProfileDto getUserProfile(Integer viewerId, Integer targetUserId) {
@@ -274,13 +276,28 @@ public class SocialService {
     // --- XỬ LÝ KẾT BẠN ---
 
     public void sendFriendRequest(Integer senderId, Integer receiverId) {
+        if (senderId == null || receiverId == null) throw new RuntimeException("ID người dùng không hợp lệ");
         if (senderId.equals(receiverId)) throw new RuntimeException("Không thể kết bạn với chính mình");
 
-        User sender = userRepository.findById(senderId).orElseThrow();
-        User receiver = userRepository.findById(receiverId).orElseThrow();
+        if (friendRequestRepository.isFriend(senderId, receiverId)) {
+            throw new RuntimeException("Hai người đã là bạn bè");
+        }
+
+        User sender = userRepository.findById(senderId).orElseThrow(() -> new RuntimeException("Người gửi không tồn tại"));
+        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new RuntimeException("Người nhận không tồn tại"));
+
+        // Nếu đối phương đã gửi lời mời trước đó đang PENDING -> tự động chấp nhận kết bạn luôn!
+        Optional<FriendRequest> reverse = friendRequestRepository.findBySenderAndReceiver(receiver, sender);
+        if (reverse.isPresent() && reverse.get().getStatus() == FriendRequest.Status.PENDING) {
+            acceptFriendRequest(senderId, receiverId);
+            return;
+        }
 
         Optional<FriendRequest> existing = friendRequestRepository.findBySenderAndReceiver(sender, receiver);
         if (existing.isPresent()) {
+            if (existing.get().getStatus() == FriendRequest.Status.ACCEPTED) {
+                throw new RuntimeException("Hai người đã là bạn bè");
+            }
             throw new RuntimeException("Đã gửi lời mời trước đó");
         }
 
@@ -289,12 +306,12 @@ public class SocialService {
         req.setReceiver(receiver);
         req.setStatus(FriendRequest.Status.PENDING);
         friendRequestRepository.save(req);
-        
+
         // Gọi NotificationService Vipro (Truyền sender vào để lấy avatar)
         notificationService.createNotification(
-            receiverId, 
-            sender.getUserName() + " đã gửi lời mời kết bạn.", 
-            "FRIEND_REQUEST", 
+            receiverId,
+            sender.getUserName() + " đã gửi lời mời kết bạn.",
+            "FRIEND_REQUEST",
             null, // Link sẽ tự động tạo
             sender // Truyền sender để lấy avatar
         );
@@ -302,30 +319,58 @@ public class SocialService {
 
     // [UPDATED] Chấp nhận kết bạn
     public void acceptFriendRequest(Integer receiverId, Integer senderId) {
-        User sender = userRepository.findById(senderId).orElseThrow(); // Người gửi ban đầu
-        User receiver = userRepository.findById(receiverId).orElseThrow(); // Mình (người nhận)
+        if (receiverId == null || senderId == null) throw new RuntimeException("ID không hợp lệ");
 
-        FriendRequest req = friendRequestRepository.findBySenderAndReceiver(sender, receiver)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lời mời"));
+        User sender = userRepository.findById(senderId).orElseThrow(() -> new RuntimeException("Người gửi không tồn tại"));
+        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new RuntimeException("Người nhận không tồn tại"));
+
+        Optional<FriendRequest> reqOpt = friendRequestRepository.findBySenderAndReceiver(sender, receiver);
+        if (reqOpt.isEmpty()) {
+            // Thử chiều ngược lại nếu caller truyền ngược thứ tự
+            reqOpt = friendRequestRepository.findBySenderAndReceiver(receiver, sender);
+        }
+        FriendRequest req = reqOpt.orElseThrow(() -> new RuntimeException("Không tìm thấy lời mời"));
 
         req.setStatus(FriendRequest.Status.ACCEPTED);
         friendRequestRepository.save(req);
-        
+
         // Thông báo cho người gửi ban đầu là mình đã chấp nhận
         notificationService.createNotification(
-            senderId, 
-            receiver.getUserName() + " đã chấp nhận lời mời kết bạn.", 
+            senderId,
+            receiver.getUserName() + " đã chấp nhận lời mời kết bạn.",
             "FRIEND_ACCEPT",
             null,
             receiver // Truyền mình (receiver) làm sender của thông báo này
         );
+
+        // [REALTIME] Broadcast FRIEND_STATUS to both participants
+        if (messagingTemplate != null) {
+            try {
+                Map<String, Object> payloadForReceiver = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", senderId,
+                    "relationStatus", "FRIEND"
+                );
+                Map<String, Object> payloadForSender = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", receiverId,
+                    "relationStatus", "FRIEND"
+                );
+                messagingTemplate.convertAndSendToUser(receiverId.toString(), "/queue/private", payloadForReceiver);
+                messagingTemplate.convertAndSend("/topic/user." + receiverId + ".private", payloadForReceiver);
+                messagingTemplate.convertAndSendToUser(senderId.toString(), "/queue/private", payloadForSender);
+                messagingTemplate.convertAndSend("/topic/user." + senderId + ".private", payloadForSender);
+            } catch (Exception ignored) {}
+        }
     }
 
     // [NEW] Hàm Hủy Kết Bạn
     @Transactional
     public void unfriendUser(Integer userId1, Integer userId2) {
-        User u1 = userRepository.findById(userId1).orElseThrow();
-        User u2 = userRepository.findById(userId2).orElseThrow();
+        if (userId1 == null || userId2 == null || userId1.equals(userId2)) return;
+        User u1 = userRepository.findById(userId1).orElse(null);
+        User u2 = userRepository.findById(userId2).orElse(null);
+        if (u1 == null || u2 == null) return;
 
         // Xóa request 2 chiều (bất kể ai gửi trước)
         var req1 = friendRequestRepository.findBySenderAndReceiver(u1, u2);
@@ -333,5 +378,59 @@ public class SocialService {
 
         var req2 = friendRequestRepository.findBySenderAndReceiver(u2, u1);
         req2.ifPresent(friendRequestRepository::delete);
+
+        // [REALTIME] Broadcast STRANGER status to both participants
+        if (messagingTemplate != null) {
+            try {
+                Map<String, Object> payload1 = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", userId2,
+                    "relationStatus", "STRANGER"
+                );
+                Map<String, Object> payload2 = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", userId1,
+                    "relationStatus", "STRANGER"
+                );
+                messagingTemplate.convertAndSendToUser(userId1.toString(), "/queue/private", payload1);
+                messagingTemplate.convertAndSend("/topic/user." + userId1 + ".private", payload1);
+                messagingTemplate.convertAndSendToUser(userId2.toString(), "/queue/private", payload2);
+                messagingTemplate.convertAndSend("/topic/user." + userId2 + ".private", payload2);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // Từ chối lời mời kết bạn (Header notification / profile)
+    @Transactional
+    public void denyFriendRequest(Integer receiverId, Integer senderId) {
+        if (receiverId == null || senderId == null) return;
+        User sender = userRepository.findById(senderId).orElse(null);
+        User receiver = userRepository.findById(receiverId).orElse(null);
+        if (sender == null || receiver == null) return;
+
+        Optional<FriendRequest> reqOpt = friendRequestRepository.findBySenderAndReceiver(sender, receiver);
+        if (reqOpt.isEmpty()) {
+            reqOpt = friendRequestRepository.findBySenderAndReceiver(receiver, sender);
+        }
+        reqOpt.ifPresent(friendRequestRepository::delete);
+
+        if (messagingTemplate != null) {
+            try {
+                Map<String, Object> payloadForReceiver = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", senderId,
+                    "relationStatus", "STRANGER"
+                );
+                Map<String, Object> payloadForSender = Map.of(
+                    "type", "FRIEND_STATUS",
+                    "partnerId", receiverId,
+                    "relationStatus", "STRANGER"
+                );
+                messagingTemplate.convertAndSendToUser(receiverId.toString(), "/queue/private", payloadForReceiver);
+                messagingTemplate.convertAndSend("/topic/user." + receiverId + ".private", payloadForReceiver);
+                messagingTemplate.convertAndSendToUser(senderId.toString(), "/queue/private", payloadForSender);
+                messagingTemplate.convertAndSend("/topic/user." + senderId + ".private", payloadForSender);
+            } catch (Exception ignored) {}
+        }
     }
 }

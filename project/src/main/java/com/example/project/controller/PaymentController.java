@@ -86,10 +86,14 @@ public class PaymentController {
             HttpServletRequest request, 
             RedirectAttributes redirectAttributes) {
 
+        if (userDto == null) {
+            return "redirect:/login";
+        }
+
         try {
             Subscription sub = subscriptionService.getSubscriptionById(subId);
             
-            if (sub.getUser().getUserID() != userDto.getId() || sub.isStatus()) {
+            if (sub == null || sub.getUser() == null || sub.getUser().getUserID() != userDto.getId() || sub.isStatus()) {
                 throw new RuntimeException("Gói đăng ký không hợp lệ hoặc đã được thanh toán.");
             }
             
@@ -125,17 +129,21 @@ public class PaymentController {
     public String handleVnPayReturn(HttpServletRequest request, Model model) {
         Integer subId = null;
         String vnp_TxnRef = request.getParameter("vnp_TxnRef");
-        // ... (Logic lấy subId giữ nguyên) ...
-        if (vnp_TxnRef != null && vnp_TxnRef.contains("_")) {
-             subId = Integer.parseInt(vnp_TxnRef.split("_")[0]);
-        } else if (vnp_TxnRef != null) {
-             subId = Integer.parseInt(vnp_TxnRef);
-        }
+        try {
+            if (vnp_TxnRef != null && vnp_TxnRef.contains("_")) {
+                subId = Integer.parseInt(vnp_TxnRef.split("_")[0]);
+            } else if (vnp_TxnRef != null) {
+                subId = Integer.parseInt(vnp_TxnRef);
+            }
+        } catch (NumberFormatException ignored) {}
 
         try {
             // 1. Validate chữ ký (Giữ nguyên)
             if (!vnPayService.verifyVnPayCallback(request)) {
                  throw new RuntimeException("Chữ ký điện tử không hợp lệ.");
+            }
+            if (subId == null) {
+                throw new RuntimeException("Mã giao dịch không hợp lệ.");
             }
             
             String vnp_ResponseCode = request.getParameter("vnp_ResponseCode");
@@ -144,6 +152,10 @@ public class PaymentController {
 
             // Lấy thông tin Subscription để lấy User
             Subscription sub = subscriptionService.getSubscriptionById(subId);
+            if (sub == null || sub.getUser() == null) {
+                throw new RuntimeException("Không tìm thấy thông tin gói đăng ký.");
+            }
+
 
             // TẠO ĐỐI TƯỢNG PAYMENT
             Payment payment = new Payment();

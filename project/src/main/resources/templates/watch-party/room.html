@@ -10,27 +10,70 @@
     
     <style>
         /* --- CORE LAYOUT --- */
-        body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; }
-        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
+        }
+
         .cinema-area {
-            flex: 1; position: relative;
+            flex: 1 1 0%;
+            min-width: 0;
+            width: 0;
+            height: 100vh;
+            position: relative;
             background: radial-gradient(circle, #1a1a1a 0%, #000 90%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
 
         .sidebar {
-            width: 360px; background: #121212; border-left: 1px solid #333;
-            display: flex; flex-direction: column; transition: width 0.3s ease;
-            position: relative; z-index: 100;
+            width: 360px;
+            min-width: 360px;
+            max-width: 400px;
+            flex-shrink: 0;
+            height: 100vh;
+            background: #121212;
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease, min-width 0.3s ease;
+            position: relative;
+            z-index: 100;
+            overflow: hidden;
+            box-sizing: border-box;
         }
-        .sidebar.collapsed { width: 0; border: none; overflow: hidden; }
+        .sidebar.collapsed {
+            width: 0;
+            min-width: 0;
+            border: none;
+            overflow: hidden;
+        }
 
         /* --- WEBRTC CAMERAS --- */
         .participant-strip {
             height: 120px; background: #111; border-top: 1px solid #333;
             display: flex; align-items: center; padding: 0 15px; gap: 15px;
             overflow-x: auto;
+            transition: all 0.3s ease;
+        }
+        .participant-strip.collapsed {
+            height: 0 !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            border-top: none !important;
+            overflow: hidden !important;
         }
         .participant-strip::-webkit-scrollbar { height: 6px; }
         .participant-strip::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
@@ -57,6 +100,7 @@
         .msg-bubble {
             background: #2a2a2a; padding: 8px 12px; border-radius: 18px; position: relative;
             font-size: 0.95rem; line-height: 1.4; color: #e0e0e0;
+            word-break: break-word; overflow-wrap: anywhere;
         }
         .mine .msg-bubble { background: #e50914; color: white; border-bottom-right-radius: 4px; }
         .other .msg-bubble { border-bottom-left-radius: 4px; }
@@ -64,10 +108,62 @@
         .msg-meta { font-size: 0.7rem; color: #777; margin-top: 4px; display: block; }
         .mine .msg-meta { text-align: right; color: rgba(255,255,255,0.7); }
 
-        .chat-input-area { padding: 15px; border-top: 1px solid #333; background: #1a1a1a; display: flex; gap: 10px; align-items: center; }
+        .chat-input-area { padding: 15px; border-top: 1px solid #333; background: #1a1a1a; display: flex; gap: 10px; align-items: center; position: relative; }
         .chat-input { flex: 1; background: #333; border: none; padding: 10px 15px; color: white; border-radius: 20px; outline: none; }
         .chat-btn { background: none; border: none; color: #888; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
         .chat-btn:hover { color: #e50914; transform: scale(1.1); }
+
+        .room-sticker-popover {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 10px;
+            width: 320px;
+            max-height: 290px;
+            background: #1e1e1e;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.85);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .room-sticker-header {
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #ccc;
+        }
+        .btn-close-popover {
+            background: none; border: none; color: #888; cursor: pointer; font-size: 0.9rem;
+        }
+        .btn-close-popover:hover { color: #fff; }
+        .room-sticker-grid {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-height: 230px;
+        }
+        .room-sticker-grid img {
+            width: 100%;
+            height: 70px;
+            object-fit: contain;
+            border-radius: 6px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            transition: transform 0.15s, background 0.15s;
+        }
+        .room-sticker-grid img:hover {
+            transform: scale(1.08);
+            background: rgba(255,255,255,0.1);
+        }
 
         /* --- FLOATING BUBBLES (Khi đóng sidebar) --- */
         .floating-bubbles-area {
@@ -212,19 +308,20 @@
                 </a>
             </div>
 
-            <div id="noMovieState" th:style="${room.currentMovieId == null ? 'text-align: center;' : 'text-align: center; display: none;'}">
-                <h1 style="font-size: 4rem; margin-bottom: 20px;">🎬</h1>
-                <h3 style="color: #aaa;">Phòng chiếu đang trống</h3>
-                <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 0 20px; border-radius: 8px; margin-top: 20px;">
-                    <i class="fas fa-search me-2"></i> Chọn Phim Ngay
+            <div id="noMovieState" th:style="${currentMovieUrl == null && room.currentMovieId == null ? 'text-align: center;' : 'text-align: center; display: none;'}" style="max-width: 480px; padding: 36px 30px; background: rgba(20,20,20,0.65); backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.85); margin: 20px;">
+                <div style="font-size: 3.5rem; margin-bottom: 12px; filter: drop-shadow(0 0 20px rgba(229,9,20,0.35));">🎬</div>
+                <h3 style="color: #fff; font-weight: 700; margin-bottom: 8px;">Phòng chiếu đang trống</h3>
+                <p style="color: #888; font-size: 0.95rem; margin-bottom: 22px; line-height: 1.4;" th:text="${isHost ? 'Hãy chọn một bộ phim từ thư viện để cùng mọi người bắt đầu thưởng thức.' : 'Chủ phòng đang chọn phim. Hãy sẵn sàng cùng thưởng thức!'}">Vui lòng chờ...</p>
+                <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 10px 24px; border-radius: 25px; background: #e50914; color: #fff; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-search"></i> Chọn Phim Ngay
                 </button>
             </div>
 
-            <video id="partyPlayer" width="100%" height="100%" controls style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-height: calc(100vh - 120px);"></video>
+            <video id="partyPlayer" controls playsinline style="display:none; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-width: 100%; max-height: calc(100vh - 140px); width: auto; height: auto; object-fit: contain;"></video>
         </div>
 
         <!-- Participant / Call Strip -->
-        <div class="participant-strip" id="videoGrid" style="width: 100%;">
+        <div class="participant-strip collapsed" id="videoGrid" style="width: 100%;">
             <div class="user-cam" id="localCamContainer" style="display:none;">
                 <video id="localVideo" muted autoplay playsinline></video>
                 <div class="label">Bạn</div>
@@ -305,8 +402,8 @@
         </div>
 
         <!-- Tab 1: Chat -->
-        <div id="chatTabContent" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
-            <div class="chat-box" id="chatBox">
+        <div id="chatTabContent" style="display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden;">
+            <div class="chat-box" id="chatBox" style="flex:1 1 0; min-height:0; overflow-y:auto;">
                 <div class="text-center text-muted small mt-3">
                     Bắt đầu cuộc trò chuyện...
                 </div>
@@ -318,21 +415,27 @@
                 <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:#fff;"><i class="fas fa-times"></i></button>
             </div>
 
-            <div class="chat-input-area">
-                <label class="chat-btn" style="cursor: pointer;">
+            <div class="chat-input-area" style="flex-shrink:0;">
+                <label class="chat-btn" style="cursor: pointer;" title="Gửi hình ảnh">
                     <i class="fas fa-image"></i>
                     <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="uploadImage()">
                 </label>
                 
-                <div class="dropdown">
-                    <button class="chat-btn" data-bs-toggle="dropdown"><i class="fas fa-smile"></i></button>
-                    <div class="dropdown-menu bg-dark p-2" style="width:300px; max-height:300px; overflow-y:auto;">
-                        <div class="d-flex flex-wrap gap-2" id="stickerList"></div>
+                <div class="sticker-picker-container" style="position: relative;">
+                    <button type="button" class="chat-btn" onclick="window.toggleRoomStickerPicker(event)" title="Gửi nhãn dán / GIF">
+                        <i class="fas fa-smile"></i>
+                    </button>
+                    <div id="roomStickerPicker" class="room-sticker-popover" style="display: none;">
+                        <div class="room-sticker-header">
+                            <span><i class="fas fa-icons me-1"></i> Nhãn dán & GIF</span>
+                            <button type="button" onclick="window.toggleRoomStickerPicker(event)" class="btn-close-popover"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="room-sticker-grid" id="stickerList"></div>
                     </div>
                 </div>
 
                 <input type="text" id="msgInput" class="chat-input" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
-                <button class="chat-btn text-primary" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+                <button class="chat-btn text-primary" onclick="sendChat()" title="Gửi tin nhắn"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
 
@@ -403,7 +506,8 @@
         const userId = /*[[${user.id}]]*/ 0;
         const sessionId = /*[[${session.id}]]*/ '';
         const joinStatus = /*[[${joinStatus}]]*/ 'JOINED';
-        const currentMovieUrl = /*[[${room.currentMovieId}]]*/ null;
+        const currentMovieUrl = /*[[${currentMovieUrl}]]*/ null;
+        const currentMovieTitle = /*[[${currentMovieTitle}]]*/ null;
     </script>
     
     <script src="/js/watch-party/watch-party.js"></script>

@@ -122,7 +122,8 @@ public class WatchPartyController {
                     runtime.getApprovedUserIds().add(user.getId());
                 }
             }
-        } else if (runtime.getHostUserId() == null && dbRoom.getOwner().getUserID() == user.getId()) {
+            boolean isDbOwner = (dbRoom.getOwner() != null && dbRoom.getOwner().getUserID() == user.getId());
+        } else if (runtime.getHostUserId() == null && dbRoom.getOwner() != null && dbRoom.getOwner().getUserID() == user.getId()) {
              runtime.setHostUserId(user.getId());
              runtime.setHostName(user.getUserName());
              runtime.getApprovedUserIds().add(user.getId());
@@ -134,7 +135,7 @@ public class WatchPartyController {
         // Check quyền Host: Check runtime host first, fallback to DB owner
         boolean isHost = (runtime != null && runtime.getHostUserId() != null)
                 ? runtime.getHostUserId().equals(user.getId())
-                : dbRoom.getOwner().getUserID() == user.getId();
+                : (dbRoom.getOwner() != null && dbRoom.getOwner().getUserID() == user.getId());
         model.addAttribute("isHost", isHost);
         
         // Check trạng thái Join (Waiting/Joined)
@@ -144,8 +145,13 @@ public class WatchPartyController {
                  joinStatus = "WAITING"; 
              }
         }
-        model.addAttribute("joinStatus", joinStatus); 
-        
+        model.addAttribute("joinStatus", joinStatus);
+
+        String currentMovieUrl = runtime != null ? runtime.getCurrentMovieUrl() : null;
+        String currentMovieTitle = runtime != null ? runtime.getCurrentMovieTitle() : null;
+        model.addAttribute("currentMovieUrl", currentMovieUrl);
+        model.addAttribute("currentMovieTitle", currentMovieTitle);
+
         return "watch-party/room";
     }
 
@@ -269,13 +275,21 @@ public class WatchPartyController {
     @MessageMapping("/party/{roomId}/chat")
     public void chat(@DestinationVariable String roomId, @Payload SocketMessage msg, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
-        if (runtime != null) {
-            // Override sender with authenticated username from WebSocket session attributes
-            if (headerAccessor.getSessionAttributes() != null && headerAccessor.getSessionAttributes().containsKey("userName")) {
-                msg.setSender((String) headerAccessor.getSessionAttributes().get("userName"));
-            }
-            // Service tự động set ID + timestamp
-            msg.setTimestamp(java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
+        if (runtime == null) return;
+
+        String httpSessionId = headerAccessor.getSessionAttributes() != null
+            ? (String) headerAccessor.getSessionAttributes().get("httpSessionId") : null;
+        if (httpSessionId != null && !runtime.getMembers().containsKey(httpSessionId)) {
+            return; // Sender is not an approved member of this room
+        }
+
+        // Override sender with authenticated username from WebSocket session attributes
+        if (headerAccessor.getSessionAttributes() != null && headerAccessor.getSessionAttributes().containsKey("userName")) {
+            msg.setSender((String) headerAccessor.getSessionAttributes().get("userName"));
+        }
+        // Service tự động set ID + timestamp
+        msg.setTimestamp(java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
+        if (!"REACTION".equalsIgnoreCase(msg.getType())) {
             runtime.addChat(msg);
         }
         messagingTemplate.convertAndSend("/topic/party/" + roomId + "/chat", msg);
@@ -298,11 +312,19 @@ public class WatchPartyController {
                 messagingTemplate.convertAndSend("/topic/party/" + roomId + "/waitingUpdate", runtime.getWaitingList().values());
             }
         } else if ("JOINED".equals(status)) {
+            partyService.cancelPendingDisconnect(httpSessionId);
+            if (headerAccessor.getSessionAttributes() != null) {
+                headerAccessor.getSessionAttributes().put("inWatchPartyRoom", roomId);
+            }
+            WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+            boolean isMemberHost = runtime != null && httpSessionId.equals(runtime.getHostSessionId());
             // Broadcast new member joined
             Map<String, Object> joinMsg = new HashMap<>();
             joinMsg.put("type", "MEMBER_JOINED");
             joinMsg.put("sessionId", httpSessionId);
+            joinMsg.put("userId", user.getId());
             joinMsg.put("userName", user.getUserName());
+            joinMsg.put("isHost", isMemberHost);
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/system", joinMsg);
         }
     }
@@ -310,6 +332,9 @@ public class WatchPartyController {
     @MessageMapping("/party/{roomId}/leave")
     public void leaveRoomStomp(@DestinationVariable String roomId, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         String httpSessionId = (String) headerAccessor.getSessionAttributes().get("httpSessionId");
+        if (headerAccessor.getSessionAttributes() != null) {
+            headerAccessor.getSessionAttributes().remove("inWatchPartyRoom");
+        }
         if (httpSessionId != null) {
             partyService.handleDisconnect(httpSessionId);
         }
@@ -337,13 +362,20 @@ public class WatchPartyController {
                     "title", runtime.getCurrentMovieTitle() != null ? runtime.getCurrentMovieTitle() : "",
                     "url", runtime.getCurrentMovieUrl()
                 );
-                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie", movieData);
                 
                 Map<String, Object> syncData = new HashMap<>();
                 syncData.put("type", runtime.getPlaybackStatus());
                 syncData.put("currentTime", currentEstimatedTime);
                 syncData.put("sender", "System");
-                messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", syncData);
+
+                // Targeted to requesting session so existing room members are not disrupted
+                if (userSessionId != null && !userSessionId.isEmpty()) {
+                    messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie/" + userSessionId, movieData);
+                    messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync/" + userSessionId, syncData);
+                } else {
+                    messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie", movieData);
+                    messagingTemplate.convertAndSend("/topic/party/" + roomId + "/sync", syncData);
+                }
             }
             
             // 3. Trả về danh sách thành viên hiện tại (để WebRTC kết nối)
@@ -352,8 +384,29 @@ public class WatchPartyController {
     }
 
     private boolean isHost(org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor, WatchPartyService.WatchRoomRuntime runtime) {
-        if (runtime == null || headerAccessor.getUser() == null || runtime.getHostUserId() == null) return false;
-        return String.valueOf(runtime.getHostUserId()).equals(headerAccessor.getUser().getName());
+        if (runtime == null || runtime.getHostUserId() == null) return false;
+
+        if (headerAccessor.getUser() != null && String.valueOf(runtime.getHostUserId()).equals(headerAccessor.getUser().getName())) {
+            return true;
+        }
+
+        Map<String, Object> attrs = headerAccessor.getSessionAttributes();
+        if (attrs != null) {
+            Object uid = attrs.get("userId");
+            if (uid != null && runtime.getHostUserId().toString().equals(uid.toString())) {
+                return true;
+            }
+            Object userObj = attrs.get("userDto");
+            if (userObj == null) userObj = attrs.get("userSession");
+            if (userObj instanceof UserSessionDto && runtime.getHostUserId().equals(((UserSessionDto) userObj).getId())) {
+                return true;
+            }
+            String httpSessionId = (String) attrs.get("httpSessionId");
+            if (httpSessionId != null && httpSessionId.equals(runtime.getHostSessionId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @MessageMapping("/party/{roomId}/admin/approve")

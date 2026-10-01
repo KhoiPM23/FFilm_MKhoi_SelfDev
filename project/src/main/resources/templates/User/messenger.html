@@ -53,7 +53,7 @@
                         <img id="headerAvatar" src="/images/placeholder-user.jpg" class="avatar-img">
                         <div>
                             <h4 id="headerName">User Name</h4>
-                            <small class="text-success">Đang hoạt động</small>
+                            <div id="chatHeaderStatus"></div>
                         </div>
                     </div>
                     <div class="chat-actions">
@@ -215,21 +215,24 @@
             <div class="info-header">
                 <img id="infoAvatar" src="/images/placeholder-user.jpg" class="info-avatar-lg">
                 <h3 id="infoName">User Name</h3>
-                <span class="info-status">Đang hoạt động</span>
+                <span class="info-status"></span>
                 
-                <!-- Thêm action buttons -->
+                <!-- Action buttons -->
                 <div class="info-header-actions">
-                    <button class="info-action-btn" onclick="viewProfile()" title="Xem trang cá nhân">
+                    <button class="info-action-btn" onclick="window.viewProfile()" title="Xem trang cá nhân">
                         <i class="fas fa-user-circle"></i>
                     </button>
-                    <button class="info-action-btn" onclick="openChatSearch()" title="Tìm kiếm tin nhắn">
+                    <button class="info-action-btn" onclick="window.openChatSearch()" title="Tìm kiếm tin nhắn">
                         <i class="fas fa-search"></i>
                     </button>
-                    <button class="info-action-btn" onclick="toggleNotifications()" title="Tắt thông báo">
+                    <button class="info-action-btn" onclick="window.toggleNotifications()" title="Tắt thông báo">
                         <i class="fas fa-bell"></i>
                     </button>
-                    <button class="info-action-btn" onclick="openPinnedMessagesModal()" title="Tin nhắn đã ghim">
+                    <button class="info-action-btn" onclick="window.openPinnedMessagesModal()" title="Tin nhắn đã ghim">
                         <i class="fas fa-thumbtack"></i>
+                    </button>
+                    <button class="info-action-btn" onclick="window.openCallHistory()" title="Lịch sử cuộc gọi">
+                        <i class="fas fa-history"></i>
                     </button>
                 </div>
             </div>
@@ -374,7 +377,12 @@
     </div>
 
     <script th:inline="javascript">
-        window.currentUser = /*[[${userJson}]]*/ {};
+        try {
+            var rawUser = /*[[${userJson}]]*/ {};
+            window.currentUser = (typeof rawUser === 'string') ? JSON.parse(rawUser) : rawUser;
+        } catch (e) {
+            window.currentUser = {};
+        }
         const currentUser = window.currentUser;
     </script>
 

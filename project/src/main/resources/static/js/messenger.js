@@ -14,6 +14,20 @@
         };
     }
 
+    // Safe HTML Escaper to prevent XSS and ReferenceErrors across Messenger
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    if (typeof window.escapeHtml !== 'function') {
+        window.escapeHtml = escapeHtml;
+    }
+
     // --- KHAI BÁO BIẾN ---
     let stompClient = null;
     let currentPartnerId = null;
@@ -37,7 +51,30 @@
     let messageQueue = [];
     let isProcessingQueue = false;
 
-    const currentUser = window.currentUser || { userID: 0, name: 'Me' };
+    if (window.currentUser) {
+        if (typeof window.currentUser === 'string') {
+            try {
+                window.currentUser = JSON.parse(window.currentUser);
+            } catch (e) {
+                console.error('Failed to parse window.currentUser JSON string', e);
+            }
+        }
+        if (typeof window.currentUser === 'object' && window.currentUser !== null) {
+            if (!window.currentUser.userID && window.currentUser.id) window.currentUser.userID = window.currentUser.id;
+            if (!window.currentUser.id && window.currentUser.userID) window.currentUser.id = window.currentUser.userID;
+            if (!window.currentUser.name && window.currentUser.userName) window.currentUser.name = window.currentUser.userName;
+            if (!window.currentUser.userName && window.currentUser.name) window.currentUser.userName = window.currentUser.name;
+        }
+    }
+    const currentUser = (typeof window.currentUser === 'object' && window.currentUser !== null)
+        ? window.currentUser
+        : { userID: 0, id: 0, name: 'Me', userName: 'Me' };
+    currentUser.userID = currentUser.userID || currentUser.id || 0;
+    currentUser.id = currentUser.id || currentUser.userID || 0;
+    currentUser.name = currentUser.name || currentUser.userName || 'Me';
+    currentUser.userName = currentUser.userName || currentUser.name || 'Me';
+    window.currentUser = currentUser;
+
     const notificationSound = new Audio('/sounds/message-notification.mp3');
 
     // Bridge shared state for modular scripts (e.g. messenger-calls.js, messenger-stickers.js)
@@ -46,7 +83,7 @@
         get currentPartnerId() { return currentPartnerId; },
         get currentPartnerName() { return currentPartnerName; },
         get currentUser() { return currentUser; },
-        sendApiRequest: function(payload) { return sendApiRequest(payload); },
+        sendApiRequest: function(payload, tempId) { return sendApiRequest(payload, tempId); },
         showToast: function(msg, type) { return window.showToast(msg, type); }
     };
 
@@ -172,54 +209,165 @@
 
     // --- WebRTC / Call Logic extracted to messenger-calls.js ---
 
-    // --- 1. WEBSOCKET ---
+    // --- 1. WEBSOCKET & DEDUPLICATION ---
+    let activeSubscriptions = [];
+    let isConnectingSocket = false;
+    let reconnectTimeout = null;
+    const processedEvents = new Map();
+
+    function isDuplicateEvent(key, ttlMs = 4000) {
+        if (!key) return false;
+        const now = Date.now();
+        if (processedEvents.size > 200) {
+            for (let [k, ts] of processedEvents) {
+                if (now - ts > ttlMs) processedEvents.delete(k);
+            }
+        }
+        if (processedEvents.has(key)) {
+            const lastTs = processedEvents.get(key);
+            if (now - lastTs < ttlMs) return true;
+        }
+        processedEvents.set(key, now);
+        return false;
+    }
+
     function connectWebSocket() {
+        if (isConnectingSocket) return;
+        isConnectingSocket = true;
+
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
+
+        // Clean up previous client
+        if (stompClient) {
+            try {
+                activeSubscriptions.forEach(sub => { try { sub.unsubscribe(); } catch (e) {} });
+                activeSubscriptions = [];
+                if (stompClient.connected) {
+                    stompClient.disconnect();
+                }
+            } catch (e) {}
+        }
+
         const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
         
         stompClient.connect({}, function(frame) {
+            isConnectingSocket = false;
+            activeSubscriptions = [];
             console.log('✅ WebSocket Connected:', frame);
             
-            // Subscribe đến private messages - DÙNG userId VÀ TOPIC FALLBACK
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/private`, function(payload) {
-                const msg = JSON.parse(payload.body);
-                handleSocketMessage(msg);
-            });
-            stompClient.subscribe(`/topic/user.${currentUser.userID}.private`, function(payload) {
-                const msg = JSON.parse(payload.body);
-                handleSocketMessage(msg);
-            });
-            
-            // Subscribe đến typing notifications (queue + topic)
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/typing`, function(payload) {
-                const data = JSON.parse(payload.body);
-                handleTypingNotification(data);
-            });
-            stompClient.subscribe(`/topic/user.${currentUser.userID}.typing`, function(payload) {
-                const data = JSON.parse(payload.body);
-                handleTypingNotification(data);
-            });
-            
-            // Subscribe đến seen notifications
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/seen`, function(payload) {
-                const data = JSON.parse(payload.body);
-                updateSeenAvatar(data.messageId, data.seenBy);
-            });
-            
-            // Subscribe đến online status updates
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/online-status`, function(payload) {
-                const data = JSON.parse(payload.body);
-                updateOnlineStatus(data.userId, data.isOnline, data.lastActive);
-            });
-
-            // Subscribe đến call notifications (delegated to messenger-calls.js)
-            stompClient.subscribe(`/user/${currentUser.userID}/queue/call`, function(payload) {
-                const data = JSON.parse(payload.body);
-                if (window.MessengerCalls) {
-                    window.MessengerCalls.handleIncomingCall(data);
+            // 1. Subscribe đến private messages
+            const subPrivateUser = stompClient.subscribe('/user/queue/private', function(payload) {
+                try {
+                    const msg = JSON.parse(payload.body);
+                    handleSocketMessage(msg);
+                } catch (e) {
+                    console.error("Error parsing /user/queue/private frame", e);
                 }
             });
+            activeSubscriptions.push(subPrivateUser);
+
+            if (currentUser.userID) {
+                const subPrivateTopic = stompClient.subscribe(`/topic/user.${currentUser.userID}.private`, function(payload) {
+                    try {
+                        const msg = JSON.parse(payload.body);
+                        handleSocketMessage(msg);
+                    } catch (e) {
+                        console.error("Error parsing /topic/user private frame", e);
+                    }
+                });
+                activeSubscriptions.push(subPrivateTopic);
+            }
+            
+            // 2. Subscribe đến typing notifications
+            const subTypingUser = stompClient.subscribe('/user/queue/typing', function(payload) {
+                try {
+                    const data = JSON.parse(payload.body);
+                    handleTypingNotification(data);
+                } catch (e) {}
+            });
+            activeSubscriptions.push(subTypingUser);
+
+            if (currentUser.userID) {
+                const subTypingTopic = stompClient.subscribe(`/topic/user.${currentUser.userID}.typing`, function(payload) {
+                    try {
+                        const data = JSON.parse(payload.body);
+                        handleTypingNotification(data);
+                    } catch (e) {}
+                });
+                activeSubscriptions.push(subTypingTopic);
+            }
+            
+            // 3. Subscribe đến seen notifications
+            const subSeenUser = stompClient.subscribe('/user/queue/seen', function(payload) {
+                try {
+                    const data = JSON.parse(payload.body);
+                    if (data.type === 'SEEN_ALL') {
+                        handleSocketMessage(data);
+                    } else {
+                        updateSeenAvatar(data.messageId, data.seenBy);
+                    }
+                } catch (e) {}
+            });
+            activeSubscriptions.push(subSeenUser);
+
+            if (currentUser.userID) {
+                const subSeenTopic = stompClient.subscribe(`/topic/user.${currentUser.userID}.seen`, function(payload) {
+                    try {
+                        const data = JSON.parse(payload.body);
+                        if (data.type === 'SEEN_ALL') {
+                            handleSocketMessage(data);
+                        } else {
+                            updateSeenAvatar(data.messageId, data.seenBy);
+                        }
+                    } catch (e) {}
+                });
+                activeSubscriptions.push(subSeenTopic);
+            }
+            
+            // 4. Subscribe đến online status updates (broadcast toàn hệ thống và private)
+            const subOnlineTopic = stompClient.subscribe('/topic/online-status', function(payload) {
+                try {
+                    const data = JSON.parse(payload.body);
+                    updateOnlineStatus(data.userId, data.isOnline, data.lastActive, data.lastActiveTimestamp);
+                } catch (e) {}
+            });
+            activeSubscriptions.push(subOnlineTopic);
+
+            const subOnlineUser = stompClient.subscribe('/user/queue/online-status', function(payload) {
+                try {
+                    const data = JSON.parse(payload.body);
+                    updateOnlineStatus(data.userId, data.isOnline, data.lastActive, data.lastActiveTimestamp);
+                } catch (e) {}
+            });
+            activeSubscriptions.push(subOnlineUser);
+
+            // 5. Subscribe đến call notifications (delegated to messenger-calls.js)
+            const subCallUser = stompClient.subscribe('/user/queue/call', function(payload) {
+                try {
+                    const data = JSON.parse(payload.body);
+                    if (window.MessengerCalls) {
+                        window.MessengerCalls.handleIncomingCall(data);
+                    }
+                } catch (e) {}
+            });
+            activeSubscriptions.push(subCallUser);
+
+            if (currentUser.userID) {
+                const subCallTopic = stompClient.subscribe(`/topic/user.${currentUser.userID}.call`, function(payload) {
+                    try {
+                        const data = JSON.parse(payload.body);
+                        if (window.MessengerCalls) {
+                            window.MessengerCalls.handleIncomingCall(data);
+                        }
+                    } catch (e) {}
+                });
+                activeSubscriptions.push(subCallTopic);
+            }
             
             // Gửi ping để báo online
             stompClient.send('/app/online/ping', {}, JSON.stringify({
@@ -230,8 +378,9 @@
             showToast("Đã kết nối thời gian thực", "success");
             
         }, function(error) {
+            isConnectingSocket = false;
             console.error('WebSocket Error:', error);
-            setTimeout(connectWebSocket, 5000);
+            reconnectTimeout = setTimeout(connectWebSocket, 5000);
         });
     }
 
@@ -281,6 +430,7 @@
     }
 
     function handleSocketMessage(msg) {
+        if (!msg) return;
         console.log("Socket message received:", msg);
         
         // 1. Xử lý Tín hiệu Gọi (delegated to messenger-calls.js)
@@ -290,12 +440,16 @@
 
         // 2. Reaction events
         if (msg.type === 'REACTION' && msg.messageId) {
+            const reactionKey = `REACTION:${msg.messageId}:${JSON.stringify(msg.reactions)}`;
+            if (isDuplicateEvent(reactionKey)) return;
             updateMessageReactions(msg.messageId, msg.reactions);
             return;
         }
 
         // 3. Unsend events
         if (msg.type === 'UNSEND' && msg.messageId) {
+            const unsendKey = `UNSEND:${msg.messageId}`;
+            if (isDuplicateEvent(unsendKey)) return;
             const row = $(`#msg-${msg.messageId}`);
             if (row.length) {
                 row.find('.bubble').addClass('deleted').text('Tin nhắn đã bị thu hồi');
@@ -304,8 +458,62 @@
             return;
         }
 
-        // 4. Chat messages - check deduplication
-        const myId = parseInt(currentUser.userID);
+        // 4. Pin events
+        if (msg.type === 'PIN' && msg.messageId) {
+            const pinKey = `PIN:${msg.messageId}:${msg.isPinned}`;
+            if (isDuplicateEvent(pinKey)) return;
+            const row = $(`#msg-${msg.messageId}`);
+            if (row.length) {
+                row.toggleClass('pinned', !!msg.isPinned);
+            }
+            if (typeof window.loadPinnedMessages === 'function') {
+                window.loadPinnedMessages();
+            }
+            return;
+        }
+
+        // 5. Seen All events
+        if (msg.type === 'SEEN_ALL') {
+            const seenKey = `SEEN_ALL:${msg.seenBy}`;
+            if (isDuplicateEvent(seenKey, 1000)) return;
+            if (currentPartnerId && currentPartnerId == msg.seenBy) {
+                $('.msg-row.mine .seen-avatar').remove();
+                const lastMine = $('.msg-row.mine').last();
+                if (lastMine.length) {
+                    const partnerAvatar = $('#headerAvatar').attr('src') || '/images/placeholder-user.jpg';
+                    lastMine.find('.msg-bubble-wrap').append(`<img src="${partnerAvatar}" class="seen-avatar" style="width:14px; height:14px; border-radius:50%; margin-top:2px; align-self:flex-end;" title="Đã xem">`);
+                }
+            }
+            return;
+        }
+
+        // 6. Friend status update
+        if (msg.type === 'FRIEND_STATUS') {
+            const friendKey = `FRIEND_STATUS:${msg.partnerId}:${msg.relationStatus}`;
+            if (isDuplicateEvent(friendKey, 2000)) return;
+            if (currentPartnerId && currentPartnerId == msg.partnerId) {
+                if (msg.relationStatus === 'FRIEND') {
+                    isCurrentPartnerFriend = true;
+                    $('#strangerBanner').remove();
+                    $('#headerName span').remove();
+                    $('#chatHeaderStatus').html(`<small class="text-success"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`);
+                    showToast('Đã trở thành bạn bè!', 'success');
+                } else {
+                    isCurrentPartnerFriend = false;
+                    window.renderStrangerBanner(currentPartnerId, 'STRANGER');
+                }
+            }
+            loadConversations();
+            return;
+        }
+
+        // 7. Chat messages - deduplication check
+        if (msg.id) {
+            const msgKey = `MSG:${msg.id}`;
+            if (isDuplicateEvent(msgKey, 3000)) return;
+        }
+
+        const myId = parseInt(currentUser.userID || currentUser.id || 0);
         const senderId = parseInt(msg.senderId);
         const partnerId = (senderId === myId) ? parseInt(msg.receiverId) : senderId;
 
@@ -315,13 +523,35 @@
             if (msg.id && $(`#msg-${msg.id}`).length) {
                 return;
             }
+            if (msg.type === 'CALL_END') {
+                let metaCallId = null;
+                try {
+                    const m = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+                    if (m && m.callId) metaCallId = m.callId;
+                } catch (e) {}
+                if (metaCallId && $(`.msg-row[data-call-id="${metaCallId}"]`).length) {
+                    return;
+                }
+            }
             // Nếu là tin nhắn của mình và có tin nhắn tạm thì cập nhật thay vì thêm mới
             if (senderId === myId) {
-                const tempRow = $(`#messagesContainer .msg-row.mine[data-status="sending"]`).last();
-                if (tempRow.length && tempRow.find('.bubble').text() === msg.content) {
-                    tempRow.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
-                    tempRow.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
-                    return;
+                let tempRow = $(`#messagesContainer .msg-row.mine[data-status="sending"]`).last();
+                if (!tempRow.length) {
+                    tempRow = $(`#messagesContainer .msg-row.mine[id^="msg-temp-"]`).last();
+                }
+                if (tempRow.length) {
+                    const tempText = tempRow.find('.bubble').text().trim();
+                    const tempImg = tempRow.find('.msg-content img, .bubble img');
+                    const tempImgSrc = tempImg.length ? tempImg.attr('src') : null;
+                    const isContentMatch = (tempText && tempText === (msg.content || '').trim());
+                    const isMediaMatch = (tempImgSrc && msg.content && (tempImgSrc === msg.content || msg.content.includes(tempImgSrc)));
+                    const isMediaOrStickerType = (msg.type === 'STICKER' || msg.type === 'GIF' || msg.type === 'IMAGE') && tempImg.length > 0;
+
+                    if (isContentMatch || isMediaMatch || isMediaOrStickerType || (!tempText && !tempImgSrc)) {
+                        tempRow.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                        tempRow.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
+                        return;
+                    }
                 }
             }
             
@@ -382,6 +612,18 @@
             else if (msg.type === 'STICKER') preview = prefix + 'Đã gửi 1 nhãn dán';
             else if (msg.type === 'GIF') preview = prefix + 'Đã gửi 1 GIF';
             else if (msg.type === 'AUDIO') preview = prefix + 'Đã gửi 1 tin nhắn thoại';
+            else if (msg.type === 'CALL_END') {
+                const isVideo = (msg.mediaUrl === 'VIDEO' || (msg.content && msg.content.toLowerCase().includes('video')));
+                const callStatus = (msg.callStatus || '').toUpperCase();
+                if (callStatus === 'MISSED') {
+                    preview = isMine ? (isVideo ? 'Cuộc gọi video không phản hồi' : 'Cuộc gọi thoại không phản hồi')
+                                     : (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi thoại nhỡ');
+                } else if (callStatus === 'REJECTED') {
+                    preview = isVideo ? 'Cuộc gọi video bị từ chối' : 'Cuộc gọi thoại bị từ chối';
+                } else {
+                    preview = prefix + (isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
+                }
+            }
             else preview = prefix + 'Đã gửi 1 tệp';
             
             convItem.find('.conv-preview').text(preview);
@@ -458,16 +700,19 @@
                     }
 
                     const isFriendStr = c.friend ? 'true' : 'false';
+                    const badgeText = (!c.online) ? formatRelativeTimeBadge(c.lastActiveTimestamp, c.lastActive) : null;
+                    const badgeHtml = badgeText ? `<span class="last-active-badge">${badgeText}</span>` : '';
+                    const dotHtml = `<div class="online-dot ${c.online ? 'is-online' : ''}" style="${c.online ? '' : 'display:none;'}"></div>`;
 
-                    list.append(`
+                    const item = $(`
                         <div class="conv-item ${active} ${unread} d-flex align-items-center p-2"
                             id="conv-${c.partnerId}" data-partner-id="${c.partnerId}"
-                            onclick="window.selectConversation(${c.partnerId}, '${c.partnerName.replace(/'/g, "\\'")}', '${avatar}', '${isFriendStr}', ${c.online}, '${c.lastActive || ''}', '${c.relationStatus || ''}')"
                             style="cursor:pointer; border-bottom:1px solid #333;">
 
                             <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
                                 <img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
-                                ${c.online ? '<div class="online-dot"></div>' : ''}
+                                ${dotHtml}
+                                ${badgeHtml}
                             </div>
 
                             <div class="flex-grow-1" style="min-width:0;">
@@ -483,11 +728,24 @@
                             </div>
 
                             ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
-                            <button class="conv-more-btn" onclick="event.stopPropagation(); window.toggleConvMenu(event, ${c.partnerId})" title="Tùy chọn">
+                            <button type="button" class="conv-more-btn" title="Tùy chọn">
                                 <i class="fas fa-ellipsis-h"></i>
                             </button>
                         </div>
                     `);
+
+                    item.on('click', function(e) {
+                        if ($(e.target).closest('.conv-more-btn, .conv-action-dropdown').length) return;
+                        window.selectConversation(c.partnerId, c.partnerName, avatar, isFriendStr, c.online, c.lastActive, c.relationStatus, c.lastActiveTimestamp);
+                    });
+
+                    item.find('.conv-more-btn').on('click', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        window.toggleConvMenu(e, c.partnerId);
+                    });
+
+                    list.append(item);
                 });
 
                 checkUrlAndOpenChat(data);
@@ -575,7 +833,10 @@
         $.post(`/api/v1/messenger/block/${id}`)
             .done(function() {
                 showToast('Đã chặn người dùng thành công', 'success');
-                $('#strangerBanner').remove();
+                window.renderStrangerBanner(id, 'STRANGER');
+                if (typeof loadConversations === 'function') {
+                    loadConversations();
+                }
             })
             .fail(function() {
                 showToast('Lỗi khi chặn người dùng', 'error');
@@ -611,17 +872,34 @@
     };
 
     // --- 3. SELECT AND LOAD THEME KHI CHỌN CONVERSATION ---
-    window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive, relationStatus) {
+    window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp) {
         currentPartnerId = parseInt(partnerId);
         currentPartnerName = name;
         isCurrentPartnerFriend = (String(isFriend) === 'true' || relationStatus === 'FRIEND');
 
+        // Persist active conversation across refresh & update URL
+        if (currentPartnerId) {
+            sessionStorage.setItem('activeMessengerPartnerId', currentPartnerId);
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', '/messenger?uid=' + currentPartnerId);
+            }
+        }
+
         // UI Updates
         $('#emptyState').hide();
         $('#chatInterface').show();
+        if (typeof window.closeInlineChatSearch === 'function') {
+            window.closeInlineChatSearch();
+        }
         updateInfoSidebar(name, avatar);
 
-        // Load theme từ server
+        // Only refresh media if info sidebar is already open by user choice
+        if (!$('#chatInfoSidebar').hasClass('hidden')) {
+            loadSharedMedia();
+        }
+
+        // Load theme và settings từ server
+        $('#messagesContainer').css('background-image', '');
         $.get(`/api/v1/messenger/settings/${partnerId}`)
             .done(function(settings) {
                 if (settings.themeColor && settings.themeColor !== '#0084ff') {
@@ -629,6 +907,17 @@
                 } else {
                     // Reset về mặc định
                     document.documentElement.style.setProperty('--msg-blue', '#0084ff');
+                }
+                if (settings.nickname) {
+                    $('#headerName').text(settings.nickname);
+                    $('#infoName').text(settings.nickname);
+                }
+                if (settings.customBackgroundUrl) {
+                    $('#messagesContainer').css({
+                        'background-image': `url('${settings.customBackgroundUrl}')`,
+                        'background-size': 'cover',
+                        'background-position': 'center'
+                    });
                 }
             })
             .fail(function() {
@@ -653,15 +942,20 @@
         // Status Line (Dòng dưới tên)
         const statusDiv = $('#chatHeaderStatus');
         if (isCurrentPartnerFriend) {
-            // Nếu là bạn -> Hiện status hoạt động
-            if (String(isOnline) === 'true') {
-                statusDiv.html(`<small class="text-success"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`);
-            } else {
-                statusDiv.html(`<small class="text-muted">${lastActive ? 'Hoạt động ' + lastActive : 'Không hoạt động'}</small>`);
-            }
+            statusDiv.html(formatStatusText(isOnline, lastActiveTimestamp, lastActive));
         } else {
-             // Nếu là người lạ -> Không hiện status online, để trống cho gọn
-             statusDiv.empty();
+            statusDiv.empty();
+        }
+
+        // Cập nhật trạng thái trong info sidebar
+        const infoStatus = $('.chat-info-sidebar .info-status');
+        if (infoStatus.length) {
+            if (String(isOnline) === 'true') {
+                infoStatus.text('Đang hoạt động').css('color', '#31a24c');
+            } else {
+                const badge = formatRelativeTimeBadge(lastActiveTimestamp, lastActive);
+                infoStatus.text(badge ? ('Hoạt động ' + badge + ' trước') : 'Không hoạt động').css('color', '#888');
+            }
         }
 
         // [FIX] Banner Zalo (Vàng) - Chỉ hiện khi là người lạ
@@ -684,12 +978,65 @@
 
         // Active Sidebar & Load
         $('.conv-item').removeClass('active');
-        $(`#conv-${partnerId}`).addClass('active');
+        if ($(`#conv-${partnerId}`).length === 0) {
+            const isOnlineBool = String(isOnline) === 'true';
+            const dotHtml = `<div class="online-dot ${isOnlineBool ? 'is-online' : ''}" style="${isOnlineBool ? '' : 'display:none;'}"></div>`;
+            const newConvItem = $(`
+                <div class="conv-item active d-flex align-items-center p-2"
+                    id="conv-${partnerId}" data-partner-id="${partnerId}"
+                    style="cursor:pointer; border-bottom:1px solid #333;">
+
+                    <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
+                        <img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+                        ${dotHtml}
+                    </div>
+
+                    <div class="flex-grow-1" style="min-width:0;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong class="conv-name" style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                ${name}
+                            </strong>
+                            <small class="text-muted" style="font-size:0.75rem;">Mới</small>
+                        </div>
+                        <div class="conv-preview text-muted small text-truncate" style="color:#aaa;">
+                            Bắt đầu cuộc trò chuyện mới
+                        </div>
+                    </div>
+
+                    <button type="button" class="conv-more-btn" title="Tùy chọn">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+            `);
+
+            newConvItem.on('click', function(e) {
+                if ($(e.target).closest('.conv-more-btn, .conv-action-dropdown').length) return;
+                window.selectConversation(partnerId, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp);
+            });
+
+            newConvItem.find('.conv-more-btn').on('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                window.toggleConvMenu(e, partnerId);
+            });
+
+            $('#conversationList .empty-conversations').remove();
+            $('#conversationList').prepend(newConvItem);
+        } else {
+            $(`#conv-${partnerId}`).addClass('active');
+        }
         loadChatHistory(partnerId);
         $('.messenger-container').addClass('show-chat');
     };
 
+    let currentChatHistoryXhr = null;
+
     function loadChatHistory(partnerId) {
+        if (currentChatHistoryXhr) {
+            try { currentChatHistoryXhr.abort(); } catch (e) {}
+            currentChatHistoryXhr = null;
+        }
+
         let container = $('#messagesContainer');
         container.html(`
             <div class="chat-skeleton-container">
@@ -701,7 +1048,8 @@
             </div>
         `);
 
-        $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
+        currentChatHistoryXhr = $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
+            if (parseInt(partnerId) !== parseInt(currentPartnerId)) return;
             container.empty();
             
             // Nếu trống -> Hiện banner chào
@@ -713,9 +1061,11 @@
             msgs.forEach(m => appendMessageToUI(m));
             scrollToBottom();
 
-            // FIX: Khởi tạo reaction system sau khi load tin nhắn
+            // Khởi tạo reaction system an toàn
             initReactionSystem();
-        }).fail(function() {
+        }).fail(function(jqXHR, textStatus) {
+            if (textStatus === 'abort') return;
+            if (parseInt(partnerId) !== parseInt(currentPartnerId)) return;
             container.html('<div class="text-center mt-5 text-danger"><small><i class="fas fa-exclamation-triangle mr-1"></i> Không thể tải tin nhắn. Vui lòng thử lại sau.</small></div>');
         });
     }
@@ -763,6 +1113,61 @@
         let contentHtml = '';
         if (msg.isDeleted) {
             contentHtml = '<div class="bubble deleted" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>';
+        } else if (msg.type === 'CALL_END') {
+            const isVideo = (msg.mediaUrl === 'VIDEO' || (msg.content && msg.content.toLowerCase().includes('video')));
+            const callIconClass = isVideo ? 'fa-video' : 'fa-phone-alt';
+            const durationSec = msg.callDuration || 0;
+            let durationText = '';
+            if (durationSec > 0) {
+                const mins = Math.floor(durationSec / 60);
+                const secs = durationSec % 60;
+                durationText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            let statusClass = 'completed';
+            let titleText = '';
+            let metaText = '';
+
+            const callStatus = (msg.callStatus || '').toUpperCase();
+            if (callStatus === 'MISSED') {
+                statusClass = 'missed';
+                titleText = isMine
+                    ? (isVideo ? 'Cuộc gọi video không phản hồi' : 'Cuộc gọi thoại không phản hồi')
+                    : (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi thoại nhỡ');
+                metaText = 'Nhỡ';
+            } else if (callStatus === 'REJECTED') {
+                statusClass = 'rejected';
+                titleText = isMine
+                    ? (isVideo ? 'Cuộc gọi video bị từ chối' : 'Cuộc gọi thoại bị từ chối')
+                    : (isVideo ? 'Đã từ chối cuộc gọi video' : 'Đã từ chối cuộc gọi thoại');
+                metaText = 'Đã từ chối';
+            } else {
+                statusClass = 'completed';
+                titleText = isMine
+                    ? (isVideo ? 'Cuộc gọi video đi' : 'Cuộc gọi thoại đi')
+                    : (isVideo ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến');
+                metaText = durationText ? `Hoàn thành · ${durationText}` : 'Đã kết thúc';
+            }
+
+            const partnerToCall = isMine ? (msg.receiverId || currentPartnerId) : (msg.senderId || currentPartnerId);
+
+            contentHtml = `
+                <div class="msg-call-bubble">
+                    <div class="msg-call-icon ${statusClass}">
+                        <i class="fas ${callIconClass}"></i>
+                    </div>
+                    <div class="msg-call-info">
+                        <div class="msg-call-title ${statusClass}">${titleText}</div>
+                        <div class="msg-call-meta">
+                            <span>${metaText}</span>
+                            ${msg.formattedTime ? `<span>· ${msg.formattedTime}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="msg-call-btn" onclick="window.callbackFromMessage(${partnerToCall}, ${isVideo})">
+                        <i class="fas fa-phone-alt"></i> Gọi lại
+                    </button>
+                </div>
+            `;
         } else if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
             const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : (msg.type === 'GIF' ? 'msg-gif' : 'msg-image');
             contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">`;
@@ -805,7 +1210,9 @@
 
         // Action Buttons
         let actionButtons = '';
-        if (isMine) {
+        if (msg.type === 'CALL_END') {
+            actionButtons = '';
+        } else if (isMine) {
             actionButtons = `
                 <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msgId}')">
                     <i class="fas fa-share"></i>
@@ -816,7 +1223,7 @@
                 <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
-                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
+                <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
                     <i class="far fa-smile"></i>
                 </div>
                 <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage('${msgId}')">
@@ -831,7 +1238,7 @@
                 <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', '${currentPartnerName.replace(/'/g, "\\'")}', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
-                <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
+                <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
                     <i class="far fa-smile"></i>
                 </div>
             `;
@@ -846,9 +1253,22 @@
         // Avatar
         let avatarHtml = !isMine ? `<img src="${$('#headerAvatar').attr('src')}" class="avatar-img" style="width: 28px; height: 28px;">` : '';
 
+        let callIdAttr = '';
+        if (msg.type === 'CALL_END') {
+            let cid = null;
+            if (msg.metadata) {
+                try {
+                    const m = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+                    if (m && m.callId) cid = m.callId;
+                } catch(e) {}
+            }
+            if (!cid && window.activeCallSessionId) cid = window.activeCallSessionId;
+            if (cid) callIdAttr = `data-call-id="${cid}"`;
+        }
+
         const statusAttr = msg.status ? `data-status="${msg.status}"` : '';
         const html = `
-            <div class="msg-row ${typeClass}" id="msg-${msgId}" data-msg-id="${msgId}" ${statusAttr}>
+            <div class="msg-row ${typeClass}" id="msg-${msgId}" data-msg-id="${msgId}" ${callIdAttr} ${statusAttr}>
                 ${avatarHtml}
                 <div class="msg-content">${contentHtml}${reactionsHtml}</div>
                 ${actionsHtml}
@@ -858,6 +1278,21 @@
         $('#messagesContainer').append(html);
         scrollToBottom();
     }
+
+    window.appendMessageToUI = appendMessageToUI;
+
+    window.callbackFromMessage = function(partnerId, isVideo) {
+        if (partnerId && partnerId !== currentPartnerId && window.selectConversation) {
+            window.selectConversation(partnerId);
+            setTimeout(() => {
+                if (isVideo && window.startVideoCall) window.startVideoCall();
+                else if (window.startVoiceCall) window.startVoiceCall();
+            }, 300);
+        } else {
+            if (isVideo && window.startVideoCall) window.startVideoCall();
+            else if (window.startVoiceCall) window.startVoiceCall();
+        }
+    };
 
     function scrollToBottom() {
         let d = $('#messagesContainer');
@@ -949,12 +1384,22 @@
     };
 
     window.sendSticker = function(url) {
-        $('#stickerMenu').hide();
-        if(!currentPartnerId) return;
-        
-        // Gửi type STICKER (nếu backend đã update) hoặc IMAGE
-        let payload = { receiverId: currentPartnerId, content: url, type: 'STICKER' };
-        sendApiRequest(payload);
+        if (typeof window.sendChosenSticker === 'function') {
+            window.sendChosenSticker(url, 'STICKER');
+        } else {
+            $('#stickerMenu').hide();
+            if (!currentPartnerId) return;
+            const tempId = 'temp-' + Date.now();
+            appendMessageToUI({
+                id: tempId,
+                senderId: (currentUser ? (currentUser.userID || currentUser.id) : 0),
+                content: url,
+                type: 'STICKER',
+                formattedTime: 'Đang gửi...',
+                status: 'sending'
+            }, true);
+            sendApiRequest({ receiverId: currentPartnerId, content: url, type: 'STICKER' }, tempId);
+        }
     };
 
     // ============= FIX 7: PIN MESSAGE SYSTEM =============
@@ -993,7 +1438,8 @@
 
     // ============= FIX 8: ADVANCED SEARCH SYSTEM =============
     window.openAdvancedSearch = function() {
-        const modal = $('<div class="search-modal-overlay"></div>');
+        $('.search-modal-overlay, .search-modal').remove();
+        const modal = $('<div class="modal-overlay search-modal-overlay"></div>');
         const content = $(`
             <div class="search-modal">
                 <div class="search-modal-header">
@@ -1059,8 +1505,12 @@
                 </div>
             </div>
         `);
-        
-        $('body').append(modal).append(content);
+
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeAdvancedSearch();
+        });
+        $('body').append(modal);
         
         // Set default dates
         const today = new Date().toISOString().split('T')[0];
@@ -1174,8 +1624,9 @@
     // ============= FIX 9: CHAT STATISTICS =============
     window.viewChatStats = function() {
         if (!currentPartnerId) return;
-        
-        const modal = $('<div class="stats-modal-overlay"></div>');
+
+        $('.stats-modal-overlay, .stats-modal').remove();
+        const modal = $('<div class="modal-overlay stats-modal-overlay"></div>');
         const content = $(`
             <div class="stats-modal">
                 <div class="stats-modal-header">
@@ -1192,8 +1643,12 @@
                 </div>
             </div>
         `);
-        
-        $('body').append(modal).append(content);
+
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeStatsModal();
+        });
+        $('body').append(modal);
         
         // Load stats
         $.get(`/api/v1/messenger/stats/${currentPartnerId}`)
@@ -1332,7 +1787,8 @@
 
     // ============= FIX 2: THÊM MODAL THEME PICKER =============
     window.openThemePicker = function() {
-        const modal = $('<div class="theme-modal-overlay"></div>');
+        $('.theme-modal-overlay, .theme-modal').remove();
+        const modal = $('<div class="modal-overlay theme-modal-overlay"></div>');
         const content = $(`
             <div class="theme-modal">
                 <div class="theme-modal-header">
@@ -1369,8 +1825,12 @@
                 </div>
             </div>
         `);
-        
-        $('body').append(modal).append(content);
+
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeThemePicker();
+        });
+        $('body').append(modal);
     };
 
     window.closeThemePicker = function() {
@@ -1428,7 +1888,8 @@
 
     // ============= FIX 3: THÊM MODAL NICKNAME =============
     window.openNicknameModal = function() {
-        const modal = $('<div class="nickname-modal-overlay"></div>');
+        $('.nickname-modal-overlay, .nickname-modal').remove();
+        const modal = $('<div class="modal-overlay nickname-modal-overlay"></div>');
         const content = $(`
             <div class="nickname-modal">
                 <div class="nickname-modal-header">
@@ -1460,8 +1921,12 @@
                 </div>
             </div>
         `);
-        
-        $('body').append(modal).append(content);
+
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeNicknameModal();
+        });
+        $('body').append(modal);
         
         // Load current nickname
         $.get(`/api/v1/messenger/settings/${currentPartnerId}`)
@@ -1528,25 +1993,29 @@
                 // Cập nhật tin nhắn tạm thành tin nhắn thật
                 if (tempId && $(`#msg-${tempId}`).length) {
                     const tempEl = $(`#msg-${tempId}`);
-                    tempEl.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
-                    tempEl.find('.msg-actions').html(`
-                        <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msg.id}')">
-                            <i class="fas fa-share"></i>
-                        </div>
-                        <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msg.id}')">
-                            <i class="fas fa-thumbtack"></i>
-                        </div>
-                        <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
-                            <i class="fas fa-reply"></i>
-                        </div>
-                        <div class="action-btn reaction-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msg.id}')">
-                            <i class="far fa-smile"></i>
-                        </div>
-                        <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage('${msg.id}')">
-                            <i class="fas fa-trash"></i>
-                        </div>
-                    `);
-                    tempEl.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
+                    if ($(`#msg-${msg.id}`).length) {
+                        tempEl.remove();
+                    } else {
+                        tempEl.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                        tempEl.find('.msg-actions').html(`
+                            <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msg.id}')">
+                                <i class="fas fa-share"></i>
+                            </div>
+                            <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msg.id}')">
+                                <i class="fas fa-thumbtack"></i>
+                            </div>
+                            <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
+                                <i class="fas fa-reply"></i>
+                            </div>
+                            <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msg.id}')">
+                                <i class="far fa-smile"></i>
+                            </div>
+                            <div class="action-btn" title="Thu hồi" onclick="window.unsendMessage('${msg.id}')">
+                                <i class="fas fa-trash"></i>
+                            </div>
+                        `);
+                        tempEl.find('.msg-meta').text(formatSmartTimestamp(msg.timestamp || new Date()));
+                    }
                 } else if (!$(`#msg-${msg.id}`).length) {
                     appendMessageToUI(msg, true);
                 }
@@ -1651,7 +2120,8 @@
             </div>
         `);
         
-        $('body').append(modal).append(content);
+        modal.append(content);
+        $('body').append(modal);
         
         // Load conversation list for forwarding
         loadForwardRecipients();
@@ -1704,26 +2174,85 @@
             html += '</div>';
             
             container.html(html);
+
+            // Delegated click on row toggles checkbox
+            container.off('click', '.recipient-item').on('click', '.recipient-item', function(e) {
+                if (!$(e.target).is('input[type="checkbox"]')) {
+                    const cb = $(this).find('input[name="forwardTo"]');
+                    cb.prop('checked', !cb.prop('checked')).trigger('change');
+                }
+            });
             
             // Enable/disable forward button based on selection
-            $('input[name="forwardTo"]').on('change', function() {
-                const hasSelection = $('input[name="forwardTo"]:checked').length > 0;
+            container.off('change', 'input[name="forwardTo"]').on('change', 'input[name="forwardTo"]', function() {
+                const hasSelection = container.find('input[name="forwardTo"]:checked').length > 0;
                 $('.btn-forward').prop('disabled', !hasSelection);
             });
         });
     }
 
+    let forwardSearchTimeout = null;
     function filterForwardRecipients(query) {
-        if (!query) {
+        if (!query || !query.trim()) {
             $('.recipient-item').show();
+            $('#forwardDiscoveredSection').remove();
             return;
         }
         
-        query = query.toLowerCase();
+        const q = query.toLowerCase().trim();
         $('.recipient-item').each(function() {
+            if ($(this).closest('#forwardDiscoveredSection').length) return;
             const name = $(this).find('.recipient-name').text().toLowerCase();
-            $(this).toggle(name.includes(query));
+            $(this).toggle(name.includes(q));
         });
+
+        if (forwardSearchTimeout) clearTimeout(forwardSearchTimeout);
+        forwardSearchTimeout = setTimeout(() => {
+            $.get(`/api/v1/messenger/users?q=${encodeURIComponent(q)}`).done(function(users) {
+                $('#forwardDiscoveredSection').remove();
+                if (!users || !users.length) return;
+
+                const existingIds = new Set();
+                $('.recipient-item').each(function() {
+                    existingIds.add(parseInt($(this).data('id')));
+                });
+                if (currentPartnerId) existingIds.add(parseInt(currentPartnerId));
+
+                const newUsers = users.filter(u => !existingIds.has(u.id));
+                if (newUsers.length > 0) {
+                    let discHtml = '<div id="forwardDiscoveredSection" style="margin-top:10px; border-top:1px solid #333; padding-top:5px;"><div style="font-size:0.75rem; color:#888; padding:5px 10px; font-weight:600;">NGƯỜI DÙNG KHÁC</div>';
+                    newUsers.forEach(u => {
+                        discHtml += `
+                            <div class="recipient-item" data-id="${u.id}">
+                                <label class="recipient-select">
+                                    <input type="checkbox" name="forwardTo" value="${u.id}">
+                                    <span class="checkmark"></span>
+                                </label>
+                                <div class="recipient-info">
+                                    <img src="${u.avatar}" class="recipient-avatar">
+                                    <div class="recipient-details">
+                                        <div class="recipient-name">${escapeHtml(u.name)}</div>
+                                        <div class="recipient-last-message">${escapeHtml(u.email || 'Người dùng mới')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    discHtml += '</div>';
+                    let list = $('#forwardRecipients .recipients-list');
+                    if (!list.length) {
+                        $('#forwardRecipients').html('<div class="recipients-list"></div>');
+                        list = $('#forwardRecipients .recipients-list');
+                    }
+                    list.append(discHtml);
+
+                    $('input[name="forwardTo"]').off('change.btnUpdate').on('change.btnUpdate', function() {
+                        const hasSelection = $('input[name="forwardTo"]:checked').length > 0;
+                        $('.btn-forward').prop('disabled', !hasSelection);
+                    });
+                }
+            });
+        }, 250);
     }
 
     window.executeForward = function() {
@@ -1754,47 +2283,17 @@
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(payload),
-                success: function() {
+                complete: function() {
                     completed++;
-                    
                     if (completed === total) {
-                        // All forwards completed
-                        showForwardSuccess();
+                        closeForwardModal();
+                        showToast(`Đã chuyển tiếp tin nhắn đến ${total} người`, 'success');
+                        loadConversations();
                     }
-                },
-                error: function() {
-                    completed++;
-                    // Continue even if some fail
                 }
             });
         });
-        
-        // Show undo option for 5 seconds
-        let countdown = 5;
-        forwardBtn.html(`Đã gửi (Hoàn tác ${countdown}s)`);
-        forwardBtn.addClass('sent');
-        
-        forwardTimeout = setInterval(() => {
-            countdown--;
-            
-            if (countdown > 0) {
-                forwardBtn.html(`Đã gửi (Hoàn tác ${countdown}s)`);
-            } else {
-                clearInterval(forwardTimeout);
-                closeForwardModal();
-                showToast(`Đã chuyển tiếp tin nhắn đến ${selectedRecipients.length} người`, 'success');
-            }
-        }, 1000);
-        
-        // Allow undo
-        forwardBtn.off('click').on('click', function() {
-            if (countdown > 0) {
-                clearInterval(forwardTimeout);
-                showToast('Đã hủy chuyển tiếp', 'info');
-                closeForwardModal();
-            }
-        });
-    }
+    };
 
     window.showForwardSuccess = function() {
         const forwardBtn = $('.btn-forward');
@@ -1936,46 +2435,9 @@
     // Recording (Gán vào window)
     window.toggleRecording = function() {
         if (!isRecording) {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                return alert("Trình duyệt không hỗ trợ Mic");
-            }
-            
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                
-                mediaRecorder.start();
-                isRecording = true;
-                
-                $('.input-actions').hide();
-                $('.recording-ui').addClass('show').css('display', 'flex');
-
-                if (recordingTimer) clearInterval(recordingTimer);
-
-                let sec = 0;
-                $('#recordTimer').text("00:00");
-                recordingTimer = setInterval(() => {
-                    sec++;
-                    const m = Math.floor(sec/60).toString().padStart(2,'0');
-                    const s = (sec%60).toString().padStart(2,'0');
-                    $('#recordTimer').text(`${m}:${s}`);
-                }, 1000);
-
-                mediaRecorder.onstop = () => {
-                    if (!currentPartnerId) {
-                        closeRecordingUI();
-                        return;
-                    }
-                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadAudioFile(blob);
-                    closeRecordingUI();
-                };
-
-            }).catch(err => {
-                console.error("Lỗi truy cập Mic:", err);
-                alert("Cần cấp quyền Microphone để ghi âm");
-            });
+            window.startRecording();
+        } else {
+            window.finishRecording();
         }
     };
 
@@ -2920,10 +3382,12 @@
     window.closeEmojiPicker = closeEmojiPicker;
 
     // --- 1. LOGIC GHI ÂM (RECORDING) ---
+    let audioDiscarded = false;
 
     // Bắt đầu ghi âm: Chuyển UI, Start MediaRecorder
     window.startRecording = function() {
         if (isRecording) return;
+        audioDiscarded = false;
         
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showToast('Trình duyệt không hỗ trợ ghi âm', 'error');
@@ -2932,22 +3396,27 @@
         
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
-                mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: 'audio/webm;codecs=opus'
-                });
+                try {
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                } catch (e) {
+                    mediaRecorder = new MediaRecorder(stream);
+                }
                 
                 audioChunks = [];
                 
                 mediaRecorder.ondataavailable = event => {
-                    if (event.data.size > 0) {
+                    if (event.data && event.data.size > 0) {
                         audioChunks.push(event.data);
                     }
                 };
                 
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadAudioFile(audioBlob);
-                    
+                    if (!audioDiscarded && audioChunks.length > 0 && currentPartnerId) {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        uploadAudioFile(audioBlob);
+                    }
                     // Stop all tracks
                     stream.getTracks().forEach(track => track.stop());
                 };
@@ -2963,6 +3432,7 @@
                 
                 // Start timer
                 updateRecordingTimer();
+                if (recordingTimer) clearInterval(recordingTimer);
                 recordingTimer = setInterval(updateRecordingTimer, 1000);
                 
             })
@@ -2975,6 +3445,7 @@
     // Hủy ghi âm: Dừng Recorder (không lưu), Reset UI
     window.cancelRecording = function() {
         if (!isRecording) return;
+        audioDiscarded = true;
         
         // Stop recording
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -2988,6 +3459,7 @@
     // Hoàn tất & Gửi: Dừng Recorder -> Trigger onstop -> Upload
     window.finishRecording = function() {
         if (!isRecording) return;
+        audioDiscarded = false;
         
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
@@ -3102,12 +3574,14 @@
 
     // Reaction system
     window.initReactionSystem = function() {
-        $('.msg-row').each(function() {
-            const msgId = $(this).data('msg-id');
-            if (msgId) {
-                loadMessageReactions(msgId);
-            }
-        });
+        if (typeof window.loadMessageReactions === 'function') {
+            $('.msg-row').each(function() {
+                const msgId = $(this).data('msg-id');
+                if (msgId) {
+                    window.loadMessageReactions(msgId);
+                }
+            });
+        }
     };
 
     window.showReactionPicker = function(button, directMsgId) {
@@ -3466,40 +3940,43 @@
     // messenger.js - checkUrlAndOpenChat()
     function checkUrlAndOpenChat(existingConversations) {
         const urlParams = new URLSearchParams(window.location.search);
-        const uid = urlParams.get('uid');
-        if(!uid) return;
+        let uid = urlParams.get('uid');
+        if (!uid) {
+            uid = sessionStorage.getItem('activeMessengerPartnerId');
+        }
+        if (!uid) return;
         
         const targetId = parseInt(uid);
+        if (!targetId || isNaN(targetId)) return;
         
         // Tìm trong danh sách hội thoại hiện có
-        const existing = existingConversations.find(c => c.partnerId === targetId);
+        const existing = (existingConversations || []).find(c => c.partnerId === targetId);
         
-        if(existing) {
+        if (existing) {
             window.selectConversation(
                 existing.partnerId, 
                 existing.partnerName, 
                 existing.partnerAvatar, 
                 existing.friend,
-                existing.isOnline,
-                existing.lastActive
+                existing.online,
+                existing.lastActive,
+                existing.relationStatus
             );
         } else {
-            // Nếu chưa có hội thoại, tạo mới và load thông tin user
-            $.get(`/api/users/${targetId}`).done(function(u) {
-                const avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName)}`;
-                window.selectConversation(u.userID, u.userName, avatar, false, false, null);
-                
-                // Tạo tin nhắn chào mừng tự động
-                setTimeout(() => {
-                    const welcomeMsg = {
-                        id: 'welcome-' + Date.now(),
-                        senderId: currentUser.userID,
-                        content: `Xin chào! Tôi là ${currentUser.name}. Rất vui được kết nối với bạn!`,
-                        type: 'TEXT',
-                        formattedTime: 'Vừa xong'
-                    };
-                    appendMessageToUI(welcomeMsg, true);
-                }, 1000);
+            // Nếu chưa có hội thoại, gọi endpoint an toàn (tránh 403 Forbidden của /api/users)
+            $.get(`/api/v1/messenger/user/${targetId}`).done(function(u) {
+                const avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.userName || u.name)}`;
+                window.selectConversation(
+                    u.userID || u.id,
+                    u.userName || u.name,
+                    avatar,
+                    u.isFriend,
+                    u.isOnline,
+                    u.lastActive,
+                    u.isFriend ? 'FRIEND' : 'STRANGER'
+                );
+            }).fail(function(xhr) {
+                console.warn('Could not load user info for messenger:', targetId, xhr.status);
             });
         }
     }
@@ -3531,6 +4008,64 @@
     let inlineSearchResults = [];
     let inlineSearchIndex = -1;
 
+    function removeHighlights() {
+        $('#messagesContainer mark.search-matched-text').each(function() {
+            const parent = this.parentNode;
+            if (parent) {
+                parent.replaceChild(document.createTextNode(this.textContent), this);
+                parent.normalize();
+            }
+        });
+        $('#messagesContainer .msg-row').removeClass('search-matched current-search-result');
+    }
+
+    function highlightSearchResults(query) {
+        if (!query) return;
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
+
+        inlineSearchResults.forEach((res, idx) => {
+            const row = res.el;
+            row.addClass('search-matched');
+            if (idx === inlineSearchIndex) row.addClass('current-search-result');
+
+            const bubble = row.find('.bubble');
+            if (!bubble.length) return;
+
+            const textNodes = [];
+            function collectTextNodes(node) {
+                if (node.nodeType === 3 && node.nodeValue.trim()) {
+                    textNodes.push(node);
+                } else if (node.nodeType === 1 && !node.classList.contains('reply-block') && !node.classList.contains('message-reactions')) {
+                    for (let child = node.firstChild; child; child = child.nextSibling) {
+                        collectTextNodes(child);
+                    }
+                }
+            }
+            collectTextNodes(bubble[0]);
+
+            textNodes.forEach(node => {
+                const text = node.nodeValue;
+                if (regex.test(text)) {
+                    const fragment = document.createDocumentFragment();
+                    let lastIdx = 0;
+                    text.replace(regex, (match, p1, offset) => {
+                        fragment.appendChild(document.createTextNode(text.substring(lastIdx, offset)));
+                        const mark = document.createElement('mark');
+                        mark.className = 'search-matched-text';
+                        mark.textContent = match;
+                        fragment.appendChild(mark);
+                        lastIdx = offset + match.length;
+                    });
+                    fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
+                    if (node.parentNode) {
+                        node.parentNode.replaceChild(fragment, node);
+                    }
+                }
+            });
+        });
+    }
+
     window.openChatSearch = function() {
         $('#inlineChatSearch').slideDown(150);
         $('#inlineSearchInput').val('').focus();
@@ -3559,7 +4094,9 @@
 
         $('#messagesContainer .msg-row').each(function() {
             const row = $(this);
-            const text = row.find('.bubble').text() || '';
+            const bubble = row.find('.bubble');
+            if (!bubble.length) return;
+            const text = bubble.text() || '';
             if (text.toLowerCase().includes(query.toLowerCase())) {
                 const msgId = row.data('msg-id');
                 if (msgId) {
@@ -3569,8 +4106,8 @@
         });
 
         if (inlineSearchResults.length > 0) {
-            highlightSearchResults(query);
             inlineSearchIndex = 0;
+            highlightSearchResults(query);
             $('#inlineSearchCounter').text(`1/${inlineSearchResults.length}`);
             window.scrollToMessage(inlineSearchResults[0].id);
         } else {
@@ -3580,34 +4117,61 @@
 
     window.prevSearchResult = function() {
         if (inlineSearchResults.length === 0) return;
+        $('#messagesContainer .msg-row').removeClass('current-search-result');
         inlineSearchIndex = (inlineSearchIndex - 1 + inlineSearchResults.length) % inlineSearchResults.length;
         $('#inlineSearchCounter').text(`${inlineSearchIndex + 1}/${inlineSearchResults.length}`);
-        window.scrollToMessage(inlineSearchResults[inlineSearchIndex].id);
+        const res = inlineSearchResults[inlineSearchIndex];
+        if (res && res.el) {
+            res.el.addClass('current-search-result');
+            window.scrollToMessage(res.id);
+        }
     };
 
     window.nextSearchResult = function() {
         if (inlineSearchResults.length === 0) return;
+        $('#messagesContainer .msg-row').removeClass('current-search-result');
         inlineSearchIndex = (inlineSearchIndex + 1) % inlineSearchResults.length;
         $('#inlineSearchCounter').text(`${inlineSearchIndex + 1}/${inlineSearchResults.length}`);
-        window.scrollToMessage(inlineSearchResults[inlineSearchIndex].id);
+        const res = inlineSearchResults[inlineSearchIndex];
+        if (res && res.el) {
+            res.el.addClass('current-search-result');
+            window.scrollToMessage(res.id);
+        }
     };
+
+    $(document).on('keydown', '#inlineSearchInput', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.shiftKey) window.prevSearchResult();
+            else window.nextSearchResult();
+        } else if (e.key === 'Escape') {
+            window.closeInlineChatSearch();
+        }
+    });
 
     window.toggleConvMenu = function(event, partnerId) {
         event.stopPropagation();
-        $('.conv-action-dropdown').remove();
-
+        event.preventDefault();
         const btn = $(event.currentTarget);
         const convItem = btn.closest('.conv-item');
+        const isAlreadyOpen = convItem.hasClass('menu-open') && convItem.find('.conv-action-dropdown').length;
+
+        $('.conv-action-dropdown').remove();
+        $('.conv-item').removeClass('menu-open');
+
+        if (isAlreadyOpen) return;
+
+        convItem.addClass('menu-open');
 
         const dropdown = $(`
             <div class="conv-action-dropdown" onclick="event.stopPropagation();">
                 <div class="dropdown-item" onclick="window.viewProfile(${partnerId})">
                     <i class="fas fa-user-circle"></i> Xem trang cá nhân
                 </div>
-                <div class="dropdown-item" onclick="window.toggleNotifications(${partnerId}); $('.conv-action-dropdown').remove();">
+                <div class="dropdown-item" onclick="window.toggleNotifications(${partnerId}); $('.conv-action-dropdown').remove(); $('.conv-item').removeClass('menu-open');">
                     <i class="fas fa-bell"></i> Bật/Tắt thông báo
                 </div>
-                <div class="dropdown-item text-danger" onclick="window.blockUser(${partnerId}); $('.conv-action-dropdown').remove();">
+                <div class="dropdown-item text-danger" onclick="window.blockUser(${partnerId}); $('.conv-action-dropdown').remove(); $('.conv-item').removeClass('menu-open');">
                     <i class="fas fa-ban"></i> Chặn người dùng
                 </div>
             </div>
@@ -3619,6 +4183,7 @@
             $(document).on('click.convMenu', function(e) {
                 if (!$(e.target).closest('.conv-action-dropdown, .conv-more-btn').length) {
                     $('.conv-action-dropdown').remove();
+                    $('.conv-item').removeClass('menu-open');
                     $(document).off('click.convMenu');
                 }
             });
@@ -3723,45 +4288,128 @@
 
 
     // --- FIX 2: ONLINE STATUS UPDATE ---
-    function updateOnlineStatus(partnerId, isOnline, lastActive) {
-        // Cập nhật trong conversation list
-        $(`.conv-item[onclick*="${partnerId}"] .online-dot`).toggle(isOnline);
+    function formatRelativeTimeBadge(timestamp, lastActiveStr) {
+        let ts = null;
+        if (typeof timestamp === 'number' && !isNaN(timestamp)) {
+            ts = timestamp;
+        } else if (timestamp && !isNaN(Number(timestamp))) {
+            ts = Number(timestamp);
+        } else if (lastActiveStr) {
+            const parsed = Date.parse(lastActiveStr);
+            if (!isNaN(parsed)) ts = parsed;
+        }
+
+        if (ts) {
+            const diffMs = Math.max(0, Date.now() - ts);
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 60) {
+                return Math.max(1, diffMins) + 'p';
+            }
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) {
+                return diffHours + 'h';
+            }
+            return null; // >= 24h: bubble completely disappears
+        }
+
+        if (lastActiveStr) {
+            const str = String(lastActiveStr).trim();
+            if (str === 'Vừa xong') return '1p';
+            const mMatch = str.match(/(\d+)\s*(phút|m|min)/i);
+            if (mMatch) return mMatch[1] + 'p';
+            const hMatch = str.match(/(\d+)\s*(giờ|h|hour)/i);
+            if (hMatch) {
+                const hours = parseInt(hMatch[1]);
+                return hours < 24 ? hours + 'h' : null;
+            }
+        }
+        return null;
+    }
+
+    function formatStatusText(isOnline, timestamp, lastActiveStr) {
+        if (String(isOnline) === 'true') {
+            return `<small class="text-success"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`;
+        }
+        let ts = null;
+        if (typeof timestamp === 'number' && !isNaN(timestamp)) {
+            ts = timestamp;
+        } else if (timestamp && !isNaN(Number(timestamp))) {
+            ts = Number(timestamp);
+        } else if (lastActiveStr) {
+            const parsed = Date.parse(lastActiveStr);
+            if (!isNaN(parsed)) ts = parsed;
+        }
+
+        if (ts) {
+            const diffMs = Math.max(0, Date.now() - ts);
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 1) return `<small class="text-muted">Hoạt động vừa xong</small>`;
+            if (diffMins < 60) return `<small class="text-muted">Hoạt động ${diffMins} phút trước</small>`;
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `<small class="text-muted">Hoạt động ${diffHours} giờ trước</small>`;
+            return `<small class="text-muted">Không hoạt động</small>`;
+        }
+
+        if (lastActiveStr && typeof lastActiveStr === 'string' && lastActiveStr.trim().length > 0) {
+            const s = lastActiveStr.trim();
+            if (s.toLowerCase().includes('ngày') || s.toLowerCase() === 'không hoạt động') {
+                return `<small class="text-muted">Không hoạt động</small>`;
+            }
+            if (s.toLowerCase().startsWith('hoạt động')) {
+                return `<small class="text-muted">${escapeHtml(s)}</small>`;
+            }
+            return `<small class="text-muted">Hoạt động ${escapeHtml(s)}</small>`;
+        }
+        return `<small class="text-muted">Không hoạt động</small>`;
+    }
+
+    function updateOnlineStatus(partnerId, isOnline, lastActive, lastActiveTimestamp) {
+        const pId = parseInt(partnerId);
+        const conv = $(`#conv-${pId}`).length ? $(`#conv-${pId}`) : $(`.conv-item[data-partner-id="${pId}"]`);
+        if (conv.length) {
+            const avatarWrapper = conv.find('.avatar-wrapper');
+            let dot = avatarWrapper.find('.online-dot');
+            if (!dot.length) {
+                avatarWrapper.append('<div class="online-dot"></div>');
+                dot = avatarWrapper.find('.online-dot');
+            }
+            avatarWrapper.find('.last-active-badge').remove();
+
+            if (String(isOnline) === 'true') {
+                dot.addClass('is-online').show();
+            } else {
+                dot.removeClass('is-online').hide();
+                const badgeText = formatRelativeTimeBadge(lastActiveTimestamp, lastActive);
+                if (badgeText) {
+                    avatarWrapper.append(`<span class="last-active-badge">${badgeText}</span>`);
+                }
+            }
+        }
         
-        // Cập nhật trong chat header nếu đang chat với người này
-        if (currentPartnerId == partnerId) {
+        // Cập nhật trong chat header nếu đang chat với người này (chỉ khi là bạn bè)
+        if (currentPartnerId == pId && isCurrentPartnerFriend) {
             const statusDiv = $('#chatHeaderStatus');
             if (statusDiv.length) {
-                if (isOnline) {
-                    statusDiv.html(`<small class="text-success"><i class="fas fa-circle" style="font-size:8px;"></i> Đang hoạt động</small>`);
+                statusDiv.html(formatStatusText(isOnline, lastActiveTimestamp, lastActive));
+            }
+            const infoStatus = $('.chat-info-sidebar .info-status');
+            if (infoStatus.length) {
+                if (String(isOnline) === 'true') {
+                    infoStatus.text('Đang hoạt động').css('color', '#31a24c');
                 } else {
-                    const timeAgo = lastActive ? formatTimeAgo(lastActive) : 'Không hoạt động';
-                    statusDiv.html(`<small class="text-muted">${timeAgo}</small>`);
+                    const badge = formatRelativeTimeBadge(lastActiveTimestamp, lastActive);
+                    infoStatus.text(badge ? ('Hoạt động ' + badge + ' trước') : 'Không hoạt động').css('color', '#888');
                 }
             }
         }
     }
 
-    function formatTimeAgo(timestamp) {
-        const now = new Date();
-        const time = new Date(timestamp);
-        const diffMs = now - time;
-        const diffMins = Math.floor(diffMs / 60000);
-        
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        
-        const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        
-        const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays} ngày trước`;
-    }
-
     // ============= BACKGROUND PICKER FUNCTION =============
     window.openBackgroundPicker = function() {
         if (!currentPartnerId) return;
-        
-        const modal = $('<div class="background-modal-overlay"></div>');
+
+        $('.background-modal-overlay, .background-modal').remove();
+        const modal = $('<div class="modal-overlay background-modal-overlay"></div>');
         const content = $(`
             <div class="background-modal">
                 <div class="background-modal-header">
@@ -3799,8 +4447,12 @@
                 </div>
             </div>
         `);
-        
-        $('body').append(modal).append(content);
+
+        modal.append(content);
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeBackgroundPicker();
+        });
+        $('body').append(modal);
     };
 
     window.closeBackgroundPicker = function() {
@@ -3907,30 +4559,88 @@
     }
 
     // --- 10. LIVE SEARCH CONVERSATIONS (Left Sidebar) ---
+    let leftSearchDebounce = null;
     window.filterConversations = function() {
         const query = $('#convSearchInput').val().toLowerCase().trim();
-        
+        $('#convDiscoveredUsers').remove();
+
+        if (!query) {
+            $('.conv-item').show();
+            return;
+        }
+
         $('.conv-item').each(function() {
+            if ($(this).hasClass('discovered-user-item')) return;
             const nameElement = $(this).find('.conv-name');
             const name = nameElement.text().toLowerCase();
-            
-            // Also search in preview text
             const previewElement = $(this).find('.conv-preview');
             const preview = previewElement.text().toLowerCase();
-            
+
             if (name.includes(query) || preview.includes(query)) {
                 $(this).show();
             } else {
                 $(this).hide();
             }
         });
+
+        // Search new users from server
+        if (leftSearchDebounce) clearTimeout(leftSearchDebounce);
+        leftSearchDebounce = setTimeout(() => {
+            $.get(`/api/v1/messenger/users?q=${encodeURIComponent(query)}`).done(function(users) {
+                $('#convDiscoveredUsers').remove();
+                if (!users || !users.length) return;
+
+                const existingPartnerIds = new Set();
+                $('.conv-item').each(function() {
+                    const pId = $(this).data('partner-id');
+                    if (pId) existingPartnerIds.add(parseInt(pId));
+                });
+
+                const newUsers = users.filter(u => !existingPartnerIds.has(u.id));
+                if (newUsers.length > 0) {
+                    const discWrapper = $(`
+                        <div id="convDiscoveredUsers" style="border-top:1px solid #333; margin-top:5px; padding-top:5px;">
+                            <div style="font-size:0.75rem; color:#888; padding:6px 12px; font-weight:600; text-transform:uppercase;">
+                                <i class="fas fa-user-plus me-1 text-primary"></i> Người dùng mới
+                            </div>
+                        </div>
+                    `);
+                    newUsers.forEach(u => {
+                        const discItem = $(`
+                            <div class="conv-item d-flex align-items-center p-2 discovered-user-item"
+                                 style="cursor:pointer; border-bottom:1px solid #222;">
+                                <div class="avatar-wrapper" style="position:relative; margin-right:10px;">
+                                    <img src="${u.avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+                                </div>
+                                <div class="flex-grow-1" style="min-width:0;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong class="conv-name" style="color:#fff; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                            ${u.name}
+                                        </strong>
+                                        <small class="text-primary" style="font-size:0.75rem;">Bắt đầu chat</small>
+                                    </div>
+                                    <div class="conv-preview text-muted small text-truncate" style="color:#888;">
+                                        ${u.email || 'Nhấn để trò chuyện'}
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        discItem.on('click', function() {
+                            window.selectConversation(u.id, u.name, u.avatar, 'false', 'false', '', 'STRANGER', null);
+                        });
+                        discWrapper.append(discItem);
+                    });
+                    $('#conversationList').append(discWrapper);
+                }
+            });
+        }, 300);
     };
     
     // Cập nhật lại hàm updateInfoSidebar để reset trạng thái khi đổi chat
     const originalSelectConversation = window.selectConversation;
-    window.selectConversation = function(id, name, avatar, isFriend, isOnline, lastActive) {
+    window.selectConversation = function(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp) {
         // Gọi hàm gốc
-        originalSelectConversation(id, name, avatar, isFriend, isOnline, lastActive);
+        originalSelectConversation(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp);
         
         // Update Info bên phải
         $('#infoName').text(name);

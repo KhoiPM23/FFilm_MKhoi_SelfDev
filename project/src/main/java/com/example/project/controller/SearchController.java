@@ -203,26 +203,72 @@ public class SearchController {
         //----- Bước 4: Áp dụng Filters (trên tập dữ liệu thô)
         List<Map<String, Object>> filteredResults = new ArrayList<>(fullSearchResults);
 
-        if (genres != null && !genres.isEmpty()) {
-            List<Integer> filterGenres = Stream.of(genres.split(",")).map(Integer::parseInt).collect(Collectors.toList());
-            filteredResults.removeIf(movieMap -> {
-                Movie movie = movieService.getMovieById((Integer) movieMap.get("id"));
-                return movie.getGenres().stream().noneMatch(g -> filterGenres.contains(g.getTmdbGenreId()));
-            });
+        if (genres != null && !genres.trim().isEmpty()) {
+            try {
+                List<Integer> filterGenres = Stream.of(genres.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(Integer::parseInt)
+                        .collect(Collectors.toList());
+
+                filteredResults.removeIf(movieMap -> {
+                    if (movieMap == null) return true;
+                    Object gListObj = movieMap.get("genres");
+                    if (gListObj instanceof List) {
+                        List<?> gList = (List<?>) gListObj;
+                        for (Object gObj : gList) {
+                            if (gObj instanceof Map) {
+                                Object gid = ((Map<?, ?>) gObj).get("id");
+                                if (gid instanceof Number && filterGenres.contains(((Number) gid).intValue())) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    Object idObj = movieMap.get("id");
+                    if (idObj instanceof Integer) {
+                        try {
+                            Movie movie = movieService.getMovieById((Integer) idObj);
+                            if (movie != null && movie.getGenres() != null) {
+                                return movie.getGenres().stream().noneMatch(g -> filterGenres.contains(g.getTmdbGenreId()));
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    return true;
+                });
+            } catch (Exception ignored) {}
         }
-        if (yearFrom != null && !yearFrom.isEmpty()) {
-            int from = Integer.parseInt(yearFrom);
-            filteredResults.removeIf(m -> m.get("year") == null || m.get("year").equals("N/A") || Integer.parseInt((String)m.get("year")) < from);
+        if (yearFrom != null && !yearFrom.trim().isEmpty()) {
+            try {
+                int from = Integer.parseInt(yearFrom.trim());
+                filteredResults.removeIf(m -> {
+                    Object y = m.get("year");
+                    if (y == null || "N/A".equals(y)) return true;
+                    try { return Integer.parseInt(y.toString().trim()) < from; } catch (Exception e) { return true; }
+                });
+            } catch (Exception ignored) {}
         }
-        if (yearTo != null && !yearTo.isEmpty()) {
-            int to = Integer.parseInt(yearTo);
-            filteredResults.removeIf(m -> m.get("year") == null || m.get("year").equals("N/A") || Integer.parseInt((String)m.get("year")) > to);
+        if (yearTo != null && !yearTo.trim().isEmpty()) {
+            try {
+                int to = Integer.parseInt(yearTo.trim());
+                filteredResults.removeIf(m -> {
+                    Object y = m.get("year");
+                    if (y == null || "N/A".equals(y)) return true;
+                    try { return Integer.parseInt(y.toString().trim()) > to; } catch (Exception e) { return true; }
+                });
+            } catch (Exception ignored) {}
         }
-        if (minRating != null && !minRating.isEmpty()) {
-            double min = Double.parseDouble(minRating);
-            if (min > 0) {
-                filteredResults.removeIf(m -> m.get("rating") == null || Double.parseDouble((String)m.get("rating")) < min);
-            }
+        if (minRating != null && !minRating.trim().isEmpty()) {
+            try {
+                double min = Double.parseDouble(minRating.trim());
+                if (min > 0) {
+                    filteredResults.removeIf(m -> {
+                        Object r = m.get("rating");
+                        if (r == null) return true;
+                        try { return Double.parseDouble(r.toString().trim()) < min; } catch (Exception e) { return true; }
+                    });
+                }
+            } catch (Exception ignored) {}
         }
 
         // [MỚI] Lọc theo Free/Paid
@@ -233,6 +279,7 @@ public class SearchController {
                 return !freeVal.equals(isFree);
             });
         }
+
 
         //----- Bước 4.5: Sắp xếp (Sorting) theo Quick Filter
         if ("new".equals(quickFilter)) {

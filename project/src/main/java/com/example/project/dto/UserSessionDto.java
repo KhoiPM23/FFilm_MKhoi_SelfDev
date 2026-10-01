@@ -48,4 +48,21 @@ public class UserSessionDto {
     public void setRole(String role) {
         this.role = role;
     }
+
+    // Aliases to bridge with User entity and frontend expectations
+    public int getUserID() {
+        return id;
+    }
+
+    public void setUserID(int userID) {
+        this.id = userID;
+    }
+
+    public String getName() {
+        return userName;
+    }
+
+    public void setName(String name) {
+        this.userName = name;
+    }
 }

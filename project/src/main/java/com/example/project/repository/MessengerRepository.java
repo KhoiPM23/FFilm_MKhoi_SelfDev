@@ -104,4 +104,7 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
 
     @Query("SELECT m FROM MessengerMessage m WHERE (m.sender = :user1 AND m.receiver = :user2) OR (m.sender = :user2 AND m.receiver = :user1) ORDER BY m.timestamp ASC")
     List<MessengerMessage> findFirstMessageInConversation(@Param("user1") User user1, @Param("user2") User user2, org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT m FROM MessengerMessage m WHERE m.metadata LIKE CONCAT('%', :callId, '%')")
+    List<MessengerMessage> findByCallIdInMetadata(@Param("callId") String callId);
 }

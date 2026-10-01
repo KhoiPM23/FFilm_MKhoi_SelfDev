@@ -22,6 +22,35 @@ public class CommentController {
     @Autowired
     private CommentService commentService;
 
+    private Integer extractUserId(HttpSession session) {
+        if (session == null) return null;
+        Object userObj = session.getAttribute("user");
+        if (userObj == null) userObj = session.getAttribute("admin");
+        if (userObj == null) userObj = session.getAttribute("moderator");
+        if (userObj == null) userObj = session.getAttribute("contentManager");
+
+        if (userObj instanceof UserSessionDto) {
+            return ((UserSessionDto) userObj).getId();
+        } else if (userObj instanceof com.example.project.model.User) {
+            return ((com.example.project.model.User) userObj).getUserID();
+        }
+        return null;
+    }
+
+    private boolean isAdmin(HttpSession session) {
+        if (session == null) return false;
+        Object userObj = session.getAttribute("admin");
+        if (userObj == null) userObj = session.getAttribute("user");
+        if (userObj instanceof UserSessionDto) {
+            String role = ((UserSessionDto) userObj).getRole();
+            return role != null && role.equalsIgnoreCase("ADMIN");
+        } else if (userObj instanceof com.example.project.model.User) {
+            String role = ((com.example.project.model.User) userObj).getRole();
+            return role != null && role.equalsIgnoreCase("ADMIN");
+        }
+        return false;
+    }
+
     /**
      * Lấy tất cả comments của một phim
      * GET /api/comments/movie/{movieId}
@@ -56,27 +85,11 @@ public class CommentController {
             HttpSession session) {
 
         try {
-            // Lấy user từ session
-            Object userObj = session.getAttribute("user");
-            if (userObj == null) {
+            Integer userId = extractUserId(session);
+            if (userId == null) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "Bạn cần đăng nhập để bình luận");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            // Lấy userId từ UserSessionDto
-            int userId;
-            if (userObj instanceof UserSessionDto) {
-                UserSessionDto userDto = (UserSessionDto) userObj;
-                userId = userDto.getId();
-            } else if (userObj instanceof com.example.project.model.User) {
-                com.example.project.model.User user = (com.example.project.model.User) userObj;
-                userId = user.getUserID();
-            } else {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("message", "Session user không hợp lệ");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
 
@@ -121,14 +134,11 @@ public class CommentController {
             @RequestBody Map<String, Object> payload,
             HttpSession session) {
         try {
-            Object userObj = session.getAttribute("user");
-            if (userObj == null) {
+            Integer userId = extractUserId(session);
+            if (userId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("success", false, "message", "Bạn cần đăng nhập để thả cảm xúc"));
             }
-            int userId = (userObj instanceof UserSessionDto)
-                    ? ((UserSessionDto) userObj).getId()
-                    : ((com.example.project.model.User) userObj).getUserID();
 
             String emoji = (String) payload.get("emoji");
             Map<String, Object> reactionData = commentService.toggleReaction(commentId, userId, emoji);
@@ -150,13 +160,7 @@ public class CommentController {
             @PathVariable int movieId,
             HttpSession session) {
         try {
-            Integer userId = null;
-            Object userObj = session.getAttribute("user");
-            if (userObj != null) {
-                userId = (userObj instanceof UserSessionDto)
-                        ? ((UserSessionDto) userObj).getId()
-                        : ((com.example.project.model.User) userObj).getUserID();
-            }
+            Integer userId = extractUserId(session);
 
             Map<Integer, Object> reactionMap = commentService.getMovieReactionsMap(movieId, userId);
             return ResponseEntity.ok(Map.of("success", true, "reactions", reactionMap));
@@ -176,27 +180,11 @@ public class CommentController {
             HttpSession session) {
 
         try {
-            // Kiểm tra đăng nhập
-            Object userObj = session.getAttribute("user");
-            if (userObj == null) {
+            Integer userId = extractUserId(session);
+            if (userId == null) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "Bạn cần đăng nhập để xóa bình luận");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            // Lấy userId từ UserSessionDto
-            int userId;
-            if (userObj instanceof UserSessionDto) {
-                UserSessionDto userDto = (UserSessionDto) userObj;
-                userId = userDto.getId();
-            } else if (userObj instanceof com.example.project.model.User) {
-                com.example.project.model.User user = (com.example.project.model.User) userObj;
-                userId = user.getUserID();
-            } else {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("message", "Session user không hợp lệ");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
 
@@ -253,30 +241,7 @@ public class CommentController {
     @GetMapping("/admin/all")
     public ResponseEntity<?> getAllCommentsForAdmin(HttpSession session) {
         try {
-            // Kiểm tra quyền admin - thử nhiều attribute
-            Object userObj = session.getAttribute("admin");
-            if (userObj == null) {
-                userObj = session.getAttribute("user");
-            }
-            
-            if (userObj == null) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("message", "Bạn cần đăng nhập");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            // Kiểm tra role ADMIN
-            String role = null;
-            if (userObj instanceof UserSessionDto) {
-                UserSessionDto userDto = (UserSessionDto) userObj;
-                role = userDto.getRole();
-            } else if (userObj instanceof com.example.project.model.User) {
-                com.example.project.model.User user = (com.example.project.model.User) userObj;
-                role = user.getRole();
-            }
-
-            if (role == null || !role.equalsIgnoreCase("ADMIN")) {
+            if (!isAdmin(session)) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "Bạn không có quyền truy cập");
@@ -308,30 +273,7 @@ public class CommentController {
             @PathVariable int commentId,
             HttpSession session) {
         try {
-            // Kiểm tra quyền admin - thử nhiều attribute
-            Object userObj = session.getAttribute("admin");
-            if (userObj == null) {
-                userObj = session.getAttribute("user");
-            }
-            
-            if (userObj == null) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("message", "Bạn cần đăng nhập");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            // Kiểm tra role ADMIN
-            String role = null;
-            if (userObj instanceof UserSessionDto) {
-                UserSessionDto userDto = (UserSessionDto) userObj;
-                role = userDto.getRole();
-            } else if (userObj instanceof com.example.project.model.User) {
-                com.example.project.model.User user = (com.example.project.model.User) userObj;
-                role = user.getRole();
-            }
-
-            if (role == null || !role.equalsIgnoreCase("ADMIN")) {
+            if (!isAdmin(session)) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "Bạn không có quyền xóa comment");
@@ -365,21 +307,12 @@ public class CommentController {
             HttpSession session) {
 
         try {
-            // 1. Kiểm tra đăng nhập & lấy User ID (Tái sử dụng logic xác thực)
-            Object userObj = session.getAttribute("user");
-            if (userObj == null) {
+            Integer userId = extractUserId(session);
+            if (userId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("success", false, "message", "Bạn cần đăng nhập để chỉnh sửa bình luận"));
             }
 
-            int userId;
-            if (userObj instanceof UserSessionDto) {
-                userId = ((UserSessionDto) userObj).getId();
-            } else if (userObj instanceof com.example.project.model.User) {
-                userId = ((com.example.project.model.User) userObj).getUserID();
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
 
             // 2. Lấy nội dung mới
             String newContent = payload.get("content");

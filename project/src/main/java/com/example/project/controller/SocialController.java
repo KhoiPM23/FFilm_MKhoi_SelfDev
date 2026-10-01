@@ -229,4 +229,15 @@ public class SocialController {
         socialService.unfriendUser(currentUser.getId(), targetId);
         return ResponseEntity.ok("Unfriended");
     }
+
+    // [NEW] API Từ chối lời mời kết bạn (Dùng trong header notification dropdown)
+    @PostMapping("/deny-friend/{senderId}")
+    @ResponseBody
+    public ResponseEntity<?> denyFriend(@PathVariable Integer senderId, HttpSession session) {
+        UserSessionDto currentUser = getUserSession(session);
+        if (currentUser == null) return ResponseEntity.status(401).body("Unauthorized");
+
+        socialService.denyFriendRequest(currentUser.getId(), senderId);
+        return ResponseEntity.ok(Map.of("status", "DENIED", "message", "Đã từ chối lời mời kết bạn"));
+    }
 }

@@ -65,12 +65,12 @@
         return window.currentPartnerId || null;
     }
 
-    function sendApi(payload) {
+    function sendApi(payload, tempId) {
         if (window.MessengerState && typeof window.MessengerState.sendApiRequest === 'function') {
-            return window.MessengerState.sendApiRequest(payload);
+            return window.MessengerState.sendApiRequest(payload, tempId);
         }
         if (typeof window.sendApiRequest === 'function') {
-            return window.sendApiRequest(payload);
+            return window.sendApiRequest(payload, tempId);
         }
         console.warn('[MessengerStickers] sendApiRequest not available');
     }
@@ -215,7 +215,8 @@
                 senderId: (window.currentUser ? window.currentUser.userID : 0),
                 content: url,
                 type: resolvedType,
-                formattedTime: 'Đang gửi...'
+                formattedTime: 'Đang gửi...',
+                status: 'sending'
             }, true);
         }
 
@@ -225,7 +226,7 @@
             type: resolvedType
         };
 
-        sendApi(payload);
+        sendApi(payload, tempId);
 
         // Update preview in sidebar
         if (typeof window.updateConversationPreview === 'function') {
