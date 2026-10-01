@@ -95,13 +95,13 @@
                     <button th:if="${profile.relationStatus == 'STRANGER'}" class="btn-social btn-blue" th:onclick="'sendFriendRequest(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-plus"></i> Thêm bạn bè
                     </button>
-                    <button th:if="${profile.relationStatus == 'PENDING_SENT'}" class="btn-social btn-dark">
+                    <button th:if="${profile.relationStatus == 'PENDING_SENT'}" class="btn-social btn-dark" th:onclick="'cancelFriendRequest(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-clock"></i> Đã gửi
                     </button>
                     <button th:if="${profile.relationStatus == 'PENDING_RECEIVED'}" class="btn-social btn-blue" th:onclick="'acceptFriendRequest(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-check"></i> Chấp nhận
                     </button>
-                    <button th:if="${profile.relationStatus == 'FRIEND'}" class="btn-social btn-dark" th:onclick="'unfriendUser(' + ${profile.id} + ')'">
+                    <button th:if="${profile.relationStatus == 'FRIEND'}" class="btn-social btn-dark" th:onclick="'unfriendUser(' + ${profile.id} + ', this)'">
                         <i class="fas fa-user-check"></i> Bạn bè
                     </button>
 

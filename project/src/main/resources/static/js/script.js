@@ -1815,25 +1815,70 @@
       });
   };
 
-  // Hủy kết bạn / Hủy lời mời (Dùng chung)
+  // Hủy lời mời kết bạn
   window.cancelFriendRequest = function (targetId, btnElement) {
-    window.cineConfirm('Bạn muốn hủy lời mời / hủy kết bạn với người này?', function () {
-      // UI Loading
-      btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    window.cineConfirm('Bạn muốn hủy lời mời kết bạn với người này?', function () {
+      if (btnElement) {
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btnElement.disabled = true;
+      }
 
-      // API: SocialController @PostMapping("/unfriend/{targetId}")
       fetch(`/social/unfriend/${targetId}`, { method: 'POST' })
         .then(res => {
           if (res.ok) {
-            // Reset về nút "Thêm bạn bè"
-            btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
-            btnElement.classList.remove('btn-secondary', 'btn-dark');
-            btnElement.classList.add('btn-primary', 'btn-blue');
-            btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
-            showToast("Đã hủy thành công.", "success");
-            // Nếu đang ở trang Profile, có thể reload để cập nhật số liệu
-            if (window.location.pathname.includes('/profile/')) location.reload();
+            if (btnElement) {
+              btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
+              btnElement.classList.remove('btn-secondary', 'btn-dark');
+              btnElement.classList.add('btn-primary', 'btn-blue');
+              btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
+              btnElement.disabled = false;
+            }
+            showToast("Đã hủy lời mời kết bạn.", "success");
+            if (window.location.pathname.includes('/profile/')) {
+              setTimeout(() => location.reload(), 400);
+            }
+          } else {
+            if (btnElement) btnElement.disabled = false;
+            showToast("Không thể hủy lời mời.", "error");
           }
+        })
+        .catch(err => {
+          if (btnElement) btnElement.disabled = false;
+          showToast("Lỗi kết nối.", "error");
+        });
+    });
+  };
+
+  // Hủy kết bạn (Public Profile action)
+  window.unfriendUser = function (targetId, btnElement) {
+    window.cineConfirm('Bạn có chắc chắn muốn hủy kết bạn với người này?', function () {
+      if (btnElement) {
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btnElement.disabled = true;
+      }
+
+      fetch(`/social/unfriend/${targetId}`, { method: 'POST' })
+        .then(res => {
+          if (res.ok) {
+            showToast("Đã hủy kết bạn thành công.", "success");
+            if (btnElement) {
+              btnElement.innerHTML = '<i class="fas fa-user-plus"></i> Thêm bạn bè';
+              btnElement.classList.remove('btn-secondary', 'btn-dark');
+              btnElement.classList.add('btn-primary', 'btn-blue');
+              btnElement.setAttribute('onclick', `window.sendFriendRequest(${targetId}, this)`);
+              btnElement.disabled = false;
+            }
+            if (window.location.pathname.includes('/profile/')) {
+              setTimeout(() => location.reload(), 400);
+            }
+          } else {
+            if (btnElement) btnElement.disabled = false;
+            showToast("Không thể hủy kết bạn lúc này.", "error");
+          }
+        })
+        .catch(err => {
+          if (btnElement) btnElement.disabled = false;
+          showToast("Lỗi kết nối khi hủy kết bạn.", "error");
         });
     });
   };
