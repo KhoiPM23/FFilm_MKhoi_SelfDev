@@ -38,11 +38,29 @@ public class MoviePlayerController {
     @Autowired
     private com.example.project.repository.MovieRepository movieRepository;
 
+    private UserSessionDto resolveSessionUser(jakarta.servlet.http.HttpSession session) {
+        if (session == null) return null;
+        Object u = session.getAttribute("user");
+        if (u == null) u = session.getAttribute("admin");
+        if (u == null) u = session.getAttribute("moderator");
+        if (u == null) u = session.getAttribute("contentManager");
+
+        if (u instanceof UserSessionDto) {
+            return (UserSessionDto) u;
+        }
+        if (u instanceof com.example.project.model.User) {
+            com.example.project.model.User userEntity = (com.example.project.model.User) u;
+            return new UserSessionDto(userEntity.getUserID(), userEntity.getUserName(), userEntity.getEmail(), userEntity.getRole());
+        }
+        return null;
+    }
+
     @GetMapping("/movie/player/{id}")
     public String watchMovie(@PathVariable("id") int id,
-            // CÁCH AN TOÀN NHẤT: Dùng required = false để Spring tiêm NULL thay vì ném lỗi
-            @SessionAttribute(name = "user", required = false) UserSessionDto sessionDto,
+            jakarta.servlet.http.HttpSession session,
             Model model) {
+
+        UserSessionDto sessionDto = resolveSessionUser(session);
 
         Movie movie = null;
         try {
@@ -72,8 +90,12 @@ public class MoviePlayerController {
                 movie.setUrl(defaultVideoUrl);
             }
 
-            // 1. Xác định trạng thái VIP của người dùng
-            boolean isVip = sessionDto != null && subscriptionService.checkActiveSubscription(sessionDto.getId());
+            // 1. Xác định trạng thái VIP của người dùng (Bao gồm nhân viên quản trị)
+            boolean isStaff = sessionDto != null && sessionDto.getRole() != null &&
+                (sessionDto.getRole().equalsIgnoreCase("ADMIN") ||
+                 sessionDto.getRole().equalsIgnoreCase("MODERATOR") ||
+                 sessionDto.getRole().equalsIgnoreCase("CONTENT_MANAGER"));
+            boolean isVip = isStaff || (sessionDto != null && subscriptionService.checkActiveSubscription(sessionDto.getId()));
 
             // 2. Mặc định không quảng cáo
             boolean hasAd = false;

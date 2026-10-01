@@ -32,15 +32,31 @@ public class UserFavoriteController {
     private UserFavoriteService favoriteService;
 
 
+    private UserSessionDto resolveSessionUser(jakarta.servlet.http.HttpSession session) {
+        if (session == null) return null;
+        Object u = session.getAttribute("user");
+        if (u == null) u = session.getAttribute("admin");
+        if (u == null) u = session.getAttribute("moderator");
+        if (u == null) u = session.getAttribute("contentManager");
+
+        if (u instanceof UserSessionDto) {
+            return (UserSessionDto) u;
+        }
+        if (u instanceof com.example.project.model.User) {
+            com.example.project.model.User userEntity = (com.example.project.model.User) u;
+            return new UserSessionDto(userEntity.getUserID(), userEntity.getUserName(), userEntity.getEmail(), userEntity.getRole());
+        }
+        return null;
+    }
+
     @GetMapping("/my-list")
     public String showAllFavorite(
-            // 2. Lấy User trực tiếp từ session
-            @SessionAttribute("user") UserSessionDto userSession,
+            jakarta.servlet.http.HttpSession session,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Model model) {
 
-        // 3. Lấy ID từ đối tượng user đã lấy từ session
+        UserSessionDto userSession = resolveSessionUser(session);
         if (userSession == null) {
             return "redirect:/login";
         }
@@ -51,6 +67,7 @@ public class UserFavoriteController {
         model.addAttribute("currentPage", moviePage.getNumber());
         model.addAttribute("totalPages", moviePage.getTotalPages());
         model.addAttribute("totalItems", moviePage.getTotalElements());
+        model.addAttribute("size", size);
         return "service/list-favorite";
     }
 
@@ -62,9 +79,10 @@ public class UserFavoriteController {
     @ResponseBody // Trả về JSON
     public ResponseEntity<Map<String, String>> toggleFavorite(
             @PathVariable Integer movieId,
-            @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
+            jakarta.servlet.http.HttpSession session) {
 
         Map<String, String> response = new HashMap<>();
+        UserSessionDto userSession = resolveSessionUser(session);
 
         if (userSession == null) {
             // Trường hợp chưa đăng nhập
@@ -92,8 +110,9 @@ public class UserFavoriteController {
     @GetMapping("/api/list")
     @ResponseBody
     public ResponseEntity<List<Integer>> getFavoriteMovieIds(
-            @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
+            jakarta.servlet.http.HttpSession session) {
 
+        UserSessionDto userSession = resolveSessionUser(session);
         if (userSession == null) {
             return ResponseEntity.status(401).body(java.util.Collections.emptyList());
         }
@@ -109,8 +128,9 @@ public class UserFavoriteController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> checkFavorite(
             @PathVariable Integer movieId,
-            @SessionAttribute(name = "user", required = false) UserSessionDto userSession) {
+            jakarta.servlet.http.HttpSession session) {
         Map<String, Object> response = new HashMap<>();
+        UserSessionDto userSession = resolveSessionUser(session);
         if (userSession == null) {
             response.put("isFavorite", false);
             return ResponseEntity.ok(response);

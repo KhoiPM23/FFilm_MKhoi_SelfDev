@@ -141,7 +141,12 @@ public class ReviewController {
     }
 
     private Integer extractUserId(HttpSession session) {
+        if (session == null) return null;
         Object userObj = session.getAttribute("user");
+        if (userObj == null) userObj = session.getAttribute("admin");
+        if (userObj == null) userObj = session.getAttribute("moderator");
+        if (userObj == null) userObj = session.getAttribute("contentManager");
+
         if (userObj == null) {
             return null;
         }
