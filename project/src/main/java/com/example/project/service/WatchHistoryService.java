@@ -110,4 +110,20 @@ public class WatchHistoryService {
             return 0.0;
         }
     }
+
+    @Transactional
+    public void deleteWatchHistory(String userEmail, int movieId) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + userEmail));
+        Movie movie = movieRepository.findById(movieId)
+                .orElseThrow(() -> new RuntimeException("Movie not found with ID: " + movieId));
+        watchHistoryRepository.deleteByUserAndMovie(user, movie);
+    }
+
+    @Transactional
+    public void clearWatchHistory(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + userEmail));
+        watchHistoryRepository.deleteByUser(user);
+    }
 }

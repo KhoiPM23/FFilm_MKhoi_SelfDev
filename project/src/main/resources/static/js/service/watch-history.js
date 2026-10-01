@@ -64,8 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (pageData.content.length > 0) {
                 renderMovies(pageData.content);
+                const clearAllBtn = document.getElementById('btn-clear-all');
+                if (clearAllBtn) clearAllBtn.style.display = 'inline-flex';
             } else if (page === 0) {
                 historyListContainer.innerHTML = '<p>Bạn chưa xem bộ phim nào.</p>';
+                const clearAllBtn = document.getElementById('btn-clear-all');
+                if (clearAllBtn) clearAllBtn.style.display = 'none';
             }
             
             if (currentPage >= totalPages) {
@@ -119,7 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
             movieCard.innerHTML = `
                 <div class="poster-wrapper">
                     <img src="${posterUrl}" alt="${movie.movieTitle}" loading="lazy">
-                    </div>
+                    <button class="btn-delete-item" title="Xóa khỏi lịch sử" data-id="${movie.movieId}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
                 <div class="movie-card-info">
                     <h5>${movie.movieTitle}</h5>
                     
@@ -130,6 +137,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="last-watched-date">Ngày xem: ${lastWatched}</p>
                 </div>
             `;
+
+            const delBtn = movieCard.querySelector('.btn-delete-item');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const targetMovieId = delBtn.getAttribute('data-id');
+                    if (!targetMovieId) return;
+
+                    fetch(`/api/history/${targetMovieId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            movieCard.style.transition = 'all 0.3s ease';
+                            movieCard.style.opacity = '0';
+                            movieCard.style.transform = 'scale(0.8)';
+                            setTimeout(() => {
+                                movieCard.remove();
+                                if (!historyListContainer.querySelector('.movie-card')) {
+                                    historyListContainer.innerHTML = '<p>Bạn chưa xem bộ phim nào.</p>';
+                                    const clearAllBtn = document.getElementById('btn-clear-all');
+                                    if (clearAllBtn) clearAllBtn.style.display = 'none';
+                                }
+                            }, 300);
+                        } else {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('Không thể xóa phim khỏi lịch sử.', 'error');
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Lỗi xóa lịch sử:', err);
+                    });
+                });
+            }
             
             if(historyListContainer) {
                  historyListContainer.appendChild(movieCard);
@@ -145,5 +188,32 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMoreButton.addEventListener('click', () => {
             fetchHistory(currentPage);
         });
+
+        // Xử lý nút "Xóa tất cả"
+        const clearAllBtn = document.getElementById('btn-clear-all');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
+                const proceed = () => {
+                    fetch('/api/history/clear', { method: 'DELETE' })
+                        .then(res => {
+                            if (res.ok) {
+                                historyListContainer.innerHTML = '<p>Bạn chưa xem bộ phim nào.</p>';
+                                clearAllBtn.style.display = 'none';
+                                loadMoreButton.style.display = 'none';
+                                if (typeof window.showToast === 'function') {
+                                    window.showToast('Đã xóa toàn bộ lịch sử xem.', 'success');
+                                }
+                            }
+                        })
+                        .catch(err => console.error('Lỗi xóa toàn bộ lịch sử:', err));
+                };
+
+                if (typeof window.cineConfirm === 'function') {
+                    window.cineConfirm('Bạn có chắc muốn xóa toàn bộ lịch sử xem không?', proceed);
+                } else if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử xem không?')) {
+                    proceed();
+                }
+            });
+        }
     }
 });

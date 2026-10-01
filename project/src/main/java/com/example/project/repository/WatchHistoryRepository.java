@@ -25,4 +25,12 @@ public interface WatchHistoryRepository extends JpaRepository<WatchHistory, Long
 
     @Query("SELECT wh.movie.movieID FROM WatchHistory wh WHERE wh.user.id = :userID")
     Set<Integer> findWatchedMovieIDsByUserID(@Param("userID") Integer userID);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM WatchHistory wh WHERE wh.user = :user AND wh.movie = :movie")
+    void deleteByUserAndMovie(@Param("user") User user, @Param("movie") Movie movie);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM WatchHistory wh WHERE wh.user = :user")
+    void deleteByUser(@Param("user") User user);
 }

@@ -30,19 +30,46 @@ public class WatchHistoryController {
     }
 
 
+    private String extractEmail(UserDetails userDetails, HttpSession session) {
+        if (userDetails != null && userDetails.getUsername() != null && !userDetails.getUsername().isBlank()) {
+            return userDetails.getUsername();
+        }
+        if (session != null) {
+            Object u = session.getAttribute("user");
+            if (u == null) u = session.getAttribute("admin");
+            if (u == null) u = session.getAttribute("moderator");
+            if (u == null) u = session.getAttribute("contentManager");
+
+            if (u instanceof UserSessionDto) {
+                return ((UserSessionDto) u).getEmail();
+            } else if (u instanceof com.example.project.model.User) {
+                return ((com.example.project.model.User) u).getEmail();
+            }
+        }
+        return null;
+    }
+
+    private Integer extractUserId(HttpSession session) {
+        if (session != null) {
+            Object u = session.getAttribute("user");
+            if (u == null) u = session.getAttribute("admin");
+            if (u == null) u = session.getAttribute("moderator");
+            if (u == null) u = session.getAttribute("contentManager");
+
+            if (u instanceof UserSessionDto) {
+                return ((UserSessionDto) u).getId();
+            } else if (u instanceof com.example.project.model.User) {
+                return ((com.example.project.model.User) u).getUserID();
+            }
+        }
+        return null;
+    }
+
     @PostMapping("/record/{movieId}")
     public ResponseEntity<?> recordWatch(@PathVariable int movieId,
                                          @AuthenticationPrincipal UserDetails userDetails,
                                          HttpSession session) {
-        String email = null;
-        if (userDetails != null) {
-            email = userDetails.getUsername();
-        } else if (session != null) {
-            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-            if (userSession != null) {
-                email = userSession.getEmail();
-            }
-        }
+        String email = extractEmail(userDetails, session);
         if (email == null) {
             return ResponseEntity.status(401).build(); // Unauthorized
         }
@@ -56,15 +83,7 @@ public class WatchHistoryController {
             @AuthenticationPrincipal UserDetails userDetails,
             HttpSession session,
             @PageableDefault(size = 20) Pageable pageable) {
-        String email = null;
-        if (userDetails != null) {
-            email = userDetails.getUsername();
-        } else if (session != null) {
-            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-            if (userSession != null) {
-                email = userSession.getEmail();
-            }
-        }
+        String email = extractEmail(userDetails, session);
         if (email == null) {
             return ResponseEntity.status(401).build(); 
         }
@@ -80,19 +99,43 @@ public class WatchHistoryController {
             @AuthenticationPrincipal UserDetails userDetails,
             HttpSession session) { 
         
-        if (session != null) {
-            UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
-            if (userSession != null) {
-                watchHistoryService.updateWatchProgress(userSession.getId(), movieId, currentTime);
-                return ResponseEntity.ok().build();
-            }
+        Integer userId = extractUserId(session);
+        if (userId != null) {
+            watchHistoryService.updateWatchProgress(userId, movieId, currentTime);
+            return ResponseEntity.ok().build();
         }
 
-        if (userDetails != null) {
-            watchHistoryService.updateWatchProgressByEmail(userDetails.getUsername(), movieId, currentTime);
+        String email = extractEmail(userDetails, session);
+        if (email != null) {
+            watchHistoryService.updateWatchProgressByEmail(email, movieId, currentTime);
             return ResponseEntity.ok().build();
         }
         
         return ResponseEntity.status(401).build();
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{movieId}")
+    public ResponseEntity<?> deleteHistoryItem(
+            @PathVariable int movieId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpSession session) {
+        String email = extractEmail(userDetails, session);
+        if (email == null) {
+            return ResponseEntity.status(401).build();
+        }
+        watchHistoryService.deleteWatchHistory(email, movieId);
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Đã xóa khỏi lịch sử xem"));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/clear")
+    public ResponseEntity<?> clearAllHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpSession session) {
+        String email = extractEmail(userDetails, session);
+        if (email == null) {
+            return ResponseEntity.status(401).build();
+        }
+        watchHistoryService.clearWatchHistory(email);
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Đã xóa toàn bộ lịch sử xem"));
     }
 }
