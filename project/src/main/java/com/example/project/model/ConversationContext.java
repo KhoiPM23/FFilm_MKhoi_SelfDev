@@ -3,6 +3,7 @@ package com.example.project.model;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * DTO lưu trữ ngữ cảnh hội thoại (Memory)
@@ -20,6 +21,11 @@ public class ConversationContext implements Serializable {
     // Phase 5: Danh sách ID đã hiển thị (để tránh lặp lại khi "xem thêm")
     private List<Integer> shownMovieIds = new ArrayList<>();
     private List<Integer> shownPersonIds = new ArrayList<>();
+
+    // Phase 14: Danh sách phim gợi ý gần nhất & thực thể đang thảo luận để hỗ trợ multi-turn follow-up
+    private List<Map<String, Object>> lastCandidateMovies = new ArrayList<>();
+    private Map<String, Object> lastFocusedMovie;
+    private String lastFocusedPerson;
 
     public ConversationContext() {}
 
@@ -52,4 +58,15 @@ public class ConversationContext implements Serializable {
     public void setShownPersonIds(List<Integer> shownPersonIds) { this.shownPersonIds = shownPersonIds; }
     public void addShownPersonId(Integer id) { this.shownPersonIds.add(id); }
     public void addShownPersonIds(List<Integer> ids) { this.shownPersonIds.addAll(ids); }
+
+    public List<Map<String, Object>> getLastCandidateMovies() { return lastCandidateMovies; }
+    public void setLastCandidateMovies(List<Map<String, Object>> lastCandidateMovies) {
+        this.lastCandidateMovies = lastCandidateMovies != null ? lastCandidateMovies : new ArrayList<>();
+    }
+
+    public Map<String, Object> getLastFocusedMovie() { return lastFocusedMovie; }
+    public void setLastFocusedMovie(Map<String, Object> lastFocusedMovie) { this.lastFocusedMovie = lastFocusedMovie; }
+
+    public String getLastFocusedPerson() { return lastFocusedPerson; }
+    public void setLastFocusedPerson(String lastFocusedPerson) { this.lastFocusedPerson = lastFocusedPerson; }
 }

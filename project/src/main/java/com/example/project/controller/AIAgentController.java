@@ -41,15 +41,15 @@ public class AIAgentController {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Message không được để trống"));
             }
 
-            // 1. Xử lý tin nhắn
-            Map<String, Object> response = aiAgentService.processMessage(message, conversationId);
-            
-            // 2. Lấy thông tin User từ Session
+            // 1. Lấy thông tin User từ Session (nếu có)
             Integer userId = null;
             UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
             if (userSession != null) {
                 userId = userSession.getId();
             }
+
+            // 2. Xử lý tin nhắn (kèm userId để cá nhân hóa & grounding)
+            Map<String, Object> response = aiAgentService.processMessage(message, conversationId, userId);
 
             // 3. [BẢO MẬT LỚP 2] Chỉ lưu lịch sử nếu ĐÃ ĐĂNG NHẬP (userId != null)
             if (userId != null) {
