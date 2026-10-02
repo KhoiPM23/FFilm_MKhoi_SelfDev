@@ -917,8 +917,26 @@
 
     // --- 3. SELECT AND LOAD THEME KHI CHỌN CONVERSATION ---
     window.selectConversation = function(partnerId, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp) {
+        if (partnerId && typeof partnerId === 'object' && (partnerId.originalEvent || partnerId.target || typeof partnerId.stopPropagation === 'function')) {
+            partnerId = name;
+            name = avatar;
+            avatar = isFriend;
+            isFriend = isOnline;
+            isOnline = lastActive;
+            lastActive = relationStatus;
+            relationStatus = lastActiveTimestamp;
+        }
         currentPartnerId = parseInt(partnerId);
-        currentPartnerName = name;
+        if (isNaN(currentPartnerId)) return;
+
+        if (!name) {
+            const item = $(`#conv-${currentPartnerId}`);
+            if (item.length) {
+                name = item.find('.conv-name').text().trim();
+                avatar = item.find('.avatar-img').attr('src');
+            }
+        }
+        currentPartnerName = name || 'FFilm User';
         isCurrentPartnerFriend = (String(isFriend) === 'true' || relationStatus === 'FRIEND');
 
         // Persist active conversation across refresh & update URL
@@ -939,6 +957,11 @@
         if (typeof window.cancelReply === 'function') window.cancelReply();
         if (typeof window.cancelEdit === 'function') window.cancelEdit();
         if (typeof window.clearPreview === 'function') window.clearPreview();
+        $('.reaction-picker').remove();
+        $('.media-lightbox-overlay').remove();
+        $('#sharedImagesGrid').empty();
+        $('#sharedFilesList').empty();
+        $('#sharedLinksList').empty();
         $('#msgInput').val('');
         if (typeof window.updateComposerState === 'function') window.updateComposerState();
         $(`#conv-${partnerId}`).removeClass('unread').find('.unread-badge').remove();
@@ -947,6 +970,9 @@
         // Only refresh media if info sidebar is already open by user choice
         if (!$('#chatInfoSidebar').hasClass('hidden')) {
             loadSharedMedia();
+            if ($('.media-tab[onclick*="\'link\'"]').hasClass('active') && typeof window.loadSharedLinks === 'function') {
+                window.loadSharedLinks(partnerId);
+            }
         }
 
         // Load theme và settings từ server
@@ -1279,7 +1305,7 @@
 
         // Reactions
         let reactionsHtml = '';
-        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+        if (!msg.isDeleted && msg.reactions && Object.keys(msg.reactions).length > 0) {
             reactionsHtml = '<div class="message-reactions">';
             Object.entries(msg.reactions).forEach(([emoji, count]) => {
                 const isMine = msg.userReaction && msg.userReaction === emoji;
@@ -1309,7 +1335,7 @@
             `;
         }
 
-        if (msg.type === 'CALL_END') {
+        if (msg.type === 'CALL_END' || msg.isDeleted) {
             actionButtons = '';
         } else if (isMine) {
             actionButtons = `
@@ -1321,7 +1347,7 @@
                 </div>
                 ${editBtn}
                 ${copyBtn}
-                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
+                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}')">
                     <i class="fas fa-reply"></i>
                 </div>
                 <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
@@ -1340,7 +1366,7 @@
                     <i class="fas fa-thumbtack"></i>
                 </div>
                 ${copyBtn}
-                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', '${currentPartnerName.replace(/'/g, "\\'")}', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
+                <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}')">
                     <i class="fas fa-reply"></i>
                 </div>
                 <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msgId}')">
@@ -1433,12 +1459,43 @@
     window.startReply = function(msgId, senderName, content) {
         if (typeof window.cancelEdit === 'function') window.cancelEdit();
         replyToId = msgId;
-        const previewText = content.length > 50 ? content.substring(0, 50) + '...' : content;
+
+        const row = $(`#msg-${msgId}`);
+        let name = senderName;
+        let previewText = content;
+
+        if (row.length) {
+            if (!name) {
+                name = row.hasClass('mine') ? 'Bạn' : (currentPartnerName || 'Người nhận');
+            }
+            if (!previewText) {
+                if (row.find('.msg-image').length) previewText = '[Hình ảnh]';
+                else if (row.find('.msg-sticker').length) previewText = '[Nhãn dán]';
+                else if (row.find('.msg-gif').length) previewText = '[Ảnh GIF]';
+                else if (row.find('.msg-file').length) previewText = '[Tệp đính kèm]';
+                else if (row.find('.msg-audio, audio, .audio-player').length) previewText = '[Tin nhắn thoại]';
+                else {
+                    const bubble = row.find('.bubble');
+                    if (bubble.length) {
+                        const clone = bubble.clone();
+                        clone.children('.reply-block, .message-reactions, .pin-indicator, .edited-badge').remove();
+                        previewText = clone.text().trim();
+                    }
+                }
+            }
+        }
+
+        if (!name) name = 'Bạn';
+        if (!previewText) previewText = '[Tin nhắn]';
+        if (previewText.length > 50) previewText = previewText.substring(0, 50) + '...';
+
+        const safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
+        const safePreview = (typeof escapeHtml === 'function') ? escapeHtml(previewText) : previewText;
 
         $('#replyingBar').addClass('active').show().html(`
             <div>
-                <div style="font-weight:bold; color:#0084ff;">Trả lời ${senderName}</div>
-                <div style="color:#aaa; font-size:12px;">${previewText}</div>
+                <div style="font-weight:bold; color:#0084ff;">Trả lời ${safeName}</div>
+                <div style="color:#aaa; font-size:12px;">${safePreview}</div>
             </div>
             <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;" title="Hủy"></i>
         `);
@@ -2243,7 +2300,7 @@
                             <div class="action-btn" title="Sao chép" onclick="window.copyMessage('${msg.id}')">
                                 <i class="fas fa-copy"></i>
                             </div>
-                            <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
+                            <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}')">
                                 <i class="fas fa-reply"></i>
                             </div>
                             <div class="action-btn action-react-btn" title="Thả cảm xúc" onclick="window.showReactionPicker(this, '${msg.id}')">
@@ -4305,7 +4362,11 @@
             function collectTextNodes(node) {
                 if (node.nodeType === 3 && node.nodeValue.trim()) {
                     textNodes.push(node);
-                } else if (node.nodeType === 1 && !node.classList.contains('reply-block') && !node.classList.contains('message-reactions')) {
+                } else if (node.nodeType === 1 &&
+                           !node.classList.contains('reply-block') &&
+                           !node.classList.contains('message-reactions') &&
+                           !node.classList.contains('edited-badge') &&
+                           !node.classList.contains('pin-indicator')) {
                     for (let child = node.firstChild; child; child = child.nextSibling) {
                         collectTextNodes(child);
                     }
@@ -4977,21 +5038,6 @@
         }, 300);
     };
 
-    // Cập nhật lại hàm updateInfoSidebar để reset trạng thái khi đổi chat
-    const originalSelectConversation = window.selectConversation;
-    window.selectConversation = function(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp) {
-        // Gọi hàm gốc
-        originalSelectConversation(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp);
-
-        // Update Info bên phải
-        $('#infoName').text(name);
-        $('#infoAvatar').attr('src', avatar);
-
-        // Nếu sidebar đang mở thì load lại media
-        if (!$('#chatInfoSidebar').hasClass('hidden')) {
-            loadSharedMedia();
-        }
-    };
 
     // Thêm vào cuối file messenger.js
     function addPremiumEffects() {
@@ -5133,26 +5179,98 @@
         }
     };
 
+    let currentLightboxIndex = -1;
+    let currentLightboxMedia = [];
+
     window.openMediaLightbox = function(url) {
         if (!url) return;
         $('.media-lightbox-overlay').remove();
 
+        // Collect visible images in chat and shared media
+        currentLightboxMedia = [];
+        $('#messagesContainer .msg-image, #messagesContainer .msg-content img, #sharedImagesGrid .media-thumb').each(function() {
+            let src = $(this).attr('src');
+            if (!src && $(this).css('background-image')) {
+                const bg = $(this).css('background-image');
+                const match = bg.match(/url\(['"]?(.*?)['"]?\)/);
+                if (match && match[1]) src = match[1];
+            }
+            if (src && !currentLightboxMedia.includes(src)) {
+                currentLightboxMedia.push(src);
+            }
+        });
+
+        currentLightboxIndex = currentLightboxMedia.indexOf(url);
+        if (currentLightboxIndex === -1) {
+            currentLightboxMedia.unshift(url);
+            currentLightboxIndex = 0;
+        }
+
+        const hasMultiple = currentLightboxMedia.length > 1;
+
+        function updateLightboxView(idx) {
+            if (idx < 0 || idx >= currentLightboxMedia.length) return;
+            currentLightboxIndex = idx;
+            const currentUrl = currentLightboxMedia[currentLightboxIndex];
+            const safeCurrentUrl = escapeHtml(currentUrl);
+
+            overlay.find('.media-lightbox-img').attr('src', safeCurrentUrl);
+            overlay.find('.lightbox-btn').attr('href', safeCurrentUrl);
+            overlay.find('.media-lightbox-counter').text(`${currentLightboxIndex + 1} / ${currentLightboxMedia.length}`);
+            overlay.find('.media-lightbox-prev').toggle(currentLightboxIndex > 0);
+            overlay.find('.media-lightbox-next').toggle(currentLightboxIndex < currentLightboxMedia.length - 1);
+        }
+
+        window.navigateLightbox = function(direction) {
+            if (!$('.media-lightbox-overlay').length || currentLightboxMedia.length <= 1) return;
+            const nextIdx = currentLightboxIndex + direction;
+            if (nextIdx >= 0 && nextIdx < currentLightboxMedia.length) {
+                updateLightboxView(nextIdx);
+            }
+        };
+
         const safeUrl = escapeHtml(url);
+        const prevDisplay = (currentLightboxIndex > 0) ? '' : 'style="display:none;"';
+        const nextDisplay = (currentLightboxIndex < currentLightboxMedia.length - 1) ? '' : 'style="display:none;"';
+        const counterHtml = hasMultiple ? `<div class="media-lightbox-counter">${currentLightboxIndex + 1} / ${currentLightboxMedia.length}</div>` : '';
+        const navHtml = hasMultiple ? `
+            <button type="button" class="media-lightbox-nav media-lightbox-prev" ${prevDisplay} title="Ảnh trước (Mũi tên trái)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button type="button" class="media-lightbox-nav media-lightbox-next" ${nextDisplay} title="Ảnh sau (Mũi tên phải)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        ` : '';
+
         const overlay = $(`
             <div class="media-lightbox-overlay">
-                <button type="button" class="media-lightbox-close" title="Đóng (Esc)">&times;</button>
-                <a href="${safeUrl}" download target="_blank" rel="noopener noreferrer" class="media-lightbox-download" title="Tải ảnh gốc">
-                    <i class="fas fa-download"></i> Tải về
-                </a>
+                <div class="media-lightbox-toolbar">
+                    ${counterHtml}
+                    <a href="${safeUrl}" download target="_blank" rel="noopener noreferrer" class="lightbox-btn" title="Tải ảnh gốc">
+                        <i class="fas fa-download"></i> Tải về
+                    </a>
+                    <button type="button" class="lightbox-close-btn" title="Đóng (Esc)">&times;</button>
+                </div>
+                ${navHtml}
                 <div class="media-lightbox-content">
                     <img src="${safeUrl}" class="media-lightbox-img" alt="Media preview">
                 </div>
             </div>
         `);
 
-        overlay.find('.media-lightbox-close').on('click', function(e) {
+        overlay.find('.lightbox-close-btn').on('click', function(e) {
             e.stopPropagation();
             overlay.fadeOut(150, function() { overlay.remove(); });
+        });
+
+        overlay.find('.media-lightbox-prev').on('click', function(e) {
+            e.stopPropagation();
+            updateLightboxView(currentLightboxIndex - 1);
+        });
+
+        overlay.find('.media-lightbox-next').on('click', function(e) {
+            e.stopPropagation();
+            updateLightboxView(currentLightboxIndex + 1);
         });
 
         overlay.on('click', function(e) {
@@ -5165,8 +5283,18 @@
         overlay.fadeIn(150);
     };
 
-    // Global keyboard shortcuts (Escape to dismiss overlays, edit, reply)
+    // Global keyboard shortcuts (Escape to dismiss overlays, edit, reply, and Arrow Left/Right for lightbox)
     $(document).on('keydown', function(e) {
+        if ($('.media-lightbox-overlay').length) {
+            if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+                if (typeof window.navigateLightbox === 'function') window.navigateLightbox(-1);
+                return;
+            }
+            if (e.key === 'ArrowRight' || e.keyCode === 39) {
+                if (typeof window.navigateLightbox === 'function') window.navigateLightbox(1);
+                return;
+            }
+        }
         if (e.key === 'Escape' || e.keyCode === 27) {
             if ($('.media-lightbox-overlay').length) {
                 $('.media-lightbox-overlay').fadeOut(150, function() { $(this).remove(); });

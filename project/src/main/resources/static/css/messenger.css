@@ -3362,6 +3362,42 @@ body.messenger-body {
     border-radius: 8px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
 }
+.media-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    z-index: 100001;
+}
+.media-lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-50%) scale(1.08);
+}
+.media-lightbox-prev {
+    left: 24px;
+}
+.media-lightbox-next {
+    right: 24px;
+}
+.media-lightbox-counter {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 6px 12px;
+    border-radius: 12px;
+}
 
 /* --- SHARED LINK ITEM --- */
 .shared-link-item {
