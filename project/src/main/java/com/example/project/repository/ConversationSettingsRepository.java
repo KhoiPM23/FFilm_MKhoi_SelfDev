@@ -17,19 +17,19 @@ public interface ConversationSettingsRepository extends JpaRepository<Conversati
     
     List<ConversationSettings> findByUserId(Integer userId);
     
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE ConversationSettings cs SET cs.themeColor = :themeColor WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
     int updateThemeColor(@Param("userId") Integer userId, 
                         @Param("partnerId") Integer partnerId, 
                         @Param("themeColor") String themeColor);
     
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE ConversationSettings cs SET cs.nickname = :nickname WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
     int updateNickname(@Param("userId") Integer userId, 
                       @Param("partnerId") Integer partnerId, 
                       @Param("nickname") String nickname);
     
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE ConversationSettings cs SET cs.notificationEnabled = :enabled WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
     int updateNotificationSetting(@Param("userId") Integer userId, 
                                  @Param("partnerId") Integer partnerId, 
@@ -40,14 +40,14 @@ public interface ConversationSettingsRepository extends JpaRepository<Conversati
                                                          @Param("partnerIds") List<Integer> partnerIds);
     
     // ============= FIX 1: Thêm phương thức cập nhật background =============
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE ConversationSettings cs SET cs.customBackgroundUrl = :backgroundUrl WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
     int updateBackground(@Param("userId") Integer userId, 
                         @Param("partnerId") Integer partnerId, 
                         @Param("backgroundUrl") String backgroundUrl);
     
     // ============= FIX 2: Thêm phương thức mute/unmute =============
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE ConversationSettings cs SET cs.mutedUntil = :mutedUntil WHERE cs.userId = :userId AND cs.partnerId = :partnerId")
     int updateMuteSetting(@Param("userId") Integer userId, 
                          @Param("partnerId") Integer partnerId, 

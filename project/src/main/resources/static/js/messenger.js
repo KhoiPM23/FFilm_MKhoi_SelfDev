@@ -452,19 +452,57 @@
             if (isDuplicateEvent(unsendKey)) return;
             const row = $(`#msg-${msg.messageId}`);
             if (row.length) {
-                row.find('.bubble').addClass('deleted').text('Tin nhắn đã bị thu hồi');
+                row.find('.msg-content').html('<div class="bubble deleted" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>');
                 row.find('.msg-actions').remove();
+            }
+            return;
+        }
+
+        // 3b. Edit events (Realtime message update)
+        if (msg.type === 'EDIT' && msg.messageId) {
+            const editKey = `EDIT:${msg.messageId}:${msg.content}`;
+            if (isDuplicateEvent(editKey)) return;
+            const row = $(`#msg-${msg.messageId}`);
+            if (row.length) {
+                const bubble = row.find('.bubble');
+                if (bubble.length) {
+                    const replyBlock = bubble.find('.reply-block').detach();
+                    bubble.text(msg.content);
+                    if (replyBlock.length) bubble.prepend(replyBlock);
+                    if (!bubble.find('.edited-badge').length) {
+                        bubble.append(' <span class="edited-badge" title="Đã chỉnh sửa">(đã chỉnh sửa)</span>');
+                    }
+                }
+            }
+            return;
+        }
+
+        // 3c. Theme events (Realtime theme sync)
+        if (msg.type === 'THEME' && msg.themeColor) {
+            const themeKey = `THEME:${msg.partnerId}:${msg.themeColor}`;
+            if (isDuplicateEvent(themeKey)) return;
+            if (typeof window.applyTheme === 'function') {
+                window.applyTheme(msg.themeColor);
             }
             return;
         }
 
         // 4. Pin events
         if (msg.type === 'PIN' && msg.messageId) {
-            const pinKey = `PIN:${msg.messageId}:${msg.isPinned}`;
+            const isPin = msg.pinned !== undefined ? msg.pinned : msg.isPinned;
+            const pinKey = `PIN:${msg.messageId}:${isPin}`;
             if (isDuplicateEvent(pinKey)) return;
             const row = $(`#msg-${msg.messageId}`);
             if (row.length) {
-                row.toggleClass('pinned', !!msg.isPinned);
+                row.toggleClass('pinned', !!isPin);
+                const contentEl = row.find('.msg-content');
+                if (isPin) {
+                    if (!contentEl.find('.pin-indicator').length) {
+                        contentEl.append(' <span class="pin-indicator" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>');
+                    }
+                } else {
+                    contentEl.find('.pin-indicator').remove();
+                }
             }
             if (typeof window.loadPinnedMessages === 'function') {
                 window.loadPinnedMessages();
@@ -899,7 +937,7 @@
         }
 
         // Load theme và settings từ server
-        $('#messagesContainer').css('background-image', '');
+        $('#messagesContainer').css({ 'background': '', 'background-image': '' });
         $.get(`/api/v1/messenger/settings/${partnerId}`)
             .done(function(settings) {
                 if (settings.themeColor && settings.themeColor !== '#0084ff') {
@@ -912,12 +950,28 @@
                     $('#headerName').text(settings.nickname);
                     $('#infoName').text(settings.nickname);
                 }
+                if (settings.notificationEnabled === false) {
+                    $('.info-header-actions .fa-bell').removeClass('fa-bell').addClass('fa-bell-slash');
+                } else {
+                    $('.info-header-actions .fa-bell-slash').removeClass('fa-bell-slash').addClass('fa-bell');
+                }
                 if (settings.customBackgroundUrl) {
-                    $('#messagesContainer').css({
-                        'background-image': `url('${settings.customBackgroundUrl}')`,
-                        'background-size': 'cover',
-                        'background-position': 'center'
-                    });
+                    const bg = settings.customBackgroundUrl.trim();
+                    if (bg === 'default') {
+                        $('#messagesContainer').css({ 'background': '', 'background-image': '' });
+                    } else if (bg.startsWith('linear-gradient') || bg.startsWith('radial-gradient') || bg.startsWith('url(')) {
+                        $('#messagesContainer').css({
+                            'background': bg,
+                            'background-size': 'cover',
+                            'background-position': 'center'
+                        });
+                    } else {
+                        $('#messagesContainer').css({
+                            'background-image': `url('${bg}')`,
+                            'background-size': 'cover',
+                            'background-position': 'center'
+                        });
+                    }
                 }
             })
             .fail(function() {
@@ -1109,6 +1163,10 @@
             `;
         }
 
+        // Edited & Pin Indicators
+        const editedHtml = (msg.isEdited && !msg.isDeleted) ? ' <span class="edited-badge" title="Đã chỉnh sửa">(đã chỉnh sửa)</span>' : '';
+        const pinHtml = msg.isPinned ? ' <span class="pin-indicator" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>' : '';
+
         // Content
         let contentHtml = '';
         if (msg.isDeleted) {
@@ -1170,9 +1228,9 @@
             `;
         } else if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
             const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : (msg.type === 'GIF' ? 'msg-gif' : 'msg-image');
-            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">`;
+            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">${pinHtml}`;
         } else if (msg.type === 'AUDIO') {
-            contentHtml = renderAudioPlayer(msg.content, msg.id);
+            contentHtml = renderAudioPlayer(msg.content, msg.id) + pinHtml;
             setTimeout(() => {
                 if (msg.id) {
                     window.initAudioDuration(`audio-player-${msg.id}`);
@@ -1187,10 +1245,10 @@
                         <div style="font-size:12px; font-weight:bold;">${fileName}</div>
                         <a href="${msg.content}" download style="color:#0084ff; font-size:11px;">Tải xuống</a>
                     </div>
-                </div>
+                </div>${pinHtml}
             `;
         } else {
-            contentHtml = `<div class="bubble">${replyHtml}${msg.content}</div>`;
+            contentHtml = `<div class="bubble">${replyHtml}${msg.content}${editedHtml}${pinHtml}</div>`;
         }
 
         // Reactions
@@ -1210,6 +1268,20 @@
 
         // Action Buttons
         let actionButtons = '';
+        const copyBtn = `
+            <div class="action-btn" title="Sao chép" onclick="window.copyMessage('${msgId}')">
+                <i class="fas fa-copy"></i>
+            </div>
+        `;
+        let editBtn = '';
+        if (isMine && msg.type === 'TEXT' && !msg.isDeleted) {
+            editBtn = `
+                <div class="action-btn" title="Chỉnh sửa" onclick="window.startEditMessage('${msgId}')">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+            `;
+        }
+
         if (msg.type === 'CALL_END') {
             actionButtons = '';
         } else if (isMine) {
@@ -1220,6 +1292,8 @@
                 <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msgId}')">
                     <i class="fas fa-thumbtack"></i>
                 </div>
+                ${editBtn}
+                ${copyBtn}
                 <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
@@ -1235,6 +1309,10 @@
                 <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msgId}')">
                     <i class="fas fa-share"></i>
                 </div>
+                <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msgId}')">
+                    <i class="fas fa-thumbtack"></i>
+                </div>
+                ${copyBtn}
                 <div class="action-btn" title="Trả lời" onclick="window.startReply('${msgId}', '${currentPartnerName.replace(/'/g, "\\'")}', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                     <i class="fas fa-reply"></i>
                 </div>
@@ -1321,32 +1399,150 @@
 
     // --- 5. ACTIONS ---
 
-
-    // --- FIX 3: REPLY LOGIC ---
+    // --- REPLY & EDIT & COPY LOGIC ---
     let replyToId = null;
+    let editingMessageId = null;
 
     window.startReply = function(msgId, senderName, content) {
+        if (typeof window.cancelEdit === 'function') window.cancelEdit();
         replyToId = msgId;
         const previewText = content.length > 50 ? content.substring(0, 50) + '...' : content;
         
-        $('#replyingBar').addClass('active').html(`
+        $('#replyingBar').addClass('active').show().html(`
             <div>
                 <div style="font-weight:bold; color:#0084ff;">Trả lời ${senderName}</div>
                 <div style="color:#aaa; font-size:12px;">${previewText}</div>
             </div>
-            <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;"></i>
+            <i class="fas fa-times" onclick="window.cancelReply()" style="cursor:pointer;" title="Hủy"></i>
         `);
         $('#msgInput').focus();
     };
 
     window.cancelReply = function() {
         replyToId = null;
-        $('#replyingBar').removeClass('active');
+        $('#replyingBar').removeClass('active').hide();
+    };
+
+    window.startEditMessage = function(msgId) {
+        window.cancelReply();
+        const row = $(`#msg-${msgId}`);
+        if (!row.length) return;
+        const bubble = row.find('.bubble');
+        if (!bubble.length) return;
+
+        const clone = bubble.clone();
+        clone.children('.reply-block, .message-reactions, .pin-indicator, .edited-badge').remove();
+        const rawContent = clone.text().trim();
+
+        editingMessageId = msgId;
+        const preview = rawContent.length > 50 ? rawContent.substring(0, 50) + '...' : rawContent;
+        $('#editingText').text(preview);
+        $('#editingBar').addClass('active').show();
+        $('#msgInput').val(rawContent).focus();
+    };
+
+    window.cancelEdit = function() {
+        editingMessageId = null;
+        $('#editingBar').removeClass('active').hide();
+        $('#msgInput').val('');
+    };
+
+    window.copyMessage = function(msgId) {
+        const row = $(`#msg-${msgId}`);
+        if (!row.length) return;
+
+        let textToCopy = '';
+        if (row.find('.bubble').length) {
+            const clone = row.find('.bubble').clone();
+            clone.children('.reply-block, .message-reactions, .pin-indicator, .edited-badge').remove();
+            textToCopy = clone.text().trim();
+        } else if (row.find('img.msg-image, img.msg-sticker, img.msg-gif').length) {
+            textToCopy = row.find('img.msg-image, img.msg-sticker, img.msg-gif').attr('src') || '';
+        } else if (row.find('.msg-file a').length) {
+            textToCopy = row.find('.msg-file a').attr('href') || '';
+        } else if (row.find('audio source').length) {
+            textToCopy = row.find('audio source').attr('src') || '';
+        } else if (row.find('.msg-call-info').length) {
+            textToCopy = row.find('.msg-call-info').text().trim();
+        }
+
+        if (!textToCopy) {
+            showToast('Không có nội dung để sao chép', 'info');
+            return;
+        }
+
+        function fallbackCopy(str) {
+            const ta = document.createElement('textarea');
+            ta.value = str;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) showToast('Đã sao chép vào bộ nhớ tạm', 'success');
+                else showToast('Không thể sao chép vào bộ nhớ tạm', 'error');
+            } catch (err) {
+                showToast('Lỗi khi sao chép', 'error');
+            }
+            document.body.removeChild(ta);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showToast('Đã sao chép vào bộ nhớ tạm', 'success');
+            }).catch(() => {
+                fallbackCopy(textToCopy);
+            });
+        } else {
+            fallbackCopy(textToCopy);
+        }
     };
 
     // Gán vào window để HTML gọi được
     window.sendTextMessage = function() {
         const content = $('#msgInput').val().trim();
+
+        // 1. Kiểm tra chế độ chỉnh sửa tin nhắn
+        if (editingMessageId) {
+            const newText = content;
+            if (!newText) {
+                showToast('Nội dung tin nhắn không được để trống', 'error');
+                return;
+            }
+            const editId = editingMessageId;
+            $.ajax({
+                url: `/api/v1/messenger/edit/${editId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ content: newText }),
+                success: function(updatedMsg) {
+                    const row = $(`#msg-${editId}`);
+                    if (row.length) {
+                        const bubble = row.find('.bubble');
+                        if (bubble.length) {
+                            const replyBlock = bubble.find('.reply-block').detach();
+                            bubble.text(updatedMsg.content || newText);
+                            if (replyBlock.length) bubble.prepend(replyBlock);
+                            if (!bubble.find('.edited-badge').length) {
+                                bubble.append(' <span class="edited-badge" title="Đã chỉnh sửa">(đã chỉnh sửa)</span>');
+                            }
+                        }
+                    }
+                    window.cancelEdit();
+                    showToast('Đã cập nhật tin nhắn', 'success');
+                },
+                error: function(xhr) {
+                    let errMsg = 'Lỗi khi chỉnh sửa tin nhắn';
+                    if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+                        errMsg = xhr.responseJSON.error;
+                    }
+                    showToast(errMsg, 'error');
+                }
+            });
+            return;
+        }
 
         // [FIX QUAN TRỌNG] Kiểm tra xem có file đang chờ gửi không TRƯỚC
         if (pendingFile) {
@@ -1687,12 +1883,14 @@
         
         if (stats.firstMessage) {
             const firstDate = new Date(stats.firstMessage.timestamp).toLocaleDateString('vi-VN');
+            const safeSender = escapeHtml(stats.firstMessage.sender || '');
+            const safeContent = escapeHtml(stats.firstMessage.content || '');
             html += `
                 <div class="stats-section">
                     <h4>Tin nhắn đầu tiên</h4>
                     <div class="first-message">
-                        <div class="first-sender">${stats.firstMessage.sender}</div>
-                        <div class="first-content">${stats.firstMessage.content}</div>
+                        <div class="first-sender">${safeSender}</div>
+                        <div class="first-content">${safeContent}</div>
                         <div class="first-date">${firstDate}</div>
                     </div>
                 </div>
@@ -1965,13 +2163,14 @@
                 showToast(nickname ? 'Đã cập nhật biệt danh!' : 'Đã xóa biệt danh!', 'success');
                 closeNicknameModal();
                 
-                // Update UI
-                if (nickname) {
-                    $('#infoName').text(nickname);
-                    // Update trong conversation list nếu cần
-                } else {
-                    $('#infoName').text(currentPartnerName);
+                // Update UI immediately across header, sidebar, and conversation list
+                const finalName = nickname ? nickname : currentPartnerName;
+                $('#infoName').text(finalName);
+                $('#headerName').text(finalName);
+                if (currentPartnerId) {
+                    $(`.conv-item[data-partner-id="${currentPartnerId}"] .conv-name`).text(finalName);
                 }
+                $('.conv-item.active .conv-name').text(finalName);
             },
             error: function() {
                 showToast('Lỗi cập nhật biệt danh!', 'error');
@@ -1997,12 +2196,24 @@
                         tempEl.remove();
                     } else {
                         tempEl.attr('id', `msg-${msg.id}`).attr('data-msg-id', msg.id).removeAttr('data-status');
+                        let editBtn = '';
+                        if (msg.type === 'TEXT' && !msg.isDeleted) {
+                            editBtn = `
+                                <div class="action-btn" title="Chỉnh sửa" onclick="window.startEditMessage('${msg.id}')">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </div>
+                            `;
+                        }
                         tempEl.find('.msg-actions').html(`
                             <div class="action-btn" title="Chuyển tiếp" onclick="window.forwardMessage('${msg.id}')">
                                 <i class="fas fa-share"></i>
                             </div>
                             <div class="action-btn" title="Ghim" onclick="window.togglePinMessage('${msg.id}')">
                                 <i class="fas fa-thumbtack"></i>
+                            </div>
+                            ${editBtn}
+                            <div class="action-btn" title="Sao chép" onclick="window.copyMessage('${msg.id}')">
+                                <i class="fas fa-copy"></i>
                             </div>
                             <div class="action-btn" title="Trả lời" onclick="window.startReply('${msg.id}', 'Bạn', '${(msg.content||'').replace(/'/g, "\\'").substring(0,50)}')">
                                 <i class="fas fa-reply"></i>
@@ -3740,25 +3951,30 @@
             </div>
         `);
         
+        modal.on('click', function(e) {
+            if ($(e.target).is(modal)) window.closeModal();
+        });
         $('body').append(modal);
         
         $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
             .done(function(messages) {
                 let html = '';
-                if (messages.length === 0) {
-                    html = '<p class="text-muted text-center">Chưa có tin nhắn nào được ghim</p>';
+                if (!messages || messages.length === 0) {
+                    html = '<p class="text-muted text-center py-4">Chưa có tin nhắn nào được ghim</p>';
                 } else {
                     messages.forEach(msg => {
                         const time = new Date(msg.timestamp).toLocaleTimeString('vi-VN', {
                             hour: '2-digit',
                             minute: '2-digit'
                         });
+                        const safeSender = escapeHtml(msg.senderId === currentUser.userID ? 'Bạn' : currentPartnerName);
+                        const safeText = escapeHtml(msg.content || '');
                         html += `
                             <div class="pinned-message-item" onclick="scrollToMessage(${msg.id})">
                                 <div class="pinned-message-sender">
-                                    ${msg.senderId === currentUser.userID ? 'Bạn' : currentPartnerName}
+                                    ${safeSender}
                                 </div>
-                                <div class="pinned-message-text">${msg.content}</div>
+                                <div class="pinned-message-text">${safeText}</div>
                                 <div class="pinned-message-time">${time}</div>
                             </div>
                         `;
@@ -3995,8 +4211,8 @@
         
         $.post(`/api/v1/messenger/unsend/${msgId}`)
             .done(function() {
-                const bubble = $(`#msg-${msgId} .msg-content`);
-                bubble.addClass('deleted').removeAttr('style').text('Tin nhắn đã bị thu hồi');
+                const contentEl = $(`#msg-${msgId} .msg-content`);
+                contentEl.html('<div class="bubble deleted" style="font-style:italic; opacity:0.6;">Tin nhắn đã bị thu hồi</div>');
                 $(`#msg-${msgId} .msg-actions`).remove();
                 if (typeof showToast === 'function') showToast('Đã thu hồi tin nhắn', 'info');
             })
@@ -4528,33 +4744,49 @@
         
         const grid = $('#sharedImagesGrid');
         const fileList = $('#sharedFilesList');
-        grid.html('<div class="text-center w-100 small text-muted">Đang tải...</div>');
+        grid.html('<div class="text-center w-100 small text-muted py-3">Đang tải...</div>');
+        fileList.html('<div class="text-center w-100 small text-muted py-3">Đang tải...</div>');
 
         $.get(`/api/v1/messenger/media/${currentPartnerId}`, function(data) {
             grid.empty();
             fileList.empty();
 
             if (!data || data.length === 0) {
-                grid.html('<div class="text-center w-100 small text-muted">Chưa có file nào</div>');
+                grid.html('<div class="text-center w-100 small text-muted py-3">Chưa có ảnh nào</div>');
+                fileList.html('<div class="text-center w-100 small text-muted py-3">Chưa có file nào</div>');
                 return;
             }
 
+            let imageCount = 0;
+            let fileCount = 0;
+
             data.forEach(msg => {
-                if (msg.type === 'IMAGE' || msg.type === 'STICKER') {
-                    // Render Ảnh
-                    grid.append(`<div class="media-thumb" style="background-image: url('${msg.content}')" onclick="window.open('${msg.content}')"></div>`);
+                if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
+                    imageCount++;
+                    const safeUrl = escapeHtml(msg.content);
+                    grid.append(`<div class="media-thumb" style="background-image: url('${safeUrl}')" onclick="window.open('${safeUrl}')"></div>`);
                 } else if (msg.type === 'FILE' || msg.type === 'AUDIO') {
-                    // Render File
-                    const name = msg.content.split('/').pop() || 'File đính kèm';
+                    fileCount++;
+                    let rawName = msg.content.split('/').pop() || 'File đính kèm';
+                    try { rawName = decodeURIComponent(rawName); } catch (e) {}
+                    const name = escapeHtml(rawName);
+                    const safeUrl = escapeHtml(msg.content);
                     const icon = msg.type === 'AUDIO' ? 'fa-microphone' : 'fa-file-alt';
                     fileList.append(`
                         <div class="file-list-item">
                             <i class="fas ${icon} text-primary"></i>
-                            <a href="${msg.content}" target="_blank" class="file-list-name text-white">${name}</a>
+                            <a href="${safeUrl}" target="_blank" class="file-list-name text-white">${name}</a>
                         </div>
                     `);
                 }
             });
+
+            if (imageCount === 0) {
+                grid.html('<div class="text-center w-100 small text-muted py-3">Chưa có ảnh nào</div>');
+            }
+            if (fileCount === 0) {
+                fileList.html('<div class="text-center w-100 small text-muted py-3">Chưa có file nào</div>');
+            }
         });
     }
 

@@ -220,10 +220,12 @@ public class MessengerService {
         return conversationSettingsRepository.save(settings);
     }
 
+    @Transactional
     public int updateThemeColor(Integer userId, Integer partnerId, String themeColor) {
         return conversationSettingsRepository.updateThemeColor(userId, partnerId, themeColor);
     }
 
+    @Transactional
     public int updateNickname(Integer userId, Integer partnerId, String nickname) {
         return conversationSettingsRepository.updateNickname(userId, partnerId, nickname);
     }
@@ -404,6 +406,48 @@ public class MessengerService {
         }
     }
 
+    @Transactional
+    public MessengerDto.MessageDto editMessage(Long messageId, Integer userId, String newContent) {
+        if (newContent == null || newContent.trim().isEmpty()) {
+            throw new IllegalArgumentException("Nội dung tin nhắn không được để trống");
+        }
+        String trimmed = newContent.trim();
+        if (trimmed.length() > 4000) {
+            trimmed = trimmed.substring(0, 4000);
+        }
+
+        MessengerMessage message = messengerRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin nhắn: " + messageId));
+
+        if (message.getSender().getUserID() != userId) {
+            throw new SecurityException("Chỉ người gửi mới có quyền chỉnh sửa tin nhắn này");
+        }
+        if (message.isDeleted()) {
+            throw new IllegalStateException("Không thể chỉnh sửa tin nhắn đã bị thu hồi");
+        }
+        if (message.getType() != MessengerMessage.MessageType.TEXT) {
+            throw new IllegalStateException("Chỉ có thể chỉnh sửa tin nhắn văn bản");
+        }
+
+        message.setContent(trimmed);
+
+        // Cập nhật metadata phản ánh trạng thái đã sửa
+        try {
+            Map<String, Object> metaMap = new HashMap<>();
+            if (message.getMetadata() != null && message.getMetadata().startsWith("{")) {
+                try {
+                    metaMap = objectMapper.readValue(message.getMetadata(), Map.class);
+                } catch (Exception ignored) {}
+            }
+            metaMap.put("isEdited", true);
+            metaMap.put("editedAt", LocalDateTime.now().toString());
+            message.setMetadata(objectMapper.writeValueAsString(metaMap));
+        } catch (Exception ignored) {}
+
+        MessengerMessage saved = messengerRepository.save(message);
+        return convertToMessageDto(saved);
+    }
+
     // 3. Sửa hàm convertToMessageDto
     public  MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
         String avatar = generateAvatar(m.getSender().getUserName());
@@ -422,6 +466,11 @@ public class MessengerService {
 
         Map<String, Integer> reactionMap = getReactions(m.getId(), m.getMetadata());
 
+        boolean isEdited = false;
+        if (m.getMetadata() != null && (m.getMetadata().contains("\"isEdited\":true") || m.getMetadata().contains("\"isEdited\": true"))) {
+            isEdited = true;
+        }
+
         return MessengerDto.MessageDto.builder()
                 .id(m.getId())
                 .senderId(m.getSender().getUserID())
@@ -436,6 +485,7 @@ public class MessengerService {
                 .isDeleted(m.isDeleted()) // [MỚI]
                 .replyTo(replyDto)        // [MỚI]
                 .isPinned(m.isPinned())
+                .isEdited(isEdited)
                 .reactions(reactionMap)
                 .callDuration(m.getCallDuration())
                 .callStatus(m.getCallStatus() != null ? m.getCallStatus().name() : null)

@@ -74,6 +74,7 @@ public class MessengerDto {
         private boolean isDeleted;   // [MỚI]
         private MessageDto replyTo;  // [MỚI] Object tin nhắn gốc (để hiện preview)
         private Boolean isPinned;
+        private Boolean isEdited;
         private java.util.Map<String, Integer> reactions;
         private Integer callDuration;
         private String callStatus;
@@ -88,5 +89,12 @@ public class MessengerDto {
         private MessageType type = MessageType.TEXT;
 
         private Long replyToId; // [MỚI] Gửi lên ID của tin muốn reply
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EditMessageRequest {
+        private String content;
     }
 }

@@ -187,6 +187,53 @@ public class MessengerApiController {
         return ResponseEntity.ok().build();
     }
 
+    // API Chỉnh sửa tin nhắn (Owner only, TEXT only, not deleted)
+    @PostMapping("/edit/{messageId}")
+    public ResponseEntity<?> editMessage(
+            @PathVariable Long messageId,
+            @RequestBody MessengerDto.EditMessageRequest request,
+            HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        if (request == null || request.getContent() == null || request.getContent().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nội dung tin nhắn không được để trống"));
+        }
+
+        try {
+            MessengerDto.MessageDto editedMessage = messengerService.editMessage(messageId, user.getId(), request.getContent());
+            Integer partnerId = (editedMessage.getSenderId().equals(user.getId()))
+                    ? editedMessage.getReceiverId() : editedMessage.getSenderId();
+
+            Map<String, Object> editSignal = Map.of(
+                "type", "EDIT",
+                "messageId", messageId,
+                "content", editedMessage.getContent(),
+                "isEdited", true
+            );
+
+            try {
+                messagingTemplate.convertAndSendToUser(partnerId.toString(), "/queue/private", editSignal);
+                messagingTemplate.convertAndSendToUser(String.valueOf(user.getId()), "/queue/private", editSignal);
+                messagingTemplate.convertAndSend("/topic/user." + partnerId + ".private", editSignal);
+                messagingTemplate.convertAndSend("/topic/user." + user.getId() + ".private", editSignal);
+            } catch (Exception e) {
+                log.error("Failed to broadcast edit signal", e);
+            }
+
+            return ResponseEntity.ok(editedMessage);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to edit message {}", messageId, e);
+            return ResponseEntity.status(500).body(Map.of("error", "Lỗi chỉnh sửa tin nhắn"));
+        }
+    }
+
     // API Thả cảm xúc
     @PostMapping("/reaction")
     public ResponseEntity<?> addReaction(
@@ -441,6 +488,7 @@ public class MessengerApiController {
                     "type", "PIN",
                     "messageId", messageId,
                     "pinned", newPinned,
+                    "isPinned", newPinned,
                     "content", message.getContent() != null ? message.getContent() : ""
                 );
                 messagingTemplate.convertAndSendToUser(String.valueOf(partnerId), "/queue/private", pinSignal);
@@ -534,6 +582,19 @@ public class MessengerApiController {
                 messengerService.saveConversationSettings(settings);
             }
             
+            // Broadcast theme change via STOMP to both participants
+            try {
+                Map<String, Object> themeSignal = Map.of(
+                    "type", "THEME",
+                    "partnerId", user.getId(),
+                    "themeColor", color
+                );
+                messagingTemplate.convertAndSendToUser(request.getPartnerId().toString(), "/queue/private", themeSignal);
+                messagingTemplate.convertAndSendToUser(String.valueOf(user.getId()), "/queue/private", themeSignal);
+                messagingTemplate.convertAndSend("/topic/user." + request.getPartnerId() + ".private", themeSignal);
+                messagingTemplate.convertAndSend("/topic/user." + user.getId() + ".private", themeSignal);
+            } catch (Exception ignored) {}
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Failed to update theme color for user {} and partner {}", user.getId(), request.getPartnerId(), e);

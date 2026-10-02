@@ -135,6 +135,17 @@
                         </div>
                     </div>
 
+                    <!-- Editing Bar -->
+                    <div id="editingBar" class="editing-bar" style="display: none;">
+                        <div>
+                            <span style="font-weight:bold; color:#0084ff;"><i class="fas fa-pencil-alt"></i> Chỉnh sửa tin nhắn</span>
+                            <div id="editingText" style="font-size:12px; color:#aaa;">Nội dung cũ...</div>
+                        </div>
+                        <div onclick="window.cancelEdit()" style="cursor:pointer;" title="Hủy chỉnh sửa">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    </div>
+
                     <!-- Input Actions -->
                     <div class="input-actions" id="normalInputState">
                         <label class="footer-btn" title="Gửi ảnh">
