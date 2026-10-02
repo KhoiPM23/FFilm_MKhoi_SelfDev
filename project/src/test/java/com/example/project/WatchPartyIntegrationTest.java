@@ -91,4 +91,47 @@ public class WatchPartyIntegrationTest {
         // 8. Delete room from DB
         partyService.deleteRoom(hostUser.getUserID(), dbRoom.getId());
     }
+
+    @Test
+    public void testSafeMovieChangeAndTimestampReset() {
+        java.util.List<com.example.project.model.User> users = userRepository.findAll();
+        Assertions.assertFalse(users.isEmpty());
+        com.example.project.model.User hostUser = users.get(0);
+
+        com.example.project.model.WatchRoom room = partyService.createRoom(
+            "Movie Change Test Room", "PUBLIC", null, 10, hostUser.getUserID()
+        );
+        String testRoomId = String.valueOf(room.getId());
+
+        RoomMember host = new RoomMember("session_host2", hostUser.getUserID(), hostUser.getUserName(), null, null, false, false);
+        partyService.startRoom(testRoomId, host);
+
+        WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(testRoomId);
+        Assertions.assertNotNull(runtime);
+
+        // Simulate active movie at 120.0s
+        runtime.setCurrentMovieId(1);
+        runtime.setCurrentMovieTitle("Movie 1");
+        runtime.setCurrentMovieUrl("/video/movie1.mp4");
+        runtime.setCurrentPlaybackTime(120.0);
+        runtime.setPlaybackStatus("PLAY");
+
+        // Now simulate movie change
+        runtime.setCurrentMovieId(2);
+        runtime.setCurrentMovieTitle("Movie 2");
+        runtime.setCurrentMovieUrl("/video/movie2.mp4");
+        runtime.setCurrentMoviePoster("/images/movie2.jpg");
+        runtime.setCurrentPlaybackTime(0.0);
+        runtime.setPlaybackStatus("PLAY");
+        runtime.setLastSyncTimestamp(System.currentTimeMillis());
+
+        Assertions.assertEquals(2, runtime.getCurrentMovieId());
+        Assertions.assertEquals("Movie 2", runtime.getCurrentMovieTitle());
+        Assertions.assertEquals(0.0, runtime.getCurrentPlaybackTime(), 0.001);
+        Assertions.assertEquals("PLAY", runtime.getPlaybackStatus());
+
+        // Cleanup
+        partyService.handleDisconnect("session_host2");
+        partyService.deleteRoom(hostUser.getUserID(), room.getId());
+    }
 }

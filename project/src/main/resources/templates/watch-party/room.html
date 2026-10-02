@@ -312,7 +312,7 @@
                 <div style="font-size: 3.5rem; margin-bottom: 12px; filter: drop-shadow(0 0 20px rgba(229,9,20,0.35));">🎬</div>
                 <h3 style="color: #fff; font-weight: 700; margin-bottom: 8px;">Phòng chiếu đang trống</h3>
                 <p style="color: #888; font-size: 0.95rem; margin-bottom: 22px; line-height: 1.4;" th:text="${isHost ? 'Hãy chọn một bộ phim từ thư viện để cùng mọi người bắt đầu thưởng thức.' : 'Chủ phòng đang chọn phim. Hãy sẵn sàng cùng thưởng thức!'}">Vui lòng chờ...</p>
-                <button th:if="${isHost}" onclick="openSearchModal()" class="btn-control" style="width: auto; padding: 10px 24px; border-radius: 25px; background: #e50914; color: #fff; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <button class="btn-control host-only-control" th:style="${isHost ? '' : 'display:none;'}" onclick="openSearchModal()" style="width: auto; padding: 10px 24px; border-radius: 25px; background: #e50914; color: #fff; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fas fa-search"></i> Chọn Phim Ngay
                 </button>
             </div>
@@ -330,7 +330,7 @@
         </div>
 
         <!-- Waiting Notification (Host Only) -->
-        <div th:if="${isHost}" id="waitingNotif" style="position:fixed; top:80px; right:20px; background:#e50914; color:#fff; padding:15px 20px; border-radius:10px; display:none; z-index:1000; box-shadow:0 5px 20px rgba(0,0,0,0.5);">
+        <div id="waitingNotif" class="host-only-control" th:style="${isHost ? '' : 'display:none;'}" style="position:fixed; top:80px; right:20px; background:#e50914; color:#fff; padding:15px 20px; border-radius:10px; z-index:1000; box-shadow:0 5px 20px rgba(0,0,0,0.5);">
             <div style="display:flex; align-items:center; gap:10px;">
                 <i class="fas fa-user-clock fa-2x"></i>
                 <div>
@@ -365,8 +365,8 @@
             <div style="width: 1px; height: 26px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
             
             <button class="btn-control" title="Mời bạn bè" onclick="openInviteFriendsModal()"><i class="fas fa-user-plus"></i></button>
-            <button th:if="${isHost}" class="btn-control" title="Chọn Phim" onclick="openSearchModal()"><i class="fas fa-film"></i></button>
-            <button th:if="${isHost}" class="btn-control text-danger" title="Giải tán phòng" onclick="closeRoom()"><i class="fas fa-power-off"></i></button>
+            <button class="btn-control host-only-control" th:style="${isHost ? '' : 'display:none;'}" title="Chọn Phim" onclick="openSearchModal()"><i class="fas fa-film"></i></button>
+            <button class="btn-control text-danger host-only-control" th:style="${isHost ? '' : 'display:none;'}" title="Giải tán phòng" onclick="closeRoom()"><i class="fas fa-power-off"></i></button>
             
             <!-- Dedicated Leave Room Button -->
             <button class="btn-control btn-leave" title="Rời phòng chiếu" onclick="window.leaveRoom()">
@@ -382,13 +382,20 @@
     </div>
 
     <div class="sidebar" id="sidebar">
-        <div class="room-header">
-            <div style="font-weight: bold; color: #e50914; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-hashtag"></i> <span th:text="${room.name}">Room</span>
+        <div class="room-header" style="padding: 12px 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="font-weight: bold; color: #e50914; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-hashtag"></i> <span th:text="${room.name}">Room</span>
+                </div>
+                <button class="btn-leave-header" onclick="window.leaveRoom()" title="Rời phòng" style="background: rgba(229, 9, 20, 0.15); color: #ff4d5a; border: 1px solid #e50914; padding: 5px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: all 0.2s;">
+                    <i class="fas fa-sign-out-alt"></i> Rời phòng
+                </button>
             </div>
-            <button class="btn-leave-header" onclick="window.leaveRoom()" title="Rời phòng" style="background: rgba(229, 9, 20, 0.15); color: #ff4d5a; border: 1px solid #e50914; padding: 5px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: all 0.2s;">
-                <i class="fas fa-sign-out-alt"></i> Rời phòng
-            </button>
+            <div id="currentMovieBadge" style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #aaa; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                <i class="fas fa-film text-danger"></i>
+                <span style="color: #888;">Đang chiếu:</span>
+                <span id="currentMovieName" style="color: #fff; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" th:text="${currentMovieTitle != null && !currentMovieTitle.isEmpty() ? currentMovieTitle : 'Chưa chọn phim'}">Chưa chọn phim</span>
+            </div>
         </div>
 
         <!-- Sidebar Tabs: Chat & Members -->

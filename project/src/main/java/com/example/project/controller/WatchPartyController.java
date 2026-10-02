@@ -486,6 +486,10 @@ public class WatchPartyController {
                 Object ct = action.get("currentTime");
                 if (ct instanceof Number) {
                     runtime.setCurrentPlaybackTime(((Number) ct).doubleValue());
+                } else if (ct instanceof String) {
+                    try {
+                        runtime.setCurrentPlaybackTime(Double.parseDouble((String) ct));
+                    } catch (NumberFormatException ignored) {}
                 }
             }
             runtime.setLastSyncTimestamp(System.currentTimeMillis());
@@ -497,10 +501,26 @@ public class WatchPartyController {
     public void changeMovie(@DestinationVariable String roomId, @Payload Map<String, Object> movieData, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
         if (isHost(headerAccessor, runtime)) {
-            runtime.setCurrentMovieId((Integer) movieData.get("id"));
-            runtime.setCurrentMovieTitle((String) movieData.get("title"));
-            runtime.setCurrentMovieUrl((String) movieData.get("url"));
-            runtime.setCurrentMoviePoster((String) movieData.getOrDefault("poster", "/images/placeholder.jpg"));
+            Object idObj = movieData.get("id");
+            Integer movieId = null;
+            if (idObj instanceof Number) {
+                movieId = ((Number) idObj).intValue();
+            } else if (idObj instanceof String) {
+                try {
+                    movieId = Integer.parseInt((String) idObj);
+                } catch (NumberFormatException ignored) {}
+            }
+            String title = (String) movieData.getOrDefault("title", "");
+            String url = (String) movieData.getOrDefault("url", "/video/movie1.mp4");
+            String poster = (String) movieData.getOrDefault("poster", "/images/placeholder.jpg");
+
+            runtime.setCurrentMovieId(movieId);
+            runtime.setCurrentMovieTitle(title);
+            runtime.setCurrentMovieUrl(url);
+            runtime.setCurrentMoviePoster(poster);
+            runtime.setCurrentPlaybackTime(0.0);
+            runtime.setPlaybackStatus("PLAY");
+            runtime.setLastSyncTimestamp(System.currentTimeMillis());
             
             messagingTemplate.convertAndSend("/topic/party/" + roomId + "/loadMovie", movieData);
         }

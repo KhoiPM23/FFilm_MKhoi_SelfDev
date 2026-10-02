@@ -164,9 +164,22 @@ function initFullFeatures() {
                 roomMembers[msg.newHostSessionId].isHost = true;
             }
             renderMembersList();
-            if (msg.newHostUserId == userId || msg.newHostSessionId === sessionId || msg.newHostName === username) {
-                alert("Chủ phòng đã rời đi. Bạn đã được chọn làm Chủ Phòng mới!");
-                window.location.reload();
+
+            var isMeNewHost = (msg.newHostUserId == userId || msg.newHostSessionId === sessionId || msg.newHostName === username);
+            if (isMeNewHost) {
+                isHost = true;
+                // Seamless promotion: enable host controls in DOM without reload
+                document.querySelectorAll('.host-only-control').forEach(function(el) {
+                    el.style.display = '';
+                });
+                var waitingNotif = document.getElementById('waitingNotif');
+                if (waitingNotif && currentWaitingUsers.length === 0) {
+                    waitingNotif.style.display = 'none';
+                }
+                attachHostVideoControls();
+                subscribeHostChannels();
+                showFloatingBubble({sender: "System", content: "👑 Bạn đã được chọn làm Chủ phòng mới!", type: "CHAT"});
+                drawSystemMessage("👑 Bạn đã tiếp quản quyền Chủ phòng!");
             } else {
                 showFloatingBubble({sender: "System", content: "Chủ phòng mới: " + msg.newHostName, type: "CHAT"});
             }
@@ -196,12 +209,7 @@ function initFullFeatures() {
 
     // 6. Subscribe waiting list updates (Host only)
     if (isHost) {
-        stompClient.subscribe('/topic/party/' + roomId + '/waitingUpdate', (payload) => {
-            try {
-                currentWaitingUsers = JSON.parse(payload.body) || [];
-                updateWaitingNotifUI();
-            } catch(e) {}
-        });
+        subscribeHostChannels();
     }
 
     // Tự động load phim nếu phòng đã có phim từ server model
@@ -789,28 +797,60 @@ window.leaveRoom = function() {
 var video = document.getElementById('partyPlayer');
 var seekDebounceTimer = null;
 
-if (isHost && video) {
-    video.addEventListener('play', function() {
-        if (!isSyncing) sendSync('PLAY');
-    });
-    video.addEventListener('pause', function() {
-        if (!isSyncing) sendSync('PAUSE');
-    });
-    video.addEventListener('seeked', function() {
-        if (!isSyncing) {
-            clearTimeout(seekDebounceTimer);
-            seekDebounceTimer = setTimeout(function() {
-                sendSync('SEEK');
-            }, 150);
-        }
-    });
+function onHostVideoPlay() {
+    if (!isSyncing) sendSync('PLAY');
+}
 
-    // Periodic heartbeat every 5s while playing to keep all members tightly synced
-    setInterval(function() {
-        if (video && !video.paused && !isSyncing && stompClient && stompClient.connected) {
+function onHostVideoPause() {
+    if (!isSyncing) sendSync('PAUSE');
+}
+
+function onHostVideoSeeked() {
+    if (!isSyncing) {
+        clearTimeout(seekDebounceTimer);
+        seekDebounceTimer = setTimeout(function() {
+            sendSync('SEEK');
+        }, 150);
+    }
+}
+
+function attachHostVideoControls() {
+    var v = document.getElementById('partyPlayer');
+    if (!v) return;
+
+    v.removeEventListener('play', onHostVideoPlay);
+    v.removeEventListener('pause', onHostVideoPause);
+    v.removeEventListener('seeked', onHostVideoSeeked);
+
+    v.addEventListener('play', onHostVideoPlay);
+    v.addEventListener('pause', onHostVideoPause);
+    v.addEventListener('seeked', onHostVideoSeeked);
+
+    if (window.hostHeartbeatInterval) {
+        clearInterval(window.hostHeartbeatInterval);
+    }
+    window.hostHeartbeatInterval = setInterval(function() {
+        if (v && !v.paused && !isSyncing && stompClient && stompClient.connected) {
             sendSync('HEARTBEAT');
         }
     }, 5000);
+}
+
+function subscribeHostChannels() {
+    if (stompClient && stompClient.connected && !window.hasSubscribedHostChannels) {
+        window.hasSubscribedHostChannels = true;
+        stompClient.subscribe('/topic/party/' + roomId + '/waitingUpdate', function(payload) {
+            try {
+                currentWaitingUsers = JSON.parse(payload.body) || [];
+                updateWaitingNotifUI();
+            } catch(e) {}
+        });
+        stompClient.send("/app/party/" + roomId + "/waitingList", {}, {});
+    }
+}
+
+if (isHost && video) {
+    attachHostVideoControls();
 }
 
 function sendSync(type) {
@@ -877,6 +917,13 @@ function handleVideoSync(action) {
 function loadMovie(url, title) {
     var noMovieState = document.getElementById('noMovieState');
     if (noMovieState) noMovieState.style.display = 'none';
+
+    var titleText = (title && title.trim().length > 0) ? title : 'Phim trực tuyến';
+    var movieNameEl = document.getElementById('currentMovieName');
+    if (movieNameEl) {
+        movieNameEl.innerText = titleText;
+    }
+
     var v = document.getElementById('partyPlayer');
     if (v) {
         v.style.display = 'block';
