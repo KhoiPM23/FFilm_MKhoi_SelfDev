@@ -362,6 +362,8 @@
 
   /**
    * Di chuyển mini carousel tới/lùi 1 phim và chuyển banner.
+   * Luôn lấy thẻ kế tiếp ngay sau (hoặc trước) thẻ phim đang chạy trên Hero Banner,
+   * không phụ thuộc vào vị trí người dùng đang cuộn ngang xem dở danh sách.
    * @param {number} direction - 1 (tới) hoặc -1 (lùi).
    */
   function advanceMiniCarousel(direction) {
@@ -369,36 +371,42 @@
     const cards = Array.from(miniCarouselTrack.querySelectorAll(".mini-card"));
     if (cards.length === 0) return;
 
-    // Tìm thẻ mini-card đang ở gần tâm viewport của track nhất
-    const trackRect = miniCarouselTrack.getBoundingClientRect();
-    const trackCenter = trackRect.left + trackRect.width / 2;
+    // 1. Xác định phim đang chạy trên Hero Banner
+    const currentMovieId = String(
+      (heroBanner && heroBanner.dataset.movieId) || ""
+    );
 
-    let closestCard = null;
-    let minDistance = Infinity;
+    // 2. Tìm tất cả các thẻ khớp với phim đang chạy
+    let matchingCards = currentMovieId
+      ? cards.filter((c) => c.dataset.movieId === currentMovieId)
+      : [];
 
-    cards.forEach((card) => {
-      const r = card.getBoundingClientRect();
-      const cardCenter = r.left + r.width / 2;
-      const dist = Math.abs(cardCenter - trackCenter);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestCard = card;
-      }
-    });
+    let activeCard = null;
+    if (matchingCards.length > 0) {
+      // Nếu có clone nhân bản (Set 1, Set 2, Set 3), chọn thẻ ở set trung tâm (Set 2)
+      const midIndex = Math.floor(matchingCards.length / 2);
+      activeCard = matchingCards[midIndex];
+    } else {
+      // Fallback nếu không khớp movieId: lấy thẻ đang có class active
+      activeCard = miniCarouselTrack.querySelector(".mini-card.active") || cards[0];
+    }
 
+    // 3. Lấy thẻ kế ngay sau (direction > 0) hoặc kế ngay trước (direction < 0)
     let targetCard = null;
-    if (closestCard) {
+    if (activeCard) {
       if (direction > 0) {
-        targetCard = closestCard.nextElementSibling;
+        targetCard = activeCard.nextElementSibling;
       } else {
-        targetCard = closestCard.previousElementSibling;
+        targetCard = activeCard.previousElementSibling;
       }
     }
 
+    // 4. Wrap vòng lặp nếu vượt quá biên danh sách
     if (!targetCard) {
       targetCard = direction > 0 ? cards[0] : cards[cards.length - 1];
     }
 
+    // 5. Kích hoạt chuyển banner sang thẻ phim tiếp theo
     if (targetCard && typeof window.switchBanner === "function") {
       window.switchBanner(targetCard);
     }
