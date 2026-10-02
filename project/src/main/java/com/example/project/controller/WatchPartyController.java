@@ -317,6 +317,9 @@ public class WatchPartyController {
                 headerAccessor.getSessionAttributes().put("inWatchPartyRoom", roomId);
             }
             WatchPartyService.WatchRoomRuntime runtime = partyService.getRuntimeRoom(roomId);
+            if (runtime != null && user != null && runtime.getHostUserId() != null && runtime.getHostUserId().equals(user.getId())) {
+                runtime.setHostSessionId(httpSessionId);
+            }
             boolean isMemberHost = runtime != null && httpSessionId.equals(runtime.getHostSessionId());
             // Broadcast new member joined
             Map<String, Object> joinMsg = new HashMap<>();

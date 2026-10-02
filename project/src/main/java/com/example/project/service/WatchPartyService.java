@@ -352,9 +352,11 @@ public class WatchPartyService {
                         updateRoomActiveStatus(room.getRoomId(), false);
                         return null; 
                     } else {
-                        // Deterministic migration: Pick the earliest joined member
-                        String newHostId = room.getMembers().keySet().iterator().next();
-                        RoomMember newHost = room.getMembers().get(newHostId);
+                        // Deterministic migration: Pick the earliest joined member (sorted by joinedAt)
+                        RoomMember newHost = room.getMembers().values().stream()
+                                .min(java.util.Comparator.comparingLong(RoomMember::getJoinedAt))
+                                .orElse(room.getMembers().values().iterator().next());
+                        String newHostId = newHost.getSessionId();
                         room.setHostSessionId(newHostId);
                         room.setHostUserId(newHost.getUserId());
                         room.setHostName(newHost.getUserName());
