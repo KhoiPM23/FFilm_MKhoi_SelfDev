@@ -33,7 +33,7 @@
     let currentPartnerId = null;
     let currentPartnerName = '';
     let isCurrentPartnerFriend = false; // Biến check trạng thái bạn bè
-    
+
     // Media
     let mediaRecorder = null;
     let audioChunks = [];
@@ -115,17 +115,21 @@
         // Thêm sự kiện cho search input
         $('#convSearchInput').off('input').on('input', window.filterConversations);
 
-        // [FIX] Typing indicator
+        // [FIX] Typing indicator & Composer state
         $('#msgInput').off('input').on('input', function() {
+            if (typeof window.updateComposerState === 'function') {
+                window.updateComposerState();
+            }
             if (!currentPartnerId || !stompClient) return;
-            
+
             clearTimeout(typingTimeout);
-            
+
             stompClient.send('/app/typing', {}, JSON.stringify({
                 receiverId: currentPartnerId,
-                senderId: currentUser.userID
+                senderId: currentUser.userID,
+                senderName: currentUser.name || currentUser.userName
             }));
-            
+
             typingTimeout = setTimeout(() => {
                 stompClient.send('/app/stop-typing', {}, JSON.stringify({
                     receiverId: currentPartnerId
@@ -139,29 +143,29 @@
                 window.handleFileSelect(this, 'IMAGE');
             }
         });
-        
+
         // Upload file
         $('#fileInput').off('change').on('change', function() {
             if (this.files && this.files[0]) {
                 window.handleFileSelect(this, 'FILE');
             }
         });
-        
+
         // Ghi âm - SỬA: DÙNG NÚT ĐÚNG
         $('#micBtn').off('click').on('click', window.toggleRecording);
-        
+
         // Sticker button với animation
         $('#stickerBtn').off('click').on('click', function() {
             $(this).addClass('active');
             setTimeout(() => $(this).removeClass('active'), 300);
             window.toggleStickers();
         });
-        
+
         // Init sticker suggestions
         if (typeof window.initStickerSuggestions === 'function') {
             window.initStickerSuggestions();
         }
-        
+
         // Close suggestions khi click outside
         $(document).on('click', function(e) {
             if (!$(e.target).closest('.sticker-suggestions, #msgInput').length) {
@@ -170,9 +174,9 @@
                 }
             }
         });
-        
-        // Nút gửi
-        $('#sendBtn').off('click').on('click', window.sendTextMessage);
+
+        // Nút gửi (Tự động gửi 👍 nếu trống, hoặc gửi tin nhắn nếu có nội dung)
+        $('#sendBtn').off('click').on('click', window.handleSendClick);
 
         // Search conversations
         $('#convSearchInput').off('input').on('input', function() {
@@ -187,17 +191,17 @@
         $('#emojiTrigger').off('click').on('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Animation bounce
             $(this).css({
                 transform: 'scale(0.8)',
                 transition: 'transform 0.2s'
             });
-            
+
             setTimeout(() => {
                 $(this).css('transform', 'scale(1)');
             }, 200);
-            
+
             // CHỈ toggle picker, không init lại
             if (window.emojiPickerState && window.emojiPickerState.isOpen) {
                 closeEmojiPicker();
@@ -254,12 +258,12 @@
         const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
-        
+
         stompClient.connect({}, function(frame) {
             isConnectingSocket = false;
             activeSubscriptions = [];
             console.log('✅ WebSocket Connected:', frame);
-            
+
             // 1. Subscribe đến private messages
             const subPrivateUser = stompClient.subscribe('/user/queue/private', function(payload) {
                 try {
@@ -282,7 +286,7 @@
                 });
                 activeSubscriptions.push(subPrivateTopic);
             }
-            
+
             // 2. Subscribe đến typing notifications
             const subTypingUser = stompClient.subscribe('/user/queue/typing', function(payload) {
                 try {
@@ -301,7 +305,7 @@
                 });
                 activeSubscriptions.push(subTypingTopic);
             }
-            
+
             // 3. Subscribe đến seen notifications
             const subSeenUser = stompClient.subscribe('/user/queue/seen', function(payload) {
                 try {
@@ -328,7 +332,7 @@
                 });
                 activeSubscriptions.push(subSeenTopic);
             }
-            
+
             // 4. Subscribe đến online status updates (broadcast toàn hệ thống và private)
             const subOnlineTopic = stompClient.subscribe('/topic/online-status', function(payload) {
                 try {
@@ -368,15 +372,15 @@
                 });
                 activeSubscriptions.push(subCallTopic);
             }
-            
+
             // Gửi ping để báo online
             stompClient.send('/app/online/ping', {}, JSON.stringify({
                 userId: currentUser.userID
             }));
-            
+
             // Thông báo kết nối thành công
             showToast("Đã kết nối thời gian thực", "success");
-            
+
         }, function(error) {
             isConnectingSocket = false;
             console.error('WebSocket Error:', error);
@@ -387,14 +391,14 @@
     // --- FIX: TIMESTAMP THÔNG MINH ---
     function formatSmartTimestamp(timestamp) {
         if (!timestamp) return "";
-        
+
         const now = new Date();
         const msgDate = new Date(timestamp);
         const diffMs = now - msgDate;
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
-        
+
         // Cùng ngày: chỉ hiện giờ
         if (diffDays === 0) {
             return msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -432,7 +436,7 @@
     function handleSocketMessage(msg) {
         if (!msg) return;
         console.log("Socket message received:", msg);
-        
+
         // 1. Xử lý Tín hiệu Gọi (delegated to messenger-calls.js)
         if (window.MessengerCalls && window.MessengerCalls.handleCallSocketMessage(msg)) {
             return;
@@ -440,9 +444,11 @@
 
         // 2. Reaction events
         if (msg.type === 'REACTION' && msg.messageId) {
-            const reactionKey = `REACTION:${msg.messageId}:${JSON.stringify(msg.reactions)}`;
+            const reactionKey = `REACTION:${msg.messageId}:${JSON.stringify(msg.reactions)}:${msg.userId || ''}`;
             if (isDuplicateEvent(reactionKey)) return;
-            updateMessageReactions(msg.messageId, msg.reactions);
+            const currentUserId = (window.currentUser && window.currentUser.userID) || window.currentUserId;
+            const userReaction = (msg.userId && currentUserId && String(msg.userId) === String(currentUserId)) ? msg.userReaction : undefined;
+            updateMessageReactions(msg.messageId, msg.reactions, userReaction);
             return;
         }
 
@@ -592,9 +598,9 @@
                     }
                 }
             }
-            
+
             appendMessageToUI(msg, senderId === myId);
-            
+
             if (senderId !== myId) {
                 markAsRead(msg.id);
                 // Phát âm thanh thông báo
@@ -609,7 +615,7 @@
     // --- FIX: SEEN REAL-TIME ---
     function markAsRead(messageId) {
         if (!stompClient || !stompClient.connected) return;
-        
+
         stompClient.send('/app/mark-seen', {}, JSON.stringify({
             messageId: messageId,
             userId: currentUser.userID,
@@ -620,27 +626,27 @@
     function handleIncomingMessage(msg) {
         if (currentPartnerId && (msg.senderId == currentPartnerId || msg.senderId == currentUser.userID)) {
             appendMessageToUI(msg);
-            
+
             if (msg.senderId == currentPartnerId) {
                 markAsRead(msg.id);
             }
         }
-        
+
         // [FIX] CHỈ UPDATE CONVERSATION LIST, KHÔNG RELOAD CHAT
         updateConversationPreview(msg);
     }
 
     // [FIX] Update conversation list WITHOUT reload
     function updateConversationPreview(msg) {
-        const partnerId = (parseInt(msg.senderId) === parseInt(currentUser.userID)) 
-            ? parseInt(msg.receiverId) 
+        const partnerId = (parseInt(msg.senderId) === parseInt(currentUser.userID))
+            ? parseInt(msg.receiverId)
             : parseInt(msg.senderId);
-            
+
         let convItem = $(`#conv-${partnerId}`);
         if (!convItem.length) {
             convItem = $(`.conv-item[data-partner-id="${partnerId}"]`);
         }
-        
+
         if (convItem.length) {
             const isMine = (parseInt(msg.senderId) === parseInt(currentUser.userID));
             const prefix = isMine ? 'Bạn: ' : '';
@@ -663,10 +669,10 @@
                 }
             }
             else preview = prefix + 'Đã gửi 1 tệp';
-            
+
             convItem.find('.conv-preview').text(preview);
             convItem.prependTo('#conversationList'); // Move to top
-            
+
             if (!isMine && (!currentPartnerId || currentPartnerId !== partnerId)) {
                 convItem.addClass('unread');
                 let badge = convItem.find('.unread-badge');
@@ -831,9 +837,9 @@
         const btn = btnElement || document.querySelector('.btn-stranger-add');
         if (!id || !btn) return;
         if (!confirm('Hủy lời mời kết bạn?')) return;
-        
+
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        
+
         fetch(`/social/unfriend/${id}`, { method: 'POST' })
             .then(res => {
                 if (res.ok) {
@@ -926,9 +932,16 @@
         // UI Updates
         $('#emptyState').hide();
         $('#chatInterface').show();
+        $('.messenger-container').addClass('show-chat');
         if (typeof window.closeInlineChatSearch === 'function') {
             window.closeInlineChatSearch();
         }
+        if (typeof window.cancelReply === 'function') window.cancelReply();
+        if (typeof window.cancelEdit === 'function') window.cancelEdit();
+        if (typeof window.clearPreview === 'function') window.clearPreview();
+        $('#msgInput').val('');
+        if (typeof window.updateComposerState === 'function') window.updateComposerState();
+        $(`#conv-${partnerId}`).removeClass('unread').find('.unread-badge').remove();
         updateInfoSidebar(name, avatar);
 
         // Only refresh media if info sidebar is already open by user choice
@@ -981,14 +994,14 @@
                     window.applyTheme(savedTheme);
                 }
             });
-        
+
         // [FIX] Header: Tên + Badge (nếu lạ)
         let headerHtml = `<h4 id="headerName" style="margin:0;">${name}`;
         if (!isCurrentPartnerFriend) {
             headerHtml += ` <span style="font-size:0.7rem; background:#444; color:#ccc; padding:2px 6px; border-radius:4px; vertical-align:middle; margin-left:5px;">Người lạ</span>`;
         }
         headerHtml += `</h4>`;
-        
+
         // Render lại vùng info header
         $('.chat-user-info div').first().html(headerHtml + `<div id="chatHeaderStatus"></div>`); // Reset lại cấu trúc
         $('#headerAvatar').attr('src', avatar);
@@ -1105,11 +1118,24 @@
         currentChatHistoryXhr = $.get(`/api/v1/messenger/chat/${partnerId}`, function(msgs) {
             if (parseInt(partnerId) !== parseInt(currentPartnerId)) return;
             container.empty();
-            
-            // Nếu trống -> Hiện banner chào
+
+            // Nếu trống -> Hiện banner chào phong cách Messenger
             if(!msgs || msgs.length === 0) {
-                let bannerText = isCurrentPartnerFriend ? 'Hãy gửi lời chào!' : 'Gửi lời chào để bắt đầu kết nối.';
-                container.html(`<div class="text-center mt-5 text-muted"><small>${bannerText}</small></div>`);
+                const partnerAvatar = $('#headerAvatar').attr('src') || '/images/default-avatar.png';
+                const safeName = escapeHtml(currentPartnerName || 'Người dùng FFilm');
+                const heroHtml = `
+                    <div class="chat-hero-container">
+                        <img src="${partnerAvatar}" class="chat-hero-avatar" alt="${safeName}">
+                        <div class="chat-hero-name">${safeName}</div>
+                        <div class="chat-hero-subtitle">
+                            ${isCurrentPartnerFriend ? 'Các bạn đã là bạn bè trên FFilm. Hãy bắt đầu cuộc trò chuyện!' : 'Bắt đầu cuộc trò chuyện với ' + safeName}
+                        </div>
+                        <button type="button" class="chat-hero-wave-btn" onclick="window.sendWaveHello()">
+                            <i class="fas fa-hand-paper"></i> Vẫy tay chào 👋
+                        </button>
+                    </div>
+                `;
+                container.html(heroHtml);
                 return;
             }
             msgs.forEach(m => appendMessageToUI(m));
@@ -1131,12 +1157,12 @@
         let isMine = forceMine || (msg.senderId != currentPartnerId);
         const typeClass = isMine ? 'mine' : 'other';
         const msgId = msg.id || ('temp-' + Date.now());
-        
+
         // Deduplication check
         if (msg.id) {
             const existing = $(`#msg-${msg.id}`);
             if (existing.length) {
-                if (msg.reactions) updateMessageReactions(msg.id, msg.reactions);
+                if (msg.reactions) updateMessageReactions(msg.id, msg.reactions, msg.userReaction);
                 return;
             }
             if (isMine) {
@@ -1154,7 +1180,7 @@
             const rName = (msg.replyTo.senderId === myId) ? 'Bạn' : currentPartnerName;
             let rContent = msg.replyTo.type === 'TEXT' ? msg.replyTo.content : '[Đính kèm]';
             if (rContent.length > 40) rContent = rContent.substring(0, 40) + '...';
-            
+
             replyHtml = `
                 <div class="reply-block" onclick="window.scrollToMessage('${msg.replyTo.id}')">
                     <div class="reply-name">${rName}</div>
@@ -1228,7 +1254,7 @@
             `;
         } else if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
             const imgClass = msg.type === 'STICKER' ? 'msg-sticker' : (msg.type === 'GIF' ? 'msg-gif' : 'msg-image');
-            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.open('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">${pinHtml}`;
+            contentHtml = `<img src="${msg.content}" class="${imgClass}" onclick="window.openMediaLightbox('${msg.content}')" style="max-width:240px; border-radius:10px; cursor:pointer;">${pinHtml}`;
         } else if (msg.type === 'AUDIO') {
             contentHtml = renderAudioPlayer(msg.content, msg.id) + pinHtml;
             setTimeout(() => {
@@ -1256,8 +1282,9 @@
         if (msg.reactions && Object.keys(msg.reactions).length > 0) {
             reactionsHtml = '<div class="message-reactions">';
             Object.entries(msg.reactions).forEach(([emoji, count]) => {
+                const isMine = msg.userReaction && msg.userReaction === emoji;
                 reactionsHtml += `
-                    <div class="reaction-item" onclick="window.addReaction('${msgId}', '${emoji}')">
+                    <div class="reaction-item ${isMine ? 'mine' : ''}" onclick="window.addReaction('${msgId}', '${emoji}')" title="${isMine ? 'Gỡ cảm xúc' : 'Nhấn để thả cảm xúc'}">
                         <span>${emoji}</span>
                         <span class="reaction-count">${count}</span>
                     </div>
@@ -1352,7 +1379,7 @@
                 ${actionsHtml}
             </div>
         `;
-        
+
         $('#messagesContainer').append(html);
         scrollToBottom();
     }
@@ -1381,16 +1408,16 @@
     function initAudioPlayerForMessage(messageId, audioUrl) {
         const playerId = `audio-player-${messageId}`;
         const audioElement = document.getElementById(`${playerId}-audio`);
-        
+
         if (audioElement) {
             audioElement.onloadedmetadata = function() {
                 const duration = Math.floor(audioElement.duration);
                 const mins = Math.floor(duration / 60);
                 const secs = duration % 60;
-                document.getElementById(`${playerId}-duration`).textContent = 
+                document.getElementById(`${playerId}-duration`).textContent =
                     `${mins}:${secs.toString().padStart(2, '0')}`;
             };
-            
+
             audioElement.onerror = function() {
                 console.error('Lỗi tải audio:', audioUrl);
             };
@@ -1407,7 +1434,7 @@
         if (typeof window.cancelEdit === 'function') window.cancelEdit();
         replyToId = msgId;
         const previewText = content.length > 50 ? content.substring(0, 50) + '...' : content;
-        
+
         $('#replyingBar').addClass('active').show().html(`
             <div>
                 <div style="font-weight:bold; color:#0084ff;">Trả lời ${senderName}</div>
@@ -1566,16 +1593,17 @@
             }, true);
 
             // Gửi API kèm tempId
-            sendApiRequest({ 
-                receiverId: currentPartnerId, 
-                content: content, 
+            sendApiRequest({
+                receiverId: currentPartnerId,
+                content: content,
                 type: 'TEXT',
                 replyToId: replyToId
             }, tempId);
-            
+
             // Xóa ô nhập liệu
             $('#msgInput').val('').focus();
             window.cancelReply();
+            if (typeof window.updateComposerState === 'function') window.updateComposerState();
         }
     };
 
@@ -1601,12 +1629,12 @@
     // ============= FIX 7: PIN MESSAGE SYSTEM =============
     window.togglePinMessage = function(messageId) {
         if (!currentPartnerId || !messageId) return;
-        
+
         $.post(`/api/v1/messenger/pin/${messageId}`)
             .done(function(response) {
                 const msgElement = $(`#msg-${messageId}`);
                 const pinIcon = msgElement.find('.pin-icon');
-                
+
                 if (response.pinned) {
                     if (!pinIcon.length) {
                         msgElement.find('.msg-content').append(`
@@ -1620,7 +1648,7 @@
                     msgElement.find('.pin-indicator').remove();
                     showToast('Đã bỏ ghim tin nhắn!', 'info');
                 }
-                
+
                 // Reload pinned messages trong sidebar
                 if (!$('#chatInfoSidebar').hasClass('hidden')) {
                     loadPinnedMessages();
@@ -1707,7 +1735,7 @@
             if ($(e.target).is(modal)) window.closeAdvancedSearch();
         });
         $('body').append(modal);
-        
+
         // Set default dates
         const today = new Date().toISOString().split('T')[0];
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -1723,7 +1751,7 @@
         $('#searchKeyword').val('');
         $('#searchType').val('ALL');
         $('#searchSort').val('NEWEST');
-        
+
         const today = new Date().toISOString().split('T')[0];
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         $('#searchFromDate').val(weekAgo);
@@ -1735,16 +1763,16 @@
             showToast('Vui lòng chọn một cuộc trò chuyện!', 'error');
             return;
         }
-        
+
         const keyword = $('#searchKeyword').val().trim();
         if (!keyword) {
             showToast('Vui lòng nhập từ khóa tìm kiếm!', 'warning');
             return;
         }
-        
+
         const btn = $('.btn-search-execute');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang tìm...');
-        
+
         $.get('/api/v1/messenger/search', {
             partnerId: currentPartnerId,
             query: keyword
@@ -1764,7 +1792,7 @@
     window.displaySearchResults = function(messages) {
         const container = $('#searchResultsList');
         container.empty();
-        
+
         if (messages.length === 0) {
             container.html(`
                 <div class="no-results-found">
@@ -1774,12 +1802,12 @@
             `);
             return;
         }
-        
+
         messages.forEach(msg => {
             const time = new Date(msg.timestamp).toLocaleString('vi-VN');
             const isMine = msg.senderId === currentUser.userID;
             const senderName = isMine ? 'Bạn' : currentPartnerName;
-            
+
             container.append(`
                 <div class="search-result-item" onclick="scrollToMessage(${msg.id})">
                     <div class="result-avatar">
@@ -1845,7 +1873,7 @@
             if ($(e.target).is(modal)) window.closeStatsModal();
         });
         $('body').append(modal);
-        
+
         // Load stats
         $.get(`/api/v1/messenger/stats/${currentPartnerId}`)
             .done(function(stats) {
@@ -1867,7 +1895,7 @@
 
     window.displayChatStats = function(stats) {
         const container = $('#statsContent');
-        
+
         let html = `
             <div class="stats-summary">
                 <div class="stat-card">
@@ -1880,7 +1908,7 @@
                 </div>
             </div>
         `;
-        
+
         if (stats.firstMessage) {
             const firstDate = new Date(stats.firstMessage.timestamp).toLocaleDateString('vi-VN');
             const safeSender = escapeHtml(stats.firstMessage.sender || '');
@@ -1896,7 +1924,7 @@
                 </div>
             `;
         }
-        
+
         // Thêm các phần thống kê khác nếu có
         html += `
             <div class="stats-section">
@@ -1906,9 +1934,9 @@
                 </div>
             </div>
         `;
-        
+
         container.html(html);
-        
+
         // Vẽ biểu đồ nếu có dữ liệu
         setTimeout(() => {
             if (window.Chart && $('#chatActivityCanvas').length) {
@@ -1951,17 +1979,17 @@
     // ============= FIX 1: THÊM LOGIC THEME DYNAMIC =============
     window.applyTheme = function(color) {
         if (!color) return;
-        
+
         // Cập nhật CSS variables
         document.documentElement.style.setProperty('--msg-blue', color);
-        
+
         // Tính toán các biến màu liên quan
         const lightColor = adjustBrightness(color, 40);
         const darkColor = adjustBrightness(color, -20);
-        
+
         document.documentElement.style.setProperty('--msg-blue-light', lightColor);
         document.documentElement.style.setProperty('--msg-blue-dark', darkColor);
-        
+
         // Lưu vào localStorage
         if (currentPartnerId) {
             localStorage.setItem(`theme_${currentPartnerId}`, color);
@@ -1974,7 +2002,7 @@
         const R = (num >> 16) + amt;
         const G = (num >> 8 & 0x00FF) + amt;
         const B = (num & 0x0000FF) + amt;
-        
+
         return "#" + (
             0x1000000 +
             (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
@@ -2061,7 +2089,7 @@
             alert('Vui lòng chọn một cuộc trò chuyện!');
             return;
         }
-        
+
         $.ajax({
             url: '/api/v1/messenger/settings/theme',
             type: 'POST',
@@ -2125,7 +2153,7 @@
             if ($(e.target).is(modal)) window.closeNicknameModal();
         });
         $('body').append(modal);
-        
+
         // Load current nickname
         $.get(`/api/v1/messenger/settings/${currentPartnerId}`)
             .done(function(settings) {
@@ -2150,7 +2178,7 @@
 
     window.saveNickname = function() {
         const nickname = $('#nicknameInput').val().trim();
-        
+
         $.ajax({
             url: '/api/v1/messenger/settings/nickname',
             type: 'POST',
@@ -2162,7 +2190,7 @@
             success: function() {
                 showToast(nickname ? 'Đã cập nhật biệt danh!' : 'Đã xóa biệt danh!', 'success');
                 closeNicknameModal();
-                
+
                 // Update UI immediately across header, sidebar, and conversation list
                 const finalName = nickname ? nickname : currentPartnerName;
                 $('#infoName').text(finalName);
@@ -2180,7 +2208,7 @@
 
     function sendApiRequest(payload, tempId) {
         console.log("sendApiRequest payload:", payload);
-        
+
         $.ajax({
             url: '/api/v1/messenger/send',
             type: 'POST',
@@ -2188,7 +2216,7 @@
             data: JSON.stringify(payload),
             success: function(msg) {
                 console.log("sendApiRequest success:", msg);
-                
+
                 // Cập nhật tin nhắn tạm thành tin nhắn thật
                 if (tempId && $(`#msg-${tempId}`).length) {
                     const tempEl = $(`#msg-${tempId}`);
@@ -2230,12 +2258,12 @@
                 } else if (!$(`#msg-${msg.id}`).length) {
                     appendMessageToUI(msg, true);
                 }
-                
+
                 scrollToBottom();
                 updateConversationPreview(msg);
             },
-            error: function(e) { 
-                console.error("Send Error", e); 
+            error: function(e) {
+                console.error("Send Error", e);
                 if (tempId && $(`#msg-${tempId}`).length) {
                     $(`#msg-${tempId} .bubble`).addClass('error').append('<span style="color:#ff4d4d;font-size:11px;display:block;">❌ Gửi thất bại</span>');
                 }
@@ -2251,7 +2279,7 @@
             console.error("Message not found:", messageId);
             return;
         }
-        
+
         let content = '';
         let type = 'TEXT';
         if (messageElement.find('img.msg-sticker').length) {
@@ -2275,26 +2303,26 @@
             content = bubbleClone.text().trim();
             type = 'TEXT';
         }
-        
+
         selectedMessageToForward = {
             id: messageId,
             content: content,
             type: type,
             sender: currentUser.name
         };
-        
+
         console.log("Selected message to forward:", selectedMessageToForward);
-        
+
         // Show forward modal
         showForwardModal();
     };
 
     window.showForwardModal = function() {
         if (!selectedMessageToForward) return;
-        
+
         // Xóa modal cũ nếu có
         $('.forward-modal-overlay, .forward-modal').remove();
-        
+
         const modal = $('<div class="forward-modal-overlay"></div>');
         const content = $(`
             <div class="forward-modal">
@@ -2307,8 +2335,8 @@
                 <div class="forward-preview">
                     <div class="preview-label">Tin nhắn sẽ chuyển tiếp:</div>
                     <div class="preview-content">
-                        ${selectedMessageToForward.content.length > 100 ? 
-                        selectedMessageToForward.content.substring(0, 100) + '...' : 
+                        ${selectedMessageToForward.content.length > 100 ?
+                        selectedMessageToForward.content.substring(0, 100) + '...' :
                         selectedMessageToForward.content}
                     </div>
                 </div>
@@ -2330,13 +2358,13 @@
                 </div>
             </div>
         `);
-        
+
         modal.append(content);
         $('body').append(modal);
-        
+
         // Load conversation list for forwarding
         loadForwardRecipients();
-        
+
         // Search functionality
         $('#forwardSearchInput').on('input', function() {
             filterForwardRecipients($(this).val());
@@ -2346,7 +2374,7 @@
     window.closeForwardModal = function() {
         $('.forward-modal-overlay, .forward-modal').remove();
         selectedMessageToForward = null;
-        
+
         if (forwardTimeout) {
             clearTimeout(forwardTimeout);
             forwardTimeout = null;
@@ -2354,51 +2382,87 @@
     }
 
     function loadForwardRecipients() {
+        const container = $('#forwardRecipients');
+        container.html(`
+            <div class="loading-recipients">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Đang tải danh sách...</span>
+            </div>
+        `);
+
         $.get('/api/v1/messenger/conversations').done(function(conversations) {
-            const container = $('#forwardRecipients');
-            
-            if (!conversations || conversations.length === 0) {
-                container.html('<div class="no-conversations">Không có cuộc trò chuyện nào</div>');
-                return;
-            }
-            
-            let html = '<div class="recipients-list">';
-            conversations.forEach(conv => {
-                if (conv.partnerId === currentPartnerId) return; // Skip current chat
-                
-                html += `
-                    <div class="recipient-item" data-id="${conv.partnerId}">
-                        <label class="recipient-select">
-                            <input type="checkbox" name="forwardTo" value="${conv.partnerId}">
-                            <span class="checkmark"></span>
-                        </label>
-                        <div class="recipient-info">
-                            <img src="${conv.partnerAvatar}" class="recipient-avatar">
-                            <div class="recipient-details">
-                                <div class="recipient-name">${conv.partnerName}</div>
-                                <div class="recipient-last-message">${conv.lastMessage || 'Chưa có tin nhắn'}</div>
+            const validConvs = (conversations || []).filter(c => c.partnerId !== currentPartnerId);
+
+            if (validConvs.length > 0) {
+                let html = '<div class="recipients-list">';
+                validConvs.forEach(conv => {
+                    html += `
+                        <div class="recipient-item" data-id="${conv.partnerId}">
+                            <label class="recipient-select">
+                                <input type="checkbox" name="forwardTo" value="${conv.partnerId}">
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="recipient-info">
+                                <img src="${conv.partnerAvatar}" class="recipient-avatar">
+                                <div class="recipient-details">
+                                    <div class="recipient-name">${conv.partnerName}</div>
+                                    <div class="recipient-last-message">${conv.lastMessage || 'Chưa có tin nhắn'}</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            
-            container.html(html);
+                    `;
+                });
+                html += '</div>';
+                container.html(html);
+                bindForwardRecipientEvents();
+            } else {
+                // Fallback: Tìm danh sách người dùng trên FFilm để chuyển tiếp
+                $.get('/api/v1/messenger/users?q=').done(function(users) {
+                    const validUsers = (users || []).filter(u => u.id !== currentPartnerId);
+                    if (validUsers.length === 0) {
+                        container.html('<div class="no-conversations">Không tìm thấy người nhận để chuyển tiếp</div>');
+                        return;
+                    }
+                    let html = '<div class="recipients-label text-muted small px-3 py-1">Gợi ý liên hệ:</div><div class="recipients-list">';
+                    validUsers.forEach(u => {
+                        html += `
+                            <div class="recipient-item" data-id="${u.id}">
+                                <label class="recipient-select">
+                                    <input type="checkbox" name="forwardTo" value="${u.id}">
+                                    <span class="checkmark"></span>
+                                </label>
+                                <div class="recipient-info">
+                                    <img src="${u.avatar}" class="recipient-avatar">
+                                    <div class="recipient-details">
+                                        <div class="recipient-name">${u.name}</div>
+                                        <div class="recipient-last-message text-muted">${u.email || 'Bắt đầu cuộc trò chuyện'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    container.html(html);
+                    bindForwardRecipientEvents();
+                }).fail(function() {
+                    container.html('<div class="no-conversations">Không có cuộc trò chuyện nào khác</div>');
+                });
+            }
+        });
+    }
 
-            // Delegated click on row toggles checkbox
-            container.off('click', '.recipient-item').on('click', '.recipient-item', function(e) {
-                if (!$(e.target).is('input[type="checkbox"]')) {
-                    const cb = $(this).find('input[name="forwardTo"]');
-                    cb.prop('checked', !cb.prop('checked')).trigger('change');
-                }
-            });
-            
-            // Enable/disable forward button based on selection
-            container.off('change', 'input[name="forwardTo"]').on('change', 'input[name="forwardTo"]', function() {
-                const hasSelection = container.find('input[name="forwardTo"]:checked').length > 0;
-                $('.btn-forward').prop('disabled', !hasSelection);
-            });
+    function bindForwardRecipientEvents() {
+        const container = $('#forwardRecipients');
+        container.off('click', '.recipient-item').on('click', '.recipient-item', function(e) {
+            if (!$(e.target).is('input[type="checkbox"]')) {
+                const cb = $(this).find('input[name="forwardTo"]');
+                cb.prop('checked', !cb.prop('checked')).trigger('change');
+            }
+        });
+
+        container.off('change', 'input[name="forwardTo"]').on('change', 'input[name="forwardTo"]', function() {
+            const hasSelection = container.find('input[name="forwardTo"]:checked').length > 0;
+            $('.btn-forward').prop('disabled', !hasSelection);
         });
     }
 
@@ -2409,7 +2473,7 @@
             $('#forwardDiscoveredSection').remove();
             return;
         }
-        
+
         const q = query.toLowerCase().trim();
         $('.recipient-item').each(function() {
             if ($(this).closest('#forwardDiscoveredSection').length) return;
@@ -2471,24 +2535,24 @@
         $('input[name="forwardTo"]:checked').each(function() {
             selectedRecipients.push($(this).val());
         });
-        
+
         if (selectedRecipients.length === 0 || !selectedMessageToForward) return;
-        
+
         const forwardBtn = $('.btn-forward');
         forwardBtn.prop('disabled', true);
         forwardBtn.html('<i class="fas fa-spinner fa-spin"></i> Đang chuyển tiếp...');
-        
+
         // Send to each recipient
         let completed = 0;
         const total = selectedRecipients.length;
-        
+
         selectedRecipients.forEach(recipientId => {
             const payload = {
                 receiverId: parseInt(recipientId),
                 content: selectedMessageToForward.content,
                 type: selectedMessageToForward.type || 'TEXT'
             };
-            
+
             $.ajax({
                 url: '/api/v1/messenger/send',
                 type: 'POST',
@@ -2518,9 +2582,9 @@
     function setupTypingIndicator() {
         $('#msgInput').off('input').on('input', function() {
             if (!currentPartnerId || !stompClient || !stompClient.connected) return;
-            
+
             clearTimeout(typingTimeout);
-            
+
             // Chỉ gửi typing nếu có nội dung
             if ($(this).val().trim().length > 0) {
                 stompClient.send('/app/typing', {}, JSON.stringify({
@@ -2529,7 +2593,7 @@
                     senderName: currentUser.name
                 }));
             }
-            
+
             typingTimeout = setTimeout(() => {
                 stompClient.send('/app/stop-typing', {}, JSON.stringify({
                     receiverId: currentPartnerId
@@ -2554,7 +2618,7 @@
         const uploadUrl = (type === 'FILE') ? '/api/upload/file' : '/api/upload/image';
 
         $.ajax({
-            url: uploadUrl, 
+            url: uploadUrl,
             type: 'POST',
             data: formData,
             processData: false,
@@ -2562,19 +2626,19 @@
             success: function(res) {
                 $(`#${tempId}`).remove();
                 if(res.url) {
-                    sendApiRequest({ 
-                        receiverId: currentPartnerId, 
-                        content: res.url, 
+                    sendApiRequest({
+                        receiverId: currentPartnerId,
+                        content: res.url,
                         type: type
                     });
-                    
+
                     updateConversationPreview({
                         senderId: currentUser.userID,
                         receiverId: currentPartnerId,
                         content: (type === 'FILE' ? 'Đã gửi 1 tệp đính kèm' : 'Đã gửi 1 ảnh'),
                         type: type
                     });
-                    
+
                     if(caption && caption.trim()) {
                         setTimeout(() => {
                             sendApiRequest({ receiverId: currentPartnerId, content: caption, type: 'TEXT' });
@@ -2598,9 +2662,9 @@
         if (input.files && input.files[0]) {
             const file = input.files[0];
             pendingFile = { file: file, type: type };
-            
+
             $('#mediaPreview').show().css('display', 'flex');
-            
+
             if (type === 'IMAGE') {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -2655,7 +2719,7 @@
     // --- FIX 6: AUDIO PLAYER ---
     function renderAudioPlayer(audioUrl, messageId = null) {
         const playerId = messageId ? `audio-player-${messageId}` : `audio-player-${Date.now()}`;
-        
+
         return `
             <div class="msg-audio-player" id="${playerId}">
                 <button class="audio-play-btn" onclick="window.toggleAudioPlay('${playerId}')">
@@ -2710,7 +2774,7 @@
     window.initAudioDuration = function(playerId) {
         const audio = document.getElementById(playerId + '-audio');
         if (!audio) return;
-        
+
         const setDuration = () => {
             let duration = audio.duration;
             if (!duration || isNaN(duration) || duration === Infinity) {
@@ -2804,7 +2868,7 @@
      * Full emoji list with English and Vietnamese keywords for search
      */
 
-    
+
 
     window.emojiPickerState = window.emojiPickerState || {
         isOpen: false,
@@ -2835,7 +2899,7 @@
             display: none;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 
+            box-shadow:
                 0 25px 50px -12px rgba(0, 0, 0, 0.5),
                 0 0 0 1px rgba(255, 255, 255, 0.05),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -2891,11 +2955,11 @@
                         transition: all 0.2s;
                     ">×</button>
                 </div>
-                
+
                 <div class="search-container" style="position: relative;">
-                    <input type="text" 
-                        id="emojiSearchInput" 
-                        placeholder="Tìm kiếm emoji..." 
+                    <input type="text"
+                        id="emojiSearchInput"
+                        placeholder="Tìm kiếm emoji..."
                         style="
                                 width: 100%;
                                 background: rgba(58, 59, 60, 0.8);
@@ -2919,7 +2983,7 @@
                         font-size: 14px;
                     "></i>
                 </div>
-                
+
                 <!-- Shimmer effect -->
                 <div class="header-shimmer" style="
                     position: absolute;
@@ -2927,14 +2991,14 @@
                     left: -100%;
                     width: 100%;
                     height: 100%;
-                    background: linear-gradient(90deg, 
-                        transparent 0%, 
-                        rgba(255, 255, 255, 0.1) 50%, 
+                    background: linear-gradient(90deg,
+                        transparent 0%,
+                        rgba(255, 255, 255, 0.1) 50%,
                         transparent 100%);
                     animation: shimmer 2s infinite;
                 "></div>
             </div>
-            
+
             <div class="emoji-category-tabs" style="
                 display: flex;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -2945,7 +3009,7 @@
                 -ms-overflow-style: none;
             ">
                 ${window.EMOJI_CATEGORIES.map(cat => `
-                    <button class="emoji-category-btn premium-tab" 
+                    <button class="emoji-category-btn premium-tab"
                             data-category="${cat.id}"
                             style="
                                 padding: 14px 16px;
@@ -2976,7 +3040,7 @@
                     </button>
                 `).join('')}
             </div>
-            
+
             <div class="emoji-content" style="
                 flex: 1;
                 overflow-y: auto;
@@ -2987,7 +3051,7 @@
                 <div id="emojiSections" style="display: grid; gap: 24px;">
                     <!-- Emoji sections will be rendered here -->
                 </div>
-                
+
                 <!-- Empty state -->
                 <div id="emojiEmptyState" style="
                     display: none;
@@ -2999,7 +3063,7 @@
                     <div style="font-weight: 600; margin-bottom: 8px; color: #fff;">Không tìm thấy emoji</div>
                     <div style="font-size: 13px;">Thử tìm kiếm với từ khóa khác</div>
                 </div>
-                
+
                 <!-- Loading state -->
                 <div id="emojiLoading" style="
                     display: none;
@@ -3019,7 +3083,7 @@
                     <div>Đang tải emoji...</div>
                 </div>
             </div>
-            
+
             <!-- Recent emoji bar -->
             <div id="recentEmojiBar" style="
                 padding: 12px 16px;
@@ -3057,58 +3121,58 @@
         `;
 
         document.body.appendChild(pickerContainer);
-        
+
         // Add CSS animations
         const style = document.createElement('style');
         style.textContent = `
             @keyframes spin {
                 to { transform: rotate(360deg); }
             }
-            
+
             @keyframes slideIn {
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-            
+
             .premium-tab.active {
                 color: #fff !important;
                 border-bottom-color: #0084ff !important;
                 background: rgba(0, 132, 255, 0.1) !important;
             }
-            
+
             .premium-tab.active span {
                 color: #0084ff !important;
             }
-            
+
             .premium-tab:hover {
                 color: #fff !important;
                 transform: translateY(-2px);
             }
-            
+
             .premium-tab:hover span {
                 color: #fff !important;
             }
-            
+
             /* Custom scrollbar */
             .emoji-content::-webkit-scrollbar {
                 width: 6px;
             }
-            
+
             .emoji-content::-webkit-scrollbar-track {
                 background: rgba(255, 255, 255, 0.05);
                 border-radius: 3px;
             }
-            
+
             .emoji-content::-webkit-scrollbar-thumb {
                 background: rgba(255, 255, 255, 0.2);
                 border-radius: 3px;
                 transition: background 0.3s;
             }
-            
+
             .emoji-content::-webkit-scrollbar-thumb:hover {
                 background: rgba(255, 255, 255, 0.3);
             }
-            
+
             /* Hide scrollbar for category tabs */
             .emoji-category-tabs::-webkit-scrollbar {
                 display: none;
@@ -3125,15 +3189,15 @@
         function renderAllEmojiSections() {
             const container = document.getElementById('emojiSections');
             const loading = document.getElementById('emojiLoading');
-            
+
             loading.style.display = 'block';
             container.innerHTML = '';
-            
+
             setTimeout(() => {
                 window.EMOJI_CATEGORIES.forEach(cat => {
                     const emojis = window.EMOJI_DATA.filter(e => e.category === cat.id);
                     if (emojis.length === 0) return;
-                    
+
                     const section = document.createElement('div');
                     section.className = 'emoji-section';
                     section.dataset.category = cat.id;
@@ -3142,7 +3206,7 @@
                         animation-fill-mode: both;
                         animation-delay: ${Math.random() * 0.2}s;
                     `;
-                    
+
                     // Section title
                     const title = document.createElement('div');
                     title.className = 'section-title-premium';
@@ -3162,7 +3226,7 @@
                             <span>${cat.name}</span>
                         </div>
                     `;
-                    
+
                     // Emoji grid - FIXED: No horizontal scroll, perfect grid
                     const grid = document.createElement('div');
                     grid.className = 'emoji-grid-premium';
@@ -3172,7 +3236,7 @@
                         gap: 6px;
                         margin-bottom: 20px;
                     `;
-                    
+
                     emojis.forEach((emoji, index) => {
                         const btn = document.createElement('button');
                         btn.className = 'emoji-item-premium';
@@ -3198,18 +3262,18 @@
                             animation-delay: ${index * 0.01}s;
                         `;
                         btn.title = emoji.name;
-                        
+
                         // Hover effect
                         btn.addEventListener('mouseenter', function() {
                             this.style.transform = 'scale(1.15) translateY(-3px)';
                             this.style.background = 'rgba(0, 132, 255, 0.15)';
                             this.style.boxShadow = '0 6px 20px rgba(0, 132, 255, 0.3)';
                             this.style.zIndex = '10';
-                            
+
                             // Show tooltip
                             showEmojiTooltip(this, emoji.name);
                         });
-                        
+
                         btn.addEventListener('mouseleave', function() {
                             this.style.transform = 'scale(1)';
                             this.style.background = 'rgba(255, 255, 255, 0.05)';
@@ -3217,11 +3281,11 @@
                             this.style.zIndex = '1';
                             hideEmojiTooltip();
                         });
-                        
+
                         // Click effect with ripple
                         btn.addEventListener('click', function(e) {
                             e.stopPropagation();
-                            
+
                             // Ripple effect
                             const ripple = document.createElement('span');
                             ripple.className = 'emoji-ripple';
@@ -3237,43 +3301,43 @@
                                 left: 0;
                             `;
                             this.appendChild(ripple);
-                            
+
                             // Selection animation
                             this.classList.add('emoji-selected');
                             setTimeout(() => {
                                 this.classList.remove('emoji-selected');
                                 ripple.remove();
                             }, 400);
-                            
+
                             // Insert emoji
                             const input = document.getElementById('msgInput');
                             input.value += emoji.emoji;
                             input.focus();
-                            
+
                             // Add to recent
                             addToRecentEmojis(emoji);
-                            
+
                             // Close picker smoothly
                             setTimeout(() => {
                                 closePicker();
                             }, 200);
-                            
+
                             // Trigger input event
                             const event = new Event('input', { bubbles: true });
                             input.dispatchEvent(event);
                         });
-                        
+
                         grid.appendChild(btn);
                     });
-                    
+
                     section.appendChild(title);
                     section.appendChild(grid);
                     container.appendChild(section);
                 });
-                
+
                 loading.style.display = 'none';
                 updateRecentEmojiBar();
-                
+
             }, 300);
         }
 
@@ -3301,7 +3365,7 @@
                 `;
                 document.body.appendChild(tooltip);
             }
-            
+
             const rect = element.getBoundingClientRect();
             tooltip.textContent = name;
             tooltip.style.left = `${rect.left + rect.width / 2}px`;
@@ -3330,11 +3394,11 @@
         function updateRecentEmojiBar() {
             const bar = document.getElementById('recentEmojiBar');
             const grid = document.getElementById('recentEmojiGrid');
-            
+
             if (recentEmojis.length > 0) {
                 bar.style.display = 'block';
                 grid.innerHTML = '';
-                
+
                 recentEmojis.slice(0, 10).forEach(emoji => {
                     const btn = document.createElement('button');
                     btn.innerHTML = emoji.emoji;
@@ -3374,7 +3438,7 @@
             const sections = document.querySelectorAll('.emoji-section');
             const emptyState = document.getElementById('emojiEmptyState');
             let hasResults = false;
-            
+
             if (!query.trim()) {
                 sections.forEach(section => {
                     section.style.display = 'block';
@@ -3386,25 +3450,25 @@
                 emptyState.style.display = 'none';
                 return;
             }
-            
+
             const searchTerm = query.toLowerCase();
             sections.forEach(section => {
                 const emojiItems = section.querySelectorAll('.emoji-item-premium');
                 let hasMatch = false;
-                
+
                 emojiItems.forEach(item => {
                     const emoji = item.dataset.emoji;
                     const name = item.dataset.name || '';
                     const emojiData = window.EMOJI_DATA.find(e => e.emoji === emoji);
-                    
+
                     if (emojiData) {
-                        const keywords = typeof emojiData.keywords === 'string' 
+                        const keywords = typeof emojiData.keywords === 'string'
                             ? emojiData.keywords.split(',').map(k => k.trim().toLowerCase())
                             : [];
-                        
+
                         const nameMatch = name.toLowerCase().includes(searchTerm);
                         const keywordMatch = keywords.some(kw => kw.includes(searchTerm));
-                        
+
                         if (nameMatch || keywordMatch) {
                             item.style.display = 'flex';
                             item.style.animation = 'emojiPop 0.3s ease-out';
@@ -3415,10 +3479,10 @@
                         }
                     }
                 });
-                
+
                 section.style.display = hasMatch ? 'block' : 'none';
             });
-            
+
             emptyState.style.display = hasResults ? 'none' : 'block';
         }
 
@@ -3447,14 +3511,14 @@
         function updateActiveCategoryOnScroll() {
             const sections = pickerContainer.querySelectorAll('.emoji-section');
             const scrollTop = pickerContainer.querySelector('.emoji-content').scrollTop;
-            
+
             let currentSection = null;
             sections.forEach(section => {
                 if (section.offsetTop <= scrollTop + 100) {
                     currentSection = section;
                 }
             });
-            
+
             if (currentSection) {
                 setActiveCategoryTab(currentSection.dataset.category);
             }
@@ -3467,15 +3531,15 @@
                 pickerContainer.style.opacity = '1';
                 pickerContainer.style.transform = 'translateY(0)';
             }, 10);
-            
+
             renderAllEmojiSections();
             setActiveCategoryTab('smileys');
-            
+
             setTimeout(() => {
                 const searchInput = document.getElementById('emojiSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
-            
+
             window.emojiPickerState.isOpen = true;
             window.emojiPickerState.picker = pickerContainer;
         }
@@ -3504,10 +3568,10 @@
                 }
             });
         }
-        
+
         const closeBtn = document.getElementById('closeEmojiPicker');
         if (closeBtn) closeBtn.addEventListener('click', closePicker);
-        
+
         // Search input
         let searchTimeout;
         const searchInput = document.getElementById('emojiSearchInput');
@@ -3519,25 +3583,25 @@
                 }, 200);
             });
         }
-        
+
         // Category tabs
         pickerContainer.querySelectorAll('.emoji-category-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 scrollToCategory(this.dataset.category);
             });
         });
-        
+
         // Scroll event
         const emojiContent = pickerContainer.querySelector('.emoji-content');
         if (emojiContent) emojiContent.addEventListener('scroll', updateActiveCategoryOnScroll);
-        
+
         // Click outside to close
         document.addEventListener('click', function(e) {
             if (pickerContainer && !pickerContainer.contains(e.target) && e.target !== trigger && window.emojiPickerState.isOpen) {
                 closePicker();
             }
         });
-        
+
         // ESC key to close
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && window.emojiPickerState.isOpen) {
@@ -3550,7 +3614,7 @@
         window.emojiPickerState.picker = pickerContainer;
         window.emojiPickerState.openPicker = openPicker;
         window.emojiPickerState.closePicker = closePicker;
-        
+
         console.log('✅ Premium Emoji Picker initialized and attached to body');
     }
 
@@ -3599,12 +3663,12 @@
     window.startRecording = function() {
         if (isRecording) return;
         audioDiscarded = false;
-        
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showToast('Trình duyệt không hỗ trợ ghi âm', 'error');
             return;
         }
-        
+
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
                 try {
@@ -3614,15 +3678,15 @@
                 } catch (e) {
                     mediaRecorder = new MediaRecorder(stream);
                 }
-                
+
                 audioChunks = [];
-                
+
                 mediaRecorder.ondataavailable = event => {
                     if (event.data && event.data.size > 0) {
                         audioChunks.push(event.data);
                     }
                 };
-                
+
                 mediaRecorder.onstop = () => {
                     if (!audioDiscarded && audioChunks.length > 0 && currentPartnerId) {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -3631,21 +3695,21 @@
                     // Stop all tracks
                     stream.getTracks().forEach(track => track.stop());
                 };
-                
+
                 // Start recording
                 mediaRecorder.start();
                 isRecording = true;
                 recordingStartTime = Date.now();
-                
+
                 // Show recording UI
                 $('#normalInputState').hide();
                 $('#recordingState').show();
-                
+
                 // Start timer
                 updateRecordingTimer();
                 if (recordingTimer) clearInterval(recordingTimer);
                 recordingTimer = setInterval(updateRecordingTimer, 1000);
-                
+
             })
             .catch(err => {
                 console.error('Lỗi truy cập microphone:', err);
@@ -3657,12 +3721,12 @@
     window.cancelRecording = function() {
         if (!isRecording) return;
         audioDiscarded = true;
-        
+
         // Stop recording
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
         }
-        
+
         resetRecordingUI();
         showToast('Đã hủy ghi âm', 'info');
     };
@@ -3671,11 +3735,11 @@
     window.finishRecording = function() {
         if (!isRecording) return;
         audioDiscarded = false;
-        
+
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
         }
-        
+
         resetRecordingUI();
     };
 
@@ -3689,13 +3753,13 @@
     function resetRecordingUI() {
         isRecording = false;
         recordingStartTime = 0;
-        
+
         // Clear timer
         if (recordingTimer) {
             clearInterval(recordingTimer);
             recordingTimer = null;
         }
-        
+
         // Reset UI
         $('.recording-ui').removeClass('show').hide();
         $('.input-actions').show();
@@ -3704,15 +3768,15 @@
 
     function updateRecordingTimer() {
         if (!recordingStartTime) return;
-        
+
         const elapsed = Date.now() - recordingStartTime;
         const seconds = Math.floor(elapsed / 1000);
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        
+
         const timeString = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
         $('#recordTimer').text(timeString);
-        
+
         // Auto-stop after 5 minutes
         if (seconds >= 300) {
             finishRecording();
@@ -3724,11 +3788,11 @@
             showToast('Vui lòng chọn người nhận', 'error');
             return;
         }
-        
+
         const formData = new FormData();
         const fileName = `audio_${Date.now()}.webm`;
         formData.append('file', audioBlob, fileName);
-        
+
         // Show uploading indicator
         const tempId = 'audio-upload-' + Date.now();
         $('#messagesContainer').append(`
@@ -3741,7 +3805,7 @@
             </div>
         `);
         scrollToBottom();
-        
+
         $.ajax({
             url: '/api/upload/audio',
             type: 'POST',
@@ -3750,7 +3814,7 @@
             contentType: false,
             success: function(response) {
                 $(`#${tempId}`).remove();
-                
+
                 if (response.url) {
                     // Send message với type AUDIO
                     const payload = {
@@ -3762,7 +3826,7 @@
                             duration: 0
                         }
                     };
-                    
+
                     // Optimistic UI
                     appendMessageToUI({
                         id: 'temp-audio',
@@ -3771,7 +3835,7 @@
                         type: 'AUDIO',
                         formattedTime: 'Đang gửi...'
                     }, true);
-                    
+
                     // Send to server
                     sendApiRequest(payload);
                 }
@@ -3797,11 +3861,11 @@
 
     window.showReactionPicker = function(button, directMsgId) {
         $('.reaction-picker').remove();
-        
+
         const msgRow = $(button).closest('.msg-row');
         const msgId = directMsgId || msgRow.data('msg-id');
         if (!msgId) return;
-        
+
         const picker = $(`
             <div class="reaction-picker active">
                 <span class="reaction-emoji" onclick="window.addReaction(${msgId}, '👍')">👍</span>
@@ -3815,9 +3879,9 @@
                 </span>
             </div>
         `);
-        
+
         msgRow.append(picker);
-        
+
         setTimeout(() => {
             $(document).on('click.reaction', function(e) {
                 if (!$(e.target).closest('.reaction-picker, .reaction-btn').length) {
@@ -3830,14 +3894,14 @@
 
     window.showFullReactionPicker = function(messageId) {
         $('.reaction-picker, .full-reaction-modal-overlay').remove();
-        
+
         const popularEmojis = [
             '👍', '❤️', '🔥', '😂', '😮', '😢', '👏', '🎉', '🍿', '💯',
             '🥰', '😍', '🤩', '🥺', '😡', '🤔', '😴', '🤡', '🥳', '🙏',
             '✨', '👀', '💀', '🤮', '🤝', '🚀', '💖', '💔', '⚡', '🌟',
             '💪', '🎯', '👌', '🤗', '😎', '💐'
         ];
-        
+
         const overlay = $('<div class="full-reaction-modal-overlay"></div>');
         const modal = $(`
             <div class="full-reaction-modal">
@@ -3856,10 +3920,10 @@
                 </div>
             </div>
         `);
-        
+
         overlay.append(modal);
         $('body').append(overlay);
-        
+
         overlay.on('click', function(e) {
             if ($(e.target).hasClass('full-reaction-modal-overlay')) {
                 overlay.remove();
@@ -3873,7 +3937,7 @@
             emoji: emoji
         }).done(function(response) {
             if (response && response.reactions) {
-                window.updateMessageReactions(messageId, response.reactions);
+                window.updateMessageReactions(messageId, response.reactions, response.userReaction);
             }
             $('.reaction-picker, .full-reaction-modal-overlay').remove();
         }).fail(function(err) {
@@ -3881,16 +3945,25 @@
         });
     };
 
-    window.updateMessageReactions = function(messageId, reactions) {
+    window.updateMessageReactions = function(messageId, reactions, userReaction) {
         const msgRow = $(`#msg-${messageId}`);
         if (!msgRow.length) return;
-        
+
+        let myCurrentReaction = userReaction;
+        if (typeof myCurrentReaction === 'undefined') {
+            const currentMineEl = msgRow.find('.reaction-item.mine');
+            if (currentMineEl.length) {
+                myCurrentReaction = currentMineEl.find('span:first').text().trim();
+            }
+        }
+
         let reactionsHtml = '';
         if (reactions && Object.keys(reactions).length > 0) {
             reactionsHtml = '<div class="message-reactions">';
             Object.entries(reactions).forEach(([emoji, count]) => {
+                const isMine = myCurrentReaction && myCurrentReaction === emoji;
                 reactionsHtml += `
-                    <div class="reaction-item" onclick="window.addReaction(${messageId}, '${emoji}')" title="Nhấn để thả cảm xúc này">
+                    <div class="reaction-item ${isMine ? 'mine' : ''}" onclick="window.addReaction(${messageId}, '${emoji}')" title="${isMine ? 'Gỡ cảm xúc' : 'Nhấn để thả cảm xúc'}">
                         <span>${emoji}</span>
                         <span class="reaction-count">${count}</span>
                     </div>
@@ -3898,7 +3971,7 @@
             });
             reactionsHtml += '</div>';
         }
-        
+
         msgRow.find('.message-reactions').remove();
         msgRow.find('.msg-content').append(reactionsHtml);
     };
@@ -3906,7 +3979,7 @@
     // Pinned messages system
     window.loadPinnedMessages = function() {
         if (!currentPartnerId) return;
-        
+
         $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
             .done(function(messages) {
                 window.displayPinnedMessages(messages);
@@ -3917,12 +3990,12 @@
         const headerBar = $('#pinnedHeaderBar');
         const snippet = $('#pinnedHeaderSnippet');
         const countBadge = $('#pinnedHeaderCount');
-        
+
         if (messages && messages.length > 0) {
             const latest = messages[messages.length - 1];
-            const content = latest.content.length > 60 ? 
+            const content = latest.content.length > 60 ?
                 latest.content.substring(0, 60) + '...' : latest.content;
-            
+
             snippet.text(content);
             countBadge.text(messages.length);
             headerBar.slideDown(200);
@@ -3950,12 +4023,12 @@
                 </div>
             </div>
         `);
-        
+
         modal.on('click', function(e) {
             if ($(e.target).is(modal)) window.closeModal();
         });
         $('body').append(modal);
-        
+
         $.get(`/api/v1/messenger/pinned/${currentPartnerId}`)
             .done(function(messages) {
                 let html = '';
@@ -4002,7 +4075,7 @@
                     <div style="padding: 12px 16px; border-bottom: 1px solid #3a3b3c;">
                         <div class="search-wrapper" style="margin: 0; background: #3a3b3c; border-radius: 20px; padding: 6px 14px; display: flex; align-items: center;">
                             <i class="fas fa-search text-muted mr-2" style="font-size: 0.85rem;"></i>
-                            <input type="text" id="newChatSearchInput" placeholder="Tìm người theo tên hoặc email..." 
+                            <input type="text" id="newChatSearchInput" placeholder="Tìm người theo tên hoặc email..."
                                 style="background: none; border: none; outline: none; color: #fff; width: 100%; font-size: 0.9rem;">
                         </div>
                     </div>
@@ -4028,9 +4101,9 @@
 
                     users.forEach(u => {
                         const row = $(`
-                            <div class="new-chat-user-row d-flex align-items-center px-3 py-2" 
+                            <div class="new-chat-user-row d-flex align-items-center px-3 py-2"
                                 style="cursor: pointer; transition: background 0.2s; display: flex; align-items: center; padding: 8px 16px;"
-                                onmouseover="this.style.background='#3a3b3c'" 
+                                onmouseover="this.style.background='#3a3b3c'"
                                 onmouseout="this.style.background='transparent'">
                                 <img src="${u.avatar}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px;">
                                 <div class="flex-grow-1" style="min-width: 0;">
@@ -4086,7 +4159,7 @@
         } else {
             indicator.addClass('active');
         }
-        
+
         scrollToBottom();
         notificationSound.play().catch(() => {});
     }
@@ -4095,37 +4168,17 @@
         $('#typingIndicator').remove();
     }
 
-    // Send typing event via WebSocket
-    $('#msgInput').on('input', function() {
-        if (!currentPartnerId || !stompClient) return;
-        
-        clearTimeout(typingTimeout);
-        
-        // Send typing event
-        stompClient.send('/app/typing', {}, JSON.stringify({
-            receiverId: currentPartnerId,
-            senderId: currentUser.userID,
-            senderName: currentUser.userName,
-            type: 'TYPING'
-        }));
-        
-        // Stop typing after 2 seconds of inactivity
-        typingTimeout = setTimeout(() => {
-            stompClient.send('/app/stop-typing', {}, JSON.stringify({
-                receiverId: currentPartnerId
-            }));
-        }, 2000);
-    });
+    // Typing indicator event harmonized in composer setup
 
     // --- FIX 10: SEEN AVATAR ---
     function updateSeenAvatar(messageId, seenByUserId) {
         const messageElement = $(`#msg-${messageId}`);
-        
+
         if (messageElement.length && seenByUserId === currentPartnerId) {
             // Add seen avatar
             const partnerAvatar = $('#headerAvatar').attr('src');
             messageElement.find('.msg-content').append(`
-                <img src="${partnerAvatar}" class="msg-seen-avatar" 
+                <img src="${partnerAvatar}" class="msg-seen-avatar"
                     title="Đã xem" style="width:16px; height:16px; border-radius:50%;">
             `);
         }
@@ -4134,14 +4187,14 @@
     // FIX 7.6: Send seen events
     function sendSeenEvent(messageId) {
         if (!stompClient || !currentPartnerId) return;
-        
+
         stompClient.send('/app/mark-seen', {}, JSON.stringify({
             messageId: messageId,
             userId: currentUser.userID,
             partnerId: currentPartnerId
         }));
     }
-    
+
     // Call sendSeenEvent khi tin nhắn hiển thị trong viewport
     $(document).ready(function() {
         $('#messagesContainer').on('scroll', function() {
@@ -4161,18 +4214,18 @@
             uid = sessionStorage.getItem('activeMessengerPartnerId');
         }
         if (!uid) return;
-        
+
         const targetId = parseInt(uid);
         if (!targetId || isNaN(targetId)) return;
-        
+
         // Tìm trong danh sách hội thoại hiện có
         const existing = (existingConversations || []).find(c => c.partnerId === targetId);
-        
+
         if (existing) {
             window.selectConversation(
-                existing.partnerId, 
-                existing.partnerName, 
-                existing.partnerAvatar, 
+                existing.partnerId,
+                existing.partnerName,
+                existing.partnerAvatar,
                 existing.friend,
                 existing.online,
                 existing.lastActive,
@@ -4208,7 +4261,7 @@
     // --- UNSEND & INLINE CHAT SEARCH LOGIC ---
     window.unsendMessage = function(msgId) {
         if (!confirm("Thu hồi tin nhắn này?")) return;
-        
+
         $.post(`/api/v1/messenger/unsend/${msgId}`)
             .done(function() {
                 const contentEl = $(`#msg-${msgId} .msg-content`);
@@ -4416,7 +4469,7 @@
         const sidebar = $('#chatInfoSidebar');
         const chatArea = $('.msg-chat-area');
         const btn = $('#btnToggleInfo');
-        
+
         if (sidebar.hasClass('hidden')) {
             sidebar.removeClass('hidden');
             chatArea.addClass('info-open');
@@ -4433,7 +4486,7 @@
     function updateInfoSidebar(name, avatar) {
         $('#infoName').text(name);
         $('#infoAvatar').attr('src', avatar);
-        
+
         // FIX: Render đúng HTML cho accordion-content đầu tiên
         $('.accordion-item:first .accordion-content').html(`
             <div class="info-action-btn" onclick="window.openThemePicker()">
@@ -4449,7 +4502,7 @@
                 <i class="fas fa-chart-bar"></i> Thống kê đoạn chat
             </div>
         `);
-        
+
         // FIX: Thêm các action buttons vào info-header-actions
         $('.info-header-actions').html(`
             <button class="info-action-btn" onclick="viewProfile(${currentPartnerId})" title="Xem trang cá nhân">
@@ -4601,7 +4654,7 @@
                 }
             }
         }
-        
+
         // Cập nhật trong chat header nếu đang chat với người này (chỉ khi là bạn bè)
         if (currentPartnerId == pId && isCurrentPartnerFriend) {
             const statusDiv = $('#chatHeaderStatus');
@@ -4646,7 +4699,7 @@
                             <div class="bg-option" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);" onclick="window.applyBackground('linear-gradient(135deg, #30cfd0 0%, #330867 100%)')"></div>
                         </div>
                     </div>
-                    
+
                     <div class="background-patterns">
                         <h4>Mẫu</h4>
                         <div class="pattern-grid">
@@ -4678,20 +4731,20 @@
     window.applyBackground = function(background) {
         // Save to localStorage
         localStorage.setItem(`chatBg_${currentPartnerId}`, background);
-        
+
         // Apply to current chat
         if (background === 'default') {
             $('#messagesContainer').css('background', '');
         } else {
             $('#messagesContainer').css('background', background);
         }
-        
+
         // Save to server (optional)
         $.post('/api/v1/messenger/settings/background', {
             partnerId: currentPartnerId,
             background: background
         });
-        
+
         showToast('Đã cập nhật nền chat', 'success');
         window.closeBackgroundPicker();
     };
@@ -4706,16 +4759,20 @@
             const containerTop = container.offset().top;
             const messageTop = messageElement.offset().top;
             const scrollTo = container.scrollTop() + (messageTop - containerTop) - 80;
-            
+
             container.animate({
                 scrollTop: scrollTo
             }, 500);
-            
+
             // Highlight effect
             messageElement.addClass('highlighted');
             setTimeout(() => {
                 messageElement.removeClass('highlighted');
             }, 2000);
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Không tìm thấy tin nhắn gốc trong đoạn hội thoại hiện tại', 'info');
+            }
         }
     };
 
@@ -4724,24 +4781,29 @@
         $(header).parent().toggleClass('active');
     };
 
-    // Switch Tab Ảnh/File
+    // Switch Tab Ảnh/File/Link
     window.switchMediaTab = function(tab) {
         $('.media-tab').removeClass('active');
+        $('#sharedImagesGrid, #sharedFilesList, #sharedLinksList').hide();
         if (tab === 'img') {
-            $('.media-tab:first-child').addClass('active');
+            $('.media-tab[onclick*="\'img\'"]').addClass('active');
             $('#sharedImagesGrid').show();
-            $('#sharedFilesList').hide();
-        } else {
-            $('.media-tab:last-child').addClass('active');
-            $('#sharedImagesGrid').hide();
+        } else if (tab === 'file') {
+            $('.media-tab[onclick*="\'file\'"]').addClass('active');
             $('#sharedFilesList').show();
+        } else if (tab === 'link') {
+            $('.media-tab[onclick*="\'link\'"]').addClass('active');
+            $('#sharedLinksList').show();
+            if (typeof window.loadSharedLinks === 'function') {
+                window.loadSharedLinks(currentPartnerId);
+            }
         }
     };
 
     // Load Shared Media từ API
     function loadSharedMedia() {
         if (!currentPartnerId) return;
-        
+
         const grid = $('#sharedImagesGrid');
         const fileList = $('#sharedFilesList');
         grid.html('<div class="text-center w-100 small text-muted py-3">Đang tải...</div>');
@@ -4764,7 +4826,7 @@
                 if (msg.type === 'IMAGE' || msg.type === 'STICKER' || msg.type === 'GIF') {
                     imageCount++;
                     const safeUrl = escapeHtml(msg.content);
-                    grid.append(`<div class="media-thumb" style="background-image: url('${safeUrl}')" onclick="window.open('${safeUrl}')"></div>`);
+                    grid.append(`<div class="media-thumb" style="background-image: url('${safeUrl}')" onclick="window.openMediaLightbox('${safeUrl}')"></div>`);
                 } else if (msg.type === 'FILE' || msg.type === 'AUDIO') {
                     fileCount++;
                     let rawName = msg.content.split('/').pop() || 'File đính kèm';
@@ -4789,6 +4851,53 @@
             }
         });
     }
+
+    // Load Shared Links từ API
+    window.loadSharedLinks = function(partnerId) {
+        const targetPartnerId = partnerId || currentPartnerId;
+        if (!targetPartnerId) return;
+        const linkList = $('#sharedLinksList');
+        linkList.html('<div class="text-center w-100 small text-muted py-3">Đang tải liên kết...</div>');
+
+        $.get(`/api/v1/messenger/links/${targetPartnerId}`, function(data) {
+            linkList.empty();
+            if (!data || data.length === 0) {
+                linkList.html('<div class="text-center w-100 small text-muted py-3">Chưa có liên kết nào</div>');
+                return;
+            }
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            let linkCount = 0;
+            data.forEach(msg => {
+                const matches = (msg.content || '').match(urlRegex);
+                if (matches) {
+                    matches.forEach(url => {
+                        linkCount++;
+                        const safeUrl = escapeHtml(url);
+                        let domain = '';
+                        try {
+                            domain = new URL(url).hostname;
+                        } catch(e) {
+                            domain = safeUrl;
+                        }
+                        linkList.append(`
+                            <div class="shared-link-item">
+                                <div class="shared-link-icon"><i class="fas fa-link"></i></div>
+                                <div class="shared-link-info">
+                                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="shared-link-url" title="${safeUrl}">${safeUrl}</a>
+                                    <div class="shared-link-domain">${domain}</div>
+                                </div>
+                            </div>
+                        `);
+                    });
+                }
+            });
+            if (linkCount === 0) {
+                linkList.html('<div class="text-center w-100 small text-muted py-3">Chưa có liên kết nào</div>');
+            }
+        }).fail(function() {
+            linkList.html('<div class="text-center w-100 small text-danger py-3">Không thể tải liên kết</div>');
+        });
+    };
 
     // --- 10. LIVE SEARCH CONVERSATIONS (Left Sidebar) ---
     let leftSearchDebounce = null;
@@ -4867,17 +4976,17 @@
             });
         }, 300);
     };
-    
+
     // Cập nhật lại hàm updateInfoSidebar để reset trạng thái khi đổi chat
     const originalSelectConversation = window.selectConversation;
     window.selectConversation = function(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp) {
         // Gọi hàm gốc
         originalSelectConversation(id, name, avatar, isFriend, isOnline, lastActive, relationStatus, lastActiveTimestamp);
-        
+
         // Update Info bên phải
         $('#infoName').text(name);
         $('#infoAvatar').attr('src', avatar);
-        
+
         // Nếu sidebar đang mở thì load lại media
         if (!$('#chatInfoSidebar').hasClass('hidden')) {
             loadSharedMedia();
@@ -4889,24 +4998,24 @@
         // Thêm hiệu ứng "magnet" cho emoji khi di chuột gần
         document.addEventListener('mousemove', function(e) {
             if (!window.emojiPickerState || !window.emojiPickerState.isOpen) return;
-            
+
             const emojiItems = document.querySelectorAll('.emoji-item-premium');
             emojiItems.forEach(item => {
                 const rect = item.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
                 const distance = Math.sqrt(
-                    Math.pow(e.clientX - centerX, 2) + 
+                    Math.pow(e.clientX - centerX, 2) +
                     Math.pow(e.clientY - centerY, 2)
                 );
-                
+
                 if (distance < 100) {
                     const force = (100 - distance) / 100;
                     const angle = Math.atan2(
                         e.clientY - centerY,
                         e.clientX - centerX
                     );
-                    
+
                     item.style.transform = `
                         translate(
                             ${Math.cos(angle) * force * 5}px,
@@ -4918,7 +5027,7 @@
                 }
             });
         });
-        
+
         // Thêm hiệu ứng "confetti" khi chọn emoji
         window.confettiEffect = function(x, y) {
             const confettiCount = 12;
@@ -4935,14 +5044,14 @@
                     opacity: 0.9;
                     animation: confettiFall 1s ease-out forwards;
                 `;
-                
+
                 document.body.appendChild(confetti);
-                
+
                 // Animation
                 const angle = Math.random() * Math.PI * 2;
                 const velocity = 2 + Math.random() * 3;
                 const rotation = Math.random() * 720 - 360;
-                
+
                 let progress = 0;
                 function animate() {
                     progress += 0.02;
@@ -4950,21 +5059,21 @@
                         confetti.remove();
                         return;
                     }
-                    
+
                     const currentX = x + Math.cos(angle) * velocity * progress * 100;
                     const currentY = y + Math.sin(angle) * velocity * progress * 50 + progress * progress * 100;
-                    
+
                     confetti.style.left = `${currentX}px`;
                     confetti.style.top = `${currentY}px`;
                     confetti.style.opacity = `${0.9 * (1 - progress)}`;
                     confetti.style.transform = `rotate(${rotation * progress}deg)`;
-                    
+
                     requestAnimationFrame(animate);
                 }
                 animate();
             }
         };
-        
+
         // Thêm CSS animation cho confetti
         const confettiStyle = document.createElement('style');
         confettiStyle.textContent = `
@@ -4975,6 +5084,120 @@
         `;
         document.head.appendChild(confettiStyle);
     }
+
+    // --- COMPOSER AND PRODUCT COMPLETENESS UTILITIES ---
+    window.updateComposerState = function() {
+        const inputVal = $('#msgInput').val();
+        const hasText = inputVal && inputVal.trim().length > 0;
+        const hasPreview = $('#imagePreviewContainer').is(':visible');
+        const sendBtn = $('#sendBtn');
+        const sendIcon = sendBtn.find('i');
+
+        if (hasText || hasPreview) {
+            sendIcon.removeClass('fa-thumbs-up').addClass('fa-paper-plane');
+            sendBtn.attr('title', 'Gửi tin nhắn');
+        } else {
+            sendIcon.removeClass('fa-paper-plane').addClass('fa-thumbs-up');
+            sendBtn.attr('title', 'Gửi nhanh 👍');
+        }
+    };
+
+    window.handleSendClick = function() {
+        const inputVal = $('#msgInput').val();
+        const hasText = inputVal && inputVal.trim().length > 0;
+        const hasPreview = $('#imagePreviewContainer').is(':visible');
+
+        if (!hasText && !hasPreview) {
+            // Quick send 👍
+            $('#msgInput').val('👍');
+            window.sendTextMessage();
+        } else {
+            window.sendTextMessage();
+        }
+    };
+
+    window.sendWaveHello = function() {
+        if (!currentPartnerId) return;
+        $('#msgInput').val('👋').focus();
+        window.sendTextMessage();
+    };
+
+    window.backToConversations = function() {
+        $('.messenger-container').removeClass('show-chat');
+        $('#chatInterface').hide();
+        $('#emptyState').show();
+        $('.conv-item').removeClass('active');
+        currentPartnerId = null;
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', '/messenger');
+        }
+    };
+
+    window.openMediaLightbox = function(url) {
+        if (!url) return;
+        $('.media-lightbox-overlay').remove();
+
+        const safeUrl = escapeHtml(url);
+        const overlay = $(`
+            <div class="media-lightbox-overlay">
+                <button type="button" class="media-lightbox-close" title="Đóng (Esc)">&times;</button>
+                <a href="${safeUrl}" download target="_blank" rel="noopener noreferrer" class="media-lightbox-download" title="Tải ảnh gốc">
+                    <i class="fas fa-download"></i> Tải về
+                </a>
+                <div class="media-lightbox-content">
+                    <img src="${safeUrl}" class="media-lightbox-img" alt="Media preview">
+                </div>
+            </div>
+        `);
+
+        overlay.find('.media-lightbox-close').on('click', function(e) {
+            e.stopPropagation();
+            overlay.fadeOut(150, function() { overlay.remove(); });
+        });
+
+        overlay.on('click', function(e) {
+            if ($(e.target).hasClass('media-lightbox-overlay') || $(e.target).hasClass('media-lightbox-content')) {
+                overlay.fadeOut(150, function() { overlay.remove(); });
+            }
+        });
+
+        $('body').append(overlay);
+        overlay.fadeIn(150);
+    };
+
+    // Global keyboard shortcuts (Escape to dismiss overlays, edit, reply)
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            if ($('.media-lightbox-overlay').length) {
+                $('.media-lightbox-overlay').fadeOut(150, function() { $(this).remove(); });
+                return;
+            }
+            if ($('.full-reaction-modal-overlay').length) {
+                $('.full-reaction-modal-overlay').remove();
+                return;
+            }
+            if ($('.reaction-picker').length) {
+                $('.reaction-picker').remove();
+                return;
+            }
+            if (typeof window.closeForwardModal === 'function' && $('.forward-modal-overlay').length) {
+                window.closeForwardModal();
+                return;
+            }
+            if (editingMessageId && typeof window.cancelEdit === 'function') {
+                window.cancelEdit();
+                return;
+            }
+            if (replyToId && typeof window.cancelReply === 'function') {
+                window.cancelReply();
+                return;
+            }
+            if (typeof window.closeInlineChatSearch === 'function' && $('#inlineChatSearch').is(':visible')) {
+                window.closeInlineChatSearch();
+                return;
+            }
+        }
+    });
 
     // Gọi hàm sau khi init
     setTimeout(addPremiumEffects, 1000);

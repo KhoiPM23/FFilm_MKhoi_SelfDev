@@ -38,6 +38,15 @@ public interface MessengerRepository extends JpaRepository<MessengerMessage, Lon
             "ORDER BY m.timestamp DESC")
     List<MessengerMessage> findSharedMedia(@Param("u1") Integer userId1, @Param("u2") Integer userId2);
 
+    // [MỚI] Lấy tất cả link liên kết chia sẻ giữa 2 người (Sidebar phải)
+    @Query("SELECT m FROM MessengerMessage m WHERE " +
+            "((m.sender.userID = :u1 AND m.receiver.userID = :u2) OR " +
+            "(m.sender.userID = :u2 AND m.receiver.userID = :u1)) AND " +
+            "m.type = 'TEXT' AND m.isDeleted = false AND " +
+            "(LOWER(m.content) LIKE '%http://%' OR LOWER(m.content) LIKE '%https://%') " +
+            "ORDER BY m.timestamp DESC")
+    List<MessengerMessage> findSharedLinks(@Param("u1") Integer userId1, @Param("u2") Integer userId2);
+
     // ============= FIX 1: Thêm phương thức searchMessages =============
     @Query("SELECT m FROM MessengerMessage m WHERE " +
            "((m.sender.userID = :userId AND m.receiver.userID = :partnerId) OR " +

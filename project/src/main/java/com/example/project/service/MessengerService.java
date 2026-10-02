@@ -366,7 +366,7 @@ public class MessengerService {
         messengerRepository.markMessagesAsRead(partner, me);
 
         List<MessengerMessage> messages = messengerRepository.findConversation(me, partner);
-        return messages.stream().map(this::convertToMessageDto).collect(Collectors.toList());
+        return messages.stream().map(m -> convertToMessageDto(m, currentUserId)).collect(Collectors.toList());
     }
 
     // 1. Sửa hàm sendMessage
@@ -449,22 +449,27 @@ public class MessengerService {
     }
 
     // 3. Sửa hàm convertToMessageDto
-    public  MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
+    // 3. Sửa hàm convertToMessageDto
+    public MessengerDto.MessageDto convertToMessageDto(MessengerMessage m) {
+        return convertToMessageDto(m, null);
+    }
+
+    public MessengerDto.MessageDto convertToMessageDto(MessengerMessage m, Integer viewerUserId) {
         String avatar = generateAvatar(m.getSender().getUserName());
         
         // [MỚI] Map tin nhắn gốc nếu có
         MessengerDto.MessageDto replyDto = null;
         if (m.getReplyTo() != null) {
-            // Đệ quy nhẹ để lấy thông tin tin nhắn gốc (chỉ cần nội dung cơ bản)
             replyDto = MessengerDto.MessageDto.builder()
                     .id(m.getReplyTo().getId())
                     .content(m.getReplyTo().getContent())
                     .type(m.getReplyTo().getType())
-                    .senderId(m.getReplyTo().getSender().getUserID()) // Để biết ai là người được reply
+                    .senderId(m.getReplyTo().getSender().getUserID())
                     .build();
         }
 
         Map<String, Integer> reactionMap = getReactions(m.getId(), m.getMetadata());
+        String userReaction = getUserReaction(m.getId(), viewerUserId, m.getMetadata());
 
         boolean isEdited = false;
         if (m.getMetadata() != null && (m.getMetadata().contains("\"isEdited\":true") || m.getMetadata().contains("\"isEdited\": true"))) {
@@ -475,18 +480,19 @@ public class MessengerService {
                 .id(m.getId())
                 .senderId(m.getSender().getUserID())
                 .receiverId(m.getReceiver().getUserID())
-                .content(m.isDeleted() ? "Tin nhắn đã bị thu hồi" : m.getContent()) // [MỚI] Check delete
+                .content(m.isDeleted() ? "Tin nhắn đã bị thu hồi" : m.getContent())
                 .type(m.getType())
                 .mediaUrl(m.getMediaUrl())
                 .status(m.getStatus())
                 .timestamp(m.getTimestamp())
                 .formattedTime(m.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm")))
                 .senderAvatar(avatar)
-                .isDeleted(m.isDeleted()) // [MỚI]
-                .replyTo(replyDto)        // [MỚI]
+                .isDeleted(m.isDeleted())
+                .replyTo(replyDto)
                 .isPinned(m.isPinned())
                 .isEdited(isEdited)
                 .reactions(reactionMap)
+                .userReaction(userReaction)
                 .callDuration(m.getCallDuration())
                 .callStatus(m.getCallStatus() != null ? m.getCallStatus().name() : null)
                 .build();
@@ -513,38 +519,86 @@ public class MessengerService {
     // [MỚI] Lấy danh sách Media shared
     public List<MessengerDto.MessageDto> getSharedMedia(Integer currentUserId, Integer partnerId) {
         List<MessengerMessage> media = messengerRepository.findSharedMedia(currentUserId, partnerId);
-        return media.stream().map(this::convertToMessageDto).collect(Collectors.toList());
+        return media.stream().map(m -> convertToMessageDto(m, currentUserId)).collect(Collectors.toList());
+    }
+
+    // [MỚI] Lấy danh sách Links shared
+    public List<MessengerDto.MessageDto> getSharedLinks(Integer currentUserId, Integer partnerId) {
+        List<MessengerMessage> links = messengerRepository.findSharedLinks(currentUserId, partnerId);
+        return links.stream().map(m -> convertToMessageDto(m, currentUserId)).collect(Collectors.toList());
     }
 
     // Reaction in-memory store + DB metadata persistence
     private final Map<Long, Map<String, Integer>> messageReactions = new java.util.concurrent.ConcurrentHashMap<>();
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-    public Map<String, Integer> addOrToggleReaction(Long messageId, Integer userId, String emoji) {
+    @Transactional
+    public Map<String, Object> addOrToggleReaction(Long messageId, Integer userId, String emoji) {
         MessengerMessage message = messengerRepository.findById(messageId).orElse(null);
-        Map<String, Integer> reactions = messageReactions.computeIfAbsent(messageId, k -> {
-            if (message != null && message.getMetadata() != null) {
-                return new java.util.concurrent.ConcurrentHashMap<>(getReactions(messageId, message.getMetadata()));
-            }
-            return new java.util.concurrent.ConcurrentHashMap<>();
-        });
-        reactions.merge(emoji, 1, Integer::sum);
+        if (message == null) {
+            return Map.of("reactions", Collections.emptyMap());
+        }
 
-        if (message != null) {
+        Map<String, Object> metaMap = new HashMap<>();
+        if (message.getMetadata() != null && message.getMetadata().startsWith("{")) {
             try {
-                Map<String, Object> metaMap = new HashMap<>();
-                if (message.getMetadata() != null && message.getMetadata().startsWith("{")) {
-                    try {
-                        metaMap = objectMapper.readValue(message.getMetadata(), Map.class);
-                    } catch (Exception ignored) {}
-                }
-                metaMap.put("reactions", new HashMap<>(reactions));
-                message.setMetadata(objectMapper.writeValueAsString(metaMap));
-                messengerRepository.save(message);
+                metaMap = objectMapper.readValue(message.getMetadata(), Map.class);
             } catch (Exception ignored) {}
         }
 
-        return new java.util.HashMap<>(reactions);
+        Map<String, String> userReactions = new HashMap<>();
+        if (metaMap.containsKey("userReactions") && metaMap.get("userReactions") instanceof Map) {
+            ((Map<?, ?>) metaMap.get("userReactions")).forEach((k, v) -> {
+                if (k != null && v != null) userReactions.put(k.toString(), v.toString());
+            });
+        }
+
+        String userKey = String.valueOf(userId);
+        String previousEmoji = userReactions.get(userKey);
+        String currentEmoji = null;
+
+        if (emoji.equals(previousEmoji)) {
+            // Clicked same emoji -> TOGGLE OFF / REMOVE
+            userReactions.remove(userKey);
+        } else {
+            // New emoji or switched emoji -> SET
+            userReactions.put(userKey, emoji);
+            currentEmoji = emoji;
+        }
+
+        // Recompute summary reactions: { "❤️": count, ... }
+        Map<String, Integer> summary = new HashMap<>();
+        for (String e : userReactions.values()) {
+            summary.merge(e, 1, Integer::sum);
+        }
+
+        metaMap.put("userReactions", userReactions);
+        metaMap.put("reactions", summary);
+        try {
+            message.setMetadata(objectMapper.writeValueAsString(metaMap));
+            messengerRepository.save(message);
+        } catch (Exception ignored) {}
+
+        messageReactions.put(messageId, new java.util.concurrent.ConcurrentHashMap<>(summary));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("reactions", summary);
+        result.put("userReaction", currentEmoji); // null if removed
+        return result;
+    }
+
+    public String getUserReaction(Long messageId, Integer userId, String metadata) {
+        if (userId == null) return null;
+        if (metadata != null && metadata.startsWith("{")) {
+            try {
+                Map<String, Object> map = objectMapper.readValue(metadata, Map.class);
+                if (map.containsKey("userReactions") && map.get("userReactions") instanceof Map) {
+                    Object val = ((Map<?, ?>) map.get("userReactions")).get(String.valueOf(userId));
+                    if (val != null) return val.toString();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
     public Map<String, Integer> getReactions(Long messageId) {

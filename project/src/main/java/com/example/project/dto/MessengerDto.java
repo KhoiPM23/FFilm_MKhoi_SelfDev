@@ -76,6 +76,7 @@ public class MessengerDto {
         private Boolean isPinned;
         private Boolean isEdited;
         private java.util.Map<String, Integer> reactions;
+        private String userReaction;
         private Integer callDuration;
         private String callStatus;
     }

@@ -153,4 +153,104 @@ public class PassV5MessengerCoverageIntegrationTest {
         List<MessengerMessage> pinnedAfter = messengerService.getPinnedMessages(sender.getUserID(), receiver.getUserID());
         Assertions.assertFalse(pinnedAfter.stream().anyMatch(m -> m.getId().equals(sentMsg.getId())));
     }
+
+    @Test
+    @Transactional
+    public void testReactionToggleAndUserSpecificState() {
+        List<User> users = userRepository.findAll();
+        Assertions.assertTrue(users.size() >= 2, "Need at least two seeded users");
+
+        User userA = users.get(0);
+        User userB = users.get(1);
+
+        // Send a test message
+        MessengerDto.SendMessageRequest sendReq = new MessengerDto.SendMessageRequest();
+        sendReq.setReceiverId(userB.getUserID());
+        sendReq.setContent("Message for reaction toggle test");
+        sendReq.setType(MessengerMessage.MessageType.TEXT);
+
+        MessengerDto.MessageDto sentMsg = messengerService.sendMessage(userA.getUserID(), sendReq);
+        Long msgId = sentMsg.getId();
+
+        // 1. UserA reacts with "❤️"
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> r1 = messengerService.addOrToggleReaction(msgId, userA.getUserID(), "❤️");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Integer> summary1 = (java.util.Map<String, Integer>) r1.get("reactions");
+        Assertions.assertEquals(1, summary1.get("❤️"));
+        Assertions.assertEquals("❤️", r1.get("userReaction"));
+
+        // 2. UserB reacts with "❤️" -> total count becomes 2
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> r2 = messengerService.addOrToggleReaction(msgId, userB.getUserID(), "❤️");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Integer> summary2 = (java.util.Map<String, Integer>) r2.get("reactions");
+        Assertions.assertEquals(2, summary2.get("❤️"));
+        Assertions.assertEquals("❤️", r2.get("userReaction"));
+
+        // 3. UserA switches reaction from "❤️" to "👍"
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> r3 = messengerService.addOrToggleReaction(msgId, userA.getUserID(), "👍");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Integer> summary3 = (java.util.Map<String, Integer>) r3.get("reactions");
+        Assertions.assertEquals(1, summary3.get("❤️"));
+        Assertions.assertEquals(1, summary3.get("👍"));
+        Assertions.assertEquals("👍", r3.get("userReaction"));
+
+        // 4. UserA clicks "👍" again -> toggles off!
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> r4 = messengerService.addOrToggleReaction(msgId, userA.getUserID(), "👍");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Integer> summary4 = (java.util.Map<String, Integer>) r4.get("reactions");
+        Assertions.assertNull(summary4.get("👍"));
+        Assertions.assertNull(r4.get("userReaction"));
+        Assertions.assertEquals(1, summary4.get("❤️")); // UserB's reaction remains
+
+        // 5. Verify getChatHistory populates userReaction accurately per viewer
+        List<MessengerDto.MessageDto> historyForUserA = messengerService.getChatHistory(userA.getUserID(), userB.getUserID());
+        MessengerDto.MessageDto msgForA = historyForUserA.stream().filter(m -> m.getId().equals(msgId)).findFirst().orElseThrow();
+        Assertions.assertNull(msgForA.getUserReaction());
+
+        List<MessengerDto.MessageDto> historyForUserB = messengerService.getChatHistory(userB.getUserID(), userA.getUserID());
+        MessengerDto.MessageDto msgForB = historyForUserB.stream().filter(m -> m.getId().equals(msgId)).findFirst().orElseThrow();
+        Assertions.assertEquals("❤️", msgForB.getUserReaction());
+    }
+
+    @Test
+    @Transactional
+    public void testSharedLinksQuery() {
+        List<User> users = userRepository.findAll();
+        Assertions.assertTrue(users.size() >= 2, "Need at least two seeded users");
+
+        User userA = users.get(0);
+        User userB = users.get(1);
+
+        // Message 1: plain text
+        MessengerDto.SendMessageRequest msg1 = new MessengerDto.SendMessageRequest();
+        msg1.setReceiverId(userB.getUserID());
+        msg1.setContent("Xin chào bạn, hôm nay thế nào?");
+        msg1.setType(MessengerMessage.MessageType.TEXT);
+        messengerService.sendMessage(userA.getUserID(), msg1);
+
+        // Message 2: text with https URL
+        MessengerDto.SendMessageRequest msg2 = new MessengerDto.SendMessageRequest();
+        msg2.setReceiverId(userB.getUserID());
+        msg2.setContent("Xem phim tại https://ffilm.com/movie/123 nhé!");
+        msg2.setType(MessengerMessage.MessageType.TEXT);
+        messengerService.sendMessage(userA.getUserID(), msg2);
+
+        // Message 3: text with http URL
+        MessengerDto.SendMessageRequest msg3 = new MessengerDto.SendMessageRequest();
+        msg3.setReceiverId(userB.getUserID());
+        msg3.setContent("Tham khảo link http://example.com/test này nữa");
+        msg3.setType(MessengerMessage.MessageType.TEXT);
+        messengerService.sendMessage(userA.getUserID(), msg3);
+
+        // Query shared links
+        List<MessengerDto.MessageDto> links = messengerService.getSharedLinks(userA.getUserID(), userB.getUserID());
+        Assertions.assertTrue(links.size() >= 2);
+        Assertions.assertTrue(links.stream().anyMatch(l -> l.getContent().contains("https://ffilm.com/movie/123")));
+        Assertions.assertTrue(links.stream().anyMatch(l -> l.getContent().contains("http://example.com/test")));
+        Assertions.assertFalse(links.stream().anyMatch(l -> l.getContent().equals("Xin chào bạn, hôm nay thế nào?")));
+    }
 }

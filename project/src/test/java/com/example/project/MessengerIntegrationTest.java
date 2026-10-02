@@ -62,10 +62,14 @@ public class MessengerIntegrationTest {
         Assertions.assertEquals("Hello Realtime Messenger!", sent.getContent());
 
         // 2. Add and persist reaction
-        Map<String, Integer> reactions = messengerService.addOrToggleReaction(sent.getId(), sender.getUserID(), "❤️");
+        Map<String, Object> reactionRes = messengerService.addOrToggleReaction(sent.getId(), sender.getUserID(), "❤️");
+        Assertions.assertNotNull(reactionRes);
+        @SuppressWarnings("unchecked")
+        Map<String, Integer> reactions = (Map<String, Integer>) reactionRes.get("reactions");
         Assertions.assertNotNull(reactions);
         Assertions.assertTrue(reactions.containsKey("❤️"));
         Assertions.assertEquals(1, reactions.get("❤️"));
+        Assertions.assertEquals("❤️", reactionRes.get("userReaction"));
 
         // Verify metadata persistence in DB
         MessengerMessage savedMsg = messengerRepository.findById(sent.getId()).orElse(null);

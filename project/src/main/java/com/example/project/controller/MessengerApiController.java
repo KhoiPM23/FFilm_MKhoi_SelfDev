@@ -234,7 +234,7 @@ public class MessengerApiController {
         }
     }
 
-    // API Thả cảm xúc
+    // API Thả cảm xúc (Toggle / Switch / Remove)
     @PostMapping("/reaction")
     public ResponseEntity<?> addReaction(
             @RequestParam Long messageId,
@@ -250,13 +250,19 @@ public class MessengerApiController {
             return ResponseEntity.status(403).body("Không có quyền thả cảm xúc vào cuộc trò chuyện này");
         }
 
-        Map<String, Integer> reactions = messengerService.addOrToggleReaction(messageId, user.getId(), emoji);
+        Map<String, Object> reactionResult = messengerService.addOrToggleReaction(messageId, user.getId(), emoji);
+        @SuppressWarnings("unchecked")
+        Map<String, Integer> reactions = (Map<String, Integer>) reactionResult.get("reactions");
+        String userReaction = (String) reactionResult.get("userReaction");
         
         try {
             Map<String, Object> reactionSignal = Map.of(
                 "type", "REACTION",
                 "messageId", messageId,
-                "reactions", reactions
+                "reactions", reactions,
+                "userId", user.getId(),
+                "emoji", emoji,
+                "userReaction", userReaction != null ? userReaction : ""
             );
             Integer partnerId = (msg.getSender().getUserID() == user.getId())
                 ? msg.getReceiver().getUserID() : msg.getSender().getUserID();
@@ -268,7 +274,11 @@ public class MessengerApiController {
             log.error("Failed to broadcast reaction", e);
         }
 
-        return ResponseEntity.ok(Map.of("success", true, "reactions", reactions));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "reactions", reactions,
+            "userReaction", userReaction != null ? userReaction : ""
+        ));
     }
 
     // [MỚI] API lấy Media cho Sidebar phải
@@ -280,6 +290,17 @@ public class MessengerApiController {
         if (user == null) return ResponseEntity.status(401).build();
         
         return ResponseEntity.ok(messengerService.getSharedMedia(user.getId(), partnerId));
+    }
+
+    // [MỚI] API lấy Links cho Sidebar phải
+    @GetMapping("/links/{partnerId}")
+    public ResponseEntity<List<MessengerDto.MessageDto>> getSharedLinks(
+            @PathVariable Integer partnerId,
+            HttpSession session) {
+        UserSessionDto user = getUserFromSession(session);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        return ResponseEntity.ok(messengerService.getSharedLinks(user.getId(), partnerId));
     }
 
     // ============= FIX 1: Sửa endpoint call-log với repository =============
