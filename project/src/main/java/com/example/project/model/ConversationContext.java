@@ -58,6 +58,7 @@ public class ConversationContext implements Serializable {
     public void setShownMovieIds(List<Integer> shownMovieIds) { this.shownMovieIds = shownMovieIds; }
     public void addShownMovieId(Integer id) { this.shownMovieIds.add(id); }
     public void addShownMovieIds(List<Integer> ids) { this.shownMovieIds.addAll(ids); }
+    public void clearShownMovieIds() { this.shownMovieIds.clear(); }
 
     public List<Integer> getShownPersonIds() { return shownPersonIds; }
     public void setShownPersonIds(List<Integer> shownPersonIds) { this.shownPersonIds = shownPersonIds; }

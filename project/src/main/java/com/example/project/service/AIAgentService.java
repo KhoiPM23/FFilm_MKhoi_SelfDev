@@ -365,10 +365,20 @@ public class AIAgentService {
             }
         }
 
-        // 2. Tra cứu phim theo tên trên FFilm
-        List<Movie> foundMovies = movieService.searchMoviesByTitle(subject);
+        // 2. Tra cứu phim theo tên trên FFilm (exact/partial match)
+        List<Movie> foundMovies = findMoviesRanked(subject);
+
+        // 3. Nếu không tìm được → thử dịch tiêu đề tiếng Anh sang tiếng Việt qua Gemini
         if (foundMovies.isEmpty() && !subject.isEmpty()) {
-            foundMovies = movieRepository.findByTitleContainingIgnoreCase(subject);
+            String translatedTitle = resolveEnglishTitleWithGemini(subject);
+            if (translatedTitle != null && !translatedTitle.equalsIgnoreCase(subject)) {
+                log.info("Title translation: '{}' -> '{}'", subject, translatedTitle);
+                foundMovies = findMoviesRanked(translatedTitle);
+                if (!foundMovies.isEmpty()) {
+                    // Thông báo rõ đây là bản dịch
+                    subject = translatedTitle;
+                }
+            }
         }
 
         if (!foundMovies.isEmpty()) {
@@ -390,7 +400,7 @@ public class AIAgentService {
             return createResponse(answer, cards, actions);
         }
 
-        // 3. Fallback: Tra cứu theo nghệ sĩ / người
+        // 4. Fallback: Tra cứu theo nghệ sĩ / người
         List<Map<String, Object>> personMovies = movieService.searchMoviesCombined(subject);
         if (!personMovies.isEmpty()) {
             context.setLastFocusedPerson(subject);
@@ -402,7 +412,7 @@ public class AIAgentService {
             return createResponse(answer, personMovies.stream().limit(10).collect(Collectors.toList()));
         }
 
-        // 4. Nếu phim không có trên FFilm: Báo rõ ràng và gợi ý phim hot FFilm
+        // 5. Nếu phim không có trên FFilm: Báo rõ ràng và gợi ý phim hot FFilm
         List<Movie> hotFallback = movieService.getHotMoviesForAI(5);
         String notFoundMsg = "Hiện tại bộ phim hoặc thông tin về **\"" + subject + "\"** chưa có trong kho phim của FFilm. " +
                 "Tuy nhiên, FFilm có những tác phẩm đặc sắc đang được yêu thích dưới đây, mời bạn tham khảo nhé:";
@@ -491,29 +501,49 @@ public class AIAgentService {
             filters.setGenres(genreNames);
             List<Movie> matching = movieService.findMoviesByFilters(filters);
 
-            // Loại trừ chính phim gốc
+            // Loại trừ chính phim gốc và các phim đã hiện trước đó
             final int baseMovieId = baseMovie.getMovieID();
+            Set<Integer> alreadyShown = new java.util.HashSet<>(context.getShownMovieIds());
             candidates = matching.stream()
-                    .filter(m -> m.getMovieID() != baseMovieId)
+                    .filter(m -> m.getMovieID() != baseMovieId && !alreadyShown.contains(m.getMovieID()))
                     .collect(Collectors.toList());
+
+            // Nếu lọc xong rỗng (đã xem hết vòng) → reset và lấy lại toàn bộ trừ phim gốc
+            if (candidates.isEmpty()) {
+                context.clearShownMovieIds();
+                candidates = matching.stream()
+                        .filter(m -> m.getMovieID() != baseMovieId)
+                        .collect(Collectors.toList());
+            }
 
             // Áp dụng bộ lọc tùy biến nếu có modifier
             if (!modifier.isEmpty()) {
                 String modLower = modifier.toLowerCase();
-                if (modLower.contains("nhẹ nhàng") || modLower.contains("hài") || modLower.contains("chill")) {
-                    candidates = candidates.stream()
+                if (modLower.contains("nhẹ nhàng") || modLower.contains("nhẹ hơn") || modLower.contains("hài") || modLower.contains("chill")) {
+                    List<Movie> filtered = candidates.stream()
                             .filter(m -> getMovieGenreNames(m).contains("Hài") || getMovieGenreNames(m).contains("Gia đình") || getMovieGenreNames(m).contains("Lãng mạn"))
                             .collect(Collectors.toList());
+                    if (!filtered.isEmpty()) candidates = filtered;
                 } else if (modLower.contains("mới") || modLower.contains("gần đây")) {
                     candidates = candidates.stream()
                             .sorted((a, b) -> Integer.compare(
                                     b.getReleaseDate() != null ? b.getReleaseDate().getYear() : 0,
                                     a.getReleaseDate() != null ? a.getReleaseDate().getYear() : 0))
                             .collect(Collectors.toList());
-                } else if (modLower.contains("rating cao") || modLower.contains("điểm cao")) {
+                } else if (modLower.contains("rating cao") || modLower.contains("điểm cao") || modLower.contains("cao hơn")) {
                     candidates = candidates.stream()
                             .sorted((a, b) -> Float.compare(b.getRating(), a.getRating()))
                             .collect(Collectors.toList());
+                } else {
+                    // Unknown modifier: shuffle for variety
+                    Collections.shuffle(candidates);
+                }
+            } else {
+                // No modifier: shuffle top candidates for diversity across calls
+                if (candidates.size() > 10) {
+                    List<Movie> pool = candidates.subList(0, Math.min(candidates.size(), 20));
+                    Collections.shuffle(pool);
+                    candidates = pool;
                 }
             }
         }
@@ -522,7 +552,11 @@ public class AIAgentService {
             candidates = movieService.getHotMoviesForAI(5);
         }
 
-        List<Map<String, Object>> cards = candidates.stream().limit(5)
+        List<Movie> result = candidates.stream().limit(5).collect(Collectors.toList());
+        // Đánh dấu các phim đã hiện để tránh lặp lại ở turn sau
+        result.forEach(m -> context.addShownMovieId(m.getMovieID()));
+
+        List<Map<String, Object>> cards = result.stream()
                 .map(movieService::convertToMap)
                 .collect(Collectors.toList());
         context.setLastCandidateMovies(cards);
@@ -1204,12 +1238,61 @@ public class AIAgentService {
 
     // ---- 12. HELPER UTILITIES ----
 
+    /**
+     * Tìm danh sách phim theo tên, ưu tiên exact match > starts-with > contains.
+     * Giúp tránh trả về phim sai (ví dụ: "Interstellar: Nolan's Odyssey" thay vì Interstellar thật).
+     */
+    private List<Movie> findMoviesRanked(String name) {
+        if (name == null || name.trim().isEmpty()) return Collections.emptyList();
+        String n = name.trim();
+        List<Movie> all = movieRepository.findByTitleContainingIgnoreCase(n);
+        if (all.isEmpty()) return all;
+        String nUpper = n.toUpperCase();
+        // Ưu tiên: exact → starts-with → contains
+        List<Movie> exact = all.stream().filter(m -> m.getTitle().equalsIgnoreCase(n)).collect(Collectors.toList());
+        if (!exact.isEmpty()) return exact;
+        List<Movie> starts = all.stream().filter(m -> m.getTitle().toUpperCase().startsWith(nUpper)).collect(Collectors.toList());
+        if (!starts.isEmpty()) return starts;
+        return all;
+    }
+
     private Movie findSingleMovie(String name) {
         if (name == null || name.trim().isEmpty()) return null;
-        List<Movie> found = movieService.searchMoviesByTitle(name.trim());
-        if (!found.isEmpty()) return found.get(0);
-        List<Movie> foundPartial = movieRepository.findByTitleContainingIgnoreCase(name.trim());
-        return foundPartial.isEmpty() ? null : foundPartial.get(0);
+        // Thử bản dịch tiếng Anh → tiếng Việt nếu không tìm được
+        List<Movie> ranked = findMoviesRanked(name.trim());
+        if (!ranked.isEmpty()) return ranked.get(0);
+        // Thử translate nếu chuỗi có vẻ là tiếng Anh
+        String translated = resolveEnglishTitleWithGemini(name.trim());
+        if (translated != null && !translated.equalsIgnoreCase(name.trim())) {
+            List<Movie> translatedResults = findMoviesRanked(translated);
+            if (!translatedResults.isEmpty()) return translatedResults.get(0);
+        }
+        return null;
+    }
+
+    /**
+     * Dùng Gemini để dịch tên phim tiếng Anh → tên phim tiếng Việt phổ biến nhất tại Việt Nam.
+     * Chỉ gọi khi DB lookup thất bại.
+     * @return tên Việt của phim, hoặc null nếu không dịch được.
+     */
+    private String resolveEnglishTitleWithGemini(String englishTitle) {
+        if (englishTitle == null || englishTitle.trim().isEmpty()) return null;
+        // Chỉ thử dịch nếu input có vẻ là Latin (tiếng Anh/nước ngoài)
+        if (englishTitle.matches(".*[\\u0080-\\uFFFF].*")) return null; // đã có tiếng Việt
+        try {
+            String prompt = "Bạn là chuyên gia dịch tên phim. Hãy cho biết tên tiếng Việt phổ biến nhất tại Việt Nam của bộ phim có tên gốc tiếng Anh sau: \"" + englishTitle + "\".\n" +
+                    "Chỉ trả về DUY NHẤT tên phim tiếng Việt, không thêm bất kỳ nội dung nào khác. Nếu không biết, trả về chuỗi rỗng.";
+            JSONObject req = buildGeminiRequest_Simple(prompt);
+            JSONObject res = callGeminiAPI(req);
+            String text = extractTextResponse(res);
+            if (text != null) {
+                text = text.trim().replaceAll("[\"']", "");
+                if (!text.isEmpty() && text.length() < 150) return text;
+            }
+        } catch (Exception e) {
+            log.debug("Title translation via Gemini failed for '{}': {}", englishTitle, e.getMessage());
+        }
+        return null;
     }
 
     private String getMovieGenreNames(Movie movie) {

@@ -1516,6 +1516,10 @@
 
                     if (data.success) {
                         addBotMessage(data.message, data.movies, data.actions);
+                        // Nếu bot không trả về action chips, làm mới suggestions theo ngữ cảnh
+                        if (!data.actions || data.actions.length === 0) {
+                            refreshSuggestions();
+                        }
                     } else {
                         const fallbackActions = [
                             { type: "CHIP_REPLY", label: "🔥 Xem phim hot", text: "Top phim thịnh hành nhất hiện nay trên FFilm" },
