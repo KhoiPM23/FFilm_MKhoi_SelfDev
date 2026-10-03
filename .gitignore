@@ -17,3 +17,6 @@ src/main/resources/static/uploads/chat/
 **/uploads/chat/
 # Ignore AI working memory
 .ai-local/
+
+# Cho phep commit prod profile (chi chua env var references, khong chua secrets)
+!**/application-prod.properties

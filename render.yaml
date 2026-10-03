@@ -1,0 +1,51 @@
+﻿# =============================================================
+# render.yaml — FFilm Render.com deployment configuration
+# Docs: https://render.com/docs/blueprint-spec
+# =============================================================
+services:
+  - type: web
+    name: ffilm
+    runtime: docker
+    dockerfilePath: ./project/Dockerfile
+    dockerContext: ./project
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      # ---- Database (Azure SQL) ----
+      - key: DB_URL
+        sync: false        # Set manually in Render dashboard (contains password)
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # ---- Google OAuth2 ----
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # ---- Gemini AI ----
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # ---- Email (Resend API) ----
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+
+      # ---- App base URL (auto-set after first deploy, replace placeholder) ----
+      - key: APP_BASE_URL
+        value: https://ffilm.onrender.com
+
+      # ---- Optional ----
+      - key: TMDB_API_KEY
+        value: 148c2d2c497b43450ec77686438576b8
+      - key: TENOR_API_KEY
+        sync: false
+      - key: VNPAY_HASH_SECRET
+        sync: false
