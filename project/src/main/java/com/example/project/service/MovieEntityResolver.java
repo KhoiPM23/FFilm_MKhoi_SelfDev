@@ -208,13 +208,25 @@ public class MovieEntityResolver {
      */
     public List<Movie> getPersonMovies(String personName) {
         if (personName == null || personName.trim().isEmpty()) return Collections.emptyList();
-        List<Map<String, Object>> mapList = movieService.searchMoviesCombined(personName.trim());
+        String pTrim = personName.trim();
+        List<Person> matchedPersons = personRepository.findByFullNameContainingIgnoreCase(pTrim);
+        Set<Integer> movieIds = new HashSet<>();
         List<Movie> result = new ArrayList<>();
-        for (Map<String, Object> m : mapList) {
-            Object idObj = m.get("id");
-            if (idObj != null) {
-                int mid = ((Number) idObj).intValue();
-                movieRepository.findById(mid).ifPresent(result::add);
+        if (!matchedPersons.isEmpty()) {
+            for (Person p : matchedPersons) {
+                List<MoviePerson> mps = moviePersonRepository.findByPersonID(p.getPersonID());
+                for (MoviePerson mp : mps) {
+                    if (movieIds.add(mp.getMovieID())) {
+                        movieRepository.findById(mp.getMovieID()).ifPresent(result::add);
+                    }
+                }
+            }
+        }
+        // Tra cứu thêm vai trò đạo diễn
+        List<Movie> byDirector = movieRepository.findByDirectorContainingIgnoreCase(pTrim);
+        for (Movie m : byDirector) {
+            if (movieIds.add(m.getMovieID())) {
+                result.add(m);
             }
         }
         return result;

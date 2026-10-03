@@ -180,21 +180,25 @@ public class AIAgentService {
             "9. SUBSCRIPTION_INFO: Hỏi về gói cước, giá vé, thanh toán, hủy gói, chính sách hoàn tiền.\n" +
             "   Trường: intent='SUBSCRIPTION_INFO', subscription_query='plans'|'price'|'cancel'|'payment'|'refund'.\n" +
             "10. CHITCHAT: Chào hỏi xã giao, cảm ơn, khen ngợi, hoặc từ chối ngắn ('thôi', 'bỏ', 'ok').\n" +
-            "   Trường: intent='CHITCHAT', reply (câu phản hồi thân thiện, ấm áp về FFilm).\n\n" +
+            "   Trường: intent='CHITCHAT', reply (câu phản hồi thân thiện, ấm áp về FFilm).\n" +
+            "11. CONVERSATION_MEMORY: Người dùng hỏi lại về quá khứ/lịch sử của cuộc trò chuyện (vd: 'lúc đầu tôi nói điều kiện gì', 'phim đầu tiên tôi xem là gì', 'tôi vừa loại thể loại nào', 'lúc nãy tôi hỏi ai').\n" +
+            "   Trường: intent='CONVERSATION_MEMORY', reply (câu trả lời chính xác, trung thực dựa trên LỊCH SỬ HỘI THOẠI).\n\n" +
             "# NGUYÊN TẮC CHUẨN HÓA THỰC THỂ & SỬA LỖI CHÍNH TẢ (BẮT BUỘC):\n" +
             "- Sửa lỗi chính tả tên phim/người: 'incepion' -> Inception (Kẻ Cắp Giấc Mơ), 'interstelar'/'interstella' -> Interstellar (Hố Đen Tử Thần), 'batmn' -> Batman (Kỵ Sĩ Bóng Đêm), 'spidermn'/'spider man' -> Spider-Man (Người Nhện), 'ke cap giac mo' -> Kẻ Cắp Giấc Mơ, 'phim no lan' -> Christopher Nolan, 'leonardo' -> Leonardo DiCaprio.\n" +
             "- Nếu là phim nước ngoài nổi tiếng, luôn cung cấp cả original_title (tiếng Anh) và vietnamese_title (tên phát hành tại VN) để hệ thống tra cứu đa tầng.\n\n" +
             "# QUY TẮC GIẢI QUYẾT TIÊU CHÍ PHỦ ĐỊNH (NEGATIVE PREFERENCES):\n" +
             "- Nếu người dùng nói: 'không kinh dị', 'đừng kinh dị', 'không thích phim buồn', 'không romance' -> đưa vào excluded_genres.\n" +
             "- Nếu người dùng nói: 'không muốn phim Nolan', 'không phải của Nolan', 'đừng của Christopher Nolan' -> đưa vào excluded_directors.\n" +
-            "- Nếu người dùng đổi ý mâu thuẫn (vd trước đó chọn kinh dị, giờ nói 'thực ra tôi ghét kinh dị' hoặc 'thôi không kinh dị nữa') -> context_action='CONTRADICT', đưa 'Kinh dị' vào excluded_genres.\n\n" +
+            "- Nếu người dùng đổi ý mâu thuẫn (vd trước đó chọn kinh dị, giờ nói 'thực ra tôi ghét kinh dị' hoặc 'thôi không kinh dị nữa') -> context_action='CONTRADICT', đưa 'Kinh dị' vào excluded_genres.\n" +
+            "- Nếu người dùng nói: 'không cần hàn nữa', 'bỏ hàn', 'không giới hạn quốc gia' -> f_country=null, context_action='SWITCH'.\n\n" +
             "# QUY TẮC GIẢI QUYẾT THAM CHIẾU & ĐẠI TỪ (BẮT BUỘC):\n" +
             "- Nếu câu hỏi dùng đại từ ('nó', 'phim này', 'bộ này', 'đây', 'ai đóng', 'nội dung thế nào'): Ưu tiên lấy tên phim từ [NGỮ CẢNH TRANG HIỆN TẠI] (nếu trang là movie_detail) hoặc bộ phim vừa thảo luận gần nhất.\n" +
             "- Nếu câu hỏi nói 'phim thứ hai', 'phim thứ 2', 'cái 2', 'bộ đầu tiên', 'phim cuối': Lấy chính xác tên phim theo số thứ tự từ danh sách đề xuất turn trước.\n" +
+            "- Nếu câu hỏi nói 'người đầu tiên', 'diễn viên đầu', 'người thứ 2': Lấy tên diễn viên theo thứ tự từ dàn diễn viên vừa được liệt kê trong lượt trả lời trước.\n" +
             "- Nếu câu hỏi nói 'diễn viên đó', 'người đó', 'ông này', 'anh ấy', 'cô ấy': Lấy tên diễn viên vừa được nhắc tới trong lượt trả lời trước.\n" +
-            "- Nếu người dùng đổi ý ('không, phim hàn', 'thôi phim mỹ', 'thực ra cho tôi kinh dị'): Đánh dấu context_action='SWITCH' và cập nhật tiêu chí mới.\n" +
+            "- Nếu người dùng đổi ý ('không, phim hàn', 'thôi phim mỹ', 'thực ra cho tôi kinh dị', 'tôi đổi ý'): Đánh dấu context_action='SWITCH' và cập nhật tiêu chí mới.\n" +
             "- Nếu người dùng thu hẹp tiếp ('scifi', 'phim của hàn quốc', 'mới nhất', 'ngắn thôi', 'dưới 2 tiếng', 'rating trên 7.5'): Đánh dấu context_action='NARROW' và giữ lại các tiêu chí hợp lệ từ trước.\n" +
-            "- Nếu người dùng muốn hoàn tác ('quay lại', 'bỏ điều kiện vừa rồi', 'danh sách trước'): Đánh dấu context_action='BACKTRACK'.\n\n" +
+            "- Nếu người dùng muốn hoàn tác ('quay lại', 'bỏ điều kiện vừa rồi', 'danh sách trước', 'danh sách trước đó nữa'): Đánh dấu context_action='BACKTRACK'.\n\n" +
             "# LỊCH SỬ HỘI THOẠI & NGỮ CẢNH TRANG HIỆN TẠI:\n" +
             "%s\n\n" +
             "# CÂU HỎI HIỆN TẠI:\n" +
@@ -301,16 +305,18 @@ public class AIAgentService {
             }
         }
 
-        // 4. Kiểm tra nhanh shortcut liệt kê thể loại
-        if (cleanMsg.contains("liệt kê") && cleanMsg.contains("thể loại")) {
+        // 4. Kiểm tra nhanh shortcut liệt kê thể loại (chỉ áp dụng cho câu ngắn yêu cầu xem danh sách thể loại)
+        if (cleanMsg.length() < 60 && (cleanMsg.matches(".*(liệt kê|danh sách|có những|các)\\s+thể loại.*") || cleanMsg.equals("thể loại"))) {
             return createResponse(formatGenresResponse(genreRepository.findAll(), "tất cả thể loại"), null);
         }
 
-        // 5. Kiểm tra follow-up xem thêm thông thường
+        // 5. Kiểm tra follow-up xem thêm thông thường (chỉ áp dụng cho xác nhận ngắn hoặc yêu cầu xem thêm kết quả)
         boolean isFollowUp = context.getLastQuestionAsked() != null &&
+                !cleanMsg.contains("diễn viên") && !cleanMsg.contains("đạo diễn") && !cleanMsg.contains("ai đóng") &&
+                !cleanMsg.contains("phim nào") && !cleanMsg.contains("phim gì") &&
                 (cleanMsg.matches("^(có|co|ok|oke|ờ|u|uh|uhm|được|dc)$") ||
-                        cleanMsg.matches(".*(xem thêm|thêm|tiếp|nữa|còn|next).*") ||
-                        cleanMsg.matches(".*(còn nữa không|có gì khác).*") ||
+                        cleanMsg.matches(".*(xem thêm|xem tiếp|trang tiếp|next|hiển thị thêm).*") ||
+                        cleanMsg.matches("^(thêm|tiếp|nữa|còn|còn nữa không|có gì khác)$") ||
                         cleanMsg.matches(".*(của ổng|của bả|của anh ấy|của cô ấy).*"));
 
         if (isFollowUp) {
@@ -320,8 +326,13 @@ public class AIAgentService {
         }
 
         // 5b. Kiểm tra ordinal reference ("cái thứ hai", "phim 1", "bộ đầu tiên", "cái thứ 2", "cái cuối")
-        if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty() &&
-                cleanMsg.matches(".*(đầu tiên|thứ nhất|thứ 1|thứ hai|thứ 2|cái 1|cái 2|phim 1|phim 2|cái đầu|cái cuối|cái thứ 2|bộ 2|cái kia|bộ thứ 2).*")) {
+        boolean isNotMovieOrdinal = cleanMsg.contains("người") || cleanMsg.contains("diễn viên") || cleanMsg.contains("đạo diễn") ||
+                cleanMsg.contains("ai") || cleanMsg.contains("nói") || cleanMsg.contains("điều kiện") || cleanMsg.contains("gì") ||
+                cleanMsg.contains("sao") || cleanMsg.contains("như thế nào") || cleanMsg.contains("so sánh") ||
+                cleanMsg.contains("lúc đầu") || cleanMsg.contains("trước đó") || cleanMsg.length() > 35;
+
+        if (!isNotMovieOrdinal && context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty() &&
+                cleanMsg.matches(".*(đầu tiên|thứ nhất|thứ 1|thứ hai|thứ 2|thứ ba|thứ 3|thứ tư|thứ 4|thứ năm|thứ 5|cái 1|cái 2|cái 3|cái 4|phim 1|phim 2|cái đầu|cái cuối|cái kia|bộ 1|bộ 2).*")) {
             String resolvedTitle = resolveOrdinalReference(cleanMsg, context);
             if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.equalsIgnoreCase(cleanMsg)) {
                 Map<String, Object> foundCard = context.getLastCandidateMovies().stream()
@@ -340,8 +351,14 @@ public class AIAgentService {
                     context.setLastFocusedMovie(mMap);
                     context.setLastBaseMovie(mMap);
                     context.setLastCandidateMovies(List.of(mMap));
+                    context.setLastQuestionAsked(null);
                     if (!m.getPersons().isEmpty()) {
-                        context.setLastFocusedPerson(m.getPersons().iterator().next().getFullName());
+                        String dir = m.getDirector();
+                        Person leadActor = m.getPersons().stream()
+                                .filter(p -> dir == null || !dir.equalsIgnoreCase(p.getFullName()))
+                                .findFirst()
+                                .orElse(m.getPersons().iterator().next());
+                        context.setLastFocusedPerson(leadActor.getFullName());
                     }
                     if (m.getDirector() != null && !m.getDirector().isBlank()) {
                         context.setLastFocusedDirector(m.getDirector());
@@ -485,6 +502,10 @@ public class AIAgentService {
                     break;
                 case "SUBSCRIPTION_INFO":
                     result = createResponse(handleSubscriptionQuery(brain.optString("subscription_query", "plans")), null);
+                    break;
+                case "CONVERSATION_MEMORY":
+                    String memoryReply = brain.optString("reply", "Dựa theo cuộc trò chuyện của chúng ta...");
+                    result = createResponse(memoryReply, null);
                     break;
                 case "CHITCHAT":
                     String reply = brain.optString("reply", "Xin chào! Tôi là trợ lý Movie Intelligence của FFilm. Bạn đang tìm phim thể loại gì hôm nay?");
@@ -711,10 +732,22 @@ public class AIAgentService {
 
         StringBuilder answer = new StringBuilder();
         if (baseMovie != null) {
-            answer.append("Dựa trên bộ phim **").append(baseMovie.getTitle()).append("** (")
-                    .append(getMovieGenreNames(baseMovie))
-                    .append(modifier.isEmpty() ? "" : ", với tiêu chí **\"" + modifier + "\"**")
-                    .append("), FFilm gợi ý cho bạn các tác phẩm nổi bật sau:\n\n");
+            String dir = baseMovie.getDirector();
+            boolean isDirectorModifier = modifier.contains("cùng đạo diễn") || modifier.contains("chung đạo diễn");
+            boolean hasSameDirectorMatch = isDirectorModifier && !ranked.isEmpty() && dir != null &&
+                    ranked.get(0).getDirector() != null && ranked.get(0).getDirector().equalsIgnoreCase(dir);
+
+            if (isDirectorModifier && !hasSameDirectorMatch) {
+                answer.append("Hiện tại trên FFilm, đạo diễn **").append(dir != null ? dir : "của phim").append("** chưa có thêm tác phẩm nào khác. ")
+                        .append("Tuy nhiên, dựa trên bộ phim **").append(baseMovie.getTitle()).append("** (")
+                        .append(getMovieGenreNames(baseMovie))
+                        .append("), FFilm gợi ý cho bạn các tác phẩm có phong cách tương tự sau:\n\n");
+            } else {
+                answer.append("Dựa trên bộ phim **").append(baseMovie.getTitle()).append("** (")
+                        .append(getMovieGenreNames(baseMovie))
+                        .append(modifier.isEmpty() ? "" : ", với tiêu chí **\"" + modifier + "\"**")
+                        .append("), FFilm gợi ý cho bạn các tác phẩm nổi bật sau:\n\n");
+            }
             if (!ranked.isEmpty()) {
                 Movie topPick = ranked.get(0);
                 String groundReason = movieRecommendationEngine.buildGroundedExplanation(topPick, baseMovie, modifier);
@@ -760,29 +793,51 @@ public class AIAgentService {
             }
         }
 
-        // 2. Tra cứu phim của 1 người (hỗ trợ phân giải đại từ: "diễn viên đó", "đạo diễn đó", "ông ấy", "cô ấy")
+        // 2. Tra cứu phim của 1 người (hỗ trợ phân giải đại từ: "diễn viên đó", "đạo diễn đó", "ông ấy", "cô ấy", "diễn viên này")
         String personName = !p1.isEmpty() ? p1 : p2;
-        if (personName.isEmpty() || personName.matches(".*(diễn viên đó|dien vien do|người đó|nguoi do|anh ấy|cô ấy|ổng|bả|diễn viên này|đạo diễn đó|dao dien do|ông này|ông đó|người này).*")) {
-            if ("director".equalsIgnoreCase(role) && context.getLastFocusedDirector() != null) {
-                personName = context.getLastFocusedDirector();
-            } else if (context.getLastFocusedPerson() != null && !context.getLastFocusedPerson().isEmpty()) {
-                personName = context.getLastFocusedPerson();
-            } else if (context.getLastFocusedMovie() != null) {
-                Object midObj = context.getLastFocusedMovie().get("id");
-                if (midObj != null) {
-                    try {
-                        int mid = midObj instanceof Number ? ((Number) midObj).intValue() : Integer.parseInt(midObj.toString());
-                        Movie m = movieRepository.findById(mid).orElse(null);
-                        if (m != null) {
-                            if ("director".equalsIgnoreCase(role) && m.getDirector() != null && !m.getDirector().isEmpty()) {
-                                personName = m.getDirector();
-                                context.setLastFocusedDirector(personName);
-                            } else if (!m.getPersons().isEmpty()) {
-                                personName = m.getPersons().iterator().next().getFullName();
+        boolean isPronounOrMovie = personName.isEmpty()
+                || personName.matches(".*(diễn viên đó|dien vien do|người đó|nguoi do|anh ấy|cô ấy|ổng|bả|diễn viên này|đạo diễn đó|dao dien do|ông này|ông đó|người này).*")
+                || personName.toLowerCase().contains("vừa thảo luận")
+                || personName.equalsIgnoreCase("đạo diễn")
+                || personName.equalsIgnoreCase("diễn viên");
+
+        // CŨNG CẦN CHECK: nếu personName trùng với tên movie đang focus
+        if (!isPronounOrMovie && context.getLastFocusedMovie() != null) {
+            String focusedTitle = (String) context.getLastFocusedMovie().get("title");
+            if (focusedTitle != null && (focusedTitle.equalsIgnoreCase(personName)
+                    || personName.equalsIgnoreCase(String.valueOf(context.getLastFocusedMovie().get("vietnamese_title")))
+                    || personName.equalsIgnoreCase(String.valueOf(context.getLastFocusedMovie().get("original_title"))))) {
+                isPronounOrMovie = true;
+            }
+        }
+
+        if (isPronounOrMovie) {
+            if ("director".equalsIgnoreCase(role)) {
+                if (context.getLastFocusedDirector() != null && !context.getLastFocusedDirector().isBlank()) {
+                    personName = context.getLastFocusedDirector();
+                } else if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("director") != null) {
+                    personName = String.valueOf(context.getLastFocusedMovie().get("director"));
+                }
+            } else {
+                if (context.getLastFocusedPerson() != null && !context.getLastFocusedPerson().isBlank()) {
+                    personName = context.getLastFocusedPerson();
+                } else if (context.getLastFocusedMovie() != null) {
+                    Object midObj = context.getLastFocusedMovie().get("id");
+                    if (midObj != null) {
+                        try {
+                            int mid = midObj instanceof Number ? ((Number) midObj).intValue() : Integer.parseInt(midObj.toString());
+                            Movie m = movieRepository.findById(mid).orElse(null);
+                            if (m != null && !m.getPersons().isEmpty()) {
+                                String dir = m.getDirector();
+                                Person lead = m.getPersons().stream()
+                                        .filter(p -> dir == null || !dir.equalsIgnoreCase(p.getFullName()))
+                                        .findFirst()
+                                        .orElse(m.getPersons().iterator().next());
+                                personName = lead.getFullName();
                                 context.setLastFocusedPerson(personName);
                             }
-                        }
-                    } catch (Exception ignored) {}
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
         }
@@ -818,16 +873,8 @@ public class AIAgentService {
             return createResponse(answer, cards, actions);
         }
 
-        // Fallback: searchMoviesCombined
-        List<Map<String, Object>> fallbackMovies = movieService.searchMoviesCombined(personName);
-        if (!fallbackMovies.isEmpty()) {
-            context.setLastFocusedPerson(personName);
-            context.setLastCandidateMovies(fallbackMovies);
-            String answer = "Các tác phẩm liên quan đến nghệ sĩ **" + personName + "** trên FFilm:";
-            return createResponse(answer, fallbackMovies.stream().limit(10).collect(Collectors.toList()));
-        }
-
-        return createResponse("Không tìm thấy tác phẩm nào của nghệ sĩ **" + personName + "** trong cơ sở dữ liệu FFilm.", null);
+        String roleLabel = "director".equalsIgnoreCase(role) ? "đạo diễn" : "nghệ sĩ";
+        return createResponse("Không tìm thấy tác phẩm nào của " + roleLabel + " **" + personName + "** trong cơ sở dữ liệu FFilm.", null);
     }
 
     /**
@@ -1194,6 +1241,12 @@ public class AIAgentService {
 
         if (context.getLastFocusedMovie() != null) {
             sb.append("Phim vừa thảo luận: ").append(context.getLastFocusedMovie().get("title")).append("\n");
+        }
+        if (context.getLastFocusedPerson() != null && !context.getLastFocusedPerson().isBlank()) {
+            sb.append("Diễn viên/Nghệ sĩ vừa thảo luận: ").append(context.getLastFocusedPerson()).append("\n");
+        }
+        if (context.getLastFocusedDirector() != null && !context.getLastFocusedDirector().isBlank()) {
+            sb.append("Đạo diễn vừa thảo luận: ").append(context.getLastFocusedDirector()).append("\n");
         }
 
         return sb.toString().trim();
@@ -1583,7 +1636,8 @@ public class AIAgentService {
                 if (a != null) {
                     for (int i = 0; i < a.length(); i++) {
                         String gn = a.optString(i, "").trim();
-                        if (!gn.isEmpty()) g.add(gn);
+                        String norm = normalizeGenre(gn);
+                        if (norm != null && !norm.isEmpty() && !g.contains(norm)) g.add(norm);
                     }
                 }
                 if (!g.isEmpty()) {
@@ -1596,7 +1650,8 @@ public class AIAgentService {
                 if (a != null) {
                     for (int i = 0; i < a.length(); i++) {
                         String gn = a.optString(i, "").trim();
-                        if (!gn.isEmpty()) eg.add(gn);
+                        String norm = normalizeGenre(gn);
+                        if (norm != null && !norm.isEmpty() && !eg.contains(norm)) eg.add(norm);
                     }
                 }
                 if (!eg.isEmpty()) {
@@ -1730,6 +1785,10 @@ public class AIAgentService {
     private String detectCountry(String text) {
         if (text == null) return null;
         String lower = " " + text.toLowerCase().replaceAll("[.,?!:;\"']", " ") + " ";
+        // Không nhận diện nếu là phủ định (vd: "không cần hàn", "bỏ hàn", "không lấy hàn")
+        if (lower.contains("không cần") || lower.contains("không phải") || lower.contains("bỏ") || lower.contains("đừng")) {
+            return null;
+        }
         for (Map.Entry<String, List<String>> entry : COUNTRY_MAPPING.entrySet()) {
             for (String alias : entry.getValue()) {
                 String al = alias.toLowerCase();
@@ -1739,6 +1798,20 @@ public class AIAgentService {
             }
         }
         return null;
+    }
+
+    private String normalizeGenre(String g) {
+        if (g == null || g.isBlank()) return null;
+        String lower = g.trim().toLowerCase();
+        for (Map.Entry<String, List<String>> entry : GENRE_MAPPING.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(g.trim())) return entry.getKey();
+            for (String kw : entry.getValue()) {
+                if (lower.equals(kw) || lower.contains(kw)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return g.trim();
     }
 
     private List<String> detectGenres(String text) {
@@ -1860,6 +1933,12 @@ public class AIAgentService {
     private boolean isGenreOrMoodNarrowing(String msg) {
         if (msg == null || msg.trim().isEmpty()) return false;
         String lower = msg.toLowerCase().trim();
+        // Tuyệt đối không can thiệp shortcut nếu có từ phủ định, đổi ý hoặc câu hỏi phức tạp
+        if (lower.contains("không") || lower.contains("đừng") || lower.contains("bỏ") ||
+                lower.contains("loại") || lower.contains("trừ") || lower.contains("thôi") ||
+                lower.contains("đổi ý") || lower.contains("khác") || lower.contains("chuyển")) {
+            return false;
+        }
         if (lower.startsWith("thể loại") || lower.startsWith("chỉ xem") || lower.startsWith("lọc") ||
                 lower.contains("chỉ lấy") || lower.contains("chỉ phim") || lower.contains("thuộc thể loại")) {
             return true;

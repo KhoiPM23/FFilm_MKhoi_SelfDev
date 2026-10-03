@@ -51,6 +51,7 @@ public class ConversationContext implements Serializable {
 
     // Backtracking & History State Snapshot
     private List<Map<String, Object>> previousCandidateMovies = new ArrayList<>();
+    private List<List<Map<String, Object>>> candidateHistoryStack = new ArrayList<>();
     private Map<String, Object> previousFocusedMovie;
 
     public ConversationContext() {}
@@ -68,6 +69,10 @@ public class ConversationContext implements Serializable {
     public void pushStateSnapshot() {
         if (this.lastCandidateMovies != null && !this.lastCandidateMovies.isEmpty()) {
             this.previousCandidateMovies = new ArrayList<>(this.lastCandidateMovies);
+            this.candidateHistoryStack.add(new ArrayList<>(this.lastCandidateMovies));
+            if (this.candidateHistoryStack.size() > 6) {
+                this.candidateHistoryStack.remove(0);
+            }
         }
         if (this.lastFocusedMovie != null) {
             this.previousFocusedMovie = new java.util.HashMap<>(this.lastFocusedMovie);
@@ -78,6 +83,13 @@ public class ConversationContext implements Serializable {
      * Khôi phục snapshot danh sách trước đó khi user yêu cầu "quay lại"
      */
     public boolean popStateSnapshot() {
+        if (!this.candidateHistoryStack.isEmpty()) {
+            this.lastCandidateMovies = this.candidateHistoryStack.remove(this.candidateHistoryStack.size() - 1);
+            this.previousCandidateMovies = !this.candidateHistoryStack.isEmpty() 
+                    ? this.candidateHistoryStack.get(this.candidateHistoryStack.size() - 1) 
+                    : new ArrayList<>();
+            return true;
+        }
         if (this.previousCandidateMovies != null && !this.previousCandidateMovies.isEmpty()) {
             this.lastCandidateMovies = new ArrayList<>(this.previousCandidateMovies);
             if (this.previousFocusedMovie != null) {

@@ -35,6 +35,9 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
     @Query(value = "SELECT * FROM Movie m WHERE m.title LIKE N'%' + :keyword + N'%' OR m.description LIKE N'%' + :keyword + N'%'", nativeQuery = true)
     List<Movie> searchBroadly(@Param("keyword") String keyword);
 
+    @Query(value = "SELECT * FROM Movie m WHERE UPPER(m.director) LIKE N'%' + UPPER(:director) + '%'", nativeQuery = true)
+    List<Movie> findByDirectorContainingIgnoreCase(@Param("director") String director);
+
     List<Movie> findByTmdbIdIn(List<Integer> tmdbIds);
     
     Page<Movie> findAllByOrderByRatingDesc(Pageable pageable);

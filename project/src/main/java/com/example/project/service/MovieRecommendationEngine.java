@@ -213,6 +213,13 @@ public class MovieRecommendationEngine {
                 } else if (modLower.contains("rating cao") || modLower.contains("điểm cao") || modLower.contains("cao nhất") || modLower.contains("hay hơn")) {
                     score += (m.getRating() >= 8.0 ? 3.0 : 1.0);
                     reasonBuilder.append("Điểm đánh giá cao (").append(String.format("%.1f", m.getRating())).append("/10); ");
+                } else if (modLower.contains("cùng đạo diễn") || modLower.contains("chung đạo diễn")) {
+                    if (!baseDirector.isEmpty() && m.getDirector() != null && m.getDirector().toLowerCase().contains(baseDirector)) {
+                        score += 15.0;
+                        reasonBuilder.append("Cùng đạo diễn ").append(m.getDirector()).append("; ");
+                    } else {
+                        score -= 5.0;
+                    }
                 }
             }
 
