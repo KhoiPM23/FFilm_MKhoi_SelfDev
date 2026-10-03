@@ -56,6 +56,8 @@
         function initAISearch() {
             const aiToggle = document.getElementById('aiSearchPageBtn'); 
             const aiModal = document.getElementById('aiSearchModal');
+            // Đưa modal ra <body> để position:fixed luôn tính theo viewport (không bị ancestor có transform làm lệch)
+            if (aiModal && aiModal.parentElement !== document.body) document.body.appendChild(aiModal);
             const aiClose = document.getElementById('aiModalClose');
             const aiCancel = document.getElementById('aiCancelBtn');
             const aiSearchBtn = document.getElementById('aiSearchBtn');

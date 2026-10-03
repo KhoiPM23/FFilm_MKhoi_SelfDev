@@ -74,6 +74,11 @@ public class WatchPartyController {
         
         // Lấy Social Sidebar Data
         model.addAttribute("socialUsers", partyService.getSocialUsers(user.getId()));
+
+        // Phòng của tôi (hiển thị nhanh trên sảnh, liên kết sang /my-rooms)
+        List<WatchRoom> mine = partyService.getMyRooms(user.getId());
+        model.addAttribute("myRooms", mine.stream().limit(3).toList());
+        model.addAttribute("myRoomsTotal", mine.size());
         
         return "watch-party/lobby";
     }

@@ -179,7 +179,7 @@
             position: fixed; top:0; left:0; width:100%; height:100%;
             background: rgba(0,0,0,0.8);
             display: none; justify-content: center; align-items: center;
-            z-index: 9999;
+            z-index: 2147483000;
         }
         .modal-box {
             background: #222; padding: 30px; border-radius: 12px;
@@ -196,6 +196,41 @@
             color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
         }
 
+        /* --- HERO --- */
+        .wp-hero {
+            position: relative; overflow: hidden; border-radius: 20px;
+            padding: 36px 40px; margin-bottom: 22px;
+            background: radial-gradient(circle at 85% 20%, rgba(229,9,20,.45) 0%, transparent 55%),
+                        linear-gradient(135deg, #2a0a0e 0%, #14141e 60%, #0b0b10 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .wp-hero h1 { margin: 0 0 8px; font-size: 2rem; font-weight: 800; }
+        .wp-hero p { margin: 0; color: #cfcfcf; max-width: 560px; line-height: 1.5; }
+        .wp-hero .hero-emoji { position: absolute; right: 36px; bottom: -14px; font-size: 7rem; opacity: .18; pointer-events: none; }
+
+        /* --- MY ROOMS STRIP --- */
+        .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 0 16px; }
+        .section-head .section-title { margin: 0; }
+        .section-link { color: var(--text-gray); text-decoration: none; font-size: .9rem; font-weight: 600; }
+        .section-link:hover { color: #fff; }
+        .mine-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .mine-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--card-bg); border: 1px solid #2c2c2c; border-left: 3px solid var(--neon-red); text-decoration: none; color: #fff; transition: transform .2s, border-color .2s; }
+        .mine-card:hover { transform: translateY(-3px); border-color: var(--neon-red); }
+        .mine-card .mine-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mine-card .mine-sub { font-size: .8rem; color: var(--text-gray); margin-top: 3px; }
+        .mine-card .mine-go { color: var(--neon-red); font-size: .9rem; white-space: nowrap; font-weight: 700; }
+
+        /* --- POSTER FALLBACK (phòng chưa chọn phim) --- */
+        .poster-wrapper { background-color: #1b1b24; }
+        .poster-wrapper.no-poster {
+            background-image: linear-gradient(135deg, #4a0d14 0%, #1b1b2e 60%, #0f0f18 100%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .poster-wrapper.no-poster::before {
+            content: "\f008"; font-family: "Font Awesome 6 Free", "Font Awesome 5 Free"; font-weight: 900;
+            font-size: 2.6rem; color: rgba(255,255,255,.22);
+        }
+
         @keyframes pulse { 0% {opacity: 1;} 50% {opacity: 0.7;} 100% {opacity: 1;} }
         
         /* Scrollbar custom */
@@ -208,18 +243,39 @@
 <div class="lobby-layout">
     
     <div class="main-lobby">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;">Sảnh Xem Chung 🍿</h1>
-            <button onclick="openCreateModal()" class="btn-submit" style="width: auto; padding: 10px 25px;">
-                <i class="fas fa-plus"></i> Tạo Phòng Ngay
-            </button>
+        <div class="wp-hero">
+            <h1>Sảnh Xem Chung 🍿</h1>
+            <p>Cùng bạn bè xem phim theo thời gian thực. Vào một phòng đang chiếu bên dưới hoặc tự mở phòng riêng để mời mọi người.</p>
+            <span class="hero-emoji">🎬</span>
+        </div>
+
+        <div th:replace="~{fragments/watch-party-nav :: wpNav('lobby')}"></div>
+
+        <div th:if="${not #lists.isEmpty(myRooms)}">
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-film"></i> Phòng của tôi</div>
+                <a href="/my-rooms" class="section-link">Quản lý tất cả (<span th:text="${myRoomsTotal}">0</span>) →</a>
+            </div>
+            <div class="mine-row">
+                <a th:each="room : ${myRooms}" th:href="@{/watch-party/room/{id}(id=${room.id})}" class="mine-card">
+                    <div style="min-width:0;">
+                        <div class="mine-name" th:text="${room.name}">Tên phòng</div>
+                        <div class="mine-sub">
+                            <i th:class="${room.accessType == 'PRIVATE' ? 'fas fa-lock' : 'fas fa-globe'}"></i>
+                            <span th:text="${room.accessType == 'PRIVATE' ? 'Riêng tư' : 'Công khai'}">Công khai</span>
+                            · <span th:text="${room.maxUsers} + ' người'">10 người</span>
+                        </div>
+                    </div>
+                    <span class="mine-go">Vào phòng <i class="fas fa-arrow-right"></i></span>
+                </a>
+            </div>
         </div>
 
         <div th:if="${not #lists.isEmpty(recommendedRooms)}">
             <div class="section-title"><i class="fas fa-magic"></i> Gợi Ý Cho Bạn</div>
             <div class="room-row">
                 <div th:each="room : ${recommendedRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
-                    <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                    <div class="poster-wrapper" th:classappend="${#strings.contains(room.poster, 'placeholder')} ? 'no-poster'" th:style="${#strings.contains(room.poster, 'placeholder')} ? '' : 'background-image: url(' + ${room.poster} + ');'">
                         <div class="poster-overlay"></div>
                         <div class="badge-live" th:if="${room.isLive}"><i class="fas fa-circle"></i> LIVE</div>
                         <div class="badge-access">
@@ -249,7 +305,7 @@
             <div class="section-title"><i class="fas fa-fire"></i> Đang Hot & Sôi Động</div>
             <div class="room-row">
                 <div th:each="room : ${hotRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
-                    <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                    <div class="poster-wrapper" th:classappend="${#strings.contains(room.poster, 'placeholder')} ? 'no-poster'" th:style="${#strings.contains(room.poster, 'placeholder')} ? '' : 'background-image: url(' + ${room.poster} + ');'">
                         <div class="poster-overlay"></div>
                         <div class="badge-live"><i class="fas fa-circle"></i> LIVE</div>
                         <div class="badge-access"><i class="fas fa-globe"></i> HOT</div>
@@ -274,7 +330,7 @@
         <div class="section-title"><i class="fas fa-layer-group"></i> Tất Cả Phòng</div>
         <div class="room-row">
             <div th:each="room : ${activeRooms}" class="room-card" th:onclick="'joinRoom(' + ${room.roomId} + ')'">
-                <div class="poster-wrapper" th:style="'background-image: url(' + ${room.poster} + ');'">
+                <div class="poster-wrapper" th:classappend="${#strings.contains(room.poster, 'placeholder')} ? 'no-poster'" th:style="${#strings.contains(room.poster, 'placeholder')} ? '' : 'background-image: url(' + ${room.poster} + ');'">
                     <div class="poster-overlay"></div>
                     <div class="badge-live" th:if="${room.isLive}"><i class="fas fa-circle"></i> LIVE</div>
                     <div class="badge-access">

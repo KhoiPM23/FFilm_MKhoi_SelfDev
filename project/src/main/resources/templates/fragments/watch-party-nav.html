@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Thanh điều hướng chung cho 2 trang xem chung: Sảnh <-> Phòng của tôi -->
+<div th:fragment="wpNav(active)" class="wp-nav-wrap">
+    <style>
+        .wp-nav-wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 0 0 24px; }
+        .wp-tabs { display: inline-flex; gap: 6px; padding: 5px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; }
+        .wp-tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; border-radius: 999px; color: #b3b3b3; font-weight: 600; font-size: .95rem; text-decoration: none; transition: all .2s; }
+        .wp-tab:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .wp-tab.active { color: #fff; background: #e50914; box-shadow: 0 4px 16px rgba(229,9,20,.4); }
+        .wp-create-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border: none; border-radius: 999px; background: linear-gradient(90deg,#e50914,#ff4d5a); color: #fff; font-weight: 700; cursor: pointer; box-shadow: 0 4px 18px rgba(229,9,20,.4); transition: transform .2s, box-shadow .2s; }
+        .wp-create-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(229,9,20,.55); }
+    </style>
+    <div class="wp-tabs" role="tablist">
+        <a href="/watch-party" class="wp-tab" th:classappend="${active == 'lobby'} ? 'active'">
+            <i class="fas fa-door-open"></i> Sảnh xem chung
+        </a>
+        <a href="/my-rooms" class="wp-tab" th:classappend="${active == 'mine'} ? 'active'">
+            <i class="fas fa-film"></i> Phòng của tôi
+        </a>
+    </div>
+    <button type="button" class="wp-create-btn" onclick="openCreateModal()">
+        <i class="fas fa-plus"></i> Tạo phòng mới
+    </button>
+</div>
+</body>
+</html>

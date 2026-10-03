@@ -627,7 +627,7 @@
         .ai-search-modal {
             position: fixed;
             inset: 0;
-            z-index: 99999;
+            z-index: 2147483000; /* trên header cố định */
             display: flex;
             align-items: center;
             justify-content: center;

@@ -208,8 +208,10 @@
             backdrop-filter: blur(8px);
             display: flex;
             justify-content: center;
-            align-items: center;
-            z-index: 2000;
+            align-items: flex-start; /* margin:auto ở .modal-content giúp căn giữa khi vừa màn hình, cuộn được khi dài */
+            overflow-y: auto;
+            padding: 90px 16px 24px; /* chừa chỗ cho header cố định */
+            z-index: 2147483000; /* trên header (1e7) */
             opacity: 0;
             visibility: hidden;
             transition: all 0.3s ease;
@@ -222,6 +224,7 @@
             background: #181818;
             width: 100%;
             max-width: 500px;
+            margin: auto;
             padding: 40px;
             border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -233,6 +236,21 @@
         .modal-overlay.active .modal-content {
             transform: scale(1);
         }
+        /* --- Privacy settings (không phụ thuộc Bootstrap) --- */
+        .privacy-box { margin-top: 28px; padding: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; }
+        .privacy-title { color: #e50914; font-size: 17px; font-weight: 700; margin: 0 0 14px; }
+        .privacy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.07); cursor: pointer; }
+        .privacy-text { display: flex; flex-direction: column; gap: 3px; }
+        .privacy-text strong { color: #fff; font-size: 15px; font-weight: 600; }
+        .privacy-text small { color: var(--text-muted); font-size: 13px; }
+        .privacy-switch { appearance: none; -webkit-appearance: none; flex: 0 0 46px; width: 46px !important; height: 26px; margin: 0; padding: 0; border: none; border-radius: 13px; background: #444; position: relative; cursor: pointer; transition: background .2s; }
+        .privacy-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+        .privacy-switch:checked { background: #e50914; }
+        .privacy-switch:checked::after { transform: translateX(20px); }
+        .privacy-switch:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        .privacy-actions { display: flex; align-items: center; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
+        .privacy-link { color: var(--text-muted); font-size: 14px; text-decoration: none; }
+        .privacy-link:hover { color: #fff; }
         .modal-title {
             font-size: 24px;
             font-weight: 700;
@@ -447,52 +465,37 @@
                 <button type="submit" class="btn btn-primary btn-save">Lưu thay đổi</button>
             </form>
 
-            <div class="card mt-4" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
-                <div class="card-body">
-                    <h4 class="mb-4" style="color: #e50914;"><i class="fas fa-user-shield"></i> Cài Đặt Quyền Riêng Tư</h4>
-                    
-                    <form action="/update-privacy" method="post">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <strong style="color:#fff;">Danh sách bạn bè</strong>
-                                <p class="text-muted small mb-0">Cho phép người khác xem danh sách bạn bè của bạn</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="publicFriend" 
-                                    th:checked="${user.publicFriendList}" style="cursor: pointer;">
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <strong style="color:#fff;">Phim yêu thích</strong>
-                                <p class="text-muted small mb-0">Hiển thị danh sách phim bạn đã thích</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="publicFav" 
-                                    th:checked="${user.publicFavorites}" style="cursor: pointer;">
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <strong style="color:#fff;">Lịch sử xem</strong>
-                                <p class="text-muted small mb-0">Hiển thị các phim bạn vừa xem gần đây</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="publicHistory" 
-                                    th:checked="${user.publicWatchHistory}" style="cursor: pointer;">
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Lưu cài đặt</button>
-                            <a th:href="@{/social/profile/{id}(id=${user.userID})}" class="btn btn-outline-light">
-                                <i class="fas fa-eye"></i> Xem trang công khai
-                            </a>
-                        </div>
-                    </form>
-                </div>
+            <div class="privacy-box">
+                <h4 class="privacy-title"><i class="fas fa-user-shield"></i> Cài Đặt Quyền Riêng Tư</h4>
+                <form action="/update-privacy" method="post">
+                    <label class="privacy-row">
+                        <span class="privacy-text">
+                            <strong>Danh sách bạn bè</strong>
+                            <small>Cho phép người khác xem danh sách bạn bè của bạn</small>
+                        </span>
+                        <input class="privacy-switch" type="checkbox" name="publicFriend" th:checked="${user.publicFriendList}">
+                    </label>
+                    <label class="privacy-row">
+                        <span class="privacy-text">
+                            <strong>Phim yêu thích</strong>
+                            <small>Hiển thị danh sách phim bạn đã thích</small>
+                        </span>
+                        <input class="privacy-switch" type="checkbox" name="publicFav" th:checked="${user.publicFavorites}">
+                    </label>
+                    <label class="privacy-row">
+                        <span class="privacy-text">
+                            <strong>Lịch sử xem</strong>
+                            <small>Hiển thị các phim bạn vừa xem gần đây</small>
+                        </span>
+                        <input class="privacy-switch" type="checkbox" name="publicHistory" th:checked="${user.publicWatchHistory}">
+                    </label>
+                    <div class="privacy-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Lưu cài đặt</button>
+                        <a th:href="@{/social/profile/{id}(id=${user.userID})}" class="privacy-link">
+                            <i class="fas fa-eye"></i> Xem trang công khai
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
