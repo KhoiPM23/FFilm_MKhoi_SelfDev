@@ -925,25 +925,76 @@
             display: flex !important;
             align-items: center !important;
             gap: 10px !important;
-            padding: 6px 0 !important;
+            padding: 4px 0 !important;
         }
-        #ai-root-wrapper .thinking-dot {
-            display: inline-block !important;
-            width: 10px !important;
-            height: 10px !important;
+        #ai-root-wrapper .thinking-spinner {
+            width: 14px !important;
+            height: 14px !important;
+            border: 2px solid rgba(167, 139, 250, 0.25) !important;
+            border-top-color: #a78bfa !important;
             border-radius: 50% !important;
-            background: linear-gradient(135deg, #a78bfa, #38bdf8) !important;
-            animation: thinkingPulse 1.2s ease-in-out infinite !important;
+            animation: aiThinkingSpin 0.75s linear infinite !important;
             flex-shrink: 0 !important;
         }
         #ai-root-wrapper .thinking-stage-label {
-            font-size: 0.85rem !important;
-            color: rgba(255,255,255,0.75) !important;
-            font-style: italic !important;
+            font-size: 0.84rem !important;
+            color: #d1d5db !important;
+            letter-spacing: 0.01em !important;
+            transition: opacity 0.2s ease, transform 0.2s ease !important;
+            font-family: inherit !important;
         }
-        @keyframes thinkingPulse {
-            0%, 100% { transform: scale(1); opacity: 0.7; }
-            50% { transform: scale(1.35); opacity: 1; }
+        @keyframes aiThinkingSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==================== Clear History Inline Banner ==================== */
+        #ai-root-wrapper .ai-clear-confirm-banner {
+            background: rgba(30, 27, 46, 0.95) !important;
+            border: 1px solid rgba(239, 68, 68, 0.4) !important;
+            border-radius: 12px !important;
+            padding: 10px 14px !important;
+            margin: 8px 12px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            animation: aiMessageSlideIn 0.2s ease-out !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-text {
+            font-size: 0.82rem !important;
+            color: #fca5a5 !important;
+            line-height: 1.35 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-actions {
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 8px !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-btn {
+            padding: 4px 12px !important;
+            border-radius: 6px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            border: none !important;
+            transition: all 0.15s ease !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-yes {
+            background: #dc2626 !important;
+            color: #ffffff !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-yes:hover {
+            background: #b91c1c !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-no {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #d1d5db !important;
+        }
+        #ai-root-wrapper .ai-clear-confirm-no:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
         }
 
         /* ==================== Input Area ==================== */
@@ -1244,10 +1295,14 @@
                     height: 195px !important;
                     flex-shrink: 0 !important;
                     box-sizing: border-box !important;
+                    text-decoration: none !important;
+                    color: inherit !important;
                 }
                 .ai-movie-card:hover {
                     transform: translateY(-4px) !important;
                     border-color: #e50914 !important;
+                    text-decoration: none !important;
+                    color: inherit !important;
                 }
                 .ai-card-poster-wrap {
                     position: relative !important;
@@ -1338,11 +1393,24 @@
                     e.stopPropagation();
                     closeChat();
                 });
-                if (clearBtn) clearBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    clearHistory();
-                });
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        promptClearHistory();
+                    });
+                }
+                // Delegated listener for clear button as fallback
+                if (chatWindow) {
+                    chatWindow.addEventListener('click', (e) => {
+                        const targetClear = e.target.closest('#aiClearBtn');
+                        if (targetClear) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            promptClearHistory();
+                        }
+                    });
+                }
                 sendBtn.addEventListener('click', sendMessage);
                 
                 input.addEventListener('keydown', (e) => {
@@ -1521,8 +1589,48 @@
                 } catch (e) { console.error("Lỗi load history", e); }
             }
 
-            async function clearHistory() {
-                if (!confirm('Bạn có muốn xóa toàn bộ lịch sử trò chuyện với trợ lý AI?')) return;
+            function promptClearHistory() {
+                // If a confirmation banner already exists, don't duplicate
+                if (document.getElementById('aiClearConfirmBanner')) return;
+
+                const banner = document.createElement('div');
+                banner.id = 'aiClearConfirmBanner';
+                banner.className = 'ai-clear-confirm-banner';
+                banner.innerHTML = `
+                    <div class="ai-clear-confirm-text">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Xóa toàn bộ lịch sử trò chuyện với trợ lý AI?</span>
+                    </div>
+                    <div class="ai-clear-confirm-actions">
+                        <button type="button" class="ai-clear-confirm-btn ai-clear-confirm-no" id="aiClearCancelBtn">Hủy</button>
+                        <button type="button" class="ai-clear-confirm-btn ai-clear-confirm-yes" id="aiClearConfirmBtn">Xác nhận xóa</button>
+                    </div>
+                `;
+
+                messagesContainer.appendChild(banner);
+                scrollToBottom();
+
+                const cancelBtn = banner.querySelector('#aiClearCancelBtn');
+                const confirmBtn = banner.querySelector('#aiClearConfirmBtn');
+
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        banner.remove();
+                    });
+                }
+                if (confirmBtn) {
+                    confirmBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        banner.remove();
+                        executeClearHistory();
+                    });
+                }
+            }
+
+            async function executeClearHistory() {
                 try {
                     const res = await fetch('/api/ai-agent/history?conversationId=' + encodeURIComponent(conversationId), {
                         method: 'DELETE'
@@ -1548,24 +1656,32 @@
 
             let activeRequestId = 0;
 
-            // ---- THINKING UX ----
+            // ---- CLAUDE-STYLE LIVE THINKING UX ----
             const THINKING_STAGES = [
-                { key: 'PARSING',   label: '🔍 Đang phân tích câu hỏi...' },
-                { key: 'SEARCHING', label: '🎬 Đang tìm kiếm phim...' },
-                { key: 'RANKING',   label: '⭐ Đang xếp hạng kết quả...' },
+                { key: 'PARSING',   label: '🧠 Đang phân tích ý định & từ khóa...' },
+                { key: 'CONTEXT',   label: '📖 Đang đối chiếu ngữ cảnh hội thoại...' },
+                { key: 'INTENT',    label: '🎯 Nhận diện bộ lọc thể loại, quốc gia, rating...' },
+                { key: 'SEARCHING', label: '⚡ Đang truy vấn kho phim FFilm...' },
+                { key: 'FILTERING', label: '🛡️ Áp dụng tiêu chuẩn loại trừ & an toàn...' },
+                { key: 'SCORING',   label: '📊 Tính toán độ tương quan & điểm đánh giá...' },
+                { key: 'RANKING',   label: '✨ Chọn lọc danh sách phim đề xuất phù hợp nhất...' },
+                { key: 'SYNTHESIS', label: '🎬 Đang tổng hợp metadata & poster...' },
+                { key: 'DRAFTING',  label: '✍️ Đang soạn câu trả lời cho bạn...' }
             ];
             let _thinkingStageTimer = null;
             let _thinkingEl = null;
 
             function showThinkingStages() {
                 hideTyping();
+                if (_thinkingEl) hideThinkingStages();
+
                 _thinkingEl = document.createElement('div');
                 _thinkingEl.className = 'ai-message bot thinking-stages';
                 _thinkingEl.innerHTML = `
                     <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
                     <div class="ai-message-content">
                         <div class="thinking-stage-wrap">
-                            <span class="thinking-dot"></span>
+                            <span class="thinking-spinner"></span>
                             <span class="thinking-stage-label">${THINKING_STAGES[0].label}</span>
                         </div>
                     </div>`;
@@ -1574,10 +1690,20 @@
 
                 let idx = 0;
                 _thinkingStageTimer = setInterval(() => {
-                    idx = Math.min(idx + 1, THINKING_STAGES.length - 1);
-                    const lbl = _thinkingEl.querySelector('.thinking-stage-label');
-                    if (lbl) lbl.textContent = THINKING_STAGES[idx].label;
-                }, 1800);
+                    idx = (idx + 1) % THINKING_STAGES.length;
+                    const lbl = _thinkingEl ? _thinkingEl.querySelector('.thinking-stage-label') : null;
+                    if (lbl) {
+                        lbl.style.opacity = '0.4';
+                        lbl.style.transform = 'translateY(-2px)';
+                        setTimeout(() => {
+                            if (lbl) {
+                                lbl.textContent = THINKING_STAGES[idx].label;
+                                lbl.style.opacity = '1';
+                                lbl.style.transform = 'translateY(0)';
+                            }
+                        }, 120);
+                    }
+                }, 700);
             }
 
             function hideThinkingStages() {
@@ -1728,7 +1854,7 @@
                 return html;
             }
 
-            // Tạo HTML chuỗi thẻ phim
+            // Tạo HTML chuỗi thẻ phim (thẻ <a> semantic để browser click & enter luôn hoạt động chuẩn)
             function renderMovieSuggestions(movies) {
                 let html = '<div class="ai-movie-scroll">';
                 
@@ -1741,7 +1867,7 @@
                     const detailUrl = movieId ? `/movie/detail/${movieId}` : '#';
                     
                     html += `
-                        <div class="ai-movie-card" data-url="${detailUrl}">
+                        <a href="${detailUrl}" class="ai-movie-card" data-url="${detailUrl}">
                             <div class="ai-card-poster-wrap">
                                 <img class="ai-card-poster" src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'">
                                 <div class="ai-card-rating">⭐ ${rating}</div>
@@ -1750,7 +1876,7 @@
                                 <div class="ai-card-title" title="${title}">${title}</div>
                                 <div class="ai-card-year">${year}</div>
                             </div>
-                        </div>
+                        </a>
                     `;
                 });
                 
@@ -1764,73 +1890,80 @@
                 let isDown = false;
                 let startX = 0;
                 let scrollLeft = 0;
-                let isDragging = false;
-                const DRAG_THRESHOLD = 6; // px di chuyển tối thiểu để phân biệt click vs drag
+                let hasMoved = false;
+                let lastDragEndTime = 0;
+                const DRAG_THRESHOLD = 6; // px di chuyển tối thiểu để nhận diện là drag cuộn ngang
 
-                // Ngăn click vào movie card nếu người dùng vừa thực hiện thao tác drag
+                // Ngăn chặn sự kiện click vào movie card nếu người dùng vừa drag cuộn
                 slider.addEventListener('click', (e) => {
-                    if (isDragging) {
+                    if (hasMoved || (Date.now() - lastDragEndTime < 200)) {
                         e.preventDefault();
                         e.stopPropagation();
                     }
-                }, true); // true = Capture phase để bắt sự kiện trước khi tới movie card
+                }, true);
 
-                slider.addEventListener('pointerdown', (e) => {
-                    // Chỉ xử lý chuột trái (button = 0) hoặc touch/pen
-                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                slider.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return; // Chỉ chuột trái
                     isDown = true;
-                    isDragging = false;
-                    startX = e.clientX;
+                    hasMoved = false;
+                    startX = e.pageX - slider.offsetLeft;
                     scrollLeft = slider.scrollLeft;
                     slider.classList.add('is-dragging');
-                    try {
-                        slider.setPointerCapture(e.pointerId);
-                    } catch (_) {}
                 });
 
-                slider.addEventListener('pointermove', (e) => {
+                window.addEventListener('mousemove', (e) => {
                     if (!isDown) return;
-                    const deltaX = e.clientX - startX;
-                    if (!isDragging && Math.abs(deltaX) > DRAG_THRESHOLD) {
-                        isDragging = true;
+                    const x = e.pageX - slider.offsetLeft;
+                    const walk = x - startX;
+                    if (!hasMoved && Math.abs(walk) > DRAG_THRESHOLD) {
+                        hasMoved = true;
                     }
-                    if (isDragging) {
-                        slider.scrollLeft = scrollLeft - deltaX;
+                    if (hasMoved) {
+                        slider.scrollLeft = scrollLeft - walk;
                     }
                 });
 
-                function endDrag(e) {
+                window.addEventListener('mouseup', (e) => {
                     if (!isDown) return;
                     isDown = false;
                     slider.classList.remove('is-dragging');
-                    if (e && e.pointerId) {
-                        try {
-                            slider.releasePointerCapture(e.pointerId);
-                        } catch (_) {}
-                    }
-                    // Giữ isDragging một khoảnh khắc ngắn (50ms) để sự kiện click ngay sau pointerup bị chặn
-                    if (isDragging) {
+                    if (hasMoved) {
+                        lastDragEndTime = Date.now();
+                        // Giữ hasMoved trong 150ms để chặn click event phát sinh ngay sau mouseup
                         setTimeout(() => {
-                            isDragging = false;
-                        }, 50);
+                            hasMoved = false;
+                        }, 150);
                     }
-                }
-
-                slider.addEventListener('pointerup', endDrag);
-                slider.addEventListener('pointercancel', endDrag);
-
-                // Gán click điều hướng cho từng movie card khi không bị drag chặn
-                slider.querySelectorAll('.ai-movie-card').forEach(card => {
-                    card.addEventListener('click', (e) => {
-                        if (isDragging) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            return;
-                        }
-                        const url = card.dataset.url;
-                        if (url) window.location.href = url;
-                    });
                 });
+
+                // Hỗ trợ Touch tự nhiên (mobile / tablet)
+                let touchStartX = 0;
+                let touchScrollLeft = 0;
+                let touchMoved = false;
+
+                slider.addEventListener('touchstart', (e) => {
+                    if (e.touches.length !== 1) return;
+                    touchStartX = e.touches[0].pageX;
+                    touchScrollLeft = slider.scrollLeft;
+                    touchMoved = false;
+                }, { passive: true });
+
+                slider.addEventListener('touchmove', (e) => {
+                    if (e.touches.length !== 1) return;
+                    const touchDelta = e.touches[0].pageX - touchStartX;
+                    if (!touchMoved && Math.abs(touchDelta) > DRAG_THRESHOLD) {
+                        touchMoved = true;
+                    }
+                }, { passive: true });
+
+                slider.addEventListener('touchend', (e) => {
+                    if (touchMoved) {
+                        lastDragEndTime = Date.now();
+                        setTimeout(() => {
+                            touchMoved = false;
+                        }, 150);
+                    }
+                }, { passive: true });
             }
 
             function formatBotMessage(text) {
