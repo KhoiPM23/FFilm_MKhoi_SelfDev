@@ -27,6 +27,11 @@ public class ConversationContext implements Serializable {
     private Map<String, Object> lastFocusedMovie;
     private String lastFocusedPerson;
 
+    // Phase 15: Proactive Page Context & Conversational Narrowing
+    private Map<String, Object> lastPageContext;
+    private String lastActiveIntent;
+    private List<String> lastActiveGenres = new ArrayList<>();
+
     public ConversationContext() {}
 
     public ConversationContext(String lastQuery, String lastSubjectType, Object lastSubjectId, String lastQuestionAsked) {
@@ -69,4 +74,15 @@ public class ConversationContext implements Serializable {
 
     public String getLastFocusedPerson() { return lastFocusedPerson; }
     public void setLastFocusedPerson(String lastFocusedPerson) { this.lastFocusedPerson = lastFocusedPerson; }
+
+    public Map<String, Object> getLastPageContext() { return lastPageContext; }
+    public void setLastPageContext(Map<String, Object> lastPageContext) { this.lastPageContext = lastPageContext; }
+
+    public String getLastActiveIntent() { return lastActiveIntent; }
+    public void setLastActiveIntent(String lastActiveIntent) { this.lastActiveIntent = lastActiveIntent; }
+
+    public List<String> getLastActiveGenres() { return lastActiveGenres; }
+    public void setLastActiveGenres(List<String> lastActiveGenres) {
+        this.lastActiveGenres = lastActiveGenres != null ? lastActiveGenres : new ArrayList<>();
+    }
 }

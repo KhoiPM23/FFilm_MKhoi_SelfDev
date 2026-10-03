@@ -115,6 +115,51 @@
         margin-top: 15px;
       }
 
+      .oauth-divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 20px 0 16px;
+        color: #888;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.8px;
+      }
+      .oauth-divider::before,
+      .oauth-divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+      }
+      .oauth-divider span {
+        padding: 0 10px;
+      }
+      .google-login-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        padding: 13px;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #1f1f1f;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition: all 0.25s ease;
+      }
+      .google-login-btn:hover {
+        background: #f1f3f4;
+        box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
+        color: #000;
+      }
+      .google-icon {
+        flex-shrink: 0;
+      }
+
       @keyframes fadeIn {
         from {
           opacity: 0;
@@ -149,10 +194,30 @@
         </div>
       </form>
 
-      <p th:if="${param.logout}" class="message" style="color: #00ff7f; text-align: center; margin-bottom: 15px; font-weight: 500;">
+      <div class="oauth-divider">
+        <span>HOẶC</span>
+      </div>
+
+      <a th:href="@{/oauth2/authorization/google}" class="google-login-btn" id="googleLoginBtn">
+        <svg viewBox="0 0 24 24" width="20" height="20" class="google-icon">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        <span>Tiếp tục với Google</span>
+      </a>
+
+      <p th:if="${param.logout}" class="message" style="color: #00ff7f; text-align: center; margin-top: 15px; font-weight: 500;">
         <i class="fas fa-check-circle"></i> Đã đăng xuất thành công.
       </p>
       <p th:if="${loginError}" class="error" th:text="${loginError}"></p>
+      <p th:if="${param.error != null and param.error[0] == 'oauth2'}" class="error">
+        Đăng nhập bằng Google không thành công hoặc bị hủy. Vui lòng thử lại.
+      </p>
+      <p th:if="${param.error != null and param.error[0] == 'locked'}" class="error">
+        Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.
+      </p>
       <div class="extra">
         Chưa có tài khoản? <a th:href="@{/register}">Đăng ký ngay</a>
       </div>

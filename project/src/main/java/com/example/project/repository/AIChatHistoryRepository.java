@@ -16,4 +16,10 @@ public interface AIChatHistoryRepository extends JpaRepository<AIChatHistory, Lo
     // Lấy 10 tin nhắn gần nhất để làm context (Sort Desc rồi reverse list trong code java sau)
     List<AIChatHistory> findTop10ByUserIdOrderByTimestampDesc(Integer userId);
     List<AIChatHistory> findTop10BySessionIdOrderByTimestampDesc(String sessionId);
+
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByUserId(Integer userId);
+
+    @org.springframework.transaction.annotation.Transactional
+    void deleteBySessionId(String sessionId);
 }

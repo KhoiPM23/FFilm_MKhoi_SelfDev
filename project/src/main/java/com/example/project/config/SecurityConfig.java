@@ -17,6 +17,12 @@ public class SecurityConfig {
     @Autowired
     private CustomSessionAuthFilter customSessionAuthFilter;
 
+    @Autowired(required = false)
+    private org.springframework.security.oauth2.client.registration.ClientRegistrationRepository clientRegistrationRepository;
+
+    @Autowired
+    private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -41,8 +47,18 @@ public class SecurityConfig {
 
                 // Rule catch-all PHẢI ĐỂ CUỐI CÙNG
                 .requestMatchers("/**").permitAll()
-            )
-            
+            );
+
+        if (clientRegistrationRepository != null) {
+            http.oauth2Login(oauth2 -> oauth2
+                .clientRegistrationRepository(clientRegistrationRepository)
+                .loginPage("/login")
+                .successHandler(oAuth2LoginSuccessHandler)
+                .failureUrl("/login?error=oauth2")
+            );
+        }
+
+        http
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
             )

@@ -642,6 +642,13 @@
             display: block !important;
         }
 
+        #ai-root-wrapper .ai-header-actions {
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+
+        #ai-root-wrapper .ai-clear-btn,
         #ai-root-wrapper .ai-close-btn {
             width: 30px !important;
             height: 30px !important;
@@ -658,10 +665,60 @@
             font-size: 13px !important;
         }
 
+        #ai-root-wrapper .ai-clear-btn:hover {
+            background: rgba(229, 9, 20, 0.25) !important;
+            color: #ff6b6b !important;
+            transform: scale(1.08) !important;
+        }
+
         #ai-root-wrapper .ai-close-btn:hover {
             background: rgba(255, 255, 255, 0.2) !important;
             color: white !important;
             transform: rotate(90deg) !important;
+        }
+
+        #ai-root-wrapper .ai-action-chips {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            margin-top: 8px !important;
+        }
+
+        #ai-root-wrapper .ai-action-chip {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            padding: 5px 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            color: #e0e7ff !important;
+            background: rgba(99, 102, 241, 0.18) !important;
+            border: 1px solid rgba(129, 140, 248, 0.35) !important;
+            border-radius: 14px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            text-decoration: none !important;
+            user-select: none !important;
+        }
+
+        #ai-root-wrapper .ai-action-chip:hover {
+            background: rgba(99, 102, 241, 0.38) !important;
+            border-color: #818cf8 !important;
+            color: #ffffff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+        }
+
+        #ai-root-wrapper .ai-action-chip.ai-action-watch {
+            background: rgba(229, 9, 20, 0.2) !important;
+            border-color: rgba(229, 9, 20, 0.45) !important;
+            color: #ff8585 !important;
+        }
+
+        #ai-root-wrapper .ai-action-chip.ai-action-watch:hover {
+            background: rgba(229, 9, 20, 0.4) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(229, 9, 20, 0.4) !important;
         }
 
         /* ==================== Messages ==================== */
@@ -993,9 +1050,14 @@
                             <span class="ai-status">Trực tuyến</span>
                         </div>
                     </div>
-                    <button class="ai-close-btn" id="aiCloseBtn">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <div class="ai-header-actions">
+                        <button class="ai-clear-btn" id="aiClearBtn" title="Xóa lịch sử trò chuyện">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button class="ai-close-btn" id="aiCloseBtn" title="Đóng">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Messages Container -->
@@ -1202,6 +1264,7 @@
                 chatIcon = document.getElementById('aiChatIcon');
                 chatWindow = document.getElementById('aiChatWindow');
                 closeBtn = document.getElementById('aiCloseBtn');
+                const clearBtn = document.getElementById('aiClearBtn');
                 sendBtn = document.getElementById('aiSendBtn');
                 input = document.getElementById('aiInput');
                 messagesContainer = document.getElementById('aiMessages');
@@ -1211,12 +1274,6 @@
                 if (!chatIcon) return;
 
                 chatIcon.addEventListener('click', () => {
-                    // Kiểm tra biến global từ header.html
-                    if (typeof window.isUserLoggedIn !== 'undefined' && !window.isUserLoggedIn) {
-                        // Chuyển hướng login nếu chưa đăng nhập, lưu lại trang hiện tại
-                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
-                        return;
-                    }
                     if (chatWindow && !chatWindow.hidden && chatWindow.style.display !== 'none') {
                         closeChat();
                     } else {
@@ -1224,7 +1281,16 @@
                     }
                 });
 
-                closeBtn.addEventListener('click', closeChat);
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeChat();
+                });
+                if (clearBtn) clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearHistory();
+                });
                 sendBtn.addEventListener('click', sendMessage);
                 
                 input.addEventListener('keydown', (e) => {
@@ -1237,13 +1303,137 @@
                 input.addEventListener('input', autoResizeTextarea);
                 attachSuggestionHandlers();
 
-                // Load History nếu đã đăng nhập
+                // Load History nếu đã đăng nhập, nếu chưa thì render tin chào mừng + gợi ý theo ngữ cảnh
                 if (typeof window.isUserLoggedIn !== 'undefined' && window.isUserLoggedIn) {
                     loadChatHistory();
+                } else {
+                    refreshSuggestions();
                 }
             }
 
-            // 1. Thêm hàm render tin chào mừng
+            // Phát hiện thông tin trang hiện tại để grounding AI
+            function detectPageContext() {
+                const ctx = {
+                    page: 'home',
+                    url: window.location.pathname,
+                    movieId: null,
+                    movieTitle: null,
+                    query: null,
+                    genre: null
+                };
+
+                const path = window.location.pathname;
+                const urlParams = new URLSearchParams(window.location.search);
+
+                // 1. Kiểm tra Movie Detail
+                const detailMatch = path.match(/\/movie\/detail\/(\d+)/);
+                const metaMovieId = document.querySelector('meta[name="movie-id"]')?.getAttribute('content');
+                const heroBanner = document.getElementById('heroBanner');
+                const heroMovieId = heroBanner?.dataset?.movieId;
+
+                if (detailMatch && detailMatch[1]) {
+                    ctx.page = 'movie_detail';
+                    ctx.movieId = parseInt(detailMatch[1], 10);
+                } else if (metaMovieId && !isNaN(parseInt(metaMovieId, 10))) {
+                    ctx.page = 'movie_detail';
+                    ctx.movieId = parseInt(metaMovieId, 10);
+                } else if (heroMovieId && !isNaN(parseInt(heroMovieId, 10))) {
+                    ctx.page = 'movie_detail';
+                    ctx.movieId = parseInt(heroMovieId, 10);
+                } else if (urlParams.has('movieId') && !isNaN(parseInt(urlParams.get('movieId'), 10))) {
+                    ctx.page = 'movie_detail';
+                    ctx.movieId = parseInt(urlParams.get('movieId'), 10);
+                }
+
+                if (ctx.movieId) {
+                    const titleEl = document.getElementById('heroTitleText') || document.querySelector('.hero-title') || document.querySelector('h1.movie-title');
+                    if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
+                        ctx.movieTitle = titleEl.textContent.trim();
+                    } else {
+                        const docTitle = document.title || '';
+                        ctx.movieTitle = docTitle.split('-')[0].trim();
+                    }
+                }
+
+                // 2. Kiểm tra Tìm kiếm
+                if (path.includes('/search')) {
+                    ctx.page = 'search';
+                    ctx.query = urlParams.get('q') || urlParams.get('query') || document.getElementById('mainSearchInput')?.value || null;
+                }
+
+                // 3. Kiểm tra Gói cước / Thanh toán
+                if (path.includes('/subscription') || path.includes('/register-plan') || path.includes('/pricing')) {
+                    ctx.page = 'subscription';
+                }
+
+                // 4. Kiểm tra Watch Party
+                if (path.includes('/watch-party')) {
+                    ctx.page = 'watch_party';
+                }
+
+                // 5. Kiểm tra Thể loại
+                if (urlParams.has('genre')) {
+                    ctx.genre = urlParams.get('genre');
+                }
+
+                return ctx;
+            }
+
+            // Làm mới gợi ý câu hỏi chủ động theo ngữ cảnh
+            async function refreshSuggestions() {
+                const pageCtx = detectPageContext();
+                const params = new URLSearchParams();
+                if (pageCtx.page) params.set('page', pageCtx.page);
+                if (pageCtx.movieId) params.set('movieId', pageCtx.movieId);
+                if (pageCtx.query) params.set('query', pageCtx.query);
+                if (pageCtx.genre) params.set('genre', pageCtx.genre);
+
+                try {
+                    const res = await fetch('/api/ai-agent/suggestions?' + params.toString());
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.suggestions && data.suggestions.length > 0) {
+                            renderSuggestions(data.suggestions, pageCtx);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch proactive suggestions:", e);
+                }
+
+                // Fallback gợi ý mặc định
+                renderSuggestions([
+                    { label: "🔥 Phim đang hot", prompt: "Top phim thịnh hành nhất hiện nay trên FFilm" },
+                    { label: "🎬 Bom tấn hành động", prompt: "Gợi ý vài phim hành động mãn nhãn" },
+                    { label: "💰 Các gói đăng ký", prompt: "FFilm có những gói đăng ký nào?" },
+                    { label: "🎯 Gợi ý theo gu", prompt: "Gợi ý phim phù hợp với sở thích của tôi" }
+                ], pageCtx);
+            }
+
+            function renderSuggestions(suggestions, pageCtx) {
+                if (!suggestionsContainer) {
+                    suggestionsContainer = document.getElementById('aiSuggestions');
+                }
+                if (!suggestionsContainer) return;
+
+                let titleText = 'Gợi ý câu hỏi:';
+                if (pageCtx && pageCtx.page === 'movie_detail' && pageCtx.movieTitle) {
+                    titleText = `Hỏi về phim <strong>${escapeHtml(pageCtx.movieTitle)}</strong>:`;
+                } else if (pageCtx && pageCtx.page === 'subscription') {
+                    titleText = 'Tìm hiểu dịch vụ & gói cước:';
+                }
+
+                let chipsHtml = `<p class="suggestions-title" style="margin-bottom:6px !important;">${titleText}</p><div class="ai-chips-list" style="display:flex; flex-wrap:wrap; gap:6px;">`;
+                suggestions.forEach(s => {
+                    chipsHtml += `<button class="suggestion-chip" data-question="${escapeHtml(s.prompt)}" style="margin:0 !important;">${escapeHtml(s.label)}</button>`;
+                });
+                chipsHtml += `</div>`;
+                suggestionsContainer.innerHTML = chipsHtml;
+                suggestionsContainer.style.display = 'block';
+                attachSuggestionHandlers();
+            }
+
+            // Render tin chào mừng ban đầu
             function renderWelcomeMessage() {
                 const welcomeHtml = `
                     <div class="ai-message bot">
@@ -1251,21 +1441,15 @@
                             <i class="fas fa-robot"></i>
                         </div>
                         <div class="ai-message-content" style="padding: 10px 14px !important; font-size: 0.9rem !important;">
-                            <p style="margin-bottom: 4px !important; font-weight: 600;">Xin chào! Tôi là trợ lý AI của FFilm 👋</p>
-                            <p style="font-size: 0.84rem; color: rgba(255,255,255,0.75); margin-bottom: 0 !important;">Bạn có thể hỏi tôi về phim, gói VIP hoặc gợi ý phim theo sở thích:</p>
+                            <p style="margin-bottom: 4px !important; font-weight: 600;">Xin chào! Tôi là trợ lý Movie Intelligence của FFilm 👋</p>
+                            <p style="font-size: 0.84rem; color: rgba(255,255,255,0.75); margin-bottom: 0 !important;">Bạn có thể hỏi tôi về phim, diễn viên, so sánh phim, tìm phim theo tâm trạng hoặc gói dịch vụ:</p>
                         </div>
                     </div>
-                    <div class="ai-suggestions" id="aiSuggestions">
-                        <p class="suggestions-title">Gợi ý câu hỏi:</p>
-                        <button class="suggestion-chip" data-question="FFilm có những gói đăng ký nào?">💰 Các gói đăng ký</button>
-                        <button class="suggestion-chip" data-question="Làm sao để xem phim chất lượng 4K?">🎥 Xem phim 4K</button>
-                        <button class="suggestion-chip" data-question="Tôi muốn tìm phim hành động hay">🎬 Phim hành động</button>
-                        <button class="suggestion-chip" data-question="Chính sách hoàn tiền như thế nào?">🔄 Chính sách hoàn tiền</button>
-                    </div>
+                    <div class="ai-suggestions" id="aiSuggestions"></div>
                 `;
                 messagesContainer.innerHTML = welcomeHtml;
-                // Gán lại sự kiện click cho các chip vừa tạo
-                attachSuggestionHandlers(); 
+                suggestionsContainer = document.getElementById('aiSuggestions');
+                refreshSuggestions();
             }
 
             async function loadChatHistory() {
@@ -1273,21 +1457,39 @@
                     const res = await fetch('/api/ai-agent/history');
                     if (res.ok) {
                         const history = await res.json();
-                        // LUÔN LUÔN Render lại tin chào mừng trước tiên
                         renderWelcomeMessage();
                         
-                        history.forEach(msg => {
-                            if (msg.role === 'USER') addUserMessage(msg.message);
-                            else addBotMessage(msg.message, msg.movies);
-                        });
+                        if (Array.isArray(history) && history.length > 0) {
+                            history.forEach(msg => {
+                                if (msg.role === 'USER') addUserMessage(msg.message);
+                                else addBotMessage(msg.message, msg.movies, msg.actions);
+                            });
+                            if (suggestionsContainer) suggestionsContainer.style.display = 'none';
+                        }
                         scrollToBottom();
                     }
                 } catch (e) { console.error("Lỗi load history", e); }
             }
 
+            async function clearHistory() {
+                if (!confirm('Bạn có muốn xóa toàn bộ lịch sử trò chuyện với trợ lý AI?')) return;
+                try {
+                    await fetch('/api/ai-agent/history?conversationId=' + encodeURIComponent(conversationId), {
+                        method: 'DELETE'
+                    });
+                } catch (e) {
+                    console.error("Lỗi xóa history server:", e);
+                }
+                conversationId = generateUUID();
+                messagesContainer.innerHTML = '';
+                renderWelcomeMessage();
+            }
+
             async function sendMessage() {
                 const message = input.value.trim();
                 if (!message || isSending) return;
+
+                const pageCtx = detectPageContext();
 
                 addUserMessage(message);
                 input.value = '';
@@ -1302,21 +1504,34 @@
                     const response = await fetch('/api/ai-agent/chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: message, conversationId: conversationId })
+                        body: JSON.stringify({
+                            message: message,
+                            conversationId: conversationId,
+                            pageContext: pageCtx
+                        })
                     });
 
                     const data = await response.json();
                     hideTyping();
 
                     if (data.success) {
-                        addBotMessage(data.message, data.movies);
+                        addBotMessage(data.message, data.movies, data.actions);
                     } else {
-                        addBotMessage('Xin lỗi, có lỗi xảy ra: ' + (data.error || 'Unknown error'));
+                        const fallbackActions = [
+                            { type: "CHIP_REPLY", label: "🔥 Xem phim hot", text: "Top phim thịnh hành nhất hiện nay trên FFilm" },
+                            { type: "CHIP_REPLY", label: "⭐ Top điểm cao", text: "Gợi ý các phim có điểm đánh giá cao nhất" },
+                            { type: "CHIP_REPLY", label: "😂 Phim nhẹ nhàng hài hước", text: "Muốn xem phim hài nhẹ nhàng giải trí" }
+                        ];
+                        addBotMessage(data.error || 'Xin lỗi, tôi chưa tìm thấy kết quả phù hợp. Bạn có thể thử các gợi ý bên dưới:', null, fallbackActions);
                     }
 
                 } catch (error) {
                     hideTyping();
-                    addBotMessage('⚠️ Không thể kết nối đến server.');
+                    const networkActions = [
+                        { type: "CHIP_REPLY", label: "🔄 Thử lại", text: message },
+                        { type: "CHIP_REPLY", label: "🔥 Top phim hot", text: "Top phim thịnh hành nhất hiện nay trên FFilm" }
+                    ];
+                    addBotMessage('⚠️ Hệ thống AI đang phản hồi chậm. Bạn có thể thử lại hoặc tra cứu phim trực tiếp qua thanh tìm kiếm.', null, networkActions);
                 } finally {
                     isSending = false;
                     sendBtn.disabled = false;
@@ -1334,8 +1549,8 @@
                 scrollToBottom();
             }
 
-            // Hàm hiển thị tin nhắn Bot kèm Movie Cards (nếu có)
-            function addBotMessage(text, movies) {
+            // Hàm hiển thị tin nhắn Bot kèm Movie Cards và Action Chips
+            function addBotMessage(text, movies, actions) {
                 const div = document.createElement('div');
                 div.className = 'ai-message bot';
                 if (movies && Array.isArray(movies) && movies.length > 0) {
@@ -1351,6 +1566,10 @@
                     html += renderMovieSuggestions(movies);
                 }
 
+                if (actions && Array.isArray(actions) && actions.length > 0) {
+                    html += renderActionChips(actions);
+                }
+
                 html += '</div>';
 
                 div.innerHTML = html;
@@ -1361,7 +1580,36 @@
                     makeScrollableDraggable(scrollEl);
                 }
 
+                // Gán sự kiện click cho các Action Chips
+                div.querySelectorAll('.ai-action-chip').forEach(chip => {
+                    chip.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const type = chip.dataset.type;
+                        if (type === 'WATCH' || chip.dataset.url) {
+                            window.location.href = chip.dataset.url;
+                        } else if (type === 'CHIP_REPLY') {
+                            input.value = chip.dataset.text;
+                            sendMessage();
+                        }
+                    });
+                });
+
                 scrollToBottom();
+            }
+
+            // Render các action chip trực tiếp dưới câu trả lời của AI
+            function renderActionChips(actions) {
+                let html = '<div class="ai-action-chips">';
+                actions.forEach(act => {
+                    const isWatch = act.type === 'WATCH';
+                    const cls = isWatch ? 'ai-action-chip ai-action-watch' : 'ai-action-chip';
+                    const icon = isWatch ? '<i class="fas fa-play" style="font-size:0.7rem;"></i>' : '<i class="fas fa-arrow-right" style="font-size:0.7rem;"></i>';
+                    html += `<button type="button" class="${cls}" data-type="${escapeHtml(act.type || '')}" data-url="${escapeHtml(act.url || '')}" data-text="${escapeHtml(act.text || act.prompt || '')}">
+                        ${icon} <span>${escapeHtml(act.label || '')}</span>
+                    </button>`;
+                });
+                html += '</div>';
+                return html;
             }
 
             // Tạo HTML chuỗi thẻ phim
@@ -1453,6 +1701,7 @@
                 chatWindow.hidden = false;
                 chatWindow.style.display = 'flex';
                 input.focus();
+                refreshSuggestions();
                 scrollToBottom();
             }
             function closeChat() {
@@ -1490,7 +1739,7 @@
                 });
             }
 
-            window.aiChat = { open: openChat, close: closeChat, send: sendMessage };
+            window.aiChat = { open: openChat, close: closeChat, send: sendMessage, clear: clearHistory };
 
             // Auto close when clicking outside
             document.addEventListener('click', function(e) {

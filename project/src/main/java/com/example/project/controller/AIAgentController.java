@@ -41,6 +41,14 @@ public class AIAgentController {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Message không được để trống"));
             }
 
+            Map<String, Object> pageContext = null;
+            if (json.has("pageContext") && !json.isNull("pageContext")) {
+                org.json.JSONObject pc = json.optJSONObject("pageContext");
+                if (pc != null) {
+                    pageContext = pc.toMap();
+                }
+            }
+
             // 1. Lấy thông tin User từ Session (nếu có)
             Integer userId = null;
             UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
@@ -48,8 +56,8 @@ public class AIAgentController {
                 userId = userSession.getId();
             }
 
-            // 2. Xử lý tin nhắn (kèm userId để cá nhân hóa & grounding)
-            Map<String, Object> response = aiAgentService.processMessage(message, conversationId, userId);
+            // 2. Xử lý tin nhắn (kèm userId & pageContext để cá nhân hóa & grounding)
+            Map<String, Object> response = aiAgentService.processMessage(message, conversationId, userId, pageContext);
 
             // 3. [BẢO MẬT LỚP 2] Chỉ lưu lịch sử nếu ĐÃ ĐĂNG NHẬP (userId != null)
             if (userId != null) {
@@ -61,7 +69,7 @@ public class AIAgentController {
             // 4. Trả về kết quả
             Map<String, Object> finalResponse = new HashMap<>(response);
             finalResponse.put("conversationId", conversationId);
-            
+
             return ResponseEntity.ok(finalResponse);
 
         } catch (Exception e) {
@@ -90,8 +98,50 @@ public class AIAgentController {
         List<Map<String, Object>> history = aiAgentService.getChatHistory(sessionId, userId);
         return ResponseEntity.ok(history);
     }
-    
-    // ... (Giữ nguyên các endpoint test/health cũ nếu cần) ...
+
+    /**
+     * Endpoint xóa lịch sử chat và giải phóng context hội thoại
+     * DELETE /api/ai-agent/history
+     */
+    @DeleteMapping("/history")
+    public ResponseEntity<Map<String, Object>> clearHistory(
+            @RequestParam(required = false) String conversationId,
+            HttpSession session) {
+        Integer userId = null;
+        Object userObj = session.getAttribute("user");
+        if (userObj instanceof UserSessionDto) {
+            userId = ((UserSessionDto) userObj).getId();
+        } else if (userObj instanceof com.example.project.model.User) {
+            userId = ((com.example.project.model.User) userObj).getUserID();
+        }
+        String sessionId = session.getId();
+        aiAgentService.clearChatHistory(sessionId, userId, conversationId);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa toàn bộ lịch sử trò chuyện"));
+    }
+
+    /**
+     * Endpoint lấy gợi ý câu hỏi chủ động theo Page Context
+     * GET /api/ai-agent/suggestions
+     */
+    @GetMapping("/suggestions")
+    public ResponseEntity<Map<String, Object>> getSuggestions(
+            @RequestParam(required = false) String page,
+            @RequestParam(required = false) Integer movieId,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String genre,
+            HttpSession session) {
+        Integer userId = null;
+        Object userObj = session.getAttribute("user");
+        if (userObj instanceof UserSessionDto) {
+            userId = ((UserSessionDto) userObj).getId();
+        } else if (userObj instanceof com.example.project.model.User) {
+            userId = ((com.example.project.model.User) userObj).getUserID();
+        }
+
+        Map<String, Object> suggestions = aiAgentService.getProactiveSuggestions(page, movieId, query, genre, userId);
+        return ResponseEntity.ok(suggestions);
+    }
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(Map.of("status", "healthy"));
