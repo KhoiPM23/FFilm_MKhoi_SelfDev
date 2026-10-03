@@ -1140,7 +1140,18 @@
 
             // DOM Elements
             let chatIcon, chatWindow, closeBtn, sendBtn, input, messagesContainer, typingIndicator, suggestionsContainer;
-            let conversationId = generateUUID();
+            let conversationId = (function() {
+                try {
+                    let cid = sessionStorage.getItem('ffilm_ai_cid');
+                    if (!cid) {
+                        cid = generateUUID();
+                        sessionStorage.setItem('ffilm_ai_cid', cid);
+                    }
+                    return cid;
+                } catch(e) {
+                    return generateUUID();
+                }
+            })();
             let isSending = false;
 
             // --- INJECT CSS STYLE TRỰC TIẾP (Không cần file css ngoài) ---
@@ -1303,12 +1314,15 @@
                 input.addEventListener('input', autoResizeTextarea);
                 attachSuggestionHandlers();
 
-                // Load History nếu đã đăng nhập, nếu chưa thì render tin chào mừng + gợi ý theo ngữ cảnh
-                if (typeof window.isUserLoggedIn !== 'undefined' && window.isUserLoggedIn) {
-                    loadChatHistory();
-                } else {
-                    refreshSuggestions();
-                }
+                // Luôn load lịch sử trò chuyện (hỗ trợ cả User đã đăng nhập & Guest theo conversationId)
+                loadChatHistory();
+
+                // Khôi phục trạng thái mở của cửa sổ chat nếu đang mở trước khi điều hướng
+                try {
+                    if (sessionStorage.getItem('ffilm_ai_open') === 'true') {
+                        openChat();
+                    }
+                } catch(e) {}
             }
 
             // Phát hiện thông tin trang hiện tại để grounding AI
@@ -1325,11 +1339,9 @@
                 const path = window.location.pathname;
                 const urlParams = new URLSearchParams(window.location.search);
 
-                // 1. Kiểm tra Movie Detail
+                // 1. Kiểm tra Movie Detail (Chỉ nhận diện khi đang ở trang chi tiết phim thật sự)
                 const detailMatch = path.match(/\/movie\/detail\/(\d+)/);
                 const metaMovieId = document.querySelector('meta[name="movie-id"]')?.getAttribute('content');
-                const heroBanner = document.getElementById('heroBanner');
-                const heroMovieId = heroBanner?.dataset?.movieId;
 
                 if (detailMatch && detailMatch[1]) {
                     ctx.page = 'movie_detail';
@@ -1337,15 +1349,12 @@
                 } else if (metaMovieId && !isNaN(parseInt(metaMovieId, 10))) {
                     ctx.page = 'movie_detail';
                     ctx.movieId = parseInt(metaMovieId, 10);
-                } else if (heroMovieId && !isNaN(parseInt(heroMovieId, 10))) {
-                    ctx.page = 'movie_detail';
-                    ctx.movieId = parseInt(heroMovieId, 10);
-                } else if (urlParams.has('movieId') && !isNaN(parseInt(urlParams.get('movieId'), 10))) {
+                } else if (path.includes('/movie/detail') && urlParams.has('movieId') && !isNaN(parseInt(urlParams.get('movieId'), 10))) {
                     ctx.page = 'movie_detail';
                     ctx.movieId = parseInt(urlParams.get('movieId'), 10);
                 }
 
-                if (ctx.movieId) {
+                if (ctx.page === 'movie_detail' && ctx.movieId) {
                     const titleEl = document.getElementById('heroTitleText') || document.querySelector('.hero-title') || document.querySelector('h1.movie-title');
                     if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
                         ctx.movieTitle = titleEl.textContent.trim();
@@ -1454,7 +1463,7 @@
 
             async function loadChatHistory() {
                 try {
-                    const res = await fetch('/api/ai-agent/history');
+                    const res = await fetch('/api/ai-agent/history?conversationId=' + encodeURIComponent(conversationId));
                     if (res.ok) {
                         const history = await res.json();
                         renderWelcomeMessage();
@@ -1481,19 +1490,24 @@
                     console.error("Lỗi xóa history server:", e);
                 }
                 conversationId = generateUUID();
+                try { sessionStorage.setItem('ffilm_ai_cid', conversationId); } catch(e) {}
                 messagesContainer.innerHTML = '';
                 renderWelcomeMessage();
             }
+
+            let activeRequestId = 0;
 
             async function sendMessage() {
                 const message = input.value.trim();
                 if (!message || isSending) return;
 
+                const thisRequestId = ++activeRequestId;
                 const pageCtx = detectPageContext();
 
                 addUserMessage(message);
                 input.value = '';
                 input.style.height = 'auto';
+                input.disabled = true;
                 if (suggestionsContainer) suggestionsContainer.style.display = 'none';
 
                 showTyping();
@@ -1514,6 +1528,11 @@
                     const data = await response.json();
                     hideTyping();
 
+                    // Chống Race Condition: Bỏ qua nếu có request mới hơn đã được phát đi
+                    if (thisRequestId < activeRequestId) {
+                        return;
+                    }
+
                     if (data.success) {
                         addBotMessage(data.message, data.movies, data.actions);
                         // Nếu bot không trả về action chips, làm mới suggestions theo ngữ cảnh
@@ -1531,15 +1550,19 @@
 
                 } catch (error) {
                     hideTyping();
+                    if (thisRequestId < activeRequestId) return;
                     const networkActions = [
                         { type: "CHIP_REPLY", label: "🔄 Thử lại", text: message },
                         { type: "CHIP_REPLY", label: "🔥 Top phim hot", text: "Top phim thịnh hành nhất hiện nay trên FFilm" }
                     ];
                     addBotMessage('⚠️ Hệ thống AI đang phản hồi chậm. Bạn có thể thử lại hoặc tra cứu phim trực tiếp qua thanh tìm kiếm.', null, networkActions);
                 } finally {
-                    isSending = false;
-                    sendBtn.disabled = false;
-                    input.focus();
+                    if (thisRequestId === activeRequestId) {
+                        isSending = false;
+                        sendBtn.disabled = false;
+                        input.disabled = false;
+                        input.focus();
+                    }
                 }
             }
 
@@ -1704,6 +1727,7 @@
                 }
                 chatWindow.hidden = false;
                 chatWindow.style.display = 'flex';
+                try { sessionStorage.setItem('ffilm_ai_open', 'true'); } catch(e) {}
                 input.focus();
                 refreshSuggestions();
                 scrollToBottom();
@@ -1711,6 +1735,7 @@
             function closeChat() {
                 chatWindow.hidden = true;
                 chatWindow.style.display = 'none';
+                try { sessionStorage.setItem('ffilm_ai_open', 'false'); } catch(e) {}
             }
             function showTyping() { 
                 if(typingIndicator) { 

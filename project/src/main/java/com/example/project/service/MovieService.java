@@ -1489,6 +1489,34 @@ public class MovieService {
         // Chúng ta dùng Sort mặc định theo Rating giảm dần
         List<Movie> results = movieRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "rating"));
 
+        // 3. Áp dụng Negative Filters (Loại trừ tiêu chí)
+        if (filters.getExcludedMovieIds() != null && !filters.getExcludedMovieIds().isEmpty()) {
+            Set<Integer> exIds = new HashSet<>(filters.getExcludedMovieIds());
+            results = results.stream().filter(m -> !exIds.contains(m.getMovieID())).collect(Collectors.toList());
+        }
+        if (filters.getExcludedGenres() != null && !filters.getExcludedGenres().isEmpty()) {
+            List<String> exG = filters.getExcludedGenres().stream().map(String::toLowerCase).collect(Collectors.toList());
+            results = results.stream().filter(m -> {
+                if (m.getGenres() == null || m.getGenres().isEmpty()) return true;
+                return m.getGenres().stream().noneMatch(g -> exG.stream().anyMatch(ex -> g.getName().toLowerCase().contains(ex)));
+            }).collect(Collectors.toList());
+        }
+        if (filters.getExcludedDirectors() != null && !filters.getExcludedDirectors().isEmpty()) {
+            List<String> exD = filters.getExcludedDirectors().stream().map(String::toLowerCase).collect(Collectors.toList());
+            results = results.stream().filter(m -> {
+                if (m.getDirector() == null || m.getDirector().isEmpty()) return true;
+                String dLower = m.getDirector().toLowerCase();
+                return exD.stream().noneMatch(dLower::contains);
+            }).collect(Collectors.toList());
+        }
+        if (filters.getExcludedActors() != null && !filters.getExcludedActors().isEmpty()) {
+            List<String> exA = filters.getExcludedActors().stream().map(String::toLowerCase).collect(Collectors.toList());
+            results = results.stream().filter(m -> {
+                if (m.getPersons() == null || m.getPersons().isEmpty()) return true;
+                return m.getPersons().stream().noneMatch(p -> exA.stream().anyMatch(ex -> p.getFullName().toLowerCase().contains(ex)));
+            }).collect(Collectors.toList());
+        }
+
         System.out.println("🔵 MovieService: Found " + results.size() + " movies.");
         return results;
     }
@@ -1503,10 +1531,12 @@ public class MovieService {
 
             // QUAN TRỌNG: Tránh N+1 query khi join
             // Chúng ta báo JPA fetch các bảng liên quan trong 1 lần query
-            if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
+            if ((filters.getGenres() != null && !filters.getGenres().isEmpty()) ||
+                (filters.getExcludedGenres() != null && !filters.getExcludedGenres().isEmpty())) {
                 root.fetch("genres", jakarta.persistence.criteria.JoinType.LEFT);
             }
-            if (filters.getActor() != null || filters.getDirector() != null) {
+            if (filters.getActor() != null || filters.getDirector() != null ||
+                (filters.getExcludedActors() != null && !filters.getExcludedActors().isEmpty())) {
                 root.fetch("persons", jakarta.persistence.criteria.JoinType.LEFT);
             }
             // Đảm bảo không bị trùng lặp kết quả khi JOIN
@@ -1532,7 +1562,7 @@ public class MovieService {
             }
 
             // 4. Filter: Year From (Năm >=)
-            if (filters.getYearFrom() != null) {
+            if (filters.getYearFrom() != null && filters.getYearFrom() > 1900) {
                 try {
                     Date dateFrom = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearFrom() + "-01-01");
                     predicates.add(cb.greaterThanOrEqualTo(root.get("releaseDate"), dateFrom));
@@ -1541,7 +1571,7 @@ public class MovieService {
             }
 
             // 5. Filter: Year To (Năm <=)
-            if (filters.getYearTo() != null) {
+            if (filters.getYearTo() != null && filters.getYearTo() > 1900) {
                 try {
                     Date dateTo = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearTo() + "-12-31");
                     predicates.add(cb.lessThanOrEqualTo(root.get("releaseDate"), dateTo));

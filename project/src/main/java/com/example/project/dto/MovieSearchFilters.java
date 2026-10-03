@@ -36,11 +36,12 @@ public class MovieSearchFilters {
     // Filters theo người
     private String director;        // Đạo diễn
     private String actor;           // Diễn viên
-    
-    // Metadata (chưa dùng ở Phase 1, để dành)
-    // private String sortBy;       // "rating", "releaseDate", "popularity"
-    // private String sortOrder;      // "asc", "desc"
-    // private Integer limit;       // Giới hạn kết quả (default: 10)
+
+    // Negative Preferences (Loại trừ tiêu chí)
+    private List<String> excludedGenres;    // Thể loại loại trừ (vd: không kinh dị)
+    private List<String> excludedDirectors; // Đạo diễn loại trừ (vd: không Nolan)
+    private List<String> excludedActors;    // Diễn viên loại trừ
+    private List<Integer> excludedMovieIds; // Các ID phim cần bỏ qua (đã xem, không lặp lại)
     
     /**
      * Kiểm tra có filter nào được áp dụng không
@@ -57,7 +58,12 @@ public class MovieSearchFilters {
                minDuration != null ||
                maxDuration != null ||
                (director != null && !director.isEmpty()) ||
-               (actor != null && !actor.isEmpty());
+               (actor != null && !actor.isEmpty()) ||
+               (excludedGenres != null && !excludedGenres.isEmpty()) ||
+               (excludedDirectors != null && !excludedDirectors.isEmpty()) ||
+               (excludedActors != null && !excludedActors.isEmpty()) ||
+               (excludedMovieIds != null && !excludedMovieIds.isEmpty()) ||
+               isFree != null;
     }
     // Thêm field này vào cuối class
     private Boolean isFree;        // Lọc phim miễn phí/trả phí
@@ -100,4 +106,16 @@ public class MovieSearchFilters {
 
     public Boolean getIsFree() { return isFree; }
     public void setIsFree(Boolean isFree) { this.isFree = isFree; }
+
+    public List<String> getExcludedGenres() { return excludedGenres; }
+    public void setExcludedGenres(List<String> excludedGenres) { this.excludedGenres = excludedGenres; }
+
+    public List<String> getExcludedDirectors() { return excludedDirectors; }
+    public void setExcludedDirectors(List<String> excludedDirectors) { this.excludedDirectors = excludedDirectors; }
+
+    public List<String> getExcludedActors() { return excludedActors; }
+    public void setExcludedActors(List<String> excludedActors) { this.excludedActors = excludedActors; }
+
+    public List<Integer> getExcludedMovieIds() { return excludedMovieIds; }
+    public void setExcludedMovieIds(List<Integer> excludedMovieIds) { this.excludedMovieIds = excludedMovieIds; }
 }

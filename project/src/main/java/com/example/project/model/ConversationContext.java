@@ -31,6 +31,27 @@ public class ConversationContext implements Serializable {
     private Map<String, Object> lastPageContext;
     private String lastActiveIntent;
     private List<String> lastActiveGenres = new ArrayList<>();
+    private String lastActiveCountry;
+    private Map<String, Object> lastBaseMovie;
+
+    // Advanced Movie Intelligence: Multi-Constraint & Negative Preferences
+    private List<String> excludedGenres = new ArrayList<>();
+    private List<String> excludedDirectors = new ArrayList<>();
+    private List<String> excludedActors = new ArrayList<>();
+    private Float activeMinRating;
+    private Integer activeMaxDuration;
+    private Integer activeYearFrom;
+    private Integer activeYearTo;
+    private String activeActor;
+    private String activeDirector;
+
+    // Movie ↔ Person Graph Context
+    private String lastFocusedDirector;
+    private List<String> lastMentionedPersons = new ArrayList<>();
+
+    // Backtracking & History State Snapshot
+    private List<Map<String, Object>> previousCandidateMovies = new ArrayList<>();
+    private Map<String, Object> previousFocusedMovie;
 
     public ConversationContext() {}
 
@@ -39,6 +60,32 @@ public class ConversationContext implements Serializable {
         this.lastSubjectType = lastSubjectType;
         this.lastSubjectId = lastSubjectId;
         this.lastQuestionAsked = lastQuestionAsked;
+    }
+
+    /**
+     * Lưu snapshot trạng thái hiện tại trước khi switch sang chủ đề/danh sách mới
+     */
+    public void pushStateSnapshot() {
+        if (this.lastCandidateMovies != null && !this.lastCandidateMovies.isEmpty()) {
+            this.previousCandidateMovies = new ArrayList<>(this.lastCandidateMovies);
+        }
+        if (this.lastFocusedMovie != null) {
+            this.previousFocusedMovie = new java.util.HashMap<>(this.lastFocusedMovie);
+        }
+    }
+
+    /**
+     * Khôi phục snapshot danh sách trước đó khi user yêu cầu "quay lại"
+     */
+    public boolean popStateSnapshot() {
+        if (this.previousCandidateMovies != null && !this.previousCandidateMovies.isEmpty()) {
+            this.lastCandidateMovies = new ArrayList<>(this.previousCandidateMovies);
+            if (this.previousFocusedMovie != null) {
+                this.lastFocusedMovie = new java.util.HashMap<>(this.previousFocusedMovie);
+            }
+            return true;
+        }
+        return false;
     }
 
     // Getters & Setters
@@ -85,5 +132,68 @@ public class ConversationContext implements Serializable {
     public List<String> getLastActiveGenres() { return lastActiveGenres; }
     public void setLastActiveGenres(List<String> lastActiveGenres) {
         this.lastActiveGenres = lastActiveGenres != null ? lastActiveGenres : new ArrayList<>();
+    }
+
+    public String getLastActiveCountry() { return lastActiveCountry; }
+    public void setLastActiveCountry(String lastActiveCountry) { this.lastActiveCountry = lastActiveCountry; }
+
+    public Map<String, Object> getLastBaseMovie() { return lastBaseMovie; }
+    public void setLastBaseMovie(Map<String, Object> lastBaseMovie) { this.lastBaseMovie = lastBaseMovie; }
+
+    public List<String> getExcludedGenres() { return excludedGenres; }
+    public void setExcludedGenres(List<String> excludedGenres) {
+        this.excludedGenres = excludedGenres != null ? excludedGenres : new ArrayList<>();
+    }
+    public void addExcludedGenre(String genre) {
+        if (genre != null && !this.excludedGenres.contains(genre)) this.excludedGenres.add(genre);
+    }
+
+    public List<String> getExcludedDirectors() { return excludedDirectors; }
+    public void setExcludedDirectors(List<String> excludedDirectors) {
+        this.excludedDirectors = excludedDirectors != null ? excludedDirectors : new ArrayList<>();
+    }
+    public void addExcludedDirector(String director) {
+        if (director != null && !this.excludedDirectors.contains(director)) this.excludedDirectors.add(director);
+    }
+
+    public List<String> getExcludedActors() { return excludedActors; }
+    public void setExcludedActors(List<String> excludedActors) {
+        this.excludedActors = excludedActors != null ? excludedActors : new ArrayList<>();
+    }
+
+    public Float getActiveMinRating() { return activeMinRating; }
+    public void setActiveMinRating(Float activeMinRating) { this.activeMinRating = activeMinRating; }
+
+    public Integer getActiveMaxDuration() { return activeMaxDuration; }
+    public void setActiveMaxDuration(Integer activeMaxDuration) { this.activeMaxDuration = activeMaxDuration; }
+
+    public Integer getActiveYearFrom() { return activeYearFrom; }
+    public void setActiveYearFrom(Integer activeYearFrom) { this.activeYearFrom = activeYearFrom; }
+
+    public Integer getActiveYearTo() { return activeYearTo; }
+    public void setActiveYearTo(Integer activeYearTo) { this.activeYearTo = activeYearTo; }
+
+    public String getActiveActor() { return activeActor; }
+    public void setActiveActor(String activeActor) { this.activeActor = activeActor; }
+
+    public String getActiveDirector() { return activeDirector; }
+    public void setActiveDirector(String activeDirector) { this.activeDirector = activeDirector; }
+
+    public String getLastFocusedDirector() { return lastFocusedDirector; }
+    public void setLastFocusedDirector(String lastFocusedDirector) { this.lastFocusedDirector = lastFocusedDirector; }
+
+    public List<String> getLastMentionedPersons() { return lastMentionedPersons; }
+    public void setLastMentionedPersons(List<String> lastMentionedPersons) {
+        this.lastMentionedPersons = lastMentionedPersons != null ? lastMentionedPersons : new ArrayList<>();
+    }
+
+    public List<Map<String, Object>> getPreviousCandidateMovies() { return previousCandidateMovies; }
+    public void setPreviousCandidateMovies(List<Map<String, Object>> previousCandidateMovies) {
+        this.previousCandidateMovies = previousCandidateMovies != null ? previousCandidateMovies : new ArrayList<>();
+    }
+
+    public Map<String, Object> getPreviousFocusedMovie() { return previousFocusedMovie; }
+    public void setPreviousFocusedMovie(Map<String, Object> previousFocusedMovie) {
+        this.previousFocusedMovie = previousFocusedMovie;
     }
 }

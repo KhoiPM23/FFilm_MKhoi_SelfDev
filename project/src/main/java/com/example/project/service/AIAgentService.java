@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,9 +49,14 @@ public class AIAgentService {
     private final Cache conversationCache;
     private final AISearchService aiSearchService;
     private final AIChatHistoryRepository chatHistoryRepository;
+    private final MovieEntityResolver movieEntityResolver;
+    private final MovieRecommendationEngine movieRecommendationEngine;
 
     // Bộ nhớ in-memory phòng vệ khi Spring Cache không có sẵn hoặc bị vô hiệu hóa
     private final Map<String, ConversationContext> inMemoryContextStore = new ConcurrentHashMap<>();
+
+    @Autowired(required = false)
+    private TmdbClient tmdbClient;
 
     @Autowired
     public AIAgentService(
@@ -65,7 +72,9 @@ public class AIAgentService {
             MovieService movieService,
             CacheManager cacheManager,
             AISearchService aiSearchService,
-            AIChatHistoryRepository chatHistoryRepository) {
+            AIChatHistoryRepository chatHistoryRepository,
+            MovieEntityResolver movieEntityResolver,
+            MovieRecommendationEngine movieRecommendationEngine) {
         this.geminiClient = geminiClient;
         this.planRepository = planRepository;
         this.movieRepository = movieRepository;
@@ -79,6 +88,8 @@ public class AIAgentService {
         this.movieService = movieService;
         this.conversationCache = (cacheManager != null) ? cacheManager.getCache("conversationCache") : null;
         this.chatHistoryRepository = chatHistoryRepository;
+        this.movieEntityResolver = movieEntityResolver;
+        this.movieRecommendationEngine = movieRecommendationEngine;
     }
 
     // ---- 1. SAFETY & SECURITY POLICY ----
@@ -106,11 +117,11 @@ public class AIAgentService {
 
     private static final Map<String, List<String>> GENRE_MAPPING = Map.ofEntries(
             Map.entry("Hành động", List.of("hành động", "hanh dong", "action", "đánh nhau", "võ thuật", "vo thuat")),
-            Map.entry("Hài", List.of("hài", "hai", "comedy", "hài hước", "hai huoc", "vui", "funny", "cười")),
+            Map.entry("Hài", List.of("hài", "phim hài", "comedy", "hài hước", "hai huoc", "vui", "funny", "cười")),
             Map.entry("Chính kịch", List.of("chính kịch", "chinh kich", "drama", "tâm lý", "tam ly")),
             Map.entry("Lãng mạn", List.of("lãng mạn", "lang man", "romance", "tình cảm", "tinh cam", "yêu", "love")),
             Map.entry("Kinh dị", List.of("kinh dị", "kinh di", "horror", "ma", "ghost", "sợ hãi", "scary")),
-            Map.entry("Khoa học viễn tưởng", List.of("khoa học", "sci-fi", "viễn tưởng", "vien tuong", "công nghệ")),
+            Map.entry("Khoa học viễn tưởng", List.of("khoa học", "sci-fi", "scifi", "sci fi", "viễn tưởng", "vien tuong", "công nghệ")),
             Map.entry("Gây cấn", List.of("gây cấn", "gay can", "thriller", "kịch tính", "kich tinh", "căng thẳng")),
             Map.entry("Phiêu lưu", List.of("phiêu lưu", "phieu luu", "adventure", "mạo hiểm", "mao hiem")),
             Map.entry("Hoạt hình", List.of("hoạt hình", "hoat hinh", "animation", "anime", "cartoon", "animated")),
@@ -151,27 +162,39 @@ public class AIAgentService {
             "Nhiệm vụ: Trích xuất ý định và các thực thể của người dùng thành DUY NHẤT một JSON Object hợp lệ (không kèm markdown ```json).\n\n" +
             "# CÁC INTENT HỖ TRỢ:\n" +
             "1. LOOKUP: Tra cứu thông tin phim hoặc người cụ thể (nội dung/synopsis, đạo diễn, diễn viên, rating, năm chiếu, hoặc thông tin chung).\n" +
-            "   Trường: intent='LOOKUP', q_subject (tên phim/người), q_type='movie'|'person', q_attribute='synopsis'|'director'|'cast'|'rating'|'year'|'general'.\n" +
+            "   Trường: intent='LOOKUP', q_subject (tên phim/người đã chuẩn hóa, sửa lỗi chính tả), original_title (tên tiếng Anh gốc nếu có), vietnamese_title (tên tiếng Việt chính thức tại VN nếu có), q_type='movie'|'person', q_attribute='synopsis'|'director'|'cast'|'rating'|'year'|'general'.\n" +
             "2. COMPARE: So sánh 2 bộ phim với nhau.\n" +
-            "   Trường: intent='COMPARE', movie1 (tên phim 1), movie2 (tên phim 2).\n" +
+            "   Trường: intent='COMPARE', movie1 (tên phim 1), movie1_orig, movie1_vn, movie2 (tên phim 2), movie2_orig, movie2_vn.\n" +
             "3. SIMILAR_RECOMMEND: Đề xuất các phim tương tự một phim gốc (kèm tiêu chí tùy biến nếu có).\n" +
-            "   Trường: intent='SIMILAR_RECOMMEND', base_movie (tên phim gốc), modifier (tiêu chí phụ, vd: 'nhẹ nhàng hơn', 'mới hơn', 'kịch tính hơn').\n" +
-            "4. PERSON_QUERY: Hỏi về sự nghiệp hoặc quan hệ hợp tác của diễn viên/đạo diễn.\n" +
-            "   Trường: intent='PERSON_QUERY', person_name, person_name_2 (nếu hỏi đóng chung), role='actor'|'director'|'co_star'.\n" +
+            "   Trường: intent='SIMILAR_RECOMMEND', base_movie (tên phim gốc), modifier (tiêu chí phụ, vd: 'nhẹ nhàng hơn', 'mới hơn', 'kịch tính hơn', 'rating cao nhất', 'lựa chọn khác'), excluded_genres (mảng string), excluded_directors (mảng string).\n" +
+            "4. PERSON_QUERY: Hỏi về sự nghiệp hoặc quan hệ hợp tác của diễn viên/đạo diễn, hoặc các phim của họ.\n" +
+            "   Trường: intent='PERSON_QUERY', person_name (chuẩn hóa họ tên), person_name_2 (nếu hỏi đóng chung), role='actor'|'director'|'co_star', query_type='filmography'|'co_star'|'top_rated'|'latest'|'director_of'.\n" +
             "5. USER_PERSONALIZED: Người dùng hỏi gợi ý dựa trên sở thích cá nhân, phim đã xem, phim yêu thích của chính họ.\n" +
             "   Trường: intent='USER_PERSONALIZED'.\n" +
-            "6. FILTER: Tìm kiếm phim theo nhiều điều kiện kết hợp (thể loại, quốc gia, năm, điểm số, tâm trạng).\n" +
-            "   Trường: intent='FILTER', f_country, f_genres (mảng String), f_year_from, f_year_to, f_actor, f_director.\n" +
-            "7. DESCRIPTION_SEARCH: Người dùng mô tả cốt truyện/tình tiết phim nhưng không nhớ tên.\n" +
+            "6. FILTER: Tìm kiếm phim theo nhiều điều kiện kết hợp (thể loại, quốc gia, năm, điểm số, thời lượng, tâm trạng) hoặc phủ định (không thích thể loại gì, không muốn phim ai).\n" +
+            "   Trường: intent='FILTER', f_country, f_genres (mảng String), f_min_rating (float, vd 7.5), f_max_duration (int phút, vd 120), f_year_from, f_year_to, f_actor, f_director, excluded_genres (mảng String), excluded_directors (mảng String), context_action='NARROW'|'SWITCH'|'CONTRADICT'|'BACKTRACK'|'NEW'.\n" +
+            "7. TRENDING: Hỏi về top phim thịnh hành, phim hot, phổ biến nhất trên FFilm.\n" +
+            "   Trường: intent='TRENDING'.\n" +
+            "8. DESCRIPTION_SEARCH: Người dùng mô tả cốt truyện/tình tiết phim nhưng không nhớ tên.\n" +
             "   Trường: intent='DESCRIPTION_SEARCH'.\n" +
-            "8. SUBSCRIPTION_INFO: Hỏi về gói cước, giá vé, thanh toán, hủy gói, chính sách hoàn tiền.\n" +
+            "9. SUBSCRIPTION_INFO: Hỏi về gói cước, giá vé, thanh toán, hủy gói, chính sách hoàn tiền.\n" +
             "   Trường: intent='SUBSCRIPTION_INFO', subscription_query='plans'|'price'|'cancel'|'payment'|'refund'.\n" +
-            "9. CHITCHAT: Chào hỏi xã giao, cảm ơn, khen ngợi.\n" +
+            "10. CHITCHAT: Chào hỏi xã giao, cảm ơn, khen ngợi, hoặc từ chối ngắn ('thôi', 'bỏ', 'ok').\n" +
             "   Trường: intent='CHITCHAT', reply (câu phản hồi thân thiện, ấm áp về FFilm).\n\n" +
+            "# NGUYÊN TẮC CHUẨN HÓA THỰC THỂ & SỬA LỖI CHÍNH TẢ (BẮT BUỘC):\n" +
+            "- Sửa lỗi chính tả tên phim/người: 'incepion' -> Inception (Kẻ Cắp Giấc Mơ), 'interstelar'/'interstella' -> Interstellar (Hố Đen Tử Thần), 'batmn' -> Batman (Kỵ Sĩ Bóng Đêm), 'spidermn'/'spider man' -> Spider-Man (Người Nhện), 'ke cap giac mo' -> Kẻ Cắp Giấc Mơ, 'phim no lan' -> Christopher Nolan, 'leonardo' -> Leonardo DiCaprio.\n" +
+            "- Nếu là phim nước ngoài nổi tiếng, luôn cung cấp cả original_title (tiếng Anh) và vietnamese_title (tên phát hành tại VN) để hệ thống tra cứu đa tầng.\n\n" +
+            "# QUY TẮC GIẢI QUYẾT TIÊU CHÍ PHỦ ĐỊNH (NEGATIVE PREFERENCES):\n" +
+            "- Nếu người dùng nói: 'không kinh dị', 'đừng kinh dị', 'không thích phim buồn', 'không romance' -> đưa vào excluded_genres.\n" +
+            "- Nếu người dùng nói: 'không muốn phim Nolan', 'không phải của Nolan', 'đừng của Christopher Nolan' -> đưa vào excluded_directors.\n" +
+            "- Nếu người dùng đổi ý mâu thuẫn (vd trước đó chọn kinh dị, giờ nói 'thực ra tôi ghét kinh dị' hoặc 'thôi không kinh dị nữa') -> context_action='CONTRADICT', đưa 'Kinh dị' vào excluded_genres.\n\n" +
             "# QUY TẮC GIẢI QUYẾT THAM CHIẾU & ĐẠI TỪ (BẮT BUỘC):\n" +
-            "- Nếu câu hỏi dùng đại từ ('nó', 'phim này', 'bộ này', 'đây', 'ai đóng', 'nội dung thế nào'): Ưu tiên lấy tên phim từ [NGỮ CẢNH TRANG HIỆN TẠI] hoặc bộ phim vừa thảo luận gần nhất.\n" +
-            "- Nếu câu hỏi nói 'phim thứ hai', 'phim thứ 2', 'bộ đầu tiên': Lấy chính xác tên phim theo số thứ tự từ danh sách đề xuất turn trước.\n" +
-            "- Nếu câu hỏi nói 'diễn viên đó', 'người đó', 'anh ấy', 'cô ấy': Lấy tên diễn viên vừa được nhắc tới trong lượt trả lời trước.\n\n" +
+            "- Nếu câu hỏi dùng đại từ ('nó', 'phim này', 'bộ này', 'đây', 'ai đóng', 'nội dung thế nào'): Ưu tiên lấy tên phim từ [NGỮ CẢNH TRANG HIỆN TẠI] (nếu trang là movie_detail) hoặc bộ phim vừa thảo luận gần nhất.\n" +
+            "- Nếu câu hỏi nói 'phim thứ hai', 'phim thứ 2', 'cái 2', 'bộ đầu tiên', 'phim cuối': Lấy chính xác tên phim theo số thứ tự từ danh sách đề xuất turn trước.\n" +
+            "- Nếu câu hỏi nói 'diễn viên đó', 'người đó', 'ông này', 'anh ấy', 'cô ấy': Lấy tên diễn viên vừa được nhắc tới trong lượt trả lời trước.\n" +
+            "- Nếu người dùng đổi ý ('không, phim hàn', 'thôi phim mỹ', 'thực ra cho tôi kinh dị'): Đánh dấu context_action='SWITCH' và cập nhật tiêu chí mới.\n" +
+            "- Nếu người dùng thu hẹp tiếp ('scifi', 'phim của hàn quốc', 'mới nhất', 'ngắn thôi', 'dưới 2 tiếng', 'rating trên 7.5'): Đánh dấu context_action='NARROW' và giữ lại các tiêu chí hợp lệ từ trước.\n" +
+            "- Nếu người dùng muốn hoàn tác ('quay lại', 'bỏ điều kiện vừa rồi', 'danh sách trước'): Đánh dấu context_action='BACKTRACK'.\n\n" +
             "# LỊCH SỬ HỘI THOẠI & NGỮ CẢNH TRANG HIỆN TẠI:\n" +
             "%s\n\n" +
             "# CÂU HỎI HIỆN TẠI:\n" +
@@ -222,28 +245,68 @@ public class AIAgentService {
         ConversationContext context = getOrCreateContext(conversationId);
         if (pageContext != null) {
             context.setLastPageContext(pageContext);
-            Object pMovieId = pageContext.get("movieId");
-            if (pMovieId != null) {
-                try {
-                    int mid = pMovieId instanceof Number ? ((Number) pMovieId).intValue() : Integer.parseInt(pMovieId.toString());
-                    movieRepository.findById(mid).ifPresent(m -> {
-                        context.setLastFocusedMovie(movieService.convertToMap(m));
-                        context.setLastSubjectType("Movie");
-                        context.setLastSubjectId(m.getMovieID());
-                    });
-                } catch (Exception ignored) {}
+            // Chỉ gán lastFocusedMovie theo pageContext khi người dùng thật sự đang mở trang movie_detail
+            if ("movie_detail".equals(pageContext.get("page"))) {
+                Object pMovieId = pageContext.get("movieId");
+                if (pMovieId != null) {
+                    try {
+                        int mid = pMovieId instanceof Number ? ((Number) pMovieId).intValue() : Integer.parseInt(pMovieId.toString());
+                        movieRepository.findById(mid).ifPresent(m -> {
+                            context.setLastFocusedMovie(movieService.convertToMap(m));
+                            context.setLastBaseMovie(movieService.convertToMap(m));
+                            context.setLastSubjectType("Movie");
+                            context.setLastSubjectId(m.getMovieID());
+                        });
+                    } catch (Exception ignored) {}
+                }
             }
         }
 
         message = message.replace("\"", "").replace("'", "").trim();
         String cleanMsg = message.toLowerCase();
 
-        // 1. Kiểm tra nhanh shortcut thể loại
+        // 1. Kiểm tra nhanh lệnh huỷ/dừng cực ngắn ("thôi", "bỏ", "dừng lại")
+        if (cleanMsg.matches("^(thôi|bỏ|thôi bỏ|thoi|bo|thoi bo|dừng|cancel|thôi xem)$")) {
+            context.setLastActiveGenres(new ArrayList<>());
+            context.setLastActiveCountry(null);
+            context.getExcludedGenres().clear();
+            context.getExcludedDirectors().clear();
+            return createResponse("Dạ vâng, tôi đã dừng thao tác vừa rồi. Bạn muốn tìm phim theo thể loại nào khác hoặc cần tôi hỗ trợ gì thêm không?", null);
+        }
+
+        // 2. Quay lại danh sách ứng viên cũ hoặc trạng thái trước đó (Backtracking)
+        if (cleanMsg.matches(".*(quay lại|undo|bỏ điều kiện|bo dieu kien|danh sách lúc nãy|danh sách cũ|danh sách trước).*")) {
+            if (context.popStateSnapshot()) {
+                List<Map<String, Object>> restored = context.getLastCandidateMovies();
+                if (restored != null && !restored.isEmpty()) {
+                    saveContext(conversationId, context);
+                    return createResponse("Đã khôi phục lại danh sách và các tiêu chí tìm kiếm trước đó của bạn:", restored);
+                }
+            } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
+                return createResponse("Dưới đây là danh sách phim bạn vừa xem lúc nãy:", context.getLastCandidateMovies());
+            }
+        }
+
+        // 3. Quay lại phim ban đầu ("thôi xem phim ban đầu", "phim ban đầu")
+        if (cleanMsg.matches(".*(phim ban đầu|phim gốc|xem phim ban đầu|về phim đầu).*") &&
+                context.getLastBaseMovie() != null) {
+            Object idObj = context.getLastBaseMovie().get("id");
+            if (idObj != null) {
+                int bid = ((Number) idObj).intValue();
+                Movie bm = movieRepository.findById(bid).orElse(null);
+                if (bm != null) {
+                    context.setLastFocusedMovie(movieService.convertToMap(bm));
+                    return createResponse(formatSpecificMovieAnswer(bm, "general"), List.of(movieService.convertToMap(bm)), buildMovieDetailActions(bm));
+                }
+            }
+        }
+
+        // 4. Kiểm tra nhanh shortcut liệt kê thể loại
         if (cleanMsg.contains("liệt kê") && cleanMsg.contains("thể loại")) {
             return createResponse(formatGenresResponse(genreRepository.findAll(), "tất cả thể loại"), null);
         }
 
-        // 2. Kiểm tra follow-up xem thêm thông thường
+        // 5. Kiểm tra follow-up xem thêm thông thường
         boolean isFollowUp = context.getLastQuestionAsked() != null &&
                 (cleanMsg.matches("^(có|co|ok|oke|ờ|u|uh|uhm|được|dc)$") ||
                         cleanMsg.matches(".*(xem thêm|thêm|tiếp|nữa|còn|next).*") ||
@@ -256,33 +319,115 @@ public class AIAgentService {
             return followUpResult;
         }
 
-        // 3. Conversational Narrowing Shortcut: Thu hẹp tìm kiếm theo thể loại khi đang có danh sách ứng viên
-        if (isGenreOrMoodNarrowing(cleanMsg) && context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
-            List<String> detected = detectGenres(cleanMsg);
-            if (!detected.isEmpty()) {
-                MovieSearchFilters filters = new MovieSearchFilters();
-                filters.setGenres(detected);
-                List<Movie> matched = movieService.findMoviesByFilters(filters);
-                List<Map<String, Object>> cards = matched.stream().limit(6)
-                        .map(movieService::convertToMap)
-                        .collect(Collectors.toList());
-                context.setLastCandidateMovies(cards);
-                context.setLastActiveGenres(detected);
-                context.setLastActiveIntent("FILTER");
-
-                String answer = "Đã thu hẹp danh sách theo thể loại **" + String.join(", ", detected) + "** cho bạn:";
-                List<Map<String, Object>> narrowingActions = List.of(
-                        Map.of("type", "CHIP_REPLY", "text", "Điểm đánh giá cao nhất", "label", "⭐ Điểm cao nhất"),
-                        Map.of("type", "CHIP_REPLY", "text", "Phát hành mới nhất", "label", "📅 Mới nhất"),
-                        Map.of("type", "CHIP_REPLY", "text", "Phim của Mỹ", "label", "🇺🇸 Phim Mỹ"),
-                        Map.of("type", "CHIP_REPLY", "text", "Phim của Hàn Quốc", "label", "🇰🇷 Phim Hàn")
-                );
-                saveContext(conversationId, context);
-                return createResponse(answer, cards, narrowingActions);
+        // 5b. Kiểm tra ordinal reference ("cái thứ hai", "phim 1", "bộ đầu tiên", "cái thứ 2", "cái cuối")
+        if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty() &&
+                cleanMsg.matches(".*(đầu tiên|thứ nhất|thứ 1|thứ hai|thứ 2|cái 1|cái 2|phim 1|phim 2|cái đầu|cái cuối|cái thứ 2|bộ 2|cái kia|bộ thứ 2).*")) {
+            String resolvedTitle = resolveOrdinalReference(cleanMsg, context);
+            if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.equalsIgnoreCase(cleanMsg)) {
+                Map<String, Object> foundCard = context.getLastCandidateMovies().stream()
+                        .filter(c -> resolvedTitle.equalsIgnoreCase((String) c.get("title")))
+                        .findFirst().orElse(null);
+                Movie m = null;
+                if (foundCard != null && foundCard.get("id") != null) {
+                    int mid = ((Number) foundCard.get("id")).intValue();
+                    m = movieRepository.findById(mid).orElse(null);
+                }
+                if (m == null) {
+                    m = movieRepository.findByTitleContainingIgnoreCase(resolvedTitle).stream().findFirst().orElse(null);
+                }
+                if (m != null) {
+                    Map<String, Object> mMap = movieService.convertToMap(m);
+                    context.setLastFocusedMovie(mMap);
+                    context.setLastBaseMovie(mMap);
+                    context.setLastCandidateMovies(List.of(mMap));
+                    if (!m.getPersons().isEmpty()) {
+                        context.setLastFocusedPerson(m.getPersons().iterator().next().getFullName());
+                    }
+                    if (m.getDirector() != null && !m.getDirector().isBlank()) {
+                        context.setLastFocusedDirector(m.getDirector());
+                    }
+                    saveContext(conversationId, context);
+                    return createResponse(formatSpecificMovieAnswer(m, "general"), List.of(mMap), buildMovieDetailActions(m));
+                }
             }
         }
 
-        // 3. Phân tích Intent với Multi-Turn History
+        // 6. Conversational Narrowing Shortcut: Thu hẹp hoặc sắp xếp tập ứng viên đang hiển thị
+        if (isGenreOrMoodNarrowing(cleanMsg) && context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
+            List<String> detectedG = detectGenres(cleanMsg);
+            String detectedC = detectCountry(cleanMsg);
+
+            // Sắp xếp trên tập ứng viên hiện tại
+            if (cleanMsg.contains("mới nhất") || cleanMsg.contains("mới hơn") || cleanMsg.contains("gần đây")) {
+                context.pushStateSnapshot();
+                List<Map<String, Object>> sorted = new ArrayList<>(context.getLastCandidateMovies());
+                sorted.sort((a, b) -> {
+                    String ya = String.valueOf(a.getOrDefault("year", "0"));
+                    String yb = String.valueOf(b.getOrDefault("year", "0"));
+                    return yb.compareTo(ya);
+                });
+                context.setLastCandidateMovies(sorted);
+                return createResponse("Đã sắp xếp danh sách theo phim phát hành mới nhất:", sorted);
+            }
+            if (cleanMsg.contains("điểm cao") || cleanMsg.contains("rating cao") || cleanMsg.contains("hay hơn")) {
+                context.pushStateSnapshot();
+                List<Map<String, Object>> sorted = new ArrayList<>(context.getLastCandidateMovies());
+                sorted.sort((a, b) -> {
+                    double ra = Double.parseDouble(String.valueOf(a.getOrDefault("rating", "0")));
+                    double rb = Double.parseDouble(String.valueOf(b.getOrDefault("rating", "0")));
+                    return Double.compare(rb, ra);
+                });
+                context.setLastCandidateMovies(sorted);
+                return createResponse("Đã sắp xếp danh sách theo điểm đánh giá cao nhất:", sorted);
+            }
+
+            if (!detectedG.isEmpty() || detectedC != null) {
+                MovieSearchFilters filters = new MovieSearchFilters();
+                if (!detectedG.isEmpty()) {
+                    filters.setGenres(detectedG);
+                    context.setLastActiveGenres(detectedG);
+                } else if (context.getLastActiveGenres() != null && !context.getLastActiveGenres().isEmpty()) {
+                    filters.setGenres(new ArrayList<>(context.getLastActiveGenres()));
+                }
+
+                if (detectedC != null) {
+                    filters.setCountry(normalizeCountryForDB(detectedC));
+                    context.setLastActiveCountry(detectedC);
+                } else if (context.getLastActiveCountry() != null) {
+                    filters.setCountry(normalizeCountryForDB(context.getLastActiveCountry()));
+                }
+
+                List<Movie> matched = movieService.findMoviesByFilters(filters);
+                if (!matched.isEmpty()) {
+                    context.pushStateSnapshot();
+                    List<Map<String, Object>> cards = matched.stream().limit(6)
+                            .map(movieService::convertToMap)
+                            .collect(Collectors.toList());
+                    context.setLastCandidateMovies(cards);
+                    context.setLastActiveIntent("FILTER");
+
+                    StringBuilder answer = new StringBuilder("Đã thu hẹp danh sách");
+                    if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
+                        answer.append(" thể loại **").append(String.join(", ", filters.getGenres())).append("**");
+                    }
+                    if (filters.getCountry() != null) {
+                        answer.append(" của **").append(filters.getCountry()).append("**");
+                    }
+                    answer.append(" cho bạn:");
+
+                    List<Map<String, Object>> narrowingActions = List.of(
+                            Map.of("type", "CHIP_REPLY", "text", "Điểm đánh giá cao nhất", "label", "⭐ Điểm cao nhất"),
+                            Map.of("type", "CHIP_REPLY", "text", "Phát hành mới nhất", "label", "📅 Mới nhất"),
+                            Map.of("type", "CHIP_REPLY", "text", "Phim của Mỹ", "label", "🇺🇸 Phim Mỹ"),
+                            Map.of("type", "CHIP_REPLY", "text", "Phim của Hàn Quốc", "label", "🇰🇷 Phim Hàn")
+                    );
+                    saveContext(conversationId, context);
+                    return createResponse(answer.toString(), cards, narrowingActions);
+                }
+            }
+        }
+
+        // 7. Phân tích Intent với Multi-Turn History
         String historySummary = buildHistorySummary(conversationId, userId, context);
         JSONObject brain = null;
         try {
@@ -295,7 +440,7 @@ public class AIAgentService {
             log.warn("Gemini intent parsing failed, falling back to local domain heuristics: {}", e.getMessage());
         }
 
-        // 4. Điều phối xử lý nghiệp vụ theo Intent
+        // 8. Điều phối xử lý nghiệp vụ theo Intent
         Map<String, Object> result;
         if (brain == null) {
             result = runKeywordFallback(message, context, userId);
@@ -322,6 +467,18 @@ public class AIAgentService {
                 case "FILTER":
                 case "SEMANTIC":
                     result = handleFilterIntent(brain, context);
+                    break;
+                case "TRENDING":
+                    List<Movie> hot = movieService.getHotMoviesForAI(6);
+                    List<Map<String, Object>> hotCards = hot.stream().map(movieService::convertToMap).collect(Collectors.toList());
+                    context.setLastCandidateMovies(hotCards);
+                    for (Movie m : hot) context.addShownMovieId(m.getMovieID());
+                    List<Map<String, Object>> trendingActions = List.of(
+                            Map.of("type", "CHIP_REPLY", "text", "⭐ Điểm cao nhất", "label", "⭐ Điểm cao nhất"),
+                            Map.of("type", "CHIP_REPLY", "text", "Khoa học viễn tưởng", "label", "🚀 Sci-Fi"),
+                            Map.of("type", "CHIP_REPLY", "text", "Phim của Hàn Quốc", "label", "🇰🇷 Phim Hàn")
+                    );
+                    result = createResponse("Dưới đây là các bộ phim đang thịnh hành và được yêu thích nhất trên FFilm hiện nay:", hotCards, trendingActions);
                     break;
                 case "DESCRIPTION_SEARCH":
                     result = handleDescriptionSearchIntent(message, context);
@@ -350,14 +507,17 @@ public class AIAgentService {
      */
     private Map<String, Object> handleLookupIntent(JSONObject brain, ConversationContext context) {
         String subject = brain.optString("q_subject", "").trim();
+        String origTitle = brain.optString("original_title", "").trim();
+        String vnTitle = brain.optString("vietnamese_title", "").trim();
         String attribute = brain.optString("q_attribute", "general").toLowerCase();
 
-        // 1. Giải quyết ordinal reference ("phim thứ 2", "phim đầu tiên") từ context trước
+        // 1. Giải quyết ordinal reference ("phim thứ 2", "phim đầu tiên", "cái 2") từ context trước
         subject = resolveOrdinalReference(subject, context);
 
         if (subject.isEmpty() || subject.matches("^(nó|no|phim này|phim nay|bộ này|bo nay|đây|day|phim đó)$")) {
-            if (context.getLastPageContext() != null && context.getLastPageContext().get("movieTitle") != null) {
-                subject = (String) context.getLastPageContext().get("movieTitle");
+            Map<String, Object> pageCtx = context.getLastPageContext();
+            if (pageCtx != null && "movie_detail".equals(pageCtx.get("page")) && pageCtx.get("movieTitle") != null) {
+                subject = (String) pageCtx.get("movieTitle");
             } else if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("title") != null) {
                 subject = (String) context.getLastFocusedMovie().get("title");
             } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
@@ -365,35 +525,46 @@ public class AIAgentService {
             }
         }
 
-        // 2. Tra cứu phim theo tên trên FFilm (exact/partial match)
-        List<Movie> foundMovies = findMoviesRanked(subject);
-
-        // 3. Nếu không tìm được → thử dịch tiêu đề tiếng Anh sang tiếng Việt qua Gemini
-        if (foundMovies.isEmpty() && !subject.isEmpty()) {
-            String translatedTitle = resolveEnglishTitleWithGemini(subject);
-            if (translatedTitle != null && !translatedTitle.equalsIgnoreCase(subject)) {
-                log.info("Title translation: '{}' -> '{}'", subject, translatedTitle);
-                foundMovies = findMoviesRanked(translatedTitle);
-                if (!foundMovies.isEmpty()) {
-                    // Thông báo rõ đây là bản dịch
-                    subject = translatedTitle;
+        // 2. Disambiguation check: Nếu từ khóa có nhiều tác phẩm khác nhau trong kho FFilm (vd: Avatar 1 vs Avatar 2)
+        if (origTitle.isEmpty() && vnTitle.isEmpty() && !subject.isEmpty() && subject.length() >= 2) {
+            List<Movie> disambigList = movieEntityResolver.disambiguateMovieCandidates(subject);
+            if (disambigList.size() > 1) {
+                List<Map<String, Object>> cards = disambigList.stream().map(movieService::convertToMap).collect(Collectors.toList());
+                context.setLastCandidateMovies(cards);
+                StringBuilder sb = new StringBuilder("FFilm tìm thấy **").append(disambigList.size()).append("** tác phẩm phù hợp với từ khóa **\"").append(subject).append("\"**:\n\n");
+                for (int i = 0; i < disambigList.size(); i++) {
+                    Movie m = disambigList.get(i);
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy");
+                    String yr = m.getReleaseDate() != null ? sdf.format(m.getReleaseDate()) : "N/A";
+                    sb.append(i + 1).append(". **").append(m.getTitle()).append("** (").append(yr).append(") — ⭐ ").append(String.format("%.1f", m.getRating())).append("/10\n");
                 }
+                sb.append("\nBạn muốn tìm hiểu chi tiết về bộ phim nào? (Ví dụ: 'Phim 1', 'Phim 2')");
+                List<Map<String, Object>> actions = new ArrayList<>();
+                for (int i = 0; i < disambigList.size(); i++) {
+                    Movie m = disambigList.get(i);
+                    actions.add(Map.of("type", "CHIP_REPLY", "label", (i + 1) + ". " + m.getTitle(), "text", "Thông tin phim " + m.getTitle()));
+                }
+                return createResponse(sb.toString(), cards, actions);
             }
         }
 
-        if (!foundMovies.isEmpty()) {
-            Movie movie = foundMovies.get(0);
+        // 3. Tra cứu canonical movie (kết hợp local DB & TMDb Entity Resolution)
+        Movie movie = resolveCanonicalMovie(subject, origTitle, vnTitle);
+
+        if (movie != null) {
             context.setLastFocusedMovie(movieService.convertToMap(movie));
+            context.setLastBaseMovie(movieService.convertToMap(movie));
             context.setLastSubjectType("Movie");
             context.setLastSubjectId(movie.getMovieID());
+            if (movie.getDirector() != null && !movie.getDirector().isEmpty()) {
+                context.setLastFocusedDirector(movie.getDirector());
+            }
             if (!movie.getPersons().isEmpty()) {
                 context.setLastFocusedPerson(movie.getPersons().iterator().next().getFullName());
             }
 
             String answer = formatSpecificMovieAnswer(movie, attribute);
-            List<Map<String, Object>> cards = foundMovies.stream().limit(5)
-                    .map(movieService::convertToMap)
-                    .collect(Collectors.toList());
+            List<Map<String, Object>> cards = List.of(movieService.convertToMap(movie));
             context.setLastCandidateMovies(cards);
 
             List<Map<String, Object>> actions = buildMovieDetailActions(movie);
@@ -412,7 +583,7 @@ public class AIAgentService {
             return createResponse(answer, personMovies.stream().limit(10).collect(Collectors.toList()));
         }
 
-        // 5. Nếu phim không có trên FFilm: Báo rõ ràng và gợi ý phim hot FFilm
+        // 5. Nếu phim không có trên FFilm: Báo rõ ràng giới hạn danh mục và gợi ý phim hot FFilm
         List<Movie> hotFallback = movieService.getHotMoviesForAI(5);
         String notFoundMsg = "Hiện tại bộ phim hoặc thông tin về **\"" + subject + "\"** chưa có trong kho phim của FFilm. " +
                 "Tuy nhiên, FFilm có những tác phẩm đặc sắc đang được yêu thích dưới đây, mời bạn tham khảo nhé:";
@@ -424,10 +595,15 @@ public class AIAgentService {
      */
     private Map<String, Object> handleCompareIntent(JSONObject brain, ConversationContext context) {
         String m1Name = brain.optString("movie1", "").trim();
-        String m2Name = brain.optString("movie2", "").trim();
+        String m1Orig = brain.optString("movie1_orig", "").trim();
+        String m1Vn = brain.optString("movie1_vn", "").trim();
 
-        Movie m1 = findSingleMovie(m1Name);
-        Movie m2 = findSingleMovie(m2Name);
+        String m2Name = brain.optString("movie2", "").trim();
+        String m2Orig = brain.optString("movie2_orig", "").trim();
+        String m2Vn = brain.optString("movie2_vn", "").trim();
+
+        Movie m1 = resolveCanonicalMovie(m1Name, m1Orig, m1Vn);
+        Movie m2 = resolveCanonicalMovie(m2Name, m2Orig, m2Vn);
 
         List<Map<String, Object>> cards = new ArrayList<>();
         if (m1 != null) cards.add(movieService.convertToMap(m1));
@@ -462,112 +638,90 @@ public class AIAgentService {
                     "** đều chưa có trên hệ thống FFilm. Bạn có muốn xem các phim đang thịnh hành không?",
                     movieService.getHotMoviesForAI(5).stream().map(movieService::convertToMap).collect(Collectors.toList()), actions);
         }
-    }
-
-    /**
+    }     /**
      * Gợi ý phim tương tự dựa trên phim gốc + tiêu chí phụ (nhẹ nhàng hơn, mới hơn, v.v.).
      */
     private Map<String, Object> handleSimilarRecommendIntent(JSONObject brain, ConversationContext context) {
         String baseName = brain.optString("base_movie", "").trim();
         String modifier = brain.optString("modifier", "").trim();
 
-        baseName = resolveOrdinalReference(baseName, context);
-        if (baseName.isEmpty() || baseName.matches("^(nó|no|phim này|phim nay|bộ này|bo nay|đây|day|phim đó)$")) {
-            if (context.getLastPageContext() != null && context.getLastPageContext().get("movieTitle") != null) {
-                baseName = (String) context.getLastPageContext().get("movieTitle");
-            } else if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("title") != null) {
-                baseName = (String) context.getLastFocusedMovie().get("title");
-            } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
-                baseName = (String) context.getLastCandidateMovies().get(0).get("title");
+        // Parse negative preferences from brain
+        JSONArray egJson = brain.optJSONArray("excluded_genres");
+        if (egJson != null) {
+            for (int i = 0; i < egJson.length(); i++) {
+                String eg = egJson.optString(i, "").trim();
+                if (!eg.isEmpty()) context.getExcludedGenres().add(eg);
+            }
+        }
+        JSONArray edJson = brain.optJSONArray("excluded_directors");
+        if (edJson != null) {
+            for (int i = 0; i < edJson.length(); i++) {
+                String ed = edJson.optString(i, "").trim();
+                if (!ed.isEmpty()) context.getExcludedDirectors().add(ed);
             }
         }
 
-        Movie baseMovie = findSingleMovie(baseName);
-        if (baseMovie == null && context.getLastPageContext() != null && context.getLastPageContext().get("movieId") != null) {
-            Object midObj = context.getLastPageContext().get("movieId");
-            try {
+        baseName = resolveOrdinalReference(baseName, context);
+        Movie baseMovie = null;
+
+        if (baseName.isEmpty() || baseName.matches("^(nó|no|phim này|phim nay|bộ này|bo nay|đây|day|phim đó|lựa chọn khác|khác|khac)$")) {
+            // Ưu tiên giữ nguyên baseMovie đang neo để tránh nhảy context sang phim khác khi user liên tục đổi tiêu chí
+            if (context.getLastBaseMovie() != null && context.getLastBaseMovie().get("id") != null) {
+                int bid = ((Number) context.getLastBaseMovie().get("id")).intValue();
+                baseMovie = movieRepository.findById(bid).orElse(null);
+            } else if (context.getLastPageContext() != null && "movie_detail".equals(context.getLastPageContext().get("page")) && context.getLastPageContext().get("movieId") != null) {
+                Object midObj = context.getLastPageContext().get("movieId");
                 int mid = midObj instanceof Number ? ((Number) midObj).intValue() : Integer.parseInt(midObj.toString());
                 baseMovie = movieRepository.findById(mid).orElse(null);
-            } catch (Exception ignored) {}
+            } else if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("id") != null) {
+                int fid = ((Number) context.getLastFocusedMovie().get("id")).intValue();
+                baseMovie = movieRepository.findById(fid).orElse(null);
+            } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
+                Object cidObj = context.getLastCandidateMovies().get(0).get("id");
+                if (cidObj != null) {
+                    int cid = ((Number) cidObj).intValue();
+                    baseMovie = movieRepository.findById(cid).orElse(null);
+                }
+            }
+        } else {
+            baseMovie = resolveCanonicalMovie(baseName, null, null);
         }
-        List<Movie> candidates = new ArrayList<>();
 
         if (baseMovie != null) {
+            context.setLastBaseMovie(movieService.convertToMap(baseMovie));
             context.setLastFocusedMovie(movieService.convertToMap(baseMovie));
-            // Lấy danh sách thể loại của phim gốc
-            List<String> genreNames = baseMovie.getGenres().stream().map(Genre::getName).collect(Collectors.toList());
-
-            MovieSearchFilters filters = new MovieSearchFilters();
-            filters.setGenres(genreNames);
-            List<Movie> matching = movieService.findMoviesByFilters(filters);
-
-            // Loại trừ chính phim gốc và các phim đã hiện trước đó
-            final int baseMovieId = baseMovie.getMovieID();
-            Set<Integer> alreadyShown = new java.util.HashSet<>(context.getShownMovieIds());
-            candidates = matching.stream()
-                    .filter(m -> m.getMovieID() != baseMovieId && !alreadyShown.contains(m.getMovieID()))
-                    .collect(Collectors.toList());
-
-            // Nếu lọc xong rỗng (đã xem hết vòng) → reset và lấy lại toàn bộ trừ phim gốc
-            if (candidates.isEmpty()) {
-                context.clearShownMovieIds();
-                candidates = matching.stream()
-                        .filter(m -> m.getMovieID() != baseMovieId)
-                        .collect(Collectors.toList());
-            }
-
-            // Áp dụng bộ lọc tùy biến nếu có modifier
-            if (!modifier.isEmpty()) {
-                String modLower = modifier.toLowerCase();
-                if (modLower.contains("nhẹ nhàng") || modLower.contains("nhẹ hơn") || modLower.contains("hài") || modLower.contains("chill")) {
-                    List<Movie> filtered = candidates.stream()
-                            .filter(m -> getMovieGenreNames(m).contains("Hài") || getMovieGenreNames(m).contains("Gia đình") || getMovieGenreNames(m).contains("Lãng mạn"))
-                            .collect(Collectors.toList());
-                    if (!filtered.isEmpty()) candidates = filtered;
-                } else if (modLower.contains("mới") || modLower.contains("gần đây")) {
-                    candidates = candidates.stream()
-                            .sorted((a, b) -> Integer.compare(
-                                    b.getReleaseDate() != null ? b.getReleaseDate().getYear() : 0,
-                                    a.getReleaseDate() != null ? a.getReleaseDate().getYear() : 0))
-                            .collect(Collectors.toList());
-                } else if (modLower.contains("rating cao") || modLower.contains("điểm cao") || modLower.contains("cao hơn")) {
-                    candidates = candidates.stream()
-                            .sorted((a, b) -> Float.compare(b.getRating(), a.getRating()))
-                            .collect(Collectors.toList());
-                } else {
-                    // Unknown modifier: shuffle for variety
-                    Collections.shuffle(candidates);
-                }
-            } else {
-                // No modifier: shuffle top candidates for diversity across calls
-                if (candidates.size() > 10) {
-                    List<Movie> pool = candidates.subList(0, Math.min(candidates.size(), 20));
-                    Collections.shuffle(pool);
-                    candidates = pool;
-                }
-            }
         }
 
-        if (candidates.isEmpty()) {
-            candidates = movieService.getHotMoviesForAI(5);
+        // Snapshot current state for backtrack support
+        context.pushStateSnapshot();
+
+        // Multi-attribute similarity ranking via MovieRecommendationEngine
+        List<Movie> ranked = movieRecommendationEngine.rankSimilarCandidates(baseMovie, modifier, context);
+        if (ranked.isEmpty()) {
+            ranked = movieService.getHotMoviesForAI(5);
         }
 
-        List<Movie> result = candidates.stream().limit(5).collect(Collectors.toList());
         // Đánh dấu các phim đã hiện để tránh lặp lại ở turn sau
-        result.forEach(m -> context.addShownMovieId(m.getMovieID()));
+        ranked.forEach(m -> context.addShownMovieId(m.getMovieID()));
 
-        List<Map<String, Object>> cards = result.stream()
+        List<Map<String, Object>> cards = ranked.stream()
                 .map(movieService::convertToMap)
                 .collect(Collectors.toList());
         context.setLastCandidateMovies(cards);
 
-        String answer;
+        StringBuilder answer = new StringBuilder();
         if (baseMovie != null) {
-            answer = "Dựa trên bộ phim **" + baseMovie.getTitle() + "** (" + getMovieGenreNames(baseMovie) +
-                    (modifier.isEmpty() ? "" : ", với tiêu chí \"" + modifier + "\"") +
-                    "), FFilm xin gợi ý cho bạn các tác phẩm tương đồng nổi bật sau:";
+            answer.append("Dựa trên bộ phim **").append(baseMovie.getTitle()).append("** (")
+                    .append(getMovieGenreNames(baseMovie))
+                    .append(modifier.isEmpty() ? "" : ", với tiêu chí **\"" + modifier + "\"**")
+                    .append("), FFilm gợi ý cho bạn các tác phẩm nổi bật sau:\n\n");
+            if (!ranked.isEmpty()) {
+                Movie topPick = ranked.get(0);
+                String groundReason = movieRecommendationEngine.buildGroundedExplanation(topPick, baseMovie, modifier);
+                answer.append("💡 *Lựa chọn nổi bật*: **").append(topPick.getTitle()).append("** — ").append(groundReason).append("\n\n");
+            }
         } else {
-            answer = "Gợi ý các phim đặc sắc tương tự theo phong cách bạn yêu cầu:";
+            answer.append("Gợi ý các phim đặc sắc tương tự theo phong cách bạn yêu cầu:\n\n");
         }
 
         List<Map<String, Object>> actions = new ArrayList<>();
@@ -577,55 +731,41 @@ public class AIAgentService {
         actions.add(Map.of("type", "CHIP_REPLY", "label", "🌿 Phim nhẹ hơn", "text", "Có phim nào tương tự nhưng nhẹ nhàng hơn không?"));
         actions.add(Map.of("type", "CHIP_REPLY", "label", "⭐ Điểm cao hơn", "text", "Gợi ý phim tương tự nhưng có rating cao nhất"));
         actions.add(Map.of("type", "CHIP_REPLY", "label", "📅 Mới nhất", "text", "Phim tương tự mới phát hành gần đây"));
+        actions.add(Map.of("type", "CHIP_REPLY", "label", "🇰🇷 Phim Hàn Quốc", "text", "Trong số đó có phim nào của Hàn Quốc không?"));
 
-        return createResponse(answer, cards, actions);
+        return createResponse(answer.toString(), cards, actions);
     }
 
     /**
-     * Tra cứu quan hệ diễn viên, đạo diễn hoặc phim đóng chung.
+     * Tra cứu quan hệ diễn viên, đạo diễn hoặc phim đóng chung (Movie ↔ Person Graph Traversal).
      */
     private Map<String, Object> handlePersonQueryIntent(JSONObject brain, ConversationContext context) {
         String p1 = brain.optString("person_name", "").trim();
         String p2 = brain.optString("person_name_2", "").trim();
+        String role = brain.optString("role", "").trim();
+        String qType = brain.optString("query_type", "filmography").trim();
 
-        // 1. Nếu hỏi phim đóng chung giữa 2 người
+        // 1. Phim đóng chung giữa 2 người
         if (!p1.isEmpty() && !p2.isEmpty()) {
-            List<Person> l1 = personRepository.findByFullNameContainingIgnoreCase(p1);
-            List<Person> l2 = personRepository.findByFullNameContainingIgnoreCase(p2);
-
-            if (!l1.isEmpty() && !l2.isEmpty()) {
-                Person person1 = l1.get(0);
-                Person person2 = l2.get(0);
-
-                Set<Integer> mIds1 = moviePersonRepository.findByPersonID(person1.getPersonID()).stream()
-                        .map(MoviePerson::getMovieID).collect(Collectors.toSet());
-                Set<Integer> mIds2 = moviePersonRepository.findByPersonID(person2.getPersonID()).stream()
-                        .map(MoviePerson::getMovieID).collect(Collectors.toSet());
-
-                mIds1.retainAll(mIds2); // Giao điểm phim đóng chung
-
-                if (!mIds1.isEmpty()) {
-                    List<Movie> commonMovies = mIds1.stream()
-                            .map(id -> movieRepository.findById(id).orElse(null))
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-
-                    List<Map<String, Object>> cards = commonMovies.stream().map(movieService::convertToMap).collect(Collectors.toList());
-                    context.setLastCandidateMovies(cards);
-                    String answer = "Tìm thấy **" + commonMovies.size() + "** tác phẩm có sự hợp tác chung giữa **" +
-                            person1.getFullName() + "** và **" + person2.getFullName() + "** trên FFilm:";
-                    return createResponse(answer, cards);
-                } else {
-                    return createResponse("Hiện tại trên FFilm chưa có phim nào có sự góp mặt chung của cả **" +
-                            person1.getFullName() + "** và **" + person2.getFullName() + "**.", null);
-                }
+            List<Movie> commonMovies = movieEntityResolver.findCommonMoviesBetweenPersons(p1, p2);
+            if (!commonMovies.isEmpty()) {
+                List<Map<String, Object>> cards = commonMovies.stream().map(movieService::convertToMap).collect(Collectors.toList());
+                context.setLastCandidateMovies(cards);
+                String answer = "Tìm thấy **" + commonMovies.size() + "** tác phẩm có sự hợp tác chung giữa **" +
+                        p1 + "** và **" + p2 + "** trên FFilm:";
+                return createResponse(answer, cards);
+            } else {
+                return createResponse("Hiện tại trên FFilm chưa có phim nào có sự góp mặt chung của cả **" +
+                        p1 + "** và **" + p2 + "**.", null);
             }
         }
 
-        // 2. Tra cứu phim của 1 người
+        // 2. Tra cứu phim của 1 người (hỗ trợ phân giải đại từ: "diễn viên đó", "đạo diễn đó", "ông ấy", "cô ấy")
         String personName = !p1.isEmpty() ? p1 : p2;
-        if (personName.isEmpty() || personName.matches("^(diễn viên đó|dien vien do|người đó|nguoi do|anh ấy|cô ấy|ổng|bả|diễn viên này|đạo diễn đó|dao dien do)$")) {
-            if (context.getLastFocusedPerson() != null && !context.getLastFocusedPerson().isEmpty()) {
+        if (personName.isEmpty() || personName.matches(".*(diễn viên đó|dien vien do|người đó|nguoi do|anh ấy|cô ấy|ổng|bả|diễn viên này|đạo diễn đó|dao dien do|ông này|ông đó|người này).*")) {
+            if ("director".equalsIgnoreCase(role) && context.getLastFocusedDirector() != null) {
+                personName = context.getLastFocusedDirector();
+            } else if (context.getLastFocusedPerson() != null && !context.getLastFocusedPerson().isEmpty()) {
                 personName = context.getLastFocusedPerson();
             } else if (context.getLastFocusedMovie() != null) {
                 Object midObj = context.getLastFocusedMovie().get("id");
@@ -633,26 +773,58 @@ public class AIAgentService {
                     try {
                         int mid = midObj instanceof Number ? ((Number) midObj).intValue() : Integer.parseInt(midObj.toString());
                         Movie m = movieRepository.findById(mid).orElse(null);
-                        if (m != null && !m.getPersons().isEmpty()) {
-                            personName = m.getPersons().iterator().next().getFullName();
-                            context.setLastFocusedPerson(personName);
+                        if (m != null) {
+                            if ("director".equalsIgnoreCase(role) && m.getDirector() != null && !m.getDirector().isEmpty()) {
+                                personName = m.getDirector();
+                                context.setLastFocusedDirector(personName);
+                            } else if (!m.getPersons().isEmpty()) {
+                                personName = m.getPersons().iterator().next().getFullName();
+                                context.setLastFocusedPerson(personName);
+                            }
                         }
                     } catch (Exception ignored) {}
                 }
             }
         }
 
-        List<Map<String, Object>> personMovies = movieService.searchMoviesCombined(personName);
+        // Multi-hop Graph Traversal qua MovieEntityResolver
+        List<Movie> personMovies = movieEntityResolver.findMoviesByPerson(personName, role);
         if (!personMovies.isEmpty()) {
             context.setLastFocusedPerson(personName);
-            context.setLastCandidateMovies(personMovies);
-            String answer = "Các tác phẩm nổi bật của **" + personName + "** trên hệ thống FFilm:";
-            List<Map<String, Object>> cards = personMovies.stream().limit(10).collect(Collectors.toList());
+            if ("director".equalsIgnoreCase(role)) {
+                context.setLastFocusedDirector(personName);
+            }
+
+            // Xử lý các tiêu chí con: rating cao nhất hoặc mới nhất
+            if ("top_rated".equalsIgnoreCase(qType) || brain.toString().contains("hay nhất") || brain.toString().contains("rating cao")) {
+                personMovies.sort((a, b) -> Float.compare(b.getRating(), a.getRating()));
+            } else if ("latest".equalsIgnoreCase(qType) || brain.toString().contains("mới nhất")) {
+                personMovies.sort((a, b) -> {
+                    long t1 = a.getReleaseDate() != null ? a.getReleaseDate().getTime() : 0L;
+                    long t2 = b.getReleaseDate() != null ? b.getReleaseDate().getTime() : 0L;
+                    return Long.compare(t2, t1);
+                });
+            }
+
+            List<Map<String, Object>> cards = personMovies.stream().limit(10).map(movieService::convertToMap).collect(Collectors.toList());
+            context.setLastCandidateMovies(cards);
+
+            String roleLabel = "director".equalsIgnoreCase(role) ? "đạo diễn" : "nghệ sĩ";
+            String answer = "Các tác phẩm nổi bật của " + roleLabel + " **" + personName + "** trên hệ thống FFilm:";
             List<Map<String, Object>> actions = List.of(
                     Map.of("type", "CHIP_REPLY", "text", "Gợi ý phim hay nhất của " + personName, "label", "⭐ Phim hay nhất"),
                     Map.of("type", "CHIP_REPLY", "text", "Phim mới nhất của " + personName, "label", "📅 Phim mới nhất")
             );
             return createResponse(answer, cards, actions);
+        }
+
+        // Fallback: searchMoviesCombined
+        List<Map<String, Object>> fallbackMovies = movieService.searchMoviesCombined(personName);
+        if (!fallbackMovies.isEmpty()) {
+            context.setLastFocusedPerson(personName);
+            context.setLastCandidateMovies(fallbackMovies);
+            String answer = "Các tác phẩm liên quan đến nghệ sĩ **" + personName + "** trên FFilm:";
+            return createResponse(answer, fallbackMovies.stream().limit(10).collect(Collectors.toList()));
         }
 
         return createResponse("Không tìm thấy tác phẩm nào của nghệ sĩ **" + personName + "** trong cơ sở dữ liệu FFilm.", null);
@@ -732,12 +904,65 @@ public class AIAgentService {
     }
 
     /**
-     * Lọc phim theo tiêu chí kết hợp (thể loại, quốc gia, năm, điểm số).
+     * Lọc phim theo tiêu chí kết hợp (thể loại, quốc gia, năm, điểm số, thời lượng, loại trừ).
      */
     private Map<String, Object> handleFilterIntent(JSONObject brain, ConversationContext context) {
         MovieSearchFilters filters = parseFlatFilters(brain);
+
+        String action = brain.optString("context_action", "NARROW").toUpperCase();
+
+        if ("CONTRADICT".equals(action)) {
+            // Xử lý khi người dùng đổi ý mâu thuẫn (vd trước thích kinh dị, nay ghét kinh dị)
+            if (filters.getExcludedGenres() != null) {
+                for (String eg : filters.getExcludedGenres()) {
+                    if (context.getLastActiveGenres() != null) {
+                        context.getLastActiveGenres().removeIf(g -> g.equalsIgnoreCase(eg));
+                    }
+                    context.getExcludedGenres().add(eg);
+                }
+            }
+        } else if ("SWITCH".equals(action) || "NEW".equals(action)) {
+            context.setLastActiveGenres(filters.getGenres() != null ? new ArrayList<>(filters.getGenres()) : new ArrayList<>());
+            context.setLastActiveCountry(filters.getCountry());
+        } else {
+            // NARROW: Kế thừa thể loại / quốc gia nếu đang thu hẹp
+            if ((filters.getGenres() == null || filters.getGenres().isEmpty()) &&
+                    context.getLastActiveGenres() != null && !context.getLastActiveGenres().isEmpty()) {
+                filters.setGenres(new ArrayList<>(context.getLastActiveGenres()));
+            }
+            if ((filters.getCountry() == null || filters.getCountry().isEmpty()) &&
+                    context.getLastActiveCountry() != null && !context.getLastActiveCountry().isEmpty()) {
+                filters.setCountry(normalizeCountryForDB(context.getLastActiveCountry()));
+            }
+        }
+
+        // Tích hợp danh sách loại trừ (Negative Constraints) đang có trong context
+        if (context.getExcludedGenres() != null && !context.getExcludedGenres().isEmpty()) {
+            Set<String> mergedEx = new HashSet<>(context.getExcludedGenres());
+            if (filters.getExcludedGenres() != null) mergedEx.addAll(filters.getExcludedGenres());
+            filters.setExcludedGenres(new ArrayList<>(mergedEx));
+        }
+        if (context.getExcludedDirectors() != null && !context.getExcludedDirectors().isEmpty()) {
+            Set<String> mergedDir = new HashSet<>(context.getExcludedDirectors());
+            if (filters.getExcludedDirectors() != null) mergedDir.addAll(filters.getExcludedDirectors());
+            filters.setExcludedDirectors(new ArrayList<>(mergedDir));
+        }
+
+        // Snapshot current state for backtrack support
+        context.pushStateSnapshot();
+
         if (!filters.hasFilters()) {
-            return runKeywordFallback("", context, null);
+            List<Movie> hot = movieService.getHotMoviesForAI(6);
+            List<Map<String, Object>> cards = hot.stream().map(movieService::convertToMap).collect(Collectors.toList());
+            context.setLastCandidateMovies(cards);
+            return createResponse("Dưới đây là các bộ phim thịnh hành và nổi bật nhất trên FFilm:", cards);
+        }
+
+        if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
+            context.setLastActiveGenres(filters.getGenres());
+        }
+        if (filters.getCountry() != null && !filters.getCountry().isEmpty()) {
+            context.setLastActiveCountry(filters.getCountry());
         }
 
         context.setLastSubjectType("Filter");
@@ -746,12 +971,13 @@ public class AIAgentService {
 
         List<Movie> movies = movieService.findMoviesByFilters(filters);
         if (movies.isEmpty()) {
+            String conflictDiagnosis = movieRecommendationEngine.diagnoseConstraintConflict(filters);
             List<Map<String, Object>> emptyActions = List.of(
+                    Map.of("type", "CHIP_REPLY", "text", "Quay lại danh sách trước", "label", "↩️ Quay lại"),
                     Map.of("type", "CHIP_REPLY", "text", "Top phim thịnh hành nhất hiện nay trên FFilm", "label", "🔥 Phim thịnh hành"),
-                    Map.of("type", "CHIP_REPLY", "text", "Gợi ý các phim có rating cao nhất", "label", "⭐ Top điểm cao"),
-                    Map.of("type", "CHIP_REPLY", "text", "Gợi ý phim mới phát hành", "label", "📅 Phim mới nhất")
+                    Map.of("type", "CHIP_REPLY", "text", "Gợi ý các phim có rating cao nhất", "label", "⭐ Top điểm cao")
             );
-            return createResponse("Rất tiếc, hiện tại FFilm chưa có phim nào phù hợp hoàn toàn với tiêu chí này. Bạn có thể nới lỏng bộ lọc hoặc tham khảo các gợi ý dưới đây:", null, emptyActions);
+            return createResponse(conflictDiagnosis, null, emptyActions);
         }
 
         List<Map<String, Object>> cards = movies.stream().limit(10)
@@ -914,14 +1140,18 @@ public class AIAgentService {
 
         List<Map<String, Object>> candidates = context.getLastCandidateMovies();
         if (candidates != null && !candidates.isEmpty()) {
-            if (s.contains("thứ hai") || s.contains("thứ 2") || s.contains("phim 2") || s.contains("phim thứ hai")) {
+            if (s.matches(".*(thứ hai|thứ 2|phim 2|cái 2|cái thứ 2|bộ 2|cái kia|bộ thứ 2).*")) {
                 if (candidates.size() >= 2) return (String) candidates.get(1).get("title");
-            } else if (s.contains("đầu tiên") || s.contains("thứ nhất") || s.contains("thứ 1") || s.contains("phim 1")) {
+            } else if (s.matches(".*(đầu tiên|thứ nhất|thứ 1|phim 1|cái 1|cái đầu|bộ đầu|bộ thứ nhất).*")) {
                 return (String) candidates.get(0).get("title");
-            } else if (s.contains("thứ ba") || s.contains("thứ 3") || s.contains("phim 3")) {
+            } else if (s.matches(".*(thứ ba|thứ 3|phim 3|cái 3|bộ 3|bộ thứ 3).*")) {
                 if (candidates.size() >= 3) return (String) candidates.get(2).get("title");
-            } else if (s.contains("phim đó") || s.contains("nó") || s.contains("phim này")) {
-                if (context.getLastFocusedMovie() != null) {
+            } else if (s.matches(".*(thứ tư|thứ 4|phim 4|cái 4|bộ 4).*")) {
+                if (candidates.size() >= 4) return (String) candidates.get(3).get("title");
+            } else if (s.matches(".*(cuối cùng|phim cuối|cái cuối).*")) {
+                return (String) candidates.get(candidates.size() - 1).get("title");
+            } else if (s.matches(".*(phim đó|nó|phim này|phim vừa rồi|cái đó|bộ vừa rồi).*")) {
+                if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("title") != null) {
                     return (String) context.getLastFocusedMovie().get("title");
                 }
                 return (String) candidates.get(0).get("title");
@@ -1133,11 +1363,94 @@ public class AIAgentService {
                 .replaceAll("\\s+(có|không|nào|gì|đâu)$", "").trim();
 
         if (cleanTitle.length() >= 2) {
+            Movie canonical = resolveCanonicalMovie(cleanTitle, null, null);
+            if (canonical != null) {
+                Map<String, Object> movieMap = movieService.convertToMap(canonical);
+                ctx.setLastFocusedMovie(movieMap);
+                ctx.setLastBaseMovie(movieMap);
+                ctx.setLastCandidateMovies(List.of(movieMap));
+                if (!canonical.getPersons().isEmpty()) {
+                    ctx.setLastFocusedPerson(canonical.getPersons().iterator().next().getFullName());
+                }
+                if (canonical.getDirector() != null && !canonical.getDirector().isBlank()) {
+                    ctx.setLastFocusedDirector(canonical.getDirector());
+                }
+                return createResponse(formatSpecificMovieAnswer(canonical, "general"), List.of(movieMap), buildMovieDetailActions(canonical));
+            }
             List<Movie> byTitle = movieService.searchMoviesByTitle(cleanTitle);
             if (!byTitle.isEmpty()) {
                 List<Map<String, Object>> cards = byTitle.stream().limit(5).map(movieService::convertToMap).collect(Collectors.toList());
                 ctx.setLastCandidateMovies(cards);
+                if (cards.size() == 1) {
+                    ctx.setLastFocusedMovie(cards.get(0));
+                    ctx.setLastBaseMovie(cards.get(0));
+                }
                 return createResponse("Tìm thấy các bộ phim phù hợp với từ khóa **\"" + cleanTitle + "\"**:", cards);
+            }
+        }
+
+        // 2b. Focused Movie pronoun / cast / director / plot fallback
+        Map<String, Object> focused = ctx.getLastFocusedMovie() != null ? ctx.getLastFocusedMovie() : ctx.getLastBaseMovie();
+        if (focused != null && (lower.contains("ai đóng") || lower.contains("diễn viên") || lower.contains("đạo diễn") || lower.contains("nội dung") || lower.contains("phim này") || lower.contains("phim đó"))) {
+            Object midObj = focused.get("id");
+            if (midObj == null) midObj = focused.get("movieID");
+            if (midObj != null) {
+                try {
+                    int mid = midObj instanceof Number ? ((Number) midObj).intValue() : Integer.parseInt(midObj.toString());
+                    Movie m = movieRepository.findById(mid).orElse(null);
+                    if (m != null) {
+                        if (lower.contains("ai đóng") || lower.contains("diễn viên")) {
+                            if (!m.getPersons().isEmpty()) {
+                                ctx.setLastFocusedPerson(m.getPersons().iterator().next().getFullName());
+                            }
+                            return createResponse(formatSpecificMovieAnswer(m, "cast"), List.of(focused), buildMovieDetailActions(m));
+                        } else if (lower.contains("đạo diễn")) {
+                            if (m.getDirector() != null && !m.getDirector().isBlank()) {
+                                ctx.setLastFocusedDirector(m.getDirector());
+                            }
+                            return createResponse(formatSpecificMovieAnswer(m, "director"), List.of(focused), buildMovieDetailActions(m));
+                        } else if (lower.contains("nội dung") || lower.contains("về cái gì")) {
+                            return createResponse(formatSpecificMovieAnswer(m, "synopsis"), List.of(focused), buildMovieDetailActions(m));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 2c. Person filmography fallback
+        if ((lower.contains("diễn viên đó") || lower.contains("đạo diễn đó") || lower.contains("còn phim nào") || lower.contains("phim khác"))
+                && (ctx.getLastFocusedPerson() != null || ctx.getLastFocusedDirector() != null)) {
+            String pName = ctx.getLastFocusedPerson() != null ? ctx.getLastFocusedPerson() : ctx.getLastFocusedDirector();
+            String pRole = ctx.getLastFocusedPerson() != null ? "actor" : "director";
+            JSONObject synthBrain = new JSONObject();
+            synthBrain.put("person_name", pName);
+            synthBrain.put("role", pRole);
+            synthBrain.put("query_type", "filmography");
+            return handlePersonQueryIntent(synthBrain, ctx);
+        }
+
+        // 2d. Ordinal candidate selection fallback
+        List<Map<String, Object>> candidates = ctx.getLastCandidateMovies();
+        if (candidates != null && !candidates.isEmpty() && lower.matches(".*(đầu tiên|thứ nhất|thứ 1|thứ hai|thứ 2|cái 1|cái 2|phim 1|phim 2|cái đầu|cái cuối).*")) {
+            String resolvedTitle = resolveOrdinalReference(lower, ctx);
+            if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.equalsIgnoreCase(lower)) {
+                Map<String, Object> foundCard = candidates.stream()
+                        .filter(c -> resolvedTitle.equalsIgnoreCase((String) c.get("title")))
+                        .findFirst().orElse(null);
+                Movie m = null;
+                if (foundCard != null && foundCard.get("id") != null) {
+                    int mid = ((Number) foundCard.get("id")).intValue();
+                    m = movieRepository.findById(mid).orElse(null);
+                }
+                if (m == null) {
+                    m = movieRepository.findByTitleContainingIgnoreCase(resolvedTitle).stream().findFirst().orElse(null);
+                }
+                if (m != null) {
+                    Map<String, Object> mMap = movieService.convertToMap(m);
+                    ctx.setLastFocusedMovie(mMap);
+                    ctx.setLastBaseMovie(mMap);
+                    return createResponse(formatSpecificMovieAnswer(m, "general"), List.of(mMap), buildMovieDetailActions(m));
+                }
             }
         }
 
@@ -1239,60 +1552,14 @@ public class AIAgentService {
     // ---- 12. HELPER UTILITIES ----
 
     /**
-     * Tìm danh sách phim theo tên, ưu tiên exact match > starts-with > contains.
-     * Giúp tránh trả về phim sai (ví dụ: "Interstellar: Nolan's Odyssey" thay vì Interstellar thật).
+     * Tra cứu thực thể phim chuẩn hóa (Canonical Entity Resolution) ủy thác cho MovieEntityResolver.
      */
-    private List<Movie> findMoviesRanked(String name) {
-        if (name == null || name.trim().isEmpty()) return Collections.emptyList();
-        String n = name.trim();
-        List<Movie> all = movieRepository.findByTitleContainingIgnoreCase(n);
-        if (all.isEmpty()) return all;
-        String nUpper = n.toUpperCase();
-        // Ưu tiên: exact → starts-with → contains
-        List<Movie> exact = all.stream().filter(m -> m.getTitle().equalsIgnoreCase(n)).collect(Collectors.toList());
-        if (!exact.isEmpty()) return exact;
-        List<Movie> starts = all.stream().filter(m -> m.getTitle().toUpperCase().startsWith(nUpper)).collect(Collectors.toList());
-        if (!starts.isEmpty()) return starts;
-        return all;
+    private Movie resolveCanonicalMovie(String queryTitle, String origTitle, String vnTitle) {
+        return movieEntityResolver.resolveCanonicalMovie(queryTitle, origTitle, vnTitle);
     }
 
     private Movie findSingleMovie(String name) {
-        if (name == null || name.trim().isEmpty()) return null;
-        // Thử bản dịch tiếng Anh → tiếng Việt nếu không tìm được
-        List<Movie> ranked = findMoviesRanked(name.trim());
-        if (!ranked.isEmpty()) return ranked.get(0);
-        // Thử translate nếu chuỗi có vẻ là tiếng Anh
-        String translated = resolveEnglishTitleWithGemini(name.trim());
-        if (translated != null && !translated.equalsIgnoreCase(name.trim())) {
-            List<Movie> translatedResults = findMoviesRanked(translated);
-            if (!translatedResults.isEmpty()) return translatedResults.get(0);
-        }
-        return null;
-    }
-
-    /**
-     * Dùng Gemini để dịch tên phim tiếng Anh → tên phim tiếng Việt phổ biến nhất tại Việt Nam.
-     * Chỉ gọi khi DB lookup thất bại.
-     * @return tên Việt của phim, hoặc null nếu không dịch được.
-     */
-    private String resolveEnglishTitleWithGemini(String englishTitle) {
-        if (englishTitle == null || englishTitle.trim().isEmpty()) return null;
-        // Chỉ thử dịch nếu input có vẻ là Latin (tiếng Anh/nước ngoài)
-        if (englishTitle.matches(".*[\\u0080-\\uFFFF].*")) return null; // đã có tiếng Việt
-        try {
-            String prompt = "Bạn là chuyên gia dịch tên phim. Hãy cho biết tên tiếng Việt phổ biến nhất tại Việt Nam của bộ phim có tên gốc tiếng Anh sau: \"" + englishTitle + "\".\n" +
-                    "Chỉ trả về DUY NHẤT tên phim tiếng Việt, không thêm bất kỳ nội dung nào khác. Nếu không biết, trả về chuỗi rỗng.";
-            JSONObject req = buildGeminiRequest_Simple(prompt);
-            JSONObject res = callGeminiAPI(req);
-            String text = extractTextResponse(res);
-            if (text != null) {
-                text = text.trim().replaceAll("[\"']", "");
-                if (!text.isEmpty() && text.length() < 150) return text;
-            }
-        } catch (Exception e) {
-            log.debug("Title translation via Gemini failed for '{}': {}", englishTitle, e.getMessage());
-        }
-        return null;
+        return movieEntityResolver.resolveCanonicalMovie(name, null, null);
     }
 
     private String getMovieGenreNames(Movie movie) {
@@ -1304,21 +1571,79 @@ public class AIAgentService {
         MovieSearchFilters f = new MovieSearchFilters();
         if (j == null) return f;
         try {
-            if (j.has("f_country")) {
-                f.setCountry(normalizeCountryForDB(j.getString("f_country")));
+            if (j.has("f_country") && !j.isNull("f_country")) {
+                String c = j.optString("f_country", "").trim();
+                if (!c.isEmpty()) {
+                    f.setCountry(normalizeCountryForDB(c));
+                }
             }
-            if (j.has("f_genres")) {
+            if (j.has("f_genres") && !j.isNull("f_genres")) {
                 List<String> g = new ArrayList<>();
                 JSONArray a = j.optJSONArray("f_genres");
                 if (a != null) {
-                    for (int i = 0; i < a.length(); i++) g.add(a.getString(i));
+                    for (int i = 0; i < a.length(); i++) {
+                        String gn = a.optString(i, "").trim();
+                        if (!gn.isEmpty()) g.add(gn);
+                    }
                 }
-                f.setGenres(g);
+                if (!g.isEmpty()) {
+                    f.setGenres(g);
+                }
             }
-            if (j.has("f_year_from")) f.setYearFrom(j.optInt("f_year_from"));
-            if (j.has("f_year_to")) f.setYearTo(j.optInt("f_year_to"));
-            if (j.has("f_director")) f.setDirector(j.optString("f_director"));
-            if (j.has("f_actor")) f.setActor(j.optString("f_actor"));
+            if (j.has("excluded_genres") && !j.isNull("excluded_genres")) {
+                List<String> eg = new ArrayList<>();
+                JSONArray a = j.optJSONArray("excluded_genres");
+                if (a != null) {
+                    for (int i = 0; i < a.length(); i++) {
+                        String gn = a.optString(i, "").trim();
+                        if (!gn.isEmpty()) eg.add(gn);
+                    }
+                }
+                if (!eg.isEmpty()) {
+                    f.setExcludedGenres(eg);
+                }
+            }
+            if (j.has("excluded_directors") && !j.isNull("excluded_directors")) {
+                List<String> ed = new ArrayList<>();
+                JSONArray a = j.optJSONArray("excluded_directors");
+                if (a != null) {
+                    for (int i = 0; i < a.length(); i++) {
+                        String dn = a.optString(i, "").trim();
+                        if (!dn.isEmpty()) ed.add(dn);
+                    }
+                }
+                if (!ed.isEmpty()) {
+                    f.setExcludedDirectors(ed);
+                }
+            }
+            if (j.has("f_min_rating") && !j.isNull("f_min_rating")) {
+                double minR = j.optDouble("f_min_rating", 0.0);
+                if (minR > 0.0) {
+                    f.setMinRating((float) minR);
+                }
+            }
+            if (j.has("f_max_duration") && !j.isNull("f_max_duration")) {
+                int maxDur = j.optInt("f_max_duration", 0);
+                if (maxDur > 0) {
+                    f.setMaxDuration(maxDur);
+                }
+            }
+            if (j.has("f_year_from") && !j.isNull("f_year_from")) {
+                int yf = j.optInt("f_year_from", 0);
+                if (yf > 1900) f.setYearFrom(yf);
+            }
+            if (j.has("f_year_to") && !j.isNull("f_year_to")) {
+                int yt = j.optInt("f_year_to", 0);
+                if (yt > 1900) f.setYearTo(yt);
+            }
+            if (j.has("f_director") && !j.isNull("f_director")) {
+                String d = j.optString("f_director", "").trim();
+                if (!d.isEmpty()) f.setDirector(d);
+            }
+            if (j.has("f_actor") && !j.isNull("f_actor")) {
+                String a = j.optString("f_actor", "").trim();
+                if (!a.isEmpty()) f.setActor(a);
+            }
         } catch (Exception e) {
             log.error("Error parsing flat filters JSON in AI agent", e);
         }
@@ -1383,21 +1708,33 @@ public class AIAgentService {
         if (f.getCountry() != null) {
             sb.append(" của **").append(f.getCountry()).append("**");
         }
+        if (f.getMinRating() != null) {
+            sb.append(" có điểm đánh giá từ **").append(String.format("%.1f", f.getMinRating())).append("⭐ trở lên**");
+        }
+        if (f.getMaxDuration() != null) {
+            sb.append(" thời lượng dưới **").append(f.getMaxDuration()).append(" phút**");
+        }
+        if (f.getExcludedGenres() != null && !f.getExcludedGenres().isEmpty()) {
+            sb.append(" (loại trừ: **").append(String.join(", ", f.getExcludedGenres())).append("**)");
+        }
+        if (f.getExcludedDirectors() != null && !f.getExcludedDirectors().isEmpty()) {
+            sb.append(" (không thuộc đạo diễn: **").append(String.join(", ", f.getExcludedDirectors())).append("**)");
+        }
         if (f.getYearFrom() != null) {
-            sb.append(" năm **").append(f.getYearFrom()).append("**");
+            sb.append(" từ năm **").append(f.getYearFrom()).append("**");
         }
         sb.append(" phù hợp với yêu cầu của bạn:");
         return sb.toString();
     }
 
     private String detectCountry(String text) {
-        String lower = text.toLowerCase();
+        if (text == null) return null;
+        String lower = " " + text.toLowerCase().replaceAll("[.,?!:;\"']", " ") + " ";
         for (Map.Entry<String, List<String>> entry : COUNTRY_MAPPING.entrySet()) {
             for (String alias : entry.getValue()) {
-                if (alias.length() <= 3) {
-                    if (lower.matches(".*\\b" + alias + "\\b.*")) return entry.getKey();
-                } else {
-                    if (lower.contains(alias)) return entry.getKey();
+                String al = alias.toLowerCase();
+                if (lower.contains(" " + al + " ") || (al.length() > 3 && lower.contains(al))) {
+                    return entry.getKey();
                 }
             }
         }
@@ -1431,12 +1768,64 @@ public class AIAgentService {
     }
 
     private String normalizeCountryForDB(String userCountry) {
-        if (userCountry == null) return null;
-        switch (userCountry) {
-            case "South Korea": return "Korea";
-            case "Viet Nam": return "Vietnam";
-            case "United States": return "United States of America";
-            default: return userCountry;
+        if (userCountry == null || userCountry.trim().isEmpty()) return null;
+        String c = userCountry.trim();
+        switch (c) {
+            case "South Korea":
+            case "Korea":
+            case "Hàn Quốc":
+            case "Hàn":
+                return "South Korea";
+            case "Viet Nam":
+            case "Vietnam":
+            case "Việt Nam":
+            case "Việt":
+                return "Vietnam";
+            case "United States":
+            case "United States of America":
+            case "Mỹ":
+            case "Hoa Kỳ":
+            case "USA":
+            case "US":
+                return "United States of America";
+            case "United Kingdom":
+            case "UK":
+            case "Anh":
+            case "Anh Quốc":
+                return "United Kingdom";
+            case "Japan":
+            case "Nhật Bản":
+            case "Nhật":
+                return "Japan";
+            case "China":
+            case "Trung Quốc":
+            case "Trung":
+                return "China";
+            case "France":
+            case "Pháp":
+                return "France";
+            case "Germany":
+            case "Đức":
+                return "Germany";
+            case "India":
+            case "Ấn Độ":
+            case "Ấn":
+                return "India";
+            case "Thailand":
+            case "Thái Lan":
+            case "Thái":
+                return "Thailand";
+            case "Australia":
+            case "Úc":
+                return "Australia";
+            case "Spain":
+            case "Tây Ban Nha":
+                return "Spain";
+            case "Italy":
+            case "Ý":
+                return "Italy";
+            default:
+                return userCountry;
         }
     }
 

@@ -59,12 +59,11 @@ public class AIAgentController {
             // 2. Xử lý tin nhắn (kèm userId & pageContext để cá nhân hóa & grounding)
             Map<String, Object> response = aiAgentService.processMessage(message, conversationId, userId, pageContext);
 
-            // 3. [BẢO MẬT LỚP 2] Chỉ lưu lịch sử nếu ĐÃ ĐĂNG NHẬP (userId != null)
-            if (userId != null) {
-                String botMsg = (String) response.get("message");
-                List<Map<String, Object>> movies = (List<Map<String, Object>>) response.get("movies");
-                aiAgentService.saveChatHistory(conversationId, userId, message, botMsg, movies);
-            }
+            // 3. Lưu lịch sử hội thoại (hỗ trợ cả User đăng nhập & Guest theo conversationId)
+            String botMsg = (String) response.get("message");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> movies = (List<Map<String, Object>>) response.get("movies");
+            aiAgentService.saveChatHistory(conversationId, userId, message, botMsg, movies);
 
             // 4. Trả về kết quả
             Map<String, Object> finalResponse = new HashMap<>(response);
@@ -79,21 +78,22 @@ public class AIAgentController {
     }
 
     /**
-     * [MỚI] Endpoint lấy lịch sử chat
+     * Endpoint lấy lịch sử chat
      * GET /api/ai-agent/history
      */
     @GetMapping("/history")
-    public ResponseEntity<List<Map<String, Object>>> getHistory(HttpSession session) {
-        // Ưu tiên lấy theo User Logged-in
+    public ResponseEntity<List<Map<String, Object>>> getHistory(
+            @RequestParam(required = false) String conversationId,
+            HttpSession session) {
         Integer userId = null;
         UserSessionDto userSession = (UserSessionDto) session.getAttribute("user");
         if (userSession != null) {
             userId = userSession.getId();
         }
-        
-        // Nếu không có User, frontend nên gửi kèm conversationId (nếu muốn support guest history persistent)
-        // Nhưng theo yêu cầu hiện tại, ta sẽ dùng userId hoặc session ID tạm
-        String sessionId = session.getId(); // JSessionID
+
+        String sessionId = (conversationId != null && !conversationId.trim().isEmpty())
+                ? conversationId.trim()
+                : session.getId();
 
         List<Map<String, Object>> history = aiAgentService.getChatHistory(sessionId, userId);
         return ResponseEntity.ok(history);
@@ -114,7 +114,11 @@ public class AIAgentController {
         } else if (userObj instanceof com.example.project.model.User) {
             userId = ((com.example.project.model.User) userObj).getUserID();
         }
-        String sessionId = session.getId();
+
+        String sessionId = (conversationId != null && !conversationId.trim().isEmpty())
+                ? conversationId.trim()
+                : session.getId();
+
         aiAgentService.clearChatHistory(sessionId, userId, conversationId);
         return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa toàn bộ lịch sử trò chuyện"));
     }
