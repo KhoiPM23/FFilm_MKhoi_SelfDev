@@ -57,6 +57,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             return;
         }
 
+        if (Boolean.FALSE.equals(oAuth2User.getAttribute("email_verified"))) {
+            log.warn("Google OAuth2 login rejected: email not verified");
+            response.sendRedirect("/login?error=oauth2");
+            return;
+        }
+
         email = email.trim().toLowerCase();
 
         Optional<User> existingUserOpt = userRepository.findByEmail(email);

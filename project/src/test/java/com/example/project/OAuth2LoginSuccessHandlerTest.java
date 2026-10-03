@@ -137,4 +137,17 @@ class OAuth2LoginSuccessHandlerTest {
         verify(response).sendRedirect("/login?error=oauth2");
         verify(userRepository, never()).findByEmail(anyString());
     }
+
+    @Test
+    void testUnverifiedEmailRedirectsToOAuthError() throws Exception {
+        when(oAuth2User.getAttribute("email")).thenReturn("fake@gmail.com");
+        when(oAuth2User.getAttribute("name")).thenReturn("Fake User");
+        when(oAuth2User.getAttribute("email_verified")).thenReturn(false);
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        verify(response).sendRedirect("/login?error=oauth2");
+        verify(userRepository, never()).findByEmail(anyString());
+        verify(userRepository, never()).save(any(User.class));
+    }
 }
