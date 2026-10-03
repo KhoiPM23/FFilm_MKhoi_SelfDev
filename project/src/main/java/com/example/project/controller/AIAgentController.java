@@ -119,7 +119,10 @@ public class AIAgentController {
                 ? conversationId.trim()
                 : session.getId();
 
-        aiAgentService.clearChatHistory(sessionId, userId, conversationId);
+        boolean deleted = aiAgentService.clearChatHistory(sessionId, userId, conversationId);
+        if (!deleted) {
+            return ResponseEntity.ok(Map.of("success", false, "message", "Không tìm thấy lịch sử để xóa"));
+        }
         return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa toàn bộ lịch sử trò chuyện"));
     }
 

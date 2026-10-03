@@ -1475,116 +1475,91 @@ public class MovieService {
 
     // ---- 12. ADVANCED FILTER LOGIC (MỚI) ----
 
-    /**
-     * Tìm phim dựa trên các bộ lọc động từ AI (Phase 1)
-     */
-    @Transactional(readOnly = true) // readOnly = true để tăng tốc độ query SELECT
-    public List<Movie> findMoviesByFilters(MovieSearchFilters filters) {
-        System.out.println("🔵 MovieService: Finding movies by filters: " + filters.toString());
+    /** Maximum rows returned from DB per AI filter query (D4: DB-side top-N) */
+    private static final int AI_FILTER_LIMIT = 50;
 
-        // 1. Tạo Specification (bộ điều kiện WHERE động)
+    /**
+     * D4: findMoviesByFilters — ALL exclusion predicates are pushed into the JPA Specification
+     * so filtering happens at the SQL layer. A PageRequest caps the result at AI_FILTER_LIMIT rows,
+     * giving true DB-side LIMIT/TOP-N instead of loading the full table into Java.
+     *
+     * Execution plan:
+     *   1. Build Specification with positive filters + SQL-side exclusion predicates
+     *   2. findAll(spec, PageRequest) → SQL SELECT TOP/LIMIT AI_FILTER_LIMIT
+     *   3. No Java-side stream.filter() post-processing needed
+     */
+    @Transactional(readOnly = true)
+    public List<Movie> findMoviesByFilters(MovieSearchFilters filters) {
+        log.debug("[D4] findMoviesByFilters: {}", filters);
+
         Specification<Movie> spec = createMovieSpecification(filters);
 
-        // 2. Thực thi query
-        // Chúng ta dùng Sort mặc định theo Rating giảm dần
-        List<Movie> results = movieRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "rating"));
+        // DB-side pagination: always cap at AI_FILTER_LIMIT rows, sorted by rating DESC
+        // Note: fetch("genres") in the spec causes Hibernate to do in-memory dedup for the
+        // Page<Movie> case; with limit=50 this is bounded and safe. A separate count query
+        // is not needed here because we only need the content list (not totalElements).
+        org.springframework.data.domain.PageRequest pr =
+                org.springframework.data.domain.PageRequest.of(0, AI_FILTER_LIMIT,
+                        Sort.by(Sort.Direction.DESC, "rating"));
+        List<Movie> results = movieRepository.findAll(spec, pr).getContent();
 
-        // 3. Áp dụng Negative Filters (Loại trừ tiêu chí)
-        if (filters.getExcludedMovieIds() != null && !filters.getExcludedMovieIds().isEmpty()) {
-            Set<Integer> exIds = new HashSet<>(filters.getExcludedMovieIds());
-            results = results.stream().filter(m -> !exIds.contains(m.getMovieID())).collect(Collectors.toList());
-        }
-        if (filters.getExcludedGenres() != null && !filters.getExcludedGenres().isEmpty()) {
-            List<String> exG = filters.getExcludedGenres().stream().map(String::toLowerCase).collect(Collectors.toList());
-            results = results.stream().filter(m -> {
-                if (m.getGenres() == null || m.getGenres().isEmpty()) return true;
-                return m.getGenres().stream().noneMatch(g -> exG.stream().anyMatch(ex -> g.getName().toLowerCase().contains(ex)));
-            }).collect(Collectors.toList());
-        }
-        if (filters.getExcludedDirectors() != null && !filters.getExcludedDirectors().isEmpty()) {
-            List<String> exD = filters.getExcludedDirectors().stream().map(String::toLowerCase).collect(Collectors.toList());
-            results = results.stream().filter(m -> {
-                if (m.getDirector() == null || m.getDirector().isEmpty()) return true;
-                String dLower = m.getDirector().toLowerCase();
-                return exD.stream().noneMatch(dLower::contains);
-            }).collect(Collectors.toList());
-        }
-        if (filters.getExcludedActors() != null && !filters.getExcludedActors().isEmpty()) {
-            List<String> exA = filters.getExcludedActors().stream().map(String::toLowerCase).collect(Collectors.toList());
-            results = results.stream().filter(m -> {
-                if (m.getPersons() == null || m.getPersons().isEmpty()) return true;
-                return m.getPersons().stream().noneMatch(p -> exA.stream().anyMatch(ex -> p.getFullName().toLowerCase().contains(ex)));
-            }).collect(Collectors.toList());
-        }
-
-        System.out.println("🔵 MovieService: Found " + results.size() + " movies.");
+        log.debug("[D4] DB returned {} rows (limit={})", results.size(), AI_FILTER_LIMIT);
         return results;
     }
 
     /**
-     * Helper xây dựng Specification (bộ điều kiện WHERE)
+     * D4: createMovieSpecification — includes ALL exclusion criteria as SQL predicates.
+     * No Java-side stream.filter() post-processing is needed after this returns.
      */
     private Specification<Movie> createMovieSpecification(MovieSearchFilters filters) {
-        // (root, query, cb) -> cb = CriteriaBuilder
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // QUAN TRỌNG: Tránh N+1 query khi join
-            // Chúng ta báo JPA fetch các bảng liên quan trong 1 lần query
-            if ((filters.getGenres() != null && !filters.getGenres().isEmpty()) ||
-                (filters.getExcludedGenres() != null && !filters.getExcludedGenres().isEmpty())) {
-                root.fetch("genres", jakarta.persistence.criteria.JoinType.LEFT);
+            // Only join when filtering by genre or actor; distinct prevents duplicate Movie rows
+            boolean needsGenreJoin = (filters.getGenres() != null && !filters.getGenres().isEmpty());
+            boolean needsPersonJoin = (filters.getActor() != null && !filters.getActor().isEmpty());
+            if (needsGenreJoin || needsPersonJoin) {
+                query.distinct(true);
             }
-            if (filters.getActor() != null || filters.getDirector() != null ||
-                (filters.getExcludedActors() != null && !filters.getExcludedActors().isEmpty())) {
-                root.fetch("persons", jakarta.persistence.criteria.JoinType.LEFT);
-            }
-            // Đảm bảo không bị trùng lặp kết quả khi JOIN
-            query.distinct(true);
 
-            // 1. Filter: Keyword (Title/Description)
+            // 1. Keyword (title OR description LIKE)
             if (filters.getKeyword() != null && !filters.getKeyword().isEmpty()) {
-                String likePattern = "%" + filters.getKeyword() + "%";
-                // Tìm ở Title HOẶC Description
-                predicates.add(cb.or(
-                        cb.like(root.get("title"), likePattern),
-                        cb.like(root.get("description"), likePattern)));
+                String p = "%" + filters.getKeyword() + "%";
+                predicates.add(cb.or(cb.like(root.get("title"), p), cb.like(root.get("description"), p)));
             }
 
-            // 2. Filter: Country
+            // 2. Country
             if (filters.getCountry() != null && !filters.getCountry().isEmpty()) {
                 predicates.add(cb.like(root.get("country"), "%" + filters.getCountry() + "%"));
             }
 
-            // 3. Filter: Director
+            // 3. Director (include)
             if (filters.getDirector() != null && !filters.getDirector().isEmpty()) {
                 predicates.add(cb.like(root.get("director"), "%" + filters.getDirector() + "%"));
             }
 
-            // 4. Filter: Year From (Năm >=)
+            // 4. Year from
             if (filters.getYearFrom() != null && filters.getYearFrom() > 1900) {
                 try {
-                    Date dateFrom = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearFrom() + "-01-01");
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("releaseDate"), dateFrom));
-                } catch (Exception e) {
-                    /* Bỏ qua nếu năm lỗi */ }
+                    Date d = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearFrom() + "-01-01");
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("releaseDate"), d));
+                } catch (Exception ignored) {}
             }
 
-            // 5. Filter: Year To (Năm <=)
+            // 5. Year to
             if (filters.getYearTo() != null && filters.getYearTo() > 1900) {
                 try {
-                    Date dateTo = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearTo() + "-12-31");
-                    predicates.add(cb.lessThanOrEqualTo(root.get("releaseDate"), dateTo));
-                } catch (Exception e) {
-                    /* Bỏ qua nếu năm lỗi */ }
+                    Date d = new SimpleDateFormat("yyyy-MM-dd").parse(filters.getYearTo() + "-12-31");
+                    predicates.add(cb.lessThanOrEqualTo(root.get("releaseDate"), d));
+                } catch (Exception ignored) {}
             }
 
-            // 6. Filter: Min Rating
+            // 6. Min rating
             if (filters.getMinRating() != null && filters.getMinRating() > 0) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("rating"), filters.getMinRating()));
             }
 
-            // 7. Filter: Duration
+            // 7. Duration
             if (filters.getMinDuration() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("duration"), filters.getMinDuration()));
             }
@@ -1592,26 +1567,71 @@ public class MovieService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("duration"), filters.getMaxDuration()));
             }
 
-            // 8. Filter: Genres (JOIN)
-            if (filters.getGenres() != null && !filters.getGenres().isEmpty()) {
-                Join<Movie, Genre> genreJoin = root.join("genres");
-
-                // THAY ĐỔI (VĐ 9): Dùng 'OR' thay vì 'AND'
-                // User muốn phim "tình cảm HOẶC lãng mạn", không phải "tình cảm VÀ lãng mạn"
-                List<Predicate> genrePredicates = new ArrayList<>();
-                for (String genreName : filters.getGenres()) {
-                    genrePredicates.add(cb.like(genreJoin.get("name"), "%" + genreName + "%"));
+            // 8. Genres (include) — OR across genres
+            if (needsGenreJoin) {
+                Join<Movie, Genre> gj = root.join("genres");
+                List<Predicate> gps = new ArrayList<>();
+                for (String g : filters.getGenres()) {
+                    gps.add(cb.like(cb.lower(gj.get("name")), "%" + g.toLowerCase() + "%"));
                 }
-                predicates.add(cb.or(genrePredicates.toArray(new Predicate[0])));
+                predicates.add(cb.or(gps.toArray(new Predicate[0])));
             }
 
-            // 9. Filter: Actor (JOIN)
-            if (filters.getActor() != null && !filters.getActor().isEmpty()) {
-                Join<Movie, Person> personJoin = root.join("persons");
-                predicates.add(cb.like(personJoin.get("fullName"), "%" + filters.getActor() + "%"));
+            // 9. Actor (include)
+            if (needsPersonJoin) {
+                Join<Movie, Person> pj = root.join("persons");
+                predicates.add(cb.like(pj.get("fullName"), "%" + filters.getActor() + "%"));
             }
 
-            // Kết hợp tất cả điều kiện bằng AND
+            // ---- D4: SQL-side EXCLUSION predicates ----
+
+            // 10. Excluded movie IDs — NOT IN (:ids)
+            if (filters.getExcludedMovieIds() != null && !filters.getExcludedMovieIds().isEmpty()) {
+                predicates.add(cb.not(root.get("movieID").in(filters.getExcludedMovieIds())));
+            }
+
+            // 11. Excluded genres — NOT EXISTS (subquery selecting genre rows matching exclusion)
+            if (filters.getExcludedGenres() != null && !filters.getExcludedGenres().isEmpty()) {
+                List<String> exG = filters.getExcludedGenres().stream()
+                        .map(String::toLowerCase).collect(Collectors.toList());
+                // Build: NOT EXISTS (SELECT 1 FROM genres g WHERE g.movieId = m.movieID AND LOWER(g.name) LIKE ?)
+                // Using subquery via Criteria API
+                jakarta.persistence.criteria.Subquery<Integer> subq = query.subquery(Integer.class);
+                jakarta.persistence.criteria.Root<Movie> subRoot = subq.correlate(root);
+                Join<Movie, Genre> subGenre = subRoot.join("genres");
+                List<Predicate> exGPreds = new ArrayList<>();
+                for (String ex : exG) {
+                    exGPreds.add(cb.like(cb.lower(subGenre.get("name")), "%" + ex + "%"));
+                }
+                subq.select(cb.literal(1)).where(cb.or(exGPreds.toArray(new Predicate[0])));
+                predicates.add(cb.not(cb.exists(subq)));
+            }
+
+            // 12. Excluded directors — director NOT LIKE any of them
+            if (filters.getExcludedDirectors() != null && !filters.getExcludedDirectors().isEmpty()) {
+                for (String exD : filters.getExcludedDirectors()) {
+                    predicates.add(cb.or(
+                        cb.isNull(root.get("director")),
+                        cb.notLike(cb.lower(root.get("director")), "%" + exD.toLowerCase() + "%")
+                    ));
+                }
+            }
+
+            // 13. Excluded actors — NOT EXISTS (subquery selecting person rows matching exclusion)
+            if (filters.getExcludedActors() != null && !filters.getExcludedActors().isEmpty()) {
+                List<String> exA = filters.getExcludedActors().stream()
+                        .map(String::toLowerCase).collect(Collectors.toList());
+                jakarta.persistence.criteria.Subquery<Integer> subq = query.subquery(Integer.class);
+                jakarta.persistence.criteria.Root<Movie> subRoot = subq.correlate(root);
+                Join<Movie, Person> subPerson = subRoot.join("persons");
+                List<Predicate> exAPreds = new ArrayList<>();
+                for (String ex : exA) {
+                    exAPreds.add(cb.like(cb.lower(subPerson.get("fullName")), "%" + ex + "%"));
+                }
+                subq.select(cb.literal(1)).where(cb.or(exAPreds.toArray(new Predicate[0])));
+                predicates.add(cb.not(cb.exists(subq)));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

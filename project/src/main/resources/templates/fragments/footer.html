@@ -920,7 +920,34 @@
             }
         }
 
+        /* ==================== Thinking Stages UX ==================== */
+        #ai-root-wrapper .thinking-stage-wrap {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 6px 0 !important;
+        }
+        #ai-root-wrapper .thinking-dot {
+            display: inline-block !important;
+            width: 10px !important;
+            height: 10px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #a78bfa, #38bdf8) !important;
+            animation: thinkingPulse 1.2s ease-in-out infinite !important;
+            flex-shrink: 0 !important;
+        }
+        #ai-root-wrapper .thinking-stage-label {
+            font-size: 0.85rem !important;
+            color: rgba(255,255,255,0.75) !important;
+            font-style: italic !important;
+        }
+        @keyframes thinkingPulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.35); opacity: 1; }
+        }
+
         /* ==================== Input Area ==================== */
+
 
         #ai-root-wrapper .ai-input-area {
             display: flex !important;
@@ -1140,12 +1167,19 @@
 
             // DOM Elements
             let chatIcon, chatWindow, closeBtn, sendBtn, input, messagesContainer, typingIndicator, suggestionsContainer;
+            // Auth-state isolation: Thymeleaf embeds the current user identity.
+            // If the stored identity differs from now (login/logout occurred),
+            // rotate the conversationId so stale context is never reused.
+            const _currentAuthKey = /*[[${session.user != null ? 'u:' + session.user.id : 'guest'}]]*/ 'guest';
             let conversationId = (function() {
                 try {
+                    const storedKey = sessionStorage.getItem('ffilm_ai_auth_key');
                     let cid = sessionStorage.getItem('ffilm_ai_cid');
-                    if (!cid) {
+                    if (!cid || storedKey !== _currentAuthKey) {
+                        // Auth state changed (or first visit) — issue a fresh cid
                         cid = generateUUID();
                         sessionStorage.setItem('ffilm_ai_cid', cid);
+                        sessionStorage.setItem('ffilm_ai_auth_key', _currentAuthKey);
                     }
                     return cid;
                 } catch(e) {
@@ -1182,8 +1216,15 @@
                     cursor: grab !important;
                     user-select: none !important;
                     -webkit-user-select: none !important;
+                    touch-action: pan-y pinch-zoom !important;
+                    -webkit-overflow-scrolling: touch !important;
                     width: 100% !important;
                     box-sizing: border-box !important;
+                    scroll-behavior: auto !important;
+                }
+                .ai-movie-scroll.is-dragging {
+                    cursor: grabbing !important;
+                    scroll-behavior: auto !important;
                 }
                 .ai-movie-scroll::-webkit-scrollbar { display: none !important; }
                 
@@ -1483,19 +1524,66 @@
             async function clearHistory() {
                 if (!confirm('Bạn có muốn xóa toàn bộ lịch sử trò chuyện với trợ lý AI?')) return;
                 try {
-                    await fetch('/api/ai-agent/history?conversationId=' + encodeURIComponent(conversationId), {
+                    const res = await fetch('/api/ai-agent/history?conversationId=' + encodeURIComponent(conversationId), {
                         method: 'DELETE'
                     });
+                    if (res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        if (data.success === false) {
+                            console.warn('Server reported delete not performed:', data.message);
+                        }
+                    }
                 } catch (e) {
                     console.error("Lỗi xóa history server:", e);
                 }
+                // Always rotate cid after user-initiated clear to start fresh context
                 conversationId = generateUUID();
-                try { sessionStorage.setItem('ffilm_ai_cid', conversationId); } catch(e) {}
+                try {
+                    sessionStorage.setItem('ffilm_ai_cid', conversationId);
+                    sessionStorage.setItem('ffilm_ai_auth_key', _currentAuthKey);
+                } catch(e) {}
                 messagesContainer.innerHTML = '';
                 renderWelcomeMessage();
             }
 
             let activeRequestId = 0;
+
+            // ---- THINKING UX ----
+            const THINKING_STAGES = [
+                { key: 'PARSING',   label: '🔍 Đang phân tích câu hỏi...' },
+                { key: 'SEARCHING', label: '🎬 Đang tìm kiếm phim...' },
+                { key: 'RANKING',   label: '⭐ Đang xếp hạng kết quả...' },
+            ];
+            let _thinkingStageTimer = null;
+            let _thinkingEl = null;
+
+            function showThinkingStages() {
+                hideTyping();
+                _thinkingEl = document.createElement('div');
+                _thinkingEl.className = 'ai-message bot thinking-stages';
+                _thinkingEl.innerHTML = `
+                    <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
+                    <div class="ai-message-content">
+                        <div class="thinking-stage-wrap">
+                            <span class="thinking-dot"></span>
+                            <span class="thinking-stage-label">${THINKING_STAGES[0].label}</span>
+                        </div>
+                    </div>`;
+                messagesContainer.appendChild(_thinkingEl);
+                scrollToBottom();
+
+                let idx = 0;
+                _thinkingStageTimer = setInterval(() => {
+                    idx = Math.min(idx + 1, THINKING_STAGES.length - 1);
+                    const lbl = _thinkingEl.querySelector('.thinking-stage-label');
+                    if (lbl) lbl.textContent = THINKING_STAGES[idx].label;
+                }, 1800);
+            }
+
+            function hideThinkingStages() {
+                if (_thinkingStageTimer) { clearInterval(_thinkingStageTimer); _thinkingStageTimer = null; }
+                if (_thinkingEl) { _thinkingEl.remove(); _thinkingEl = null; }
+            }
 
             async function sendMessage() {
                 const message = input.value.trim();
@@ -1510,7 +1598,7 @@
                 input.disabled = true;
                 if (suggestionsContainer) suggestionsContainer.style.display = 'none';
 
-                showTyping();
+                showThinkingStages();
                 isSending = true;
                 sendBtn.disabled = true;
 
@@ -1526,7 +1614,7 @@
                     });
 
                     const data = await response.json();
-                    hideTyping();
+                    hideThinkingStages();
 
                     // Chống Race Condition: Bỏ qua nếu có request mới hơn đã được phát đi
                     if (thisRequestId < activeRequestId) {
@@ -1549,7 +1637,7 @@
                     }
 
                 } catch (error) {
-                    hideTyping();
+                    hideThinkingStages();
                     if (thisRequestId < activeRequestId) return;
                     const networkActions = [
                         { type: "CHIP_REPLY", label: "🔄 Thử lại", text: message },
@@ -1565,6 +1653,7 @@
                     }
                 }
             }
+
 
             // --- RENDER FUNCTIONS ---
 
@@ -1647,10 +1736,12 @@
                     const poster = m.poster || '/images/placeholder.jpg';
                     const title = escapeHtml(m.title || 'Unknown');
                     const year = m.year || '';
-                    const rating = m.rating ? parseFloat(m.rating).toFixed(1) : 'N/A';
+                    const rating = (m.rating !== undefined && m.rating !== null && !isNaN(m.rating)) ? parseFloat(m.rating).toFixed(1) : 'N/A';
+                    const movieId = m.id || m.movieID || '';
+                    const detailUrl = movieId ? `/movie/detail/${movieId}` : '#';
                     
                     html += `
-                        <div class="ai-movie-card" data-url="/movie/detail/${m.id}">
+                        <div class="ai-movie-card" data-url="${detailUrl}">
                             <div class="ai-card-poster-wrap">
                                 <img class="ai-card-poster" src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'">
                                 <div class="ai-card-rating">⭐ ${rating}</div>
@@ -1667,43 +1758,71 @@
                 return html;
             }
 
-            // Horizontal mouse drag cho carousel gợi ý phim
+            // Horizontal drag-to-scroll cho carousel gợi ý phim (desktop mouse + mobile touch)
             function makeScrollableDraggable(slider) {
+                if (!slider) return;
                 let isDown = false;
                 let startX = 0;
                 let scrollLeft = 0;
-                let hasMoved = false;
+                let isDragging = false;
+                const DRAG_THRESHOLD = 6; // px di chuyển tối thiểu để phân biệt click vs drag
 
-                slider.addEventListener('mousedown', (e) => {
+                // Ngăn click vào movie card nếu người dùng vừa thực hiện thao tác drag
+                slider.addEventListener('click', (e) => {
+                    if (isDragging) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }, true); // true = Capture phase để bắt sự kiện trước khi tới movie card
+
+                slider.addEventListener('pointerdown', (e) => {
+                    // Chỉ xử lý chuột trái (button = 0) hoặc touch/pen
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
                     isDown = true;
-                    hasMoved = false;
-                    slider.style.cursor = 'grabbing';
-                    startX = e.pageX - slider.offsetLeft;
+                    isDragging = false;
+                    startX = e.clientX;
                     scrollLeft = slider.scrollLeft;
+                    slider.classList.add('is-dragging');
+                    try {
+                        slider.setPointerCapture(e.pointerId);
+                    } catch (_) {}
                 });
 
-                slider.addEventListener('mouseleave', () => {
-                    isDown = false;
-                    slider.style.cursor = 'grab';
-                });
-
-                slider.addEventListener('mouseup', () => {
-                    isDown = false;
-                    slider.style.cursor = 'grab';
-                });
-
-                slider.addEventListener('mousemove', (e) => {
+                slider.addEventListener('pointermove', (e) => {
                     if (!isDown) return;
-                    e.preventDefault();
-                    const x = e.pageX - slider.offsetLeft;
-                    const walk = (x - startX) * 1.5;
-                    if (Math.abs(walk) > 5) hasMoved = true;
-                    slider.scrollLeft = scrollLeft - walk;
+                    const deltaX = e.clientX - startX;
+                    if (!isDragging && Math.abs(deltaX) > DRAG_THRESHOLD) {
+                        isDragging = true;
+                    }
+                    if (isDragging) {
+                        slider.scrollLeft = scrollLeft - deltaX;
+                    }
                 });
 
+                function endDrag(e) {
+                    if (!isDown) return;
+                    isDown = false;
+                    slider.classList.remove('is-dragging');
+                    if (e && e.pointerId) {
+                        try {
+                            slider.releasePointerCapture(e.pointerId);
+                        } catch (_) {}
+                    }
+                    // Giữ isDragging một khoảnh khắc ngắn (50ms) để sự kiện click ngay sau pointerup bị chặn
+                    if (isDragging) {
+                        setTimeout(() => {
+                            isDragging = false;
+                        }, 50);
+                    }
+                }
+
+                slider.addEventListener('pointerup', endDrag);
+                slider.addEventListener('pointercancel', endDrag);
+
+                // Gán click điều hướng cho từng movie card khi không bị drag chặn
                 slider.querySelectorAll('.ai-movie-card').forEach(card => {
                     card.addEventListener('click', (e) => {
-                        if (hasMoved) {
+                        if (isDragging) {
                             e.preventDefault();
                             e.stopPropagation();
                             return;

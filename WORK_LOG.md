@@ -1,3 +1,19 @@
+## 2026-10-03 - AI Agent Hardening: D1-D4 Isolation, DB-Side Top-N Query Optimization & Carousel UX
+
+- **Scope & Objectives**:
+  - D1: Isolate chat history and clear scope between guest (`userId IS NULL`) and authenticated users (`userId = :id`).
+  - D2: Isolate `ConversationContext` per conversation key with explicit snapshot stack and clean session boundary.
+  - D3: Strictly NO merging of guest history into accounts. Rotate `conversationId` upon login/logout with identity tracking (`_currentAuthKey`).
+  - D4: True DB-side top-N pagination via SQL Server (`OFFSET ? ROWS FETCH FIRST ? ROWS ONLY`), eliminate collection fetch joins causing count query SemanticExceptions, and push down exclusion predicates (NOT IN, NOT EXISTS, NOT LIKE).
+  - UI Refinements: Drag-to-scroll for movie result carousel with pointer capture, threshold guard, and capture-phase click blocking; dynamic card rendering matching actual query result size.
+- **Verification Results**:
+  - `AIAgentIntegrationTest`: 22/22 PASSED
+  - `AIHistoryIsolationTest`: 10/10 PASSED
+  - `ConversationContextBatch1Test`: 12/12 PASSED
+  - `AIQueryPerformanceTest`: 1/1 PASSED
+  - Total test count: 45/45 PASSED (0 failures, 0 errors).
+- **Status**: VERIFIED & READY TO SHIP.
+
 ## 2026-09-30 - Targeted Follow-up: Page Transition UX, Cinematic Hero Reveal, Backend Caching & Trailer Sync
 
 - **Scope & Constraints**:

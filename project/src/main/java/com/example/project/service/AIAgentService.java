@@ -246,7 +246,7 @@ public class AIAgentService {
             throw new Exception("Gemini API key chưa cấu hình");
         }
 
-        ConversationContext context = getOrCreateContext(conversationId);
+        ConversationContext context = getOrCreateContext(conversationId, userId);
         if (pageContext != null) {
             context.setLastPageContext(pageContext);
             // Chỉ gán lastFocusedMovie theo pageContext khi người dùng thật sự đang mở trang movie_detail
@@ -279,28 +279,48 @@ public class AIAgentService {
         }
 
         // 2. Quay lại danh sách ứng viên cũ hoặc trạng thái trước đó (Backtracking)
-        if (cleanMsg.matches(".*(quay lại|undo|bỏ điều kiện|bo dieu kien|danh sách lúc nãy|danh sách cũ|danh sách trước).*")) {
-            if (context.popStateSnapshot()) {
+        // Pattern mở rộng: cover nhiều cách diễn đạt (cả có dấu và không dấu)
+        if (cleanMsg.matches(".*(quay lại|quay lai|undo|bỏ điều kiện|bo dieu kien|danh sách lúc nãy|danh sach luc nay|danh sách cũ|danh sach cu|danh sách trước|danh sach truoc|về trước|ve truoc|hoàn tác|hoan tac|trước đó|truoc do|list cũ|list cu|kết quả trước|ket qua truoc|hồi trước|hoi truoc|quay ve|quay về|lấy lại danh sách|lay lai danh sach|khôi phục danh sách|khoi phuc danh sach).*")) {
+            // "ban đầu" / "đầu tiên" => pop OLDEST snapshot; còn lại => pop LATEST
+            boolean wantsOldest = cleanMsg.matches(".*(ban đầu|đầu tiên|ngay từ đầu|lúc đầu|ban dau|dau tien|list đầu|từ trước|danh sách gốc).*");
+            boolean popped = wantsOldest ? context.popOldestSnapshot() : context.popStateSnapshot();
+            if (popped) {
                 List<Map<String, Object>> restored = context.getLastCandidateMovies();
                 if (restored != null && !restored.isEmpty()) {
-                    saveContext(conversationId, context);
-                    return createResponse("Đã khôi phục lại danh sách và các tiêu chí tìm kiếm trước đó của bạn:", restored);
+                    int remainingLevels = context.getSnapshotDepth();
+                    String suffix = remainingLevels > 0 ? " (còn " + remainingLevels + " bước quay lại nữa)" : "";
+                    saveContext(conversationId, userId, context);
+                    return createResponse("Đã khôi phục lại danh sách và các tiêu chí tìm kiếm trước đó của bạn" + suffix + ":", restored);
                 }
             } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
-                return createResponse("Dưới đây là danh sách phim bạn vừa xem lúc nãy:", context.getLastCandidateMovies());
+                return createResponse("Dưới đây là danh sách phim bạn đang xem:", context.getLastCandidateMovies());
             }
         }
 
-        // 3. Quay lại phim ban đầu ("thôi xem phim ban đầu", "phim ban đầu")
-        if (cleanMsg.matches(".*(phim ban đầu|phim gốc|xem phim ban đầu|về phim đầu).*") &&
-                context.getLastBaseMovie() != null) {
-            Object idObj = context.getLastBaseMovie().get("id");
-            if (idObj != null) {
-                int bid = ((Number) idObj).intValue();
-                Movie bm = movieRepository.findById(bid).orElse(null);
-                if (bm != null) {
-                    context.setLastFocusedMovie(movieService.convertToMap(bm));
-                    return createResponse(formatSpecificMovieAnswer(bm, "general"), List.of(movieService.convertToMap(bm)), buildMovieDetailActions(bm));
+        // 3. Quay lại phim ban đầu / movie gốc
+        if (cleanMsg.matches(".*(phim ban đầu|phim gốc|xem phim ban đầu|về phim đầu|phim tôi chọn lúc đầu|phim đầu tiên tôi hỏi|bộ phim gốc|phim goc|ban dau).*")) {
+            Map<String, Object> baseMovieMap = context.getLastBaseMovie();
+            // Fallback: nếu lastBaseMovie null, thử snapshot cũ nhất
+            if (baseMovieMap == null) {
+                ConversationContext.StateSnapshot oldest = context.peekOldestSnapshot();
+                if (oldest != null && oldest.candidateMovies != null && !oldest.candidateMovies.isEmpty()) {
+                    baseMovieMap = oldest.candidateMovies.get(0);
+                }
+            }
+            if (baseMovieMap != null) {
+                Object idObj = baseMovieMap.get("id");
+                if (idObj != null) {
+                    try {
+                        int bid = idObj instanceof Number ? ((Number) idObj).intValue() : Integer.parseInt(idObj.toString());
+                        Movie bm = movieRepository.findById(bid).orElse(null);
+                        if (bm != null) {
+                            Map<String, Object> bmMap = movieService.convertToMap(bm);
+                            context.setLastFocusedMovie(bmMap);
+                            context.setLastBaseMovie(bmMap);
+                            saveContext(conversationId, userId, context);
+                            return createResponse(formatSpecificMovieAnswer(bm, "general"), List.of(bmMap), buildMovieDetailActions(bm));
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -321,7 +341,7 @@ public class AIAgentService {
 
         if (isFollowUp) {
             Map<String, Object> followUpResult = handleFollowUp(context, cleanMsg);
-            saveContext(conversationId, context);
+            saveContext(conversationId, userId, context);
             return followUpResult;
         }
 
@@ -363,7 +383,7 @@ public class AIAgentService {
                     if (m.getDirector() != null && !m.getDirector().isBlank()) {
                         context.setLastFocusedDirector(m.getDirector());
                     }
-                    saveContext(conversationId, context);
+                    saveContext(conversationId, userId, context);
                     return createResponse(formatSpecificMovieAnswer(m, "general"), List.of(mMap), buildMovieDetailActions(m));
                 }
             }
@@ -438,7 +458,7 @@ public class AIAgentService {
                             Map.of("type", "CHIP_REPLY", "text", "Phim của Mỹ", "label", "🇺🇸 Phim Mỹ"),
                             Map.of("type", "CHIP_REPLY", "text", "Phim của Hàn Quốc", "label", "🇰🇷 Phim Hàn")
                     );
-                    saveContext(conversationId, context);
+                    saveContext(conversationId, userId, context);
                     return createResponse(answer.toString(), cards, narrowingActions);
                 }
             }
@@ -517,7 +537,7 @@ public class AIAgentService {
             }
         }
 
-        saveContext(conversationId, context);
+        saveContext(conversationId, userId, context);
         return result;
     }
 
@@ -535,12 +555,23 @@ public class AIAgentService {
         // 1. Giải quyết ordinal reference ("phim thứ 2", "phim đầu tiên", "cái 2") từ context trước
         subject = resolveOrdinalReference(subject, context);
 
-        if (subject.isEmpty() || subject.matches("^(nó|no|phim này|phim nay|bộ này|bo nay|đây|day|phim đó)$")) {
+        // Pronoun/reference resolution mở rộng — cover nhiều cách diễn đạt
+        boolean isPronounSubject = subject.isEmpty() || subject.matches(
+                "^(nó|no|phim này|phim nay|bộ này|bo nay|đây|day|phim đó|phim do|" +
+                "cái này|cai nay|cái đó|cai do|cái kia|cai kia|bộ đó|bo do|" +
+                "bộ vừa rồi|phim vừa rồi|phim tôi vừa chọn|cái lúc nãy|" +
+                "bộ trên|phim trên|phim vừa xong|kết quả đó|phim đang xét)$");
+        if (isPronounSubject) {
             Map<String, Object> pageCtx = context.getLastPageContext();
             if (pageCtx != null && "movie_detail".equals(pageCtx.get("page")) && pageCtx.get("movieTitle") != null) {
                 subject = (String) pageCtx.get("movieTitle");
             } else if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("title") != null) {
-                subject = (String) context.getLastFocusedMovie().get("title");
+                // Ưu tiên lastFocusedMovie, nhưng chỉ khi nó nằm trong current candidates
+                String focusedTitle = (String) context.getLastFocusedMovie().get("title");
+                List<Map<String, Object>> currentCandidates = context.getLastCandidateMovies();
+                boolean isCurrent = currentCandidates != null && currentCandidates.stream()
+                        .anyMatch(c -> focusedTitle.equalsIgnoreCase((String) c.get("title")));
+                subject = focusedTitle; // Dùng kể cả khi stale — Gemini đã chọn intent LOOKUP nên subject phải xác định
             } else if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
                 subject = (String) context.getLastCandidateMovies().get(0).get("title");
             }
@@ -580,8 +611,17 @@ public class AIAgentService {
             if (movie.getDirector() != null && !movie.getDirector().isEmpty()) {
                 context.setLastFocusedDirector(movie.getDirector());
             }
+            // Populate lastFocusedPerson + lastMentionedPersons từ cast list
             if (!movie.getPersons().isEmpty()) {
-                context.setLastFocusedPerson(movie.getPersons().iterator().next().getFullName());
+                String dir = movie.getDirector();
+                // Lead actor = người đầu tiên không phải đạo diễn
+                movie.getPersons().stream()
+                        .filter(p -> dir == null || !dir.equalsIgnoreCase(p.getFullName()))
+                        .findFirst()
+                        .ifPresent(lead -> context.setLastFocusedPerson(lead.getFullName()));
+                // Lưu toàn bộ cast list vào lastMentionedPersons (để support ordinal: "người thứ 2")
+                context.setLastMentionedPersons(new java.util.ArrayList<>());
+                movie.getPersons().stream().limit(6).forEach(p -> context.addMentionedPerson(p.getFullName()));
             }
 
             String answer = formatSpecificMovieAnswer(movie, attribute);
@@ -958,7 +998,20 @@ public class AIAgentService {
 
         String action = brain.optString("context_action", "NARROW").toUpperCase();
 
-        if ("CONTRADICT".equals(action)) {
+        if ("BACKTRACK".equals(action)) {
+            boolean popped = context.popStateSnapshot();
+            if (popped) {
+                List<Map<String, Object>> restored = context.getLastCandidateMovies();
+                if (restored != null && !restored.isEmpty()) {
+                    int remainingLevels = context.getSnapshotDepth();
+                    String suffix = remainingLevels > 0 ? " (còn " + remainingLevels + " bước quay lại nữa)" : "";
+                    return createResponse("Đã khôi phục lại danh sách và các tiêu chí tìm kiếm trước đó của bạn" + suffix + ":", restored);
+                }
+            }
+            if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
+                return createResponse("Dưới đây là danh sách phim bạn đang xem:", context.getLastCandidateMovies());
+            }
+        } else if ("CONTRADICT".equals(action)) {
             // Xử lý khi người dùng đổi ý mâu thuẫn (vd trước thích kinh dị, nay ghét kinh dị)
             if (filters.getExcludedGenres() != null) {
                 for (String eg : filters.getExcludedGenres()) {
@@ -1187,25 +1240,47 @@ public class AIAgentService {
 
         List<Map<String, Object>> candidates = context.getLastCandidateMovies();
         if (candidates != null && !candidates.isEmpty()) {
-            if (s.matches(".*(thứ hai|thứ 2|phim 2|cái 2|cái thứ 2|bộ 2|cái kia|bộ thứ 2).*")) {
+            // --- Movie ordinals ---
+            if (s.matches(".*(thứ hai|thứ 2|phim 2|cái 2|cái thứ 2|bộ 2|bộ thứ 2|số 2|mục 2).*")) {
                 if (candidates.size() >= 2) return (String) candidates.get(1).get("title");
-            } else if (s.matches(".*(đầu tiên|thứ nhất|thứ 1|phim 1|cái 1|cái đầu|bộ đầu|bộ thứ nhất).*")) {
+            } else if (s.matches(".*(đầu tiên|thứ nhất|thứ 1|phim 1|cái 1|cái đầu|bộ đầu|bộ thứ nhất|số 1|mục 1|phim đầu).*")) {
                 return (String) candidates.get(0).get("title");
-            } else if (s.matches(".*(thứ ba|thứ 3|phim 3|cái 3|bộ 3|bộ thứ 3).*")) {
+            } else if (s.matches(".*(thứ ba|thứ 3|phim 3|cái 3|bộ 3|bộ thứ 3|số 3|mục 3).*")) {
                 if (candidates.size() >= 3) return (String) candidates.get(2).get("title");
-            } else if (s.matches(".*(thứ tư|thứ 4|phim 4|cái 4|bộ 4).*")) {
+            } else if (s.matches(".*(thứ tư|thứ 4|phim 4|cái 4|bộ 4|số 4|mục 4).*")) {
                 if (candidates.size() >= 4) return (String) candidates.get(3).get("title");
-            } else if (s.matches(".*(cuối cùng|phim cuối|cái cuối).*")) {
+            } else if (s.matches(".*(thứ năm|thứ 5|phim 5|cái 5|bộ 5|số 5|mục 5).*")) {
+                if (candidates.size() >= 5) return (String) candidates.get(4).get("title");
+            } else if (s.matches(".*(cuối cùng|phim cuối|cái cuối|bộ cuối|cuối danh sách|cuối list).*")) {
                 return (String) candidates.get(candidates.size() - 1).get("title");
-            } else if (s.matches(".*(phim đó|nó|phim này|phim vừa rồi|cái đó|bộ vừa rồi).*")) {
+            } else if (s.matches(".*(phim đó|nó|phim này|phim vừa rồi|cái đó|bộ vừa rồi|cái kia|bộ đó|phim trên|kết quả đó).*")) {
+                // Ưu tiên lastFocusedMovie nếu nó nằm trong candidates hiện tại (tránh stale entity)
                 if (context.getLastFocusedMovie() != null && context.getLastFocusedMovie().get("title") != null) {
-                    return (String) context.getLastFocusedMovie().get("title");
+                    String focusedTitle = (String) context.getLastFocusedMovie().get("title");
+                    boolean inCurrentCandidates = candidates.stream()
+                            .anyMatch(c -> focusedTitle.equalsIgnoreCase((String) c.get("title")));
+                    if (inCurrentCandidates) return focusedTitle;
                 }
+                // Fallback: phim đầu tiên trong candidates
                 return (String) candidates.get(0).get("title");
             }
         }
+
+        // --- Person ordinals (khi không có movie candidates phù hợp) ---
+        List<String> mentionedPersons = context.getLastMentionedPersons();
+        if (mentionedPersons != null && !mentionedPersons.isEmpty()) {
+            if (s.matches(".*(người đầu tiên|người thứ nhất|người thứ 1|diễn viên đầu|diễn viên 1|diễn viên thứ nhất|diễn viên thứ 1|người đầu|người 1).*")) {
+                return mentionedPersons.get(0);
+            } else if (s.matches(".*(người thứ 2|người thứ hai|diễn viên 2|diễn viên thứ 2|diễn viên thứ hai|người 2).*")) {
+                if (mentionedPersons.size() >= 2) return mentionedPersons.get(1);
+            } else if (s.matches(".*(người thứ 3|người thứ ba|diễn viên 3|diễn viên thứ 3|người 3).*")) {
+                if (mentionedPersons.size() >= 3) return mentionedPersons.get(2);
+            }
+        }
+
         return subject;
     }
+
 
     private String buildHistorySummary(String conversationId, Integer userId, ConversationContext context) {
         StringBuilder sb = new StringBuilder();
@@ -1215,7 +1290,8 @@ public class AIAgentService {
         if (userId != null) {
             history = chatHistoryRepository.findTop10ByUserIdOrderByTimestampDesc(userId);
         } else if (conversationId != null) {
-            history = chatHistoryRepository.findTop10BySessionIdOrderByTimestampDesc(conversationId);
+            // Guest: must filter userId IS NULL to avoid reading authenticated rows
+            history = chatHistoryRepository.findTop10BySessionIdAndUserIdIsNullOrderByTimestampDesc(conversationId);
         }
 
         if (history != null && !history.isEmpty()) {
@@ -1224,7 +1300,8 @@ public class AIAgentService {
             for (AIChatHistory h : reversed) {
                 String role = h.getRole() == AIChatHistory.SenderRole.USER ? "User" : "Bot";
                 String msg = h.getMessage();
-                if (msg != null && msg.length() > 80) msg = msg.substring(0, 77) + "...";
+                // Tăng từ 80 lên 200 ký tự để Gemini có đủ context cho multi-turn reasoning
+                if (msg != null && msg.length() > 200) msg = msg.substring(0, 197) + "...";
                 sb.append("- ").append(role).append(": ").append(msg).append("\n");
             }
         }
@@ -1233,7 +1310,7 @@ public class AIAgentService {
         if (context.getLastCandidateMovies() != null && !context.getLastCandidateMovies().isEmpty()) {
             sb.append("Danh sách phim đề xuất ở turn trước: ");
             int idx = 1;
-            for (Map<String, Object> m : context.getLastCandidateMovies().stream().limit(4).toList()) {
+            for (Map<String, Object> m : context.getLastCandidateMovies().stream().limit(5).toList()) {
                 sb.append(idx++).append(". ").append(m.get("title")).append(" ");
             }
             sb.append("\n");
@@ -1248,30 +1325,73 @@ public class AIAgentService {
         if (context.getLastFocusedDirector() != null && !context.getLastFocusedDirector().isBlank()) {
             sb.append("Đạo diễn vừa thảo luận: ").append(context.getLastFocusedDirector()).append("\n");
         }
+        // Danh sách nghệ sĩ đã liệt kê gần nhất (để support ordinal reference)
+        if (context.getLastMentionedPersons() != null && !context.getLastMentionedPersons().isEmpty()) {
+            sb.append("Danh sách nghệ sĩ đã liệt kê (theo thứ tự): ");
+            int pidx = 1;
+            for (String pname : context.getLastMentionedPersons()) {
+                sb.append(pidx++).append(". ").append(pname).append(" ");
+            }
+            sb.append("\n");
+        }
+        // Active filter state để Gemini biết đang trong ngữ cảnh lọc nào
+        if (context.getLastActiveGenres() != null && !context.getLastActiveGenres().isEmpty()) {
+            sb.append("Thể loại đang lọc: ").append(String.join(", ", context.getLastActiveGenres())).append("\n");
+        }
+        if (context.getLastActiveCountry() != null && !context.getLastActiveCountry().isBlank()) {
+            sb.append("Quốc gia đang lọc: ").append(context.getLastActiveCountry()).append("\n");
+        }
+        if (context.getExcludedGenres() != null && !context.getExcludedGenres().isEmpty()) {
+            sb.append("Thể loại đã loại trừ: ").append(String.join(", ", context.getExcludedGenres())).append("\n");
+        }
+        if (context.getSnapshotDepth() > 0) {
+            sb.append("Số bước backtracking còn lại: ").append(context.getSnapshotDepth()).append("\n");
+        }
 
         return sb.toString().trim();
     }
 
-    private ConversationContext getOrCreateContext(String conversationId) {
-        if (conversationCache != null) {
-            ConversationContext ctx = conversationCache.get(conversationId, ConversationContext.class);
-            if (ctx != null) return ctx;
-        }
-        return inMemoryContextStore.computeIfAbsent(conversationId, k -> new ConversationContext());
+
+    /**
+     * D3 — Context isolation: key = "u:<userId>:<cid>" for auth, "g:<cid>" for guest.
+     * This ensures a guest reusing the same cid after logout never touches an auth context.
+     */
+    private static String contextKey(String conversationId, Integer userId) {
+        if (userId != null) return "u:" + userId + ":" + conversationId;
+        return "g:" + conversationId;
     }
 
-    private void saveContext(String conversationId, ConversationContext context) {
+    private ConversationContext getOrCreateContext(String conversationId, Integer userId) {
+        String key = contextKey(conversationId, userId);
         if (conversationCache != null) {
-            conversationCache.put(conversationId, context);
+            ConversationContext ctx = conversationCache.get(key, ConversationContext.class);
+            if (ctx != null) return ctx;
         }
-        inMemoryContextStore.put(conversationId, context);
+        return inMemoryContextStore.computeIfAbsent(key, k -> new ConversationContext());
+    }
+
+    private void saveContext(String conversationId, Integer userId, ConversationContext context) {
+        String key = contextKey(conversationId, userId);
+        if (conversationCache != null) {
+            conversationCache.put(key, context);
+        }
+        inMemoryContextStore.put(key, context);
     }
 
     // ---- 9. CHAT HISTORY DB PERSISTENCE ----
 
+    /**
+     * Saves a user/bot exchange to the DB.
+     * Isolation contract:
+     *   - Authenticated: userId=<id>, sessionId=null  → never matched by guest queries
+     *   - Guest:         userId=null, sessionId=<cid> → matched only by userId-IS-NULL queries
+     */
     public void saveChatHistory(String sessionId, Integer userId, String userMsg, String botMsg, List<Map<String, Object>> movies) {
         try {
-            AIChatHistory userHistory = new AIChatHistory(userId, sessionId, userMsg, AIChatHistory.SenderRole.USER);
+            // Authenticated rows: do NOT store sessionId to prevent guest leakage
+            String storedSessionId = (userId != null) ? null : sessionId;
+
+            AIChatHistory userHistory = new AIChatHistory(userId, storedSessionId, userMsg, AIChatHistory.SenderRole.USER);
             chatHistoryRepository.save(userHistory);
 
             String metadata = null;
@@ -1281,7 +1401,7 @@ public class AIAgentService {
                         .collect(Collectors.joining(","));
             }
 
-            AIChatHistory botHistory = new AIChatHistory(userId, sessionId, botMsg, AIChatHistory.SenderRole.BOT);
+            AIChatHistory botHistory = new AIChatHistory(userId, storedSessionId, botMsg, AIChatHistory.SenderRole.BOT);
             botHistory.setMetadata(metadata);
             chatHistoryRepository.save(botHistory);
         } catch (Exception e) {
@@ -1289,12 +1409,18 @@ public class AIAgentService {
         }
     }
 
+    /**
+     * Returns chat history for a session.
+     * - Authenticated (userId != null): fetch by userId only.
+     * - Guest: fetch by sessionId AND userId IS NULL (no auth-row leakage).
+     */
     public List<Map<String, Object>> getChatHistory(String sessionId, Integer userId) {
         List<AIChatHistory> historyList;
         if (userId != null) {
             historyList = chatHistoryRepository.findByUserIdOrderByTimestampAsc(userId);
         } else {
-            historyList = chatHistoryRepository.findBySessionIdOrderByTimestampAsc(sessionId);
+            // userId IS NULL guard prevents reading authenticated rows
+            historyList = chatHistoryRepository.findBySessionIdAndUserIdIsNullOrderByTimestampAsc(sessionId);
         }
 
         return historyList.stream().map(h -> {
@@ -1321,27 +1447,48 @@ public class AIAgentService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Clears history and in-memory context.
+     * - Authenticated: deletes ALL history for this userId (D2 decision: merged timeline).
+     * - Guest: deletes only rows where userId IS NULL for this sessionId (no cross-identity wipe).
+     * Returns true if deletion was performed.
+     */
     @Transactional
-    public void clearChatHistory(String sessionId, Integer userId, String conversationId) {
+    public boolean clearChatHistory(String sessionId, Integer userId, String conversationId) {
+        boolean deleted = false;
         try {
             if (userId != null) {
                 chatHistoryRepository.deleteByUserId(userId);
+                deleted = true;
             } else if (sessionId != null) {
-                chatHistoryRepository.deleteBySessionId(sessionId);
+                // Guest: only delete rows that actually belong to this guest (userId IS NULL)
+                chatHistoryRepository.deleteBySessionIdAndUserIdIsNull(sessionId);
+                deleted = true;
             }
         } catch (Exception e) {
             log.error("Error clearing chat history: {}", e.getMessage());
         }
-        clearContext(conversationId);
+        clearContext(conversationId, userId);
+        return deleted;
     }
 
-    public void clearContext(String conversationId) {
+    /**
+     * Evicts the scoped context key for the given identity.
+     * If userId is known, evicts the auth-scoped key; otherwise evicts the guest key.
+     */
+    public void clearContext(String conversationId, Integer userId) {
         if (conversationId != null) {
-            inMemoryContextStore.remove(conversationId);
+            String key = contextKey(conversationId, userId);
+            inMemoryContextStore.remove(key);
             if (conversationCache != null) {
-                conversationCache.evict(conversationId);
+                conversationCache.evict(key);
             }
         }
+    }
+
+    /** Legacy overload kept for external callers that don’t know userId. */
+    public void clearContext(String conversationId) {
+        clearContext(conversationId, null);
     }
 
     // ---- 10. SUBSCRIPTION LOGIC ----
@@ -1442,9 +1589,22 @@ public class AIAgentService {
             }
         }
 
-        // 2b. Focused Movie pronoun / cast / director / plot fallback
+        // 2b. Person filmography fallback (ưu tiên cao hơn khi hỏi phim khác của diễn viên/đạo diễn)
+        if ((lower.contains("diễn viên đó") || lower.contains("đạo diễn đó") || lower.contains("còn phim nào") || lower.contains("phim khác") || lower.contains("đóng phim nào") || lower.contains("tác phẩm nào"))
+                && (ctx.getLastFocusedPerson() != null || ctx.getLastFocusedDirector() != null)) {
+            String pName = ctx.getLastFocusedPerson() != null ? ctx.getLastFocusedPerson() : ctx.getLastFocusedDirector();
+            String pRole = ctx.getLastFocusedPerson() != null ? "actor" : "director";
+            JSONObject synthBrain = new JSONObject();
+            synthBrain.put("person_name", pName);
+            synthBrain.put("role", pRole);
+            synthBrain.put("query_type", "filmography");
+            return handlePersonQueryIntent(synthBrain, ctx);
+        }
+
+        // 2c. Focused Movie pronoun / cast / director / plot fallback
         Map<String, Object> focused = ctx.getLastFocusedMovie() != null ? ctx.getLastFocusedMovie() : ctx.getLastBaseMovie();
-        if (focused != null && (lower.contains("ai đóng") || lower.contains("diễn viên") || lower.contains("đạo diễn") || lower.contains("nội dung") || lower.contains("phim này") || lower.contains("phim đó"))) {
+        if (focused != null && !lower.contains("diễn viên đó") && !lower.contains("đạo diễn đó") && !lower.contains("còn phim nào") &&
+                (lower.contains("ai đóng") || lower.contains("diễn viên") || lower.contains("đạo diễn") || lower.contains("nội dung") || lower.contains("phim này") || lower.contains("phim đó"))) {
             Object midObj = focused.get("id");
             if (midObj == null) midObj = focused.get("movieID");
             if (midObj != null) {
@@ -1468,18 +1628,6 @@ public class AIAgentService {
                     }
                 } catch (Exception ignored) {}
             }
-        }
-
-        // 2c. Person filmography fallback
-        if ((lower.contains("diễn viên đó") || lower.contains("đạo diễn đó") || lower.contains("còn phim nào") || lower.contains("phim khác"))
-                && (ctx.getLastFocusedPerson() != null || ctx.getLastFocusedDirector() != null)) {
-            String pName = ctx.getLastFocusedPerson() != null ? ctx.getLastFocusedPerson() : ctx.getLastFocusedDirector();
-            String pRole = ctx.getLastFocusedPerson() != null ? "actor" : "director";
-            JSONObject synthBrain = new JSONObject();
-            synthBrain.put("person_name", pName);
-            synthBrain.put("role", pRole);
-            synthBrain.put("query_type", "filmography");
-            return handlePersonQueryIntent(synthBrain, ctx);
         }
 
         // 2d. Ordinal candidate selection fallback

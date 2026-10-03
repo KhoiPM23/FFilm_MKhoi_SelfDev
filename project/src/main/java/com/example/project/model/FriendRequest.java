@@ -29,6 +29,10 @@ public class FriendRequest {
 
     private LocalDateTime createdAt;
 
+    // Explicit accessor to ensure Lombok annotation-processing order doesn't suppress this
+    public Status getStatus() { return status; }
+    public void setStatus(Status status) { this.status = status; }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -38,4 +42,4 @@ public class FriendRequest {
     public enum Status {
         PENDING, ACCEPTED, REJECTED
     }
-}
+}

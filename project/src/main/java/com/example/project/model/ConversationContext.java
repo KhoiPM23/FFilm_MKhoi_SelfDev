@@ -6,35 +6,51 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DTO lưu trữ ngữ cảnh hội thoại (Memory)
- * Đã nâng cấp cho Phase 5 (Hỗ trợ phân trang/loại trừ)
+ * DTO luu tru ngu canh hoi thoai (Memory).
+ * Nang cap Batch 1: Full StateSnapshot cho multi-level backtracking.
  */
 public class ConversationContext implements Serializable {
-    
-    private static final long serialVersionUID = 1L;
 
-    private String lastQuery;         
-    private String lastSubjectType;   // "Movie", "Person", "Genre"
-    private Object lastSubjectId;     // ID hoặc Tên
-    private String lastQuestionAsked; // "ask_director_movies", "ask_more"
-    
-    // Phase 5: Danh sách ID đã hiển thị (để tránh lặp lại khi "xem thêm")
+    private static final long serialVersionUID = 2L;
+
+    // ---- Inner class: Full State Snapshot ----
+    public static class StateSnapshot implements Serializable {
+        private static final long serialVersionUID = 1L;
+        public List<Map<String, Object>> candidateMovies;
+        public Map<String, Object> focusedMovie;
+        public List<String> activeGenres;
+        public String activeCountry;
+        public List<String> excludedGenres;
+        public List<String> excludedDirectors;
+        public Float activeMinRating;
+        public Integer activeMaxDuration;
+        public Integer activeYearFrom;
+        public Integer activeYearTo;
+        public String activeActor;
+        public String activeDirector;
+        public String lastFocusedPerson;
+        public String lastFocusedDirector;
+        public StateSnapshot() {}
+    }
+
+    private String lastQuery;
+    private String lastSubjectType;
+    private Object lastSubjectId;
+    private String lastQuestionAsked;
+
     private List<Integer> shownMovieIds = new ArrayList<>();
     private List<Integer> shownPersonIds = new ArrayList<>();
 
-    // Phase 14: Danh sách phim gợi ý gần nhất & thực thể đang thảo luận để hỗ trợ multi-turn follow-up
     private List<Map<String, Object>> lastCandidateMovies = new ArrayList<>();
     private Map<String, Object> lastFocusedMovie;
     private String lastFocusedPerson;
 
-    // Phase 15: Proactive Page Context & Conversational Narrowing
     private Map<String, Object> lastPageContext;
     private String lastActiveIntent;
     private List<String> lastActiveGenres = new ArrayList<>();
     private String lastActiveCountry;
     private Map<String, Object> lastBaseMovie;
 
-    // Advanced Movie Intelligence: Multi-Constraint & Negative Preferences
     private List<String> excludedGenres = new ArrayList<>();
     private List<String> excludedDirectors = new ArrayList<>();
     private List<String> excludedActors = new ArrayList<>();
@@ -45,13 +61,14 @@ public class ConversationContext implements Serializable {
     private String activeActor;
     private String activeDirector;
 
-    // Movie ↔ Person Graph Context
     private String lastFocusedDirector;
     private List<String> lastMentionedPersons = new ArrayList<>();
 
-    // Backtracking & History State Snapshot
+    // Full State Snapshot Stack (max 6 levels)
+    private List<StateSnapshot> snapshotStack = new ArrayList<>();
+
+    // Legacy compat
     private List<Map<String, Object>> previousCandidateMovies = new ArrayList<>();
-    private List<List<Map<String, Object>>> candidateHistoryStack = new ArrayList<>();
     private Map<String, Object> previousFocusedMovie;
 
     public ConversationContext() {}
@@ -64,30 +81,50 @@ public class ConversationContext implements Serializable {
     }
 
     /**
-     * Lưu snapshot trạng thái hiện tại trước khi switch sang chủ đề/danh sách mới
+     * Luu snapshot TOAN BO trang thai hien tai vao stack.
+     * Bao gom: candidates, focusedMovie, tat ca filters dang active.
+     * Stack toi da 6 entries.
      */
     public void pushStateSnapshot() {
-        if (this.lastCandidateMovies != null && !this.lastCandidateMovies.isEmpty()) {
-            this.previousCandidateMovies = new ArrayList<>(this.lastCandidateMovies);
-            this.candidateHistoryStack.add(new ArrayList<>(this.lastCandidateMovies));
-            if (this.candidateHistoryStack.size() > 6) {
-                this.candidateHistoryStack.remove(0);
-            }
-        }
-        if (this.lastFocusedMovie != null) {
-            this.previousFocusedMovie = new java.util.HashMap<>(this.lastFocusedMovie);
-        }
+        if (this.lastCandidateMovies == null || this.lastCandidateMovies.isEmpty()) return;
+
+        StateSnapshot snap = new StateSnapshot();
+        snap.candidateMovies = new ArrayList<>(this.lastCandidateMovies);
+        snap.focusedMovie = this.lastFocusedMovie != null ? new java.util.HashMap<>(this.lastFocusedMovie) : null;
+        snap.activeGenres = this.lastActiveGenres != null ? new ArrayList<>(this.lastActiveGenres) : new ArrayList<>();
+        snap.activeCountry = this.lastActiveCountry;
+        snap.excludedGenres = this.excludedGenres != null ? new ArrayList<>(this.excludedGenres) : new ArrayList<>();
+        snap.excludedDirectors = this.excludedDirectors != null ? new ArrayList<>(this.excludedDirectors) : new ArrayList<>();
+        snap.activeMinRating = this.activeMinRating;
+        snap.activeMaxDuration = this.activeMaxDuration;
+        snap.activeYearFrom = this.activeYearFrom;
+        snap.activeYearTo = this.activeYearTo;
+        snap.activeActor = this.activeActor;
+        snap.activeDirector = this.activeDirector;
+        snap.lastFocusedPerson = this.lastFocusedPerson;
+        snap.lastFocusedDirector = this.lastFocusedDirector;
+
+        this.snapshotStack.add(snap);
+        if (this.snapshotStack.size() > 6) this.snapshotStack.remove(0);
+
+        this.previousCandidateMovies = snap.candidateMovies;
+        if (snap.focusedMovie != null) this.previousFocusedMovie = snap.focusedMovie;
     }
 
     /**
-     * Khôi phục snapshot danh sách trước đó khi user yêu cầu "quay lại"
+     * Khoi phuc snapshot gan nhat (pop).
+     * Tra ve true neu co snapshot de pop.
      */
     public boolean popStateSnapshot() {
-        if (!this.candidateHistoryStack.isEmpty()) {
-            this.lastCandidateMovies = this.candidateHistoryStack.remove(this.candidateHistoryStack.size() - 1);
-            this.previousCandidateMovies = !this.candidateHistoryStack.isEmpty() 
-                    ? this.candidateHistoryStack.get(this.candidateHistoryStack.size() - 1) 
-                    : new ArrayList<>();
+        if (!this.snapshotStack.isEmpty()) {
+            StateSnapshot snap = this.snapshotStack.remove(this.snapshotStack.size() - 1);
+            applySnapshot(snap);
+            // Cap nhat previousCandidateMovies sau khi pop
+            if (!this.snapshotStack.isEmpty()) {
+                this.previousCandidateMovies = this.snapshotStack.get(this.snapshotStack.size() - 1).candidateMovies;
+            } else {
+                this.previousCandidateMovies = new ArrayList<>();
+            }
             return true;
         }
         if (this.previousCandidateMovies != null && !this.previousCandidateMovies.isEmpty()) {
@@ -98,6 +135,54 @@ public class ConversationContext implements Serializable {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Khoi phuc snapshot cu nhat trong stack (dung cho "quay lai danh sach ban dau").
+     * Xoa toan bo stack sau khi pop.
+     */
+    public boolean popOldestSnapshot() {
+        if (!this.snapshotStack.isEmpty()) {
+            StateSnapshot oldest = this.snapshotStack.get(0);
+            this.snapshotStack.clear();
+            applySnapshot(oldest);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Xem snapshot cu nhat ma khong xoa (peek).
+     */
+    public StateSnapshot peekOldestSnapshot() {
+        return !this.snapshotStack.isEmpty() ? this.snapshotStack.get(0) : null;
+    }
+
+    /**
+     * Xem snapshot gan nhat ma khong xoa (peek).
+     */
+    public StateSnapshot peekLatestSnapshot() {
+        return !this.snapshotStack.isEmpty() ? this.snapshotStack.get(this.snapshotStack.size() - 1) : null;
+    }
+
+    /** So luong levels backtracking con lai. */
+    public int getSnapshotDepth() { return this.snapshotStack.size(); }
+
+    private void applySnapshot(StateSnapshot snap) {
+        this.lastCandidateMovies = snap.candidateMovies != null ? new ArrayList<>(snap.candidateMovies) : new ArrayList<>();
+        this.lastFocusedMovie = snap.focusedMovie != null ? new java.util.HashMap<>(snap.focusedMovie) : null;
+        this.lastActiveGenres = snap.activeGenres != null ? new ArrayList<>(snap.activeGenres) : new ArrayList<>();
+        this.lastActiveCountry = snap.activeCountry;
+        this.excludedGenres = snap.excludedGenres != null ? new ArrayList<>(snap.excludedGenres) : new ArrayList<>();
+        this.excludedDirectors = snap.excludedDirectors != null ? new ArrayList<>(snap.excludedDirectors) : new ArrayList<>();
+        this.activeMinRating = snap.activeMinRating;
+        this.activeMaxDuration = snap.activeMaxDuration;
+        this.activeYearFrom = snap.activeYearFrom;
+        this.activeYearTo = snap.activeYearTo;
+        this.activeActor = snap.activeActor;
+        this.activeDirector = snap.activeDirector;
+        if (snap.lastFocusedPerson != null) this.lastFocusedPerson = snap.lastFocusedPerson;
+        if (snap.lastFocusedDirector != null) this.lastFocusedDirector = snap.lastFocusedDirector;
     }
 
     // Getters & Setters
@@ -198,6 +283,13 @@ public class ConversationContext implements Serializable {
     public void setLastMentionedPersons(List<String> lastMentionedPersons) {
         this.lastMentionedPersons = lastMentionedPersons != null ? lastMentionedPersons : new ArrayList<>();
     }
+    public void addMentionedPerson(String personName) {
+        if (personName == null || personName.isBlank()) return;
+        if (!this.lastMentionedPersons.contains(personName)) {
+            this.lastMentionedPersons.add(personName);
+            if (this.lastMentionedPersons.size() > 8) this.lastMentionedPersons.remove(0);
+        }
+    }
 
     public List<Map<String, Object>> getPreviousCandidateMovies() { return previousCandidateMovies; }
     public void setPreviousCandidateMovies(List<Map<String, Object>> previousCandidateMovies) {
@@ -208,4 +300,6 @@ public class ConversationContext implements Serializable {
     public void setPreviousFocusedMovie(Map<String, Object> previousFocusedMovie) {
         this.previousFocusedMovie = previousFocusedMovie;
     }
+
+    public List<StateSnapshot> getSnapshotStack() { return snapshotStack; }
 }
