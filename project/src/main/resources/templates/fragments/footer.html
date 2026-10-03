@@ -1260,7 +1260,7 @@
                     gap: 10px !important;
                     overflow-x: auto !important;
                     overflow-y: hidden !important;
-                    padding: 8px 2px 4px 2px !important;
+                    padding: 8px 4px 6px 4px !important;
                     margin-top: 8px !important;
                     scrollbar-width: none !important;
                     -ms-overflow-style: none !important;
@@ -1297,6 +1297,9 @@
                     box-sizing: border-box !important;
                     text-decoration: none !important;
                     color: inherit !important;
+                    user-select: none !important;
+                    -webkit-user-select: none !important;
+                    -webkit-user-drag: none !important;
                 }
                 .ai-movie-card:hover {
                     transform: translateY(-4px) !important;
@@ -1311,12 +1314,17 @@
                     overflow: hidden !important;
                     background: #222 !important;
                     flex-shrink: 0 !important;
+                    pointer-events: none !important;
                 }
                 .ai-card-poster {
                     width: 100% !important;
                     height: 100% !important;
                     object-fit: cover !important;
                     display: block !important;
+                    pointer-events: none !important;
+                    user-select: none !important;
+                    -webkit-user-select: none !important;
+                    -webkit-user-drag: none !important;
                 }
                 .ai-card-rating {
                     position: absolute !important;
@@ -1380,7 +1388,8 @@
 
                 if (!chatIcon) return;
 
-                chatIcon.addEventListener('click', () => {
+                chatIcon.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     if (chatWindow && !chatWindow.hidden && chatWindow.style.display !== 'none') {
                         closeChat();
                     } else {
@@ -1432,6 +1441,20 @@
                         openChat();
                     }
                 } catch(e) {}
+
+                // Bấm ngoài cửa sổ AI Chatbot tự ẩn (Outside Click Handler)
+                document.addEventListener('click', (e) => {
+                    if (!chatWindow || chatWindow.hidden || chatWindow.style.display === 'none') return;
+                    if (chatWindow.contains(e.target) || (chatIcon && chatIcon.contains(e.target))) return;
+                    closeChat();
+                });
+
+                // Đóng bằng phím Escape
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && chatWindow && !chatWindow.hidden && chatWindow.style.display !== 'none') {
+                        closeChat();
+                    }
+                });
             }
 
             // Phát hiện thông tin trang hiện tại để grounding AI
@@ -1854,7 +1877,7 @@
                 return html;
             }
 
-            // Tạo HTML chuỗi thẻ phim (thẻ <a> semantic để browser click & enter luôn hoạt động chuẩn)
+            // Tạo HTML chuỗi thẻ phim
             function renderMovieSuggestions(movies) {
                 let html = '<div class="ai-movie-scroll">';
                 
@@ -1867,16 +1890,16 @@
                     const detailUrl = movieId ? `/movie/detail/${movieId}` : '#';
                     
                     html += `
-                        <a href="${detailUrl}" class="ai-movie-card" data-url="${detailUrl}">
+                        <div class="ai-movie-card" data-url="${detailUrl}" role="link" tabindex="0">
                             <div class="ai-card-poster-wrap">
-                                <img class="ai-card-poster" src="${poster}" alt="${title}" onerror="this.src='/images/placeholder.jpg'">
+                                <img class="ai-card-poster" src="${poster}" alt="${title}" draggable="false" onerror="this.src='/images/placeholder.jpg'">
                                 <div class="ai-card-rating">⭐ ${rating}</div>
                             </div>
                             <div class="ai-card-info">
                                 <div class="ai-card-title" title="${title}">${title}</div>
                                 <div class="ai-card-year">${year}</div>
                             </div>
-                        </a>
+                        </div>
                     `;
                 });
                 
@@ -1892,34 +1915,31 @@
                 let scrollLeft = 0;
                 let hasMoved = false;
                 let lastDragEndTime = 0;
-                const DRAG_THRESHOLD = 6; // px di chuyển tối thiểu để nhận diện là drag cuộn ngang
+                const DRAG_THRESHOLD = 5;
 
-                // Ngăn chặn sự kiện click vào movie card nếu người dùng vừa drag cuộn
-                slider.addEventListener('click', (e) => {
-                    if (hasMoved || (Date.now() - lastDragEndTime < 200)) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                }, true);
+                // Chặn native drag & drop của trình duyệt trên toàn bộ carousel
+                slider.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                    return false;
+                });
 
                 slider.addEventListener('mousedown', (e) => {
-                    if (e.button !== 0) return; // Chỉ chuột trái
+                    if (e.button !== 0) return;
                     isDown = true;
                     hasMoved = false;
-                    startX = e.pageX - slider.offsetLeft;
+                    startX = e.clientX;
                     scrollLeft = slider.scrollLeft;
                     slider.classList.add('is-dragging');
                 });
 
                 window.addEventListener('mousemove', (e) => {
                     if (!isDown) return;
-                    const x = e.pageX - slider.offsetLeft;
-                    const walk = x - startX;
-                    if (!hasMoved && Math.abs(walk) > DRAG_THRESHOLD) {
+                    const deltaX = e.clientX - startX;
+                    if (!hasMoved && Math.abs(deltaX) > DRAG_THRESHOLD) {
                         hasMoved = true;
                     }
                     if (hasMoved) {
-                        slider.scrollLeft = scrollLeft - walk;
+                        slider.scrollLeft = scrollLeft - deltaX;
                     }
                 });
 
@@ -1929,39 +1949,62 @@
                     slider.classList.remove('is-dragging');
                     if (hasMoved) {
                         lastDragEndTime = Date.now();
-                        // Giữ hasMoved trong 150ms để chặn click event phát sinh ngay sau mouseup
                         setTimeout(() => {
                             hasMoved = false;
-                        }, 150);
+                        }, 120);
                     }
                 });
 
-                // Hỗ trợ Touch tự nhiên (mobile / tablet)
+                // Click delegation trực tiếp trên slider: chỉ navigate khi không drag
+                slider.addEventListener('click', (e) => {
+                    if (hasMoved || (Date.now() - lastDragEndTime < 150)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    const card = e.target.closest('.ai-movie-card');
+                    if (card && card.dataset.url && card.dataset.url !== '#') {
+                        window.location.href = card.dataset.url;
+                    }
+                });
+
+                // Hỗ trợ Enter / Space phím tiếp cận (Accessibility)
+                slider.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        const card = e.target.closest('.ai-movie-card');
+                        if (card && card.dataset.url && card.dataset.url !== '#') {
+                            e.preventDefault();
+                            window.location.href = card.dataset.url;
+                        }
+                    }
+                });
+
+                // Touch handling cho mobile/tablet
                 let touchStartX = 0;
                 let touchScrollLeft = 0;
                 let touchMoved = false;
 
                 slider.addEventListener('touchstart', (e) => {
                     if (e.touches.length !== 1) return;
-                    touchStartX = e.touches[0].pageX;
+                    touchStartX = e.touches[0].clientX;
                     touchScrollLeft = slider.scrollLeft;
                     touchMoved = false;
                 }, { passive: true });
 
                 slider.addEventListener('touchmove', (e) => {
                     if (e.touches.length !== 1) return;
-                    const touchDelta = e.touches[0].pageX - touchStartX;
-                    if (!touchMoved && Math.abs(touchDelta) > DRAG_THRESHOLD) {
+                    const delta = e.touches[0].clientX - touchStartX;
+                    if (!touchMoved && Math.abs(delta) > DRAG_THRESHOLD) {
                         touchMoved = true;
                     }
                 }, { passive: true });
 
-                slider.addEventListener('touchend', (e) => {
+                slider.addEventListener('touchend', () => {
                     if (touchMoved) {
                         lastDragEndTime = Date.now();
                         setTimeout(() => {
                             touchMoved = false;
-                        }, 150);
+                        }, 120);
                     }
                 }, { passive: true });
             }

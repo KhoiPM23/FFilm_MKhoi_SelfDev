@@ -1080,15 +1080,15 @@ public class AIAgentService {
             return createResponse(conflictDiagnosis, null, emptyActions);
         }
 
-        List<Map<String, Object>> cards = movies.stream().limit(10)
+        List<Map<String, Object>> cards = movies.stream()
                 .map(movieService::convertToMap)
                 .collect(Collectors.toList());
         context.setLastCandidateMovies(cards);
-        for (Movie m : movies.stream().limit(10).toList()) {
+        for (Movie m : movies) {
             context.addShownMovieId(m.getMovieID());
         }
 
-        String naturalText = generateNaturalResponse(filters, movies.size());
+        String naturalText = generateNaturalResponse(filters, cards.size());
         List<Map<String, Object>> actions = List.of(
                 Map.of("type", "CHIP_REPLY", "text", "Điểm đánh giá cao nhất", "label", "⭐ Điểm cao nhất"),
                 Map.of("type", "CHIP_REPLY", "text", "Phát hành mới nhất", "label", "📅 Mới nhất"),
